@@ -2,6 +2,7 @@ package net.mineacle.core.spawn.listener;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.spawn.model.SpawnPoint;
 import net.mineacle.core.spawn.service.SpawnService;
@@ -45,6 +46,7 @@ public final class SpawnGuiListener implements Listener {
         }
 
         if (spawnService.randomEnabled() && slot == spawnService.randomSlot()) {
+            SoundService.guiClick(player, spawnService.core());
             handleRandom(player);
             return;
         }
@@ -55,6 +57,7 @@ public final class SpawnGuiListener implements Listener {
             return;
         }
 
+        SoundService.guiClick(player, spawnService.core());
         handleSpawnClick(player, point);
     }
 
@@ -77,6 +80,7 @@ public final class SpawnGuiListener implements Listener {
             player.sendActionBar(actionBar(message));
             player.sendMessage(message);
             player.closeInventory();
+            SoundService.guiError(player, spawnService.core());
             return;
         }
 
@@ -93,6 +97,7 @@ public final class SpawnGuiListener implements Listener {
             player.sendActionBar(actionBar(message));
             player.sendMessage(message);
             player.closeInventory();
+            SoundService.guiError(player, spawnService.core());
             return;
         }
 

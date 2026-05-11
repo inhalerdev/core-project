@@ -20,7 +20,11 @@ import java.util.UUID;
 
 public final class OriginRtpQueueService {
 
+    private static final String CANCELLED_MOVE_MESSAGE = "&cTeleport cancelled — you moved";
+
     private final Core core;
+    private final OriginRtpLocationService locationService;
+
     private final Deque<OriginRtpRequest> plusQueue = new ArrayDeque<>();
     private final Deque<OriginRtpRequest> defaultQueue = new ArrayDeque<>();
     private final Map<UUID, OriginRtpRequest> queuedRequests = new HashMap<>();
@@ -30,6 +34,7 @@ public final class OriginRtpQueueService {
 
     public OriginRtpQueueService(Core core) {
         this.core = core;
+        this.locationService = new OriginRtpLocationService(core);
     }
 
     public void start() {
@@ -96,12 +101,13 @@ public final class OriginRtpQueueService {
 
         queuedRequests.put(playerId, request);
 
-        int position = position(playerId);
         String queuedMessage = message("queued-position")
-                .replace("%position%", String.valueOf(position))
-                .replace("%type%", plus ? "Mineacle+" : "Default");
+                .replace("%position%", String.valueOf(position(playerId)))
+                .replace("%type%", plus ? "Mineacle+" : "Default")
+                .replace("%world%", world());
 
         sendActionBar(player, queuedMessage);
+        SoundService.teleportStart(player, core);
     }
 
     public void cancel(Player player, boolean sendMessage) {
@@ -114,7 +120,8 @@ public final class OriginRtpQueueService {
             defaultQueue.removeIf(request -> request.playerId().equals(playerId));
 
             if (sendMessage) {
-                sendActionBar(player, message("cancelled"));
+                sendActionBar(player, TextColor.color(CANCELLED_MOVE_MESSAGE));
+                player.sendMessage(TextColor.color(CANCELLED_MOVE_MESSAGE));
                 SoundService.teleportCancelled(player, core);
             }
 
@@ -129,7 +136,8 @@ public final class OriginRtpQueueService {
             }
 
             if (sendMessage) {
-                sendActionBar(player, message("cancelled"));
+                sendActionBar(player, TextColor.color(CANCELLED_MOVE_MESSAGE));
+                player.sendMessage(TextColor.color(CANCELLED_MOVE_MESSAGE));
                 SoundService.teleportCancelled(player, core);
             }
         }
@@ -198,7 +206,7 @@ public final class OriginRtpQueueService {
         int delay = request.plus() ? plusDelaySeconds() : defaultDelaySeconds();
 
         if (delay <= 0) {
-            dispatchBetterRtp(player);
+            beginNativeRtp(player);
             return;
         }
 
@@ -257,7 +265,7 @@ public final class OriginRtpQueueService {
             }
 
             activeRequests.remove(player.getUniqueId());
-            dispatchBetterRtp(player);
+            beginNativeRtp(player);
             return;
         }
 
@@ -274,28 +282,31 @@ public final class OriginRtpQueueService {
         SoundService.teleportCountdown(player, core);
     }
 
-    private void dispatchBetterRtp(Player player) {
+    private void beginNativeRtp(Player player) {
         if (!player.isOnline()) {
             return;
         }
 
-        String command = core.getConfig().getString(
-                "origin-rtp.betterrtp-command",
-                "betterrtp:rtp player %player% origins"
-        );
-
-        command = command
-                .replace("%player%", player.getName())
-                .replace("%world%", world());
-
         sendActionBar(player, message("searching"));
 
-        PortalFreezeListener.skipNextFreeze(player, core);
+        locationService.findSafeLocation().thenAccept(location -> Bukkit.getScheduler().runTask(core, () -> {
+            if (!player.isOnline()) {
+                return;
+            }
 
-        core.getServer().dispatchCommand(
-                core.getServer().getConsoleSender(),
-                command
-        );
+            if (location == null) {
+                sendActionBar(player, message("failed"));
+                SoundService.guiError(player, core);
+                return;
+            }
+
+            PortalFreezeListener.skipNextFreeze(player, core);
+            player.teleport(location);
+            PortalFreezeListener.clearFrozen(player);
+
+            sendActionBar(player, message("teleported"));
+            SoundService.teleportComplete(player, core);
+        }));
     }
 
     private int position(UUID playerId) {
@@ -328,6 +339,7 @@ public final class OriginRtpQueueService {
 
         while (iterator.hasNext()) {
             Map.Entry<UUID, ActiveRtp> entry = iterator.next();
+
             Player player = Bukkit.getPlayer(entry.getKey());
 
             if (player == null || !player.isOnline()) {
@@ -397,7 +409,8 @@ public final class OriginRtpQueueService {
     }
 
     private int plusDelaySeconds() {
-        return Math.max(0, core.getConfig().getInt("origin-rtp.plus.delay-seconds", 3));
+        return Math.max(0, core.getConfig().getInt("origin-rtp.plus.delay-seconds",
+                core.getConfig().getInt("teleport-perks.plus-delay-seconds", 3)));
     }
 
     private boolean plusPriority() {
@@ -405,7 +418,8 @@ public final class OriginRtpQueueService {
     }
 
     private boolean isPlus(Player player) {
-        String permission = core.getConfig().getString("origin-rtp.plus.permission", "mineacle.plus");
+        String permission = core.getConfig().getString("origin-rtp.plus.permission",
+                core.getConfig().getString("teleport-perks.plus-permission", "mineacle.plus"));
         return player.hasPermission(permission);
     }
 

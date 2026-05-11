@@ -26,7 +26,7 @@ homes:
     delay-seconds: 5
     plus-delay-seconds: 3
     cancel-on-move: true
-    cancel-distance: 2.0
+    cancel-distance: 1.0
 
   delete-confirm:
     timeout-seconds: 5
@@ -66,7 +66,7 @@ tpa:
   teleport-delay-seconds: 5
   plus-teleport-delay-seconds: 3
   cancel-on-move: true
-  cancel-distance: 2.0
+  cancel-distance: 1.0
 
 economy:
   enabled: true
@@ -205,7 +205,7 @@ sounds:
   gui:
     click:
       enabled: true
-      sound: "BLOCK_WOODEN_BUTTON_CLICK_ON"
+      sound: "BLOCK_STONE_BUTTON_CLICK_ON"
       volume: 0.35
       pitch: 0.75
 
@@ -329,7 +329,7 @@ sounds:
   double-jump:
     jump:
       enabled: true
-      sound: "BLOCK_WOODEN_BUTTON_CLICK_ON"
+      sound: "BLOCK_STONE_PRESSURE_PLATE_CLICK_ON"
       volume: 0.55
       pitch: 0.55
     cooldown:
@@ -350,7 +350,7 @@ fly:
     - spawn3
 
   messages:
-    enabled: "&aFlight enabled"
+    enabled: "&aFlight Enabled"
     disabled: "&cFlight disabled"
     blocked-world: "&cFlight is only available in spawn"
     upgrade-line-1: "&fElevate your gameplay experience with &dMineacle+"
@@ -359,7 +359,7 @@ fly:
 portal-freeze:
   enabled: true
   duration-ticks: 30
-  actionbar: "&#ccccccLoading..."
+  actionbar: "&#ccccccTeleporting you to &dOrigins"
   sound:
     enabled: true
     key: "teleport.complete"
