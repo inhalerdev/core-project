@@ -1,6 +1,7 @@
 package net.mineacle.core.spawn.service;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.listener.PortalFreezeListener;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.spawn.model.SpawnPoint;
 import org.bukkit.Bukkit;
@@ -89,6 +90,20 @@ public final class SpawnService {
         return Math.max(0, spawnConfig.getInt("teleport.delay-seconds", 5));
     }
 
+    public int teleportDelaySeconds(Player player) {
+        if (player == null) {
+            return teleportDelaySeconds();
+        }
+
+        String permission = spawnConfig.getString("teleport.plus-permission", "mineacle.plus");
+
+        if (permission != null && !permission.isBlank() && player.hasPermission(permission)) {
+            return Math.max(0, spawnConfig.getInt("teleport.plus-delay-seconds", 3));
+        }
+
+        return teleportDelaySeconds();
+    }
+
     public boolean cancelOnMove() {
         return spawnConfig.getBoolean("teleport.cancel-on-move", true);
     }
@@ -111,7 +126,6 @@ public final class SpawnService {
 
         for (String id : section.getKeys(false)) {
             String path = "worlds." + id;
-
             boolean enabled = spawnConfig.getBoolean(path + ".enabled", true);
             int slot = spawnConfig.getInt(path + ".slot", 0);
             String displayName = spawnConfig.getString(path + ".display-name", id);
@@ -254,7 +268,9 @@ public final class SpawnService {
             return false;
         }
 
+        PortalFreezeListener.skipNextFreeze(player, core);
         player.teleport(location);
+        PortalFreezeListener.clearFrozen(player);
         return true;
     }
 
@@ -267,9 +283,7 @@ public final class SpawnService {
 
         String path = "worlds." + point.id();
 
-        if (!spawnConfig.contains(path + ".x")
-                || !spawnConfig.contains(path + ".y")
-                || !spawnConfig.contains(path + ".z")) {
+        if (!spawnConfig.contains(path + ".x") || !spawnConfig.contains(path + ".y") || !spawnConfig.contains(path + ".z")) {
             return world.getSpawnLocation();
         }
 
@@ -291,7 +305,7 @@ public final class SpawnService {
     }
 
     public String randomDisplayName() {
-        return spawnConfig.getString("random.display-name", "&#7d00ffRandom Spawn");
+        return spawnConfig.getString("random.display-name", "&dRandom Spawn");
     }
 
     public List<String> currentSpawnLore() {
@@ -379,12 +393,10 @@ public final class SpawnService {
         }
 
         String path = "worlds." + id.toLowerCase(Locale.ROOT);
-
         spawnConfig.set(path + ".enabled", true);
         spawnConfig.set(path + ".slot", slot);
         spawnConfig.set(path + ".display-name", displayName);
         spawnConfig.set(path + ".world", worldName);
-
         save();
         load();
         return true;
@@ -398,7 +410,6 @@ public final class SpawnService {
         }
 
         spawnConfig.set("worlds." + point.id(), null);
-
         save();
         load();
         return true;

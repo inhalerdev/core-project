@@ -2,6 +2,7 @@ package net.mineacle.core.spawn.listener;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.mineacle.core.common.listener.PortalFreezeListener;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.spawn.model.SpawnPoint;
 import net.mineacle.core.spawn.service.SpawnService;
@@ -22,6 +23,12 @@ public final class SpawnJoinQuitListener implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
 
+        spawnService.core().getServer().getScheduler().runTaskLater(
+                spawnService.core(),
+                () -> clearFreezeIfInSpawnWorld(player),
+                1L
+        );
+
         if (!spawnService.loginRerouteEnabled()) {
             return;
         }
@@ -33,6 +40,19 @@ public final class SpawnJoinQuitListener implements Listener {
         );
     }
 
+    private void clearFreezeIfInSpawnWorld(Player player) {
+        if (!player.isOnline()) {
+            return;
+        }
+
+        if (!spawnService.isSpawnWorld(player.getWorld().getName())) {
+            return;
+        }
+
+        PortalFreezeListener.clearFrozen(player);
+        PortalFreezeListener.skipNextFreeze(player, spawnService.core());
+    }
+
     private void rerouteIfNeeded(Player player) {
         if (!player.isOnline()) {
             return;
@@ -42,13 +62,15 @@ public final class SpawnJoinQuitListener implements Listener {
             return;
         }
 
+        PortalFreezeListener.clearFrozen(player);
+        PortalFreezeListener.skipNextFreeze(player, spawnService.core());
+
         SpawnPoint point = spawnService.selectRandomPoint();
 
         if (point == null) {
             if (spawnService.loginRerouteSendMessage()) {
                 sendBoth(player, spawnService.message("login-reroute-missing"));
             }
-
             return;
         }
 
@@ -57,17 +79,16 @@ public final class SpawnJoinQuitListener implements Listener {
                 String message = spawnService.message("world-missing")
                         .replace("%world%", point.worldName())
                         .replace("%spawn%", TextColor.color(point.displayName()));
-
                 sendBoth(player, message);
             }
-
             return;
         }
+
+        PortalFreezeListener.clearFrozen(player);
 
         if (spawnService.loginRerouteSendMessage()) {
             String message = spawnService.message("login-rerouted")
                     .replace("%spawn%", TextColor.color(point.displayName()));
-
             sendBoth(player, message);
         }
     }

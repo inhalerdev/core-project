@@ -2,6 +2,7 @@ package net.mineacle.core.spawn.service;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.mineacle.core.common.listener.PortalFreezeListener;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.spawn.model.SpawnPoint;
 import org.bukkit.Location;
@@ -34,12 +35,11 @@ public final class SpawnTeleportService {
             String message = spawnService.message("world-missing")
                     .replace("%world%", point.worldName())
                     .replace("%spawn%", TextColor.color(point.displayName()));
-
             sendActionBar(player, message);
             return;
         }
 
-        int delay = spawnService.teleportDelaySeconds();
+        int delay = spawnService.teleportDelaySeconds(player);
 
         if (delay <= 0) {
             complete(player, point);
@@ -55,7 +55,6 @@ public final class SpawnTeleportService {
         String startMessage = spawnService.message("teleport-start")
                 .replace("%spawn%", displayName)
                 .replace("%seconds%", String.valueOf(delay));
-
         sendActionBar(player, startMessage);
 
         BukkitTask task = spawnService.core().getServer().getScheduler().runTaskTimer(
@@ -80,8 +79,7 @@ public final class SpawnTeleportService {
             return;
         }
 
-        if (spawnService.cancelOnMove()
-                && movedTooFar(pending.startLocation(), player.getLocation())) {
+        if (spawnService.cancelOnMove() && movedTooFar(pending.startLocation(), player.getLocation())) {
             cancel(player, true);
             return;
         }
@@ -106,7 +104,6 @@ public final class SpawnTeleportService {
         String message = spawnService.message("teleport-countdown")
                 .replace("%spawn%", TextColor.color(pending.point().displayName()))
                 .replace("%seconds%", String.valueOf(nextSeconds));
-
         sendActionBar(player, message);
     }
 
@@ -130,18 +127,20 @@ public final class SpawnTeleportService {
             pending.task().cancel();
         }
 
+        PortalFreezeListener.skipNextFreeze(player, spawnService.core());
+
         if (!spawnService.teleport(player, point)) {
             String message = spawnService.message("world-missing")
                     .replace("%world%", point.worldName())
                     .replace("%spawn%", TextColor.color(point.displayName()));
-
             sendActionBar(player, message);
             return;
         }
 
+        PortalFreezeListener.clearFrozen(player);
+
         String message = spawnService.message("teleported")
                 .replace("%spawn%", TextColor.color(point.displayName()));
-
         sendActionBar(player, message);
     }
 

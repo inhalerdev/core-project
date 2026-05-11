@@ -5,6 +5,8 @@ max-players-display: 100
 
 teleport:
   delay-seconds: 5
+  plus-delay-seconds: 3
+  plus-permission: "mineacle.plus"
   cancel-on-move: true
   cancel-distance: 2.0
 
@@ -23,7 +25,6 @@ gui:
       - "&#bbbbbb%online%&8/&#bbbbbb%max%"
       - ""
       - "&#ff80ff➥ Return to Spawn"
-
   random:
     lore:
       - "&#bbbbbbClick to teleport to a random &#ff80ffSpawn"
@@ -39,7 +40,6 @@ worlds:
     z: -0.5
     yaw: -180.0
     pitch: 0.0
-
   lobby2:
     enabled: true
     slot: 12
@@ -50,7 +50,6 @@ worlds:
     z: -0.5
     yaw: -180.0
     pitch: 0.0
-
   lobby3:
     enabled: true
     slot: 13
