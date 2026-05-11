@@ -70,6 +70,10 @@ public final class SoundService {
         play(player, core, "gui.error");
     }
 
+    public static void teleportStart(Player player, Core core) {
+        play(player, core, "teleport.start");
+    }
+
     public static void teleportCountdown(Player player, Core core) {
         play(player, core, "teleport.countdown");
     }
@@ -132,5 +136,21 @@ public final class SoundService {
 
     public static void chatMessage(Player player, Core core) {
         play(player, core, "chat.message");
+    }
+
+    public static void doubleJump(Player player, Core core) {
+        play(player, core, "double-jump.jump");
+    }
+
+    public static void doubleJumpCooldown(Player player, Core core) {
+        play(player, core, "double-jump.cooldown");
+    }
+
+    public static void featureEnable(Player player, Core core) {
+        play(player, core, "feature.enable");
+    }
+
+    public static void featureDisable(Player player, Core core) {
+        play(player, core, "feature.disable");
     }
 }

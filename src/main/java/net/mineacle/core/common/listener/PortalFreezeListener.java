@@ -26,9 +26,9 @@ import java.util.UUID;
 public final class PortalFreezeListener implements Listener {
 
     private static final Set<UUID> SKIP_NEXT_FREEZE = new HashSet<>();
+    private static final Map<UUID, FrozenPlayer> FROZEN_PLAYERS = new HashMap<>();
 
     private final Core core;
-    private final Map<UUID, FrozenPlayer> frozenPlayers = new HashMap<>();
 
     public PortalFreezeListener(Core core) {
         this.core = core;
@@ -48,6 +48,15 @@ public final class PortalFreezeListener implements Listener {
         }
     }
 
+    public static void clearFrozen(Player player) {
+        if (player == null) {
+            return;
+        }
+
+        SKIP_NEXT_FREEZE.remove(player.getUniqueId());
+        FROZEN_PLAYERS.remove(player.getUniqueId());
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onTeleport(PlayerTeleportEvent event) {
         Player player = event.getPlayer();
@@ -59,7 +68,7 @@ public final class PortalFreezeListener implements Listener {
         }
 
         if (SKIP_NEXT_FREEZE.remove(player.getUniqueId())) {
-            clear(player);
+            clearFrozen(player);
             return;
         }
 
@@ -68,12 +77,12 @@ public final class PortalFreezeListener implements Listener {
         }
 
         if (!isPortalFreezeSourceWorld(from.getWorld())) {
-            clear(player);
+            clearFrozen(player);
             return;
         }
 
         if (!isPortalLikeTeleport(event.getCause())) {
-            clear(player);
+            clearFrozen(player);
             return;
         }
 
@@ -83,14 +92,14 @@ public final class PortalFreezeListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
-        FrozenPlayer frozen = frozenPlayers.get(player.getUniqueId());
+        FrozenPlayer frozen = FROZEN_PLAYERS.get(player.getUniqueId());
 
         if (frozen == null) {
             return;
         }
 
         if (System.currentTimeMillis() >= frozen.expiresAtMillis()) {
-            frozenPlayers.remove(player.getUniqueId());
+            FROZEN_PLAYERS.remove(player.getUniqueId());
             return;
         }
 
@@ -134,20 +143,14 @@ public final class PortalFreezeListener implements Listener {
     }
 
     public void clear(Player player) {
-        if (player == null) {
-            return;
-        }
-
-        frozenPlayers.remove(player.getUniqueId());
+        clearFrozen(player);
     }
 
     private void freeze(Player player, Location location) {
         int durationTicks = Math.max(1, core.getConfig().getInt("portal-freeze.duration-ticks", 30));
         long expiresAt = System.currentTimeMillis() + (durationTicks * 50L);
 
-        Location lockedLocation = location.clone();
-
-        frozenPlayers.put(player.getUniqueId(), new FrozenPlayer(lockedLocation, expiresAt));
+        FROZEN_PLAYERS.put(player.getUniqueId(), new FrozenPlayer(location.clone(), expiresAt));
 
         String actionbar = core.getConfig().getString("portal-freeze.actionbar", "&#ccccccLoading...");
         player.sendActionBar(actionBar(actionbar));
@@ -158,27 +161,27 @@ public final class PortalFreezeListener implements Listener {
         }
 
         core.getServer().getScheduler().runTaskLater(core, () -> {
-            FrozenPlayer frozen = frozenPlayers.get(player.getUniqueId());
+            FrozenPlayer frozen = FROZEN_PLAYERS.get(player.getUniqueId());
 
             if (frozen == null) {
                 return;
             }
 
             if (System.currentTimeMillis() >= frozen.expiresAtMillis()) {
-                frozenPlayers.remove(player.getUniqueId());
+                FROZEN_PLAYERS.remove(player.getUniqueId());
             }
         }, durationTicks);
     }
 
     private boolean isFrozen(Player player) {
-        FrozenPlayer frozen = frozenPlayers.get(player.getUniqueId());
+        FrozenPlayer frozen = FROZEN_PLAYERS.get(player.getUniqueId());
 
         if (frozen == null) {
             return false;
         }
 
         if (System.currentTimeMillis() >= frozen.expiresAtMillis()) {
-            frozenPlayers.remove(player.getUniqueId());
+            FROZEN_PLAYERS.remove(player.getUniqueId());
             return false;
         }
 

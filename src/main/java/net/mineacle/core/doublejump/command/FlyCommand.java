@@ -53,7 +53,6 @@ public final class FlyCommand implements CommandExecutor, TabCompleter {
         }
 
         boolean enabled = listener.toggleFly(player);
-
         String message = enabled
                 ? core.getConfig().getString("fly.messages.enabled", "&aFlight enabled")
                 : core.getConfig().getString("fly.messages.disabled", "&cFlight disabled");
@@ -61,9 +60,9 @@ public final class FlyCommand implements CommandExecutor, TabCompleter {
         send(player, message);
 
         if (enabled) {
-            SoundService.guiConfirm(player, core);
+            SoundService.featureEnable(player, core);
         } else {
-            SoundService.guiCancel(player, core);
+            SoundService.featureDisable(player, core);
         }
 
         return true;
