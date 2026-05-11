@@ -1,7 +1,6 @@
 package net.mineacle.core.spawn.service;
 
 import net.mineacle.core.Core;
-import net.mineacle.core.common.listener.PortalFreezeListener;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.spawn.model.SpawnPoint;
 import org.bukkit.Bukkit;
@@ -11,6 +10,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import net.mineacle.core.common.listener.PortalFreezeListener;
 
 import java.io.File;
 import java.io.IOException;
@@ -91,17 +91,15 @@ public final class SpawnService {
     }
 
     public int teleportDelaySeconds(Player player) {
-        if (player == null) {
-            return teleportDelaySeconds();
+        int defaultDelay = Math.max(0, spawnConfig.getInt("teleport.delay-seconds", 5));
+        int plusDelay = Math.max(0, spawnConfig.getInt("teleport.plus-delay-seconds", 3));
+        String plusPermission = spawnConfig.getString("teleport.plus-permission", "mineacle.plus");
+
+        if (player != null && player.hasPermission(plusPermission)) {
+            return plusDelay;
         }
 
-        String permission = spawnConfig.getString("teleport.plus-permission", "mineacle.plus");
-
-        if (permission != null && !permission.isBlank() && player.hasPermission(permission)) {
-            return Math.max(0, spawnConfig.getInt("teleport.plus-delay-seconds", 3));
-        }
-
-        return teleportDelaySeconds();
+        return defaultDelay;
     }
 
     public boolean cancelOnMove() {
@@ -126,6 +124,7 @@ public final class SpawnService {
 
         for (String id : section.getKeys(false)) {
             String path = "worlds." + id;
+
             boolean enabled = spawnConfig.getBoolean(path + ".enabled", true);
             int slot = spawnConfig.getInt(path + ".slot", 0);
             String displayName = spawnConfig.getString(path + ".display-name", id);
@@ -270,7 +269,6 @@ public final class SpawnService {
 
         PortalFreezeListener.skipNextFreeze(player, core);
         player.teleport(location);
-        PortalFreezeListener.clearFrozen(player);
         return true;
     }
 
@@ -283,7 +281,9 @@ public final class SpawnService {
 
         String path = "worlds." + point.id();
 
-        if (!spawnConfig.contains(path + ".x") || !spawnConfig.contains(path + ".y") || !spawnConfig.contains(path + ".z")) {
+        if (!spawnConfig.contains(path + ".x")
+                || !spawnConfig.contains(path + ".y")
+                || !spawnConfig.contains(path + ".z")) {
             return world.getSpawnLocation();
         }
 
@@ -305,7 +305,7 @@ public final class SpawnService {
     }
 
     public String randomDisplayName() {
-        return spawnConfig.getString("random.display-name", "&dRandom Spawn");
+        return spawnConfig.getString("random.display-name", "&#7d00ffRandom Spawn");
     }
 
     public List<String> currentSpawnLore() {
@@ -393,10 +393,12 @@ public final class SpawnService {
         }
 
         String path = "worlds." + id.toLowerCase(Locale.ROOT);
+
         spawnConfig.set(path + ".enabled", true);
         spawnConfig.set(path + ".slot", slot);
         spawnConfig.set(path + ".display-name", displayName);
         spawnConfig.set(path + ".world", worldName);
+
         save();
         load();
         return true;
@@ -410,6 +412,7 @@ public final class SpawnService {
         }
 
         spawnConfig.set("worlds." + point.id(), null);
+
         save();
         load();
         return true;
@@ -438,6 +441,10 @@ public final class SpawnService {
     }
 
     public boolean voidWorldAllowed(String worldName) {
+        if (worldName == null || worldName.isBlank()) {
+            return false;
+        }
+
         List<String> worlds = spawnConfig.getStringList("void.check-worlds");
 
         if (worlds.isEmpty()) {

@@ -131,7 +131,7 @@ public final class DoubleJumpListener implements Listener {
         player.setAllowFlight(false);
 
         if (isOnCooldown(player)) {
-            SoundService.play(player, core, "double-jump.cooldown");
+            SoundService.doubleJumpCooldown(player, core);
 
             if (core.getConfig().getBoolean("double-jump.actionbar-cooldown", false)) {
                 player.sendActionBar(actionBar("&cDouble jump is cooling down"));
@@ -174,7 +174,13 @@ public final class DoubleJumpListener implements Listener {
 
         if (flyEnabled.contains(uuid)) {
             flyEnabled.remove(uuid);
-            refresh(player);
+            player.setFlying(false);
+
+            if (player.getGameMode() != GameMode.CREATIVE && player.getGameMode() != GameMode.SPECTATOR) {
+                player.setAllowFlight(false);
+            }
+
+            core.getServer().getScheduler().runTaskLater(core, () -> refresh(player), 5L);
             return false;
         }
 
@@ -264,7 +270,7 @@ public final class DoubleJumpListener implements Listener {
             return true;
         }
 
-        String permission = core.getConfig().getString("fly.permission", "mineaclefly.use");
+        String permission = core.getConfig().getString("fly.permission", "mineacle.plus");
 
         if (!player.hasPermission(permission) && !player.hasPermission("mineaclefly.admin")) {
             return false;
@@ -298,7 +304,7 @@ public final class DoubleJumpListener implements Listener {
         player.setVelocity(direction);
 
         playParticles(player);
-        SoundService.play(player, core, "double-jump.jump");
+        SoundService.doubleJump(player, core);
     }
 
     private boolean isOnCooldown(Player player) {
