@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.listener.PortalFreezeListener;
+import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -20,7 +21,6 @@ import java.util.UUID;
 public final class OriginRtpQueueService {
 
     private final Core core;
-
     private final Deque<OriginRtpRequest> plusQueue = new ArrayDeque<>();
     private final Deque<OriginRtpRequest> defaultQueue = new ArrayDeque<>();
     private final Map<UUID, OriginRtpRequest> queuedRequests = new HashMap<>();
@@ -66,6 +66,7 @@ public final class OriginRtpQueueService {
     public void request(Player player) {
         if (!enabled()) {
             sendActionBar(player, message("disabled"));
+            SoundService.guiError(player, core);
             return;
         }
 
@@ -73,6 +74,7 @@ public final class OriginRtpQueueService {
 
         if (queuedRequests.containsKey(playerId) || activeRequests.containsKey(playerId)) {
             sendActionBar(player, message("already-queued"));
+            SoundService.guiError(player, core);
             return;
         }
 
@@ -95,7 +97,6 @@ public final class OriginRtpQueueService {
         queuedRequests.put(playerId, request);
 
         int position = position(playerId);
-
         String queuedMessage = message("queued-position")
                 .replace("%position%", String.valueOf(position))
                 .replace("%type%", plus ? "Mineacle+" : "Default");
@@ -114,6 +115,7 @@ public final class OriginRtpQueueService {
 
             if (sendMessage) {
                 sendActionBar(player, message("cancelled"));
+                SoundService.teleportCancelled(player, core);
             }
 
             return;
@@ -128,6 +130,7 @@ public final class OriginRtpQueueService {
 
             if (sendMessage) {
                 sendActionBar(player, message("cancelled"));
+                SoundService.teleportCancelled(player, core);
             }
         }
     }
@@ -208,6 +211,7 @@ public final class OriginRtpQueueService {
         activeRequests.put(player.getUniqueId(), active);
 
         sendActionBar(player, countdownMessage(delay));
+        SoundService.teleportCountdown(player, core);
 
         BukkitTask task = core.getServer().getScheduler().runTaskTimer(
                 core,
@@ -267,6 +271,7 @@ public final class OriginRtpQueueService {
         );
 
         sendActionBar(player, countdownMessage(nextSeconds));
+        SoundService.teleportCountdown(player, core);
     }
 
     private void dispatchBetterRtp(Player player) {
@@ -283,7 +288,8 @@ public final class OriginRtpQueueService {
                 .replace("%player%", player.getName())
                 .replace("%world%", world());
 
-        sendActionBar(player, message("started"));
+        sendActionBar(player, message("searching"));
+
         PortalFreezeListener.skipNextFreeze(player, core);
 
         core.getServer().dispatchCommand(
@@ -322,7 +328,6 @@ public final class OriginRtpQueueService {
 
         while (iterator.hasNext()) {
             Map.Entry<UUID, ActiveRtp> entry = iterator.next();
-
             Player player = Bukkit.getPlayer(entry.getKey());
 
             if (player == null || !player.isOnline()) {
@@ -384,7 +389,7 @@ public final class OriginRtpQueueService {
     }
 
     private double cancelDistance() {
-        return Math.max(0.01D, core.getConfig().getDouble("origin-rtp.teleport.cancel-distance", 0.15D));
+        return Math.max(0.01D, core.getConfig().getDouble("origin-rtp.teleport.cancel-distance", 2.0D));
     }
 
     private int defaultDelaySeconds() {
@@ -392,7 +397,7 @@ public final class OriginRtpQueueService {
     }
 
     private int plusDelaySeconds() {
-        return Math.max(0, core.getConfig().getInt("origin-rtp.plus.delay-seconds", 2));
+        return Math.max(0, core.getConfig().getInt("origin-rtp.plus.delay-seconds", 3));
     }
 
     private boolean plusPriority() {

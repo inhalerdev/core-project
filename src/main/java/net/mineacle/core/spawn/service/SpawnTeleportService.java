@@ -3,6 +3,7 @@ package net.mineacle.core.spawn.service;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.common.listener.PortalFreezeListener;
+import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.spawn.model.SpawnPoint;
 import org.bukkit.Location;
@@ -36,6 +37,7 @@ public final class SpawnTeleportService {
                     .replace("%world%", point.worldName())
                     .replace("%spawn%", TextColor.color(point.displayName()));
             sendActionBar(player, message);
+            SoundService.guiError(player, spawnService.core());
             return;
         }
 
@@ -56,6 +58,7 @@ public final class SpawnTeleportService {
                 .replace("%spawn%", displayName)
                 .replace("%seconds%", String.valueOf(delay));
         sendActionBar(player, startMessage);
+        SoundService.teleportCountdown(player, spawnService.core());
 
         BukkitTask task = spawnService.core().getServer().getScheduler().runTaskTimer(
                 spawnService.core(),
@@ -105,6 +108,7 @@ public final class SpawnTeleportService {
                 .replace("%spawn%", TextColor.color(pending.point().displayName()))
                 .replace("%seconds%", String.valueOf(nextSeconds));
         sendActionBar(player, message);
+        SoundService.teleportCountdown(player, spawnService.core());
     }
 
     public void cancel(Player player, boolean sendMessage) {
@@ -117,6 +121,8 @@ public final class SpawnTeleportService {
         if (sendMessage) {
             String message = spawnService.message("teleport-cancelled");
             sendActionBar(player, message);
+            player.sendMessage(TextColor.color(message));
+            SoundService.teleportCancelled(player, spawnService.core());
         }
     }
 
@@ -134,6 +140,7 @@ public final class SpawnTeleportService {
                     .replace("%world%", point.worldName())
                     .replace("%spawn%", TextColor.color(point.displayName()));
             sendActionBar(player, message);
+            SoundService.guiError(player, spawnService.core());
             return;
         }
 
@@ -142,6 +149,7 @@ public final class SpawnTeleportService {
         String message = spawnService.message("teleported")
                 .replace("%spawn%", TextColor.color(point.displayName()));
         sendActionBar(player, message);
+        SoundService.teleportComplete(player, spawnService.core());
     }
 
     private boolean movedTooFar(Location start, Location current) {

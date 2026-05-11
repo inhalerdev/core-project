@@ -109,7 +109,7 @@ public final class SpawnService {
     }
 
     public double cancelMoveDistance() {
-        return Math.max(0.01D, spawnConfig.getDouble("teleport.cancel-distance", 0.15D));
+        return Math.max(0.01D, spawnConfig.getDouble("teleport.cancel-distance", 2.0D));
     }
 
     public int maxPlayersDisplay() {

@@ -18,6 +18,7 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -25,9 +26,9 @@ import java.util.UUID;
 public final class PortalFreezeListener implements Listener {
 
     private static final Set<UUID> SKIP_NEXT_FREEZE = new HashSet<>();
-    private static final Map<UUID, FrozenPlayer> FROZEN_PLAYERS = new HashMap<>();
 
     private final Core core;
+    private final Map<UUID, FrozenPlayer> frozenPlayers = new HashMap<>();
 
     public PortalFreezeListener(Core core) {
         this.core = core;
@@ -47,31 +48,18 @@ public final class PortalFreezeListener implements Listener {
         }
     }
 
-    public static void clearFrozen(Player player) {
-        if (player == null) {
-            return;
-        }
-
-        SKIP_NEXT_FREEZE.remove(player.getUniqueId());
-        FROZEN_PLAYERS.remove(player.getUniqueId());
-    }
-
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onTeleport(PlayerTeleportEvent event) {
         Player player = event.getPlayer();
+        Location from = event.getFrom();
         Location to = event.getTo();
 
-        if (to == null || to.getWorld() == null) {
+        if (to == null || to.getWorld() == null || from.getWorld() == null) {
             return;
         }
 
         if (SKIP_NEXT_FREEZE.remove(player.getUniqueId())) {
-            clearFrozen(player);
-            return;
-        }
-
-        if (event.getCause() == PlayerTeleportEvent.TeleportCause.COMMAND) {
-            clearFrozen(player);
+            clear(player);
             return;
         }
 
@@ -79,7 +67,13 @@ public final class PortalFreezeListener implements Listener {
             return;
         }
 
-        if (!isFreezeWorld(to.getWorld())) {
+        if (!isPortalFreezeSourceWorld(from.getWorld())) {
+            clear(player);
+            return;
+        }
+
+        if (!isPortalLikeTeleport(event.getCause())) {
+            clear(player);
             return;
         }
 
@@ -89,14 +83,14 @@ public final class PortalFreezeListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
-        FrozenPlayer frozen = FROZEN_PLAYERS.get(player.getUniqueId());
+        FrozenPlayer frozen = frozenPlayers.get(player.getUniqueId());
 
         if (frozen == null) {
             return;
         }
 
         if (System.currentTimeMillis() >= frozen.expiresAtMillis()) {
-            FROZEN_PLAYERS.remove(player.getUniqueId());
+            frozenPlayers.remove(player.getUniqueId());
             return;
         }
 
@@ -140,7 +134,11 @@ public final class PortalFreezeListener implements Listener {
     }
 
     public void clear(Player player) {
-        clearFrozen(player);
+        if (player == null) {
+            return;
+        }
+
+        frozenPlayers.remove(player.getUniqueId());
     }
 
     private void freeze(Player player, Location location) {
@@ -149,7 +147,7 @@ public final class PortalFreezeListener implements Listener {
 
         Location lockedLocation = location.clone();
 
-        FROZEN_PLAYERS.put(player.getUniqueId(), new FrozenPlayer(lockedLocation, expiresAt));
+        frozenPlayers.put(player.getUniqueId(), new FrozenPlayer(lockedLocation, expiresAt));
 
         String actionbar = core.getConfig().getString("portal-freeze.actionbar", "&#ccccccLoading...");
         player.sendActionBar(actionBar(actionbar));
@@ -160,43 +158,56 @@ public final class PortalFreezeListener implements Listener {
         }
 
         core.getServer().getScheduler().runTaskLater(core, () -> {
-            FrozenPlayer frozen = FROZEN_PLAYERS.get(player.getUniqueId());
+            FrozenPlayer frozen = frozenPlayers.get(player.getUniqueId());
 
             if (frozen == null) {
                 return;
             }
 
             if (System.currentTimeMillis() >= frozen.expiresAtMillis()) {
-                FROZEN_PLAYERS.remove(player.getUniqueId());
+                frozenPlayers.remove(player.getUniqueId());
             }
         }, durationTicks);
     }
 
     private boolean isFrozen(Player player) {
-        FrozenPlayer frozen = FROZEN_PLAYERS.get(player.getUniqueId());
+        FrozenPlayer frozen = frozenPlayers.get(player.getUniqueId());
 
         if (frozen == null) {
             return false;
         }
 
         if (System.currentTimeMillis() >= frozen.expiresAtMillis()) {
-            FROZEN_PLAYERS.remove(player.getUniqueId());
+            frozenPlayers.remove(player.getUniqueId());
             return false;
         }
 
         return true;
     }
 
-    private boolean isFreezeWorld(World world) {
+    private boolean isPortalFreezeSourceWorld(World world) {
         String worldName = world.getName();
+        List<String> configuredWorlds = core.getConfig().getStringList("portal-freeze.source-worlds");
 
-        for (String configuredWorld : core.getConfig().getStringList("portal-freeze.worlds")) {
+        if (configuredWorlds.isEmpty()) {
+            return worldName.equalsIgnoreCase("spawn1")
+                    || worldName.equalsIgnoreCase("spawn2")
+                    || worldName.equalsIgnoreCase("spawn3");
+        }
+
+        for (String configuredWorld : configuredWorlds) {
             if (configuredWorld.equalsIgnoreCase(worldName)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    private boolean isPortalLikeTeleport(PlayerTeleportEvent.TeleportCause cause) {
+        return cause == PlayerTeleportEvent.TeleportCause.PLUGIN
+                || cause == PlayerTeleportEvent.TeleportCause.NETHER_PORTAL
+                || cause == PlayerTeleportEvent.TeleportCause.END_PORTAL;
     }
 
     private boolean sameBlockAndLookOnly(Location from, Location to) {
