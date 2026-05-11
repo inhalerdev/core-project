@@ -1,0 +1,268 @@
+general:
+  players-only: "&cPlayers only."
+  no-permission: "&cThis feature is not available for your rank."
+  reload-success: "&aMineacleCore files reloaded."
+
+homes:
+  blocked-world: "&cYou cannot set a home in this world."
+  blocked-team-home-world: "&cYou cannot set a team home in this world."
+
+  set: "&#bbbbbbYou set &d%home% &#bbbbbbto your current location"
+  renamed: "&#bbbbbbRenamed &d%old_home% &#bbbbbbto &d%new_home%"
+  deleted: "&c%home% deleted"
+  delete-cancelled: "&cHome delete cancelled"
+  delete-confirm: "&cClick again to confirm delete"
+  delete-timeout: "&cHome delete timed out"
+  not-set: "&c%home% is not set"
+  no-empty-slot: "&cYou have reached your home limit."
+  invalid-name: "&cThat home name is not valid."
+  already-exists: "&cYou already have a home named &d%home%&c."
+
+  teleporting: "&#bbbbbbTeleporting to &d%target% &#bbbbbbin &d%seconds%s"
+  teleport-cancelled-move: "&cTeleport cancelled — you moved"
+  teleported: "&#bbbbbbTeleported to &d%home%"
+
+  upgrade-line-1: "&fElevate your gameplay experience with &dMineacle+"
+  upgrade-line-2: "&d♦ &fhttps://store.mineacle.net"
+
+  gui:
+    title: "Player Homes"
+    delete-title: "&8Delete Player Home"
+    team-delete-title: "&8Delete Team Home"
+    click-delete-again-chat: "&cClick confirm again to delete &f%home%&c."
+    click-delete-again-actionbar: "&cClick again to delete &f%home%"
+    delete-cancelled-chat: "&cHome delete cancelled"
+    delete-timeout-chat: "&cHome delete timed out"
+
+teams:
+  created: "&#bbbbbbCreated team %team%"
+  already-in-team: "&cYou are already in a team."
+  invalid-name: "&cThat team name is not valid."
+  taken-name: "&cThat team name is already taken."
+  no-team: "&cYou are not in a team."
+  only-founder-disband: "&cOnly the founder can disband the team."
+  founders-cannot-leave: "&cFounders cannot leave. Disband the team instead."
+  left-team: "&cYou left your team."
+  disbanded: "&cTeam disbanded."
+  no-color-codes-in-name: "&cYou cannot create or rename a team with custom color codes."
+  manage-colors-instead: "&#bbbbbbType &d/team manage &#bbbbbbto choose your team's banner and name color."
+
+  death:
+    died: "&d%player% &#bbbbbbdied."
+    killed: "&d%player% &#bbbbbbwas killed by &d%killer%&#bbbbbb."
+
+  invite:
+    no-permission: "&cYou do not have permission to invite players."
+    usage: "&cUsage: /team invite <player>"
+    offline: "&cThat player is not online."
+    target-in-team: "&cThat player is already in a team."
+    failed: "&cCould not invite that player."
+    sent: "&#bbbbbbInvited &d%player% &#bbbbbbto the team."
+    received-1: "&#bbbbbbYou were invited to team %team%"
+    accepted: "&#bbbbbbJoined team %team%"
+    denied: "&cTeam invite denied."
+    none: "&cYou do not have a pending team invite."
+    team-gone: "&cThat team no longer exists."
+    banned-target: "&cThat player is still locked out from this team."
+    self-banned: "&cYou are still locked out from that team."
+
+  home:
+    no-home: "&cYour team does not have a home set."
+    set: "&#bbbbbbTeam Home set to your current location"
+    deleted: "&cTeam Home deleted."
+    teleported: "&#bbbbbbTeleported to &dTeam Home"
+    no-set-permission: "&cYou do not have permission to set the team home."
+    no-delete-permission: "&cYou do not have permission to delete the team home."
+
+  pvp:
+    no-permission: "&cYou do not have permission to toggle Team PvP."
+    enabled: "&aTeam PvP enabled."
+    disabled: "&cTeam PvP disabled."
+
+  chat:
+    enabled: "&aTeam chat enabled."
+    disabled: "&cTeam chat disabled."
+    usage: "&cUsage: /team chat <message>"
+    format: "&8[%team%&8] &f%player%&8: &f%message%"
+    not-in-team: "&cYou are not in a team."
+
+  management:
+    no-permission: "&cYou do not have permission to manage the team."
+    promote-founder-only: "&cOnly the founder can promote members."
+    demote-founder-only: "&cOnly the founder can demote members."
+    promoted: "&aMember promoted to Admin."
+    demoted: "&6Admin demoted to Member."
+    cannot-kick-self: "&cYou cannot kick yourself."
+    cannot-kick-target: "&cYou cannot kick that member."
+    kicked: "&cMember kicked."
+    transfer-founder-only: "&cOnly the founder can transfer ownership."
+    already-founder: "&cThat player is already founder."
+    transfer-success: "&6Founder transferred."
+    banner-updated: "&aTeam banner color updated."
+    name-color-updated: "&aTeam name color updated."
+
+  bans:
+    no-permission: "&cYou do not have permission to manage team bans."
+    none: "&#bbbbbbYour team has no active bans."
+    unbanned: "&aPlayer unbanned."
+    not-banned: "&cThat player is not actively banned from your team."
+    usage: "&cUsage: /team unban <player>"
+
+  gui:
+    no-team-title: "&8Team Menu"
+    team-title: "&8Team"
+    member-manager-title: "&8Member Manager"
+    invites-title: "&8Team Invites"
+    bans-title: "&8Team Bans"
+    manage-title: "&8Team Manage"
+    banner-color-title: "&8Banner Color"
+    name-color-title: "&8Name Color"
+
+    create-team-title: "&dCreate Team"
+    create-team-lore-1: "&#bbbbbbUse &d/team create <name>"
+    no-team-item-title: "&#bbbbbbNo Team"
+    no-team-item-lore-1: "&fYou are not in a team"
+    pending-invite-title: "&aPending Invite"
+    pending-invite-lore-1: "&#bbbbbbClick to view invites"
+    no-pending-invite-title: "&#bbbbbbNo Pending Invite"
+    no-pending-invite-lore-1: "&#bbbbbbNo team invite waiting"
+
+    member-head-lore-1: "&#bbbbbbRole: &d%role%"
+    member-head-lore-2: "&#bbbbbbClick to manage"
+
+    search-title: "&dSearch"
+    search-lore-1: "&#bbbbbbClick for search help"
+    search-lore-current: "&#bbbbbbCurrent: &f%search%"
+    sort-title: "&dSort"
+    sort-lore-1: "&#bbbbbbCurrent: &f%sort%"
+    sort-lore-2: "&#bbbbbbClick to change"
+    invite-player-title-button: "&dInvite Player"
+    invite-player-lore-1: "&#bbbbbbOpen sign input"
+    back-title: "&dBack"
+    back-lore-1: "&#bbbbbbPrevious page"
+    next-title: "&dNext"
+    next-lore-1: "&#bbbbbbNext page"
+    team-info-title: "&dTeam Info"
+    team-info-lore-1: "&fTeam: %team%"
+    team-info-lore-2: "&fLeader: &d%leader%"
+    team-info-lore-3: "&fMembers: &d%members%"
+    team-home-title: "&dTeam Home"
+    team-home-lore-1: "&#bbbbbbClick to teleport / manage"
+    friendly-fire-title: "&dFriendly Fire"
+    friendly-fire-enabled: "&cEnabled"
+    friendly-fire-disabled: "&aDisabled"
+    friendly-fire-lore-2: "&#bbbbbbClick to toggle"
+    leave-title: "&cLeave Team"
+    leave-lore-1: "&#bbbbbbClick to continue"
+    disband-title: "&cDisband Team"
+    disband-lore-1: "&#bbbbbbClick to continue"
+    bans-button-title: "&6Team Bans"
+    bans-button-lore-1: "&#bbbbbbClick to view active bans"
+
+    manage-button-title: "&dTeam Manage"
+    manage-button-lore-1: "&#bbbbbbClick to edit team appearance"
+    manage-banner-title: "&dBanner Color"
+    manage-banner-lore-1: "&#bbbbbbChoose your team's banner color"
+    manage-name-title: "&dName Color"
+    manage-name-lore-1: "&#bbbbbbChoose your team's name color"
+    manage-preview-title: "&dPreview"
+    manage-preview-lore-1: "&#bbbbbbTeam: %team%"
+    manage-preview-lore-2: "&#bbbbbbBanner: &f%banner%"
+    manage-preview-lore-3: "&#bbbbbbName Color: %color%"
+
+    invite-accept-title: "&aAccept Invite"
+    invite-accept-lore-1: "&#bbbbbbTeam: %team%"
+    invite-accept-lore-2: "&#bbbbbbInviter: &d%inviter%"
+    invite-accept-lore-3: "&#bbbbbbClick to accept"
+    invite-deny-title: "&cDeny Invite"
+    invite-deny-lore-1: "&#bbbbbbTeam: %team%"
+    invite-deny-lore-2: "&#bbbbbbInviter: &d%inviter%"
+    invite-deny-lore-3: "&#bbbbbbClick to deny"
+    invite-center-title: "%team%"
+    invite-center-lore-1: "&#bbbbbbInviter: &d%inviter%"
+    no-invite-title: "&#bbbbbbNo Pending Invite"
+    no-invite-lore-1: "&fYou do not have any team invites"
+
+    ban-head-lore-1: "&#bbbbbbExpires: &d%expires%"
+    ban-head-lore-2: "&#bbbbbbBanned by: &d%banned_by%"
+    ban-head-lore-3: "&#bbbbbbClick to unban"
+    no-ban-title: "&#bbbbbbNo Active Bans"
+    no-ban-lore-1: "&fYour team has no active bans"
+
+    click-again: "&cClick confirm again to continue."
+    action-cancelled: "&cAction cancelled."
+    action-timeout: "&cAction confirmation timed out."
+
+    search-help-1: "&#bbbbbbUse the sign input to search team members."
+    search-help-2: "&#bbbbbbLeave it blank to clear the search."
+
+economy:
+  balance-self: "&#bbbbbbBalance: &a%balance%"
+  balance-other: "&d%player%&#bbbbbb's balance: &a%balance%"
+
+  paid-chat: "&a+%amount%"
+  paid-actionbar: "&a+%amount%"
+
+  paid-offline-single: "&#bbbbbbYou received &a%amount%&#bbbbbb from &d%player%&#bbbbbb while you were away"
+  paid-offline-multiple: "&#bbbbbbYou received &a%amount%&#bbbbbb while you were away"
+
+  pay-sent: "&#bbbbbbPaid &a%amount% &#bbbbbbto &d%player%&#bbbbbb."
+  pay-usage: "&cUsage: /pay <player> <amount>"
+  cannot-pay-self: "&cYou cannot pay yourself."
+  not-enough-money: "&cYou do not have enough money."
+  invalid-amount: "&cEnter a valid amount."
+  player-not-found: "&cThat player could not be found."
+
+  eco-usage: "&cUsage: /eco <give|take|set|reset> <player|*|**> [amount]"
+  eco-success: "&aEco %action% completed for %count% target(s): %amount%"
+  eco-reset: "&aEco reset completed for %count% target(s)."
+
+baltop:
+  header: "&dBalance Top"
+  empty: "&#bbbbbbNo balances have been recorded yet."
+  line: "&d#%position% &f%player% &#bbbbbb- &a%balance%"
+
+  gui-empty-title: "&#bbbbbbNo Balances"
+  gui-empty-lore: "&fNo balances have been recorded yet."
+
+  gui-entry-title: "&d#%position% &f%player%"
+  gui-entry-lore:
+    - "&#bbbbbbBalance: &a%balance%"
+    - "&#bbbbbbRank: &d#%position%"
+
+  previous-title: "&dPrevious Page"
+  previous-lore: "&#bbbbbbClick to view the previous page."
+
+  refresh-title: "&dRefresh"
+  refresh-lore: "&#bbbbbbClick to refresh balance top."
+
+  next-title: "&dNext Page"
+  next-lore: "&#bbbbbbClick to view the next page."
+
+chat:
+  private-message-format: "&d%sender% &#bbbbbb-> &d%receiver%&#bbbbbb: &#bbbbbb%message%"
+
+  message-usage: "&cUsage: /msg <player> <message>"
+  reply-usage: "&cUsage: /r <message>"
+  ignore-usage: "&cUsage: /ignore <player>"
+  nick-usage: "&cUsage: /nick <nickname|reset>"
+  realname-usage: "&cUsage: /realname <nickname>"
+
+  no-reply-target: "&cYou have nobody to reply to."
+  player-not-found: "&cThat player is not online."
+  cannot-message-self: "&cYou cannot message yourself."
+  cannot-ignore-self: "&cYou cannot ignore yourself."
+  target-ignoring-you: "&cThat player is ignoring you."
+
+  now-ignoring: "&#bbbbbbYou are now ignoring &d%player%&#bbbbbb."
+  no-longer-ignoring: "&#bbbbbbYou are no longer ignoring &d%player%&#bbbbbb."
+  ignore-list-empty: "&#bbbbbbYou are not ignoring anyone."
+  ignore-list-header: "&dIgnored Players:"
+  ignore-list-line: "&#bbbbbb- &d%player%"
+
+  nick-set: "&#bbbbbbYour nickname is now &d%nickname%&#bbbbbb."
+  nick-reset: "&#bbbbbbYour nickname has been reset."
+  nick-invalid: "&cNicknames must be %max% characters or shorter and only use allowed characters."
+
+  realname-not-found: "&cNo player was found with that nickname."
+  realname-result: "&d%nickname% &#bbbbbbbelongs to &d%player%&#bbbbbb."

@@ -1,0 +1,428 @@
+package net.mineacle.core.rtp.service;
+
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.mineacle.core.Core;
+import net.mineacle.core.common.listener.PortalFreezeListener;
+import net.mineacle.core.common.text.TextColor;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
+
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.UUID;
+
+public final class OriginRtpQueueService {
+
+    private final Core core;
+
+    private final Deque<OriginRtpRequest> plusQueue = new ArrayDeque<>();
+    private final Deque<OriginRtpRequest> defaultQueue = new ArrayDeque<>();
+    private final Map<UUID, OriginRtpRequest> queuedRequests = new HashMap<>();
+    private final Map<UUID, ActiveRtp> activeRequests = new HashMap<>();
+
+    private BukkitTask processorTask;
+
+    public OriginRtpQueueService(Core core) {
+        this.core = core;
+    }
+
+    public void start() {
+        stop();
+
+        long interval = Math.max(1L, core.getConfig().getLong("origin-rtp.queue.process-every-ticks", 20L));
+
+        processorTask = core.getServer().getScheduler().runTaskTimer(
+                core,
+                this::processQueue,
+                interval,
+                interval
+        );
+    }
+
+    public void stop() {
+        if (processorTask != null) {
+            processorTask.cancel();
+            processorTask = null;
+        }
+
+        for (ActiveRtp active : activeRequests.values()) {
+            if (active.task() != null) {
+                active.task().cancel();
+            }
+        }
+
+        plusQueue.clear();
+        defaultQueue.clear();
+        queuedRequests.clear();
+        activeRequests.clear();
+    }
+
+    public void request(Player player) {
+        if (!enabled()) {
+            sendActionBar(player, message("disabled"));
+            return;
+        }
+
+        UUID playerId = player.getUniqueId();
+
+        if (queuedRequests.containsKey(playerId) || activeRequests.containsKey(playerId)) {
+            sendActionBar(player, message("already-queued"));
+            return;
+        }
+
+        boolean plus = isPlus(player);
+
+        OriginRtpRequest request = new OriginRtpRequest(
+                playerId,
+                player.getName(),
+                player.getLocation().clone(),
+                plus,
+                System.currentTimeMillis()
+        );
+
+        if (plus && plusPriority()) {
+            plusQueue.addLast(request);
+        } else {
+            defaultQueue.addLast(request);
+        }
+
+        queuedRequests.put(playerId, request);
+
+        int position = position(playerId);
+
+        String queuedMessage = message("queued-position")
+                .replace("%position%", String.valueOf(position))
+                .replace("%type%", plus ? "Mineacle+" : "Default");
+
+        sendActionBar(player, queuedMessage);
+    }
+
+    public void cancel(Player player, boolean sendMessage) {
+        UUID playerId = player.getUniqueId();
+
+        OriginRtpRequest queued = queuedRequests.remove(playerId);
+
+        if (queued != null) {
+            plusQueue.removeIf(request -> request.playerId().equals(playerId));
+            defaultQueue.removeIf(request -> request.playerId().equals(playerId));
+
+            if (sendMessage) {
+                sendActionBar(player, message("cancelled"));
+            }
+
+            return;
+        }
+
+        ActiveRtp active = activeRequests.remove(playerId);
+
+        if (active != null) {
+            if (active.task() != null) {
+                active.task().cancel();
+            }
+
+            if (sendMessage) {
+                sendActionBar(player, message("cancelled"));
+            }
+        }
+    }
+
+    public void handleMove(Player player) {
+        if (!cancelOnMove()) {
+            return;
+        }
+
+        UUID playerId = player.getUniqueId();
+
+        OriginRtpRequest queued = queuedRequests.get(playerId);
+
+        if (queued != null && movedTooFar(queued.startLocation(), player.getLocation())) {
+            cancel(player, true);
+            return;
+        }
+
+        ActiveRtp active = activeRequests.get(playerId);
+
+        if (active != null && movedTooFar(active.startLocation(), player.getLocation())) {
+            cancel(player, true);
+        }
+    }
+
+    private void processQueue() {
+        if (!enabled()) {
+            return;
+        }
+
+        int max = Math.max(1, core.getConfig().getInt("origin-rtp.queue.max-processing-at-once", 1));
+        int started = 0;
+
+        while (started < max) {
+            OriginRtpRequest request = pollNextValidRequest();
+
+            if (request == null) {
+                return;
+            }
+
+            Player player = Bukkit.getPlayer(request.playerId());
+
+            if (player == null || !player.isOnline()) {
+                queuedRequests.remove(request.playerId());
+                continue;
+            }
+
+            queuedRequests.remove(request.playerId());
+            beginCountdown(player, request);
+            started++;
+        }
+    }
+
+    private OriginRtpRequest pollNextValidRequest() {
+        OriginRtpRequest request = plusQueue.pollFirst();
+
+        if (request != null) {
+            return request;
+        }
+
+        return defaultQueue.pollFirst();
+    }
+
+    private void beginCountdown(Player player, OriginRtpRequest request) {
+        int delay = request.plus() ? plusDelaySeconds() : defaultDelaySeconds();
+
+        if (delay <= 0) {
+            dispatchBetterRtp(player);
+            return;
+        }
+
+        ActiveRtp active = new ActiveRtp(
+                request.startLocation(),
+                delay,
+                null
+        );
+
+        activeRequests.put(player.getUniqueId(), active);
+
+        sendActionBar(player, countdownMessage(delay));
+
+        BukkitTask task = core.getServer().getScheduler().runTaskTimer(
+                core,
+                () -> tickCountdown(player),
+                20L,
+                20L
+        );
+
+        activeRequests.put(
+                player.getUniqueId(),
+                new ActiveRtp(
+                        request.startLocation(),
+                        delay,
+                        task
+                )
+        );
+    }
+
+    private void tickCountdown(Player player) {
+        ActiveRtp active = activeRequests.get(player.getUniqueId());
+
+        if (active == null) {
+            return;
+        }
+
+        if (!player.isOnline()) {
+            cancel(player, false);
+            return;
+        }
+
+        if (cancelOnMove() && movedTooFar(active.startLocation(), player.getLocation())) {
+            cancel(player, true);
+            return;
+        }
+
+        int nextSeconds = active.secondsRemaining() - 1;
+
+        if (nextSeconds <= 0) {
+            BukkitTask task = active.task();
+
+            if (task != null) {
+                task.cancel();
+            }
+
+            activeRequests.remove(player.getUniqueId());
+            dispatchBetterRtp(player);
+            return;
+        }
+
+        activeRequests.put(
+                player.getUniqueId(),
+                new ActiveRtp(
+                        active.startLocation(),
+                        nextSeconds,
+                        active.task()
+                )
+        );
+
+        sendActionBar(player, countdownMessage(nextSeconds));
+    }
+
+    private void dispatchBetterRtp(Player player) {
+        if (!player.isOnline()) {
+            return;
+        }
+
+        String command = core.getConfig().getString(
+                "origin-rtp.betterrtp-command",
+                "betterrtp:rtp player %player% origins"
+        );
+
+        command = command
+                .replace("%player%", player.getName())
+                .replace("%world%", world());
+
+        sendActionBar(player, message("started"));
+        PortalFreezeListener.skipNextFreeze(player, core);
+
+        core.getServer().dispatchCommand(
+                core.getServer().getConsoleSender(),
+                command
+        );
+    }
+
+    private int position(UUID playerId) {
+        int position = 1;
+
+        for (OriginRtpRequest request : plusQueue) {
+            if (request.playerId().equals(playerId)) {
+                return position;
+            }
+
+            position++;
+        }
+
+        for (OriginRtpRequest request : defaultQueue) {
+            if (request.playerId().equals(playerId)) {
+                return position;
+            }
+
+            position++;
+        }
+
+        return position;
+    }
+
+    public void removeOfflineRequests() {
+        removeOfflineFromQueue(plusQueue);
+        removeOfflineFromQueue(defaultQueue);
+
+        Iterator<Map.Entry<UUID, ActiveRtp>> iterator = activeRequests.entrySet().iterator();
+
+        while (iterator.hasNext()) {
+            Map.Entry<UUID, ActiveRtp> entry = iterator.next();
+
+            Player player = Bukkit.getPlayer(entry.getKey());
+
+            if (player == null || !player.isOnline()) {
+                if (entry.getValue().task() != null) {
+                    entry.getValue().task().cancel();
+                }
+
+                iterator.remove();
+            }
+        }
+    }
+
+    private void removeOfflineFromQueue(Deque<OriginRtpRequest> queue) {
+        queue.removeIf(request -> {
+            Player player = Bukkit.getPlayer(request.playerId());
+
+            if (player == null || !player.isOnline()) {
+                queuedRequests.remove(request.playerId());
+                return true;
+            }
+
+            return false;
+        });
+    }
+
+    private boolean movedTooFar(Location start, Location current) {
+        if (start == null || current == null) {
+            return true;
+        }
+
+        if (start.getWorld() == null || current.getWorld() == null) {
+            return true;
+        }
+
+        if (!start.getWorld().equals(current.getWorld())) {
+            return true;
+        }
+
+        double distance = cancelDistance();
+        return start.distanceSquared(current) > distance * distance;
+    }
+
+    private String countdownMessage(int seconds) {
+        return message("countdown")
+                .replace("%seconds%", String.valueOf(seconds))
+                .replace("%world%", world());
+    }
+
+    private boolean enabled() {
+        return core.getConfig().getBoolean("origin-rtp.enabled", true);
+    }
+
+    private String world() {
+        return core.getConfig().getString("origin-rtp.world", "origins");
+    }
+
+    private boolean cancelOnMove() {
+        return core.getConfig().getBoolean("origin-rtp.teleport.cancel-on-move", true);
+    }
+
+    private double cancelDistance() {
+        return Math.max(0.01D, core.getConfig().getDouble("origin-rtp.teleport.cancel-distance", 0.15D));
+    }
+
+    private int defaultDelaySeconds() {
+        return Math.max(0, core.getConfig().getInt("origin-rtp.default.delay-seconds", 5));
+    }
+
+    private int plusDelaySeconds() {
+        return Math.max(0, core.getConfig().getInt("origin-rtp.plus.delay-seconds", 2));
+    }
+
+    private boolean plusPriority() {
+        return core.getConfig().getBoolean("origin-rtp.plus.priority", true);
+    }
+
+    private boolean isPlus(Player player) {
+        String permission = core.getConfig().getString("origin-rtp.plus.permission", "mineacle.plus");
+        return player.hasPermission(permission);
+    }
+
+    private String message(String key) {
+        return TextColor.color(core.getConfig().getString(
+                "origin-rtp.messages." + key,
+                "&cMissing origin-rtp message: " + key
+        ));
+    }
+
+    private void sendActionBar(Player player, String message) {
+        player.sendActionBar(actionBar(message));
+    }
+
+    private Component actionBar(String message) {
+        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
+    }
+
+    private record ActiveRtp(
+            Location startLocation,
+            int secondsRemaining,
+            BukkitTask task
+    ) {
+    }
+}

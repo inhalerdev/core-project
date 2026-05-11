@@ -1,0 +1,92 @@
+enabled: true
+title: "Spawn"
+size: 27
+max-players-display: 100
+
+teleport:
+  delay-seconds: 5
+  cancel-on-move: true
+  cancel-distance: 2.0
+
+login-reroute:
+  enabled: true
+  delay-ticks: 5
+  send-message: false
+
+gui:
+  spawn:
+    current-lore:
+      - "&#bbbbbb%online%&8/&#bbbbbb%max%"
+      - ""
+      - "&a➥ You are currently here"
+    available-lore:
+      - "&#bbbbbb%online%&8/&#bbbbbb%max%"
+      - ""
+      - "&#ff80ff➥ Return to Spawn"
+
+  random:
+    lore:
+      - "&#bbbbbbClick to teleport to a random &#ff80ffSpawn"
+
+worlds:
+  lobby1:
+    enabled: true
+    slot: 11
+    display-name: "&dSpawn 1"
+    world: "spawn1"
+    x: 0.5
+    y: 76.0
+    z: -0.5
+    yaw: -180.0
+    pitch: 0.0
+
+  lobby2:
+    enabled: true
+    slot: 12
+    display-name: "&dSpawn 2"
+    world: "spawn2"
+    x: 0.5
+    y: 76.0
+    z: -0.5
+    yaw: -180.0
+    pitch: 0.0
+
+  lobby3:
+    enabled: true
+    slot: 13
+    display-name: "&dSpawn 3"
+    world: "spawn3"
+    x: 0.5
+    y: 76.0
+    z: -0.5
+    yaw: -180.0
+    pitch: 0.0
+
+random:
+  enabled: true
+  slot: 15
+  display-name: "&aRandom Spawn"
+  mode: "LOWEST_POPULATION"
+
+void:
+  enabled: true
+  trigger-y: 0
+  target: "random"
+  fall-protection-seconds: 5
+  check-worlds:
+    - spawn1
+    - spawn2
+    - spawn3
+
+messages:
+  already-here: "&#bbbbbbYou are already at &d%spawn%"
+  teleport-start: "&#bbbbbbTeleporting to &d%spawn% &#bbbbbbin &d%seconds%s"
+  teleport-countdown: "&#bbbbbbTeleporting to &d%spawn% &#bbbbbbin &d%seconds%s"
+  teleport-cancelled: "&cTeleport cancelled because you moved"
+  teleported: "&#bbbbbbTeleported to &d%spawn%"
+  world-missing: "&cThat spawn world is not loaded"
+  random-missing: "&cNo spawn worlds are available"
+  void-teleported: "&#bbbbbbSaved from the void and sent to &d%spawn%"
+  void-missing: "&cNo safe spawn is available"
+  login-rerouted: "&#bbbbbbSent to &d%spawn%"
+  login-reroute-missing: "&cNo spawn worlds are available"

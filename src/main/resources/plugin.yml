@@ -1,0 +1,210 @@
+name: MineacleCore
+main: net.mineacle.core.Core
+version: 1.0.0
+api-version: "1.21"
+author: Mineacle
+
+softdepend: [Vault, PlaceholderAPI]
+loadbefore: [ajLeaderboards, DeluxeMenus, TAB]
+
+commands:
+  home:
+    description: Open your homes menu
+    aliases: [homes]
+    permission: mineaclehomes.use
+
+  sethome:
+    description: Set a named home
+    permission: mineaclehomes.use
+
+  delhome:
+    description: Delete a named home
+    permission: mineaclehomes.use
+
+  renamehome:
+    description: Rename a saved home
+    permission: mineaclehomes.use
+
+  mineaclehomes:
+    description: Reload homes config
+    permission: mineaclehomes.admin
+
+  team:
+    description: Create, join, and manage your team
+    permission: mineacleteams.use
+
+  tpa:
+    description: Request to teleport to a player
+    permission: mineacletpa.use
+
+  tpahere:
+    description: Request a player teleport to you
+    permission: mineacletpa.use
+
+  tpaccept:
+    description: Accept a teleport request
+    permission: mineacletpa.use
+
+  tpdeny:
+    description: Deny a teleport request
+    permission: mineacletpa.use
+
+  tpamenu:
+    description: Open teleport request menu for a player
+    usage: /tpamenu <player>
+    permission: mineacletpa.use
+
+  stats:
+    description: View player stats
+    permission: mineaclestats.use
+
+  bal:
+    description: View your balance
+    aliases: [balance, money]
+    permission: mineacleeconomy.use
+
+  pay:
+    description: Pay another player
+    permission: mineacleeconomy.pay
+
+  eco:
+    description: Manage balances
+    permission: mineacleeconomy.admin
+
+  baltop:
+    description: View balance top
+    aliases: [balancetop]
+    permission: mineaclebaltop.use
+
+  msg:
+    description: Send a private message
+    aliases: [tell, w, whisper, m]
+    permission: mineaclechat.message
+
+  r:
+    description: Reply to your last private message
+    aliases: [reply]
+    permission: mineaclechat.message
+
+  ignore:
+    description: Ignore a player
+    permission: mineaclechat.ignore
+
+  ignorelist:
+    description: View ignored players
+    permission: mineaclechat.ignore
+
+  nick:
+    description: Set your nickname
+    permission: mineaclechat.nick
+
+  realname:
+    description: Check a player's real name from nickname
+    permission: mineaclechat.realname
+
+  spawn:
+    description: Open the spawn menu
+    usage: /spawn
+    permission: mineaclespawn.use
+
+  lobby:
+    description: Open the spawn menu
+    usage: /lobby
+    permission: mineaclespawn.use
+
+  originrtp:
+    description: Queue for Origins random teleport
+    usage: /originrtp
+    permission: mineaclertp.use
+
+  doublejump:
+    description: Reload double jump config
+    usage: /doublejump reload
+    permission: mineacledoublejump.admin
+
+  fly:
+    description: Toggle flight in spawn worlds
+    usage: /fly
+    permission: mineaclefly.command
+
+permissions:
+  mineaclehomes.use:
+    default: true
+
+  mineacle.plus:
+    default: false
+
+  mineaclehomes.admin:
+    default: op
+
+  mineacleteams.use:
+    default: true
+
+  mineacleteams.admin:
+    default: op
+
+  mineacletpa.use:
+    default: true
+
+  mineacletpa.admin:
+    default: op
+
+  mineaclestats.use:
+    default: true
+
+  mineaclestats.admin:
+    default: op
+
+  mineacleeconomy.use:
+    default: true
+
+  mineacleeconomy.pay:
+    default: true
+
+  mineacleeconomy.admin:
+    default: op
+
+  mineaclebaltop.use:
+    default: true
+
+  mineaclebaltop.admin:
+    default: op
+
+  mineaclechat.message:
+    default: true
+
+  mineaclechat.ignore:
+    default: true
+
+  mineaclechat.nick:
+    default: false
+
+  mineaclechat.realname:
+    default: true
+
+  mineaclechat.admin:
+    default: op
+
+  mineaclespawn.use:
+    default: true
+
+  mineaclespawn.admin:
+    default: op
+
+  mineaclertp.use:
+    default: true
+
+  mineaclertp.admin:
+    default: op
+
+  mineacledoublejump.admin:
+    default: op
+
+  mineaclefly.command:
+    default: true
+
+  mineaclefly.use:
+    default: false
+
+  mineaclefly.admin:
+    default: op

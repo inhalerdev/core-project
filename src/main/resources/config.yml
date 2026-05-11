@@ -1,0 +1,383 @@
+teleport-perks:
+  plus-permission: "mineacle.plus"
+  default-delay-seconds: 5
+  plus-delay-seconds: 3
+
+homes:
+  max-homes:
+    default: 2
+    plus: 5
+
+  plus-permission: mineacle.plus
+
+  allowed-worlds:
+    enabled: true
+    worlds:
+      - origins
+
+  blocked-worlds:
+    - spawn1
+    - spawn1_nether
+    - spawn1_the_end
+    - spawn2
+    - spawn3
+
+  teleport:
+    delay-seconds: 5
+    plus-delay-seconds: 3
+    cancel-on-move: true
+    cancel-distance: 2.0
+
+  delete-confirm:
+    timeout-seconds: 5
+
+  team-home:
+    enabled: true
+    banner-slot: 10
+    dye-slot: 19
+    teleport-delay-seconds: 5
+    plus-teleport-delay-seconds: 3
+    cancel-on-move: true
+    cancel-distance: 2.0
+    delete-confirm-timeout-seconds: 5
+
+    allowed-worlds:
+      enabled: true
+      worlds:
+        - origins
+
+    blocked-worlds:
+      - spawn1
+      - spawn1_nether
+      - spawn1_the_end
+      - spawn2
+      - spawn3
+
+teams:
+  enabled: true
+  max-members: 45
+  ban-days: 7
+  invites:
+    timeout-seconds: 120
+
+tpa:
+  enabled: true
+  request-timeout-seconds: 60
+  teleport-delay-seconds: 5
+  plus-teleport-delay-seconds: 3
+  cancel-on-move: true
+  cancel-distance: 2.0
+
+economy:
+  enabled: true
+  starting-balance: 0
+  currency-symbol: "$"
+
+  pay:
+    enabled: true
+    minimum: 0.01
+
+baltop:
+  enabled: true
+  gui-title: "Balance Top"
+  entries-per-page: 45
+
+nickname:
+  enabled: true
+  prefix: "."
+  max-length: 15
+  allowed-regex: "^[a-zA-Z_0-9&§]+$"
+  op-name-color: "#FF80FF"
+  default-name-color: "#bbbbbb"
+
+chat:
+  enabled: true
+  format: "%luckperms_prefix%%mineacle_chat_displayname%&#cccccc: &#cccccc%message%"
+
+  worlds:
+    mode: grouped
+    groups:
+      global:
+        - spawn1
+        - spawn1_nether
+        - spawn1_the_end
+        - spawn2
+        - spawn3
+        - origins
+
+placeholders:
+  datetime:
+    timezone: "America/Chicago"
+    date-format: "MM/dd/yy"
+    time-format: "hh:mm"
+    datetime-format: "MM/dd/yy | hh:mm"
+
+origin-rtp:
+  enabled: true
+  world: "origins"
+
+  queue:
+    enabled: true
+    process-every-ticks: 20
+    max-processing-at-once: 1
+
+  default:
+    delay-seconds: 5
+
+  plus:
+    permission: "mineacle.plus"
+    delay-seconds: 3
+    priority: true
+
+  teleport:
+    cancel-on-move: true
+    cancel-distance: 2.0
+
+  search:
+    use-world-border: true
+    center-x: 0
+    center-z: 0
+    min-radius: 250
+    max-radius: 5000
+    shape: "square"
+    min-y: 64
+    max-y: 320
+    max-attempts: 256
+    preload-radius: 2
+    respect-worldguard: false
+
+  unsafe-blocks:
+    - AIR
+    - CAVE_AIR
+    - VOID_AIR
+    - WATER
+    - LAVA
+    - FIRE
+    - SOUL_FIRE
+    - CACTUS
+    - MAGMA_BLOCK
+    - POWDER_SNOW
+    - BEDROCK
+    - KELP
+    - KELP_PLANT
+    - OAK_LEAVES
+    - SPRUCE_LEAVES
+    - BIRCH_LEAVES
+    - JUNGLE_LEAVES
+    - ACACIA_LEAVES
+    - DARK_OAK_LEAVES
+    - MANGROVE_LEAVES
+    - CHERRY_LEAVES
+    - AZALEA_LEAVES
+    - FLOWERING_AZALEA_LEAVES
+
+  messages:
+    disabled: "&cOrigins RTP is disabled"
+    already-queued: "&cYou are already queued for Origins RTP"
+    queued: "&#ccccccQueued for &dOrigins RTP"
+    queued-position: "&#ccccccQueued for &dOrigins RTP &#ccccccPosition &d#%position%"
+    countdown: "&#ccccccTeleporting to &dOrigins &#ccccccin &d%seconds%s"
+    cancelled: "&cTeleport cancelled — you moved"
+    searching: "&#ccccccFinding a safe location in &dOrigins"
+    failed: "&cCould not find a safe location"
+    teleported: "&#ccccccTeleported to &dOrigins"
+
+double-jump:
+  enabled: true
+
+  worlds:
+    - spawn1
+    - spawn1_nether
+    - spawn1_the_end
+    - spawn2
+    - spawn3
+
+  cooldown-seconds: 0.75
+  upward-velocity: 0.62
+  forward-velocity: 1.25
+  fall-damage-grace-millis: 3000
+  particles: true
+  actionbar-cooldown: false
+
+sounds:
+  enabled: true
+
+  gui:
+    click:
+      enabled: true
+      sound: "UI_BUTTON_CLICK"
+      volume: 0.45
+      pitch: 1.35
+
+    back:
+      enabled: true
+      sound: "UI_BUTTON_CLICK"
+      volume: 0.4
+      pitch: 0.8
+
+    confirm:
+      enabled: true
+      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
+      volume: 0.65
+      pitch: 1.45
+
+    cancel:
+      enabled: true
+      sound: "UI_BUTTON_CLICK"
+      volume: 0.45
+      pitch: 0.65
+
+    error:
+      enabled: true
+      sound: "ENTITY_VILLAGER_NO"
+      volume: 0.45
+      pitch: 1.0
+
+  teleport:
+    countdown:
+      enabled: true
+      sound: "BLOCK_NOTE_BLOCK_HAT"
+      volume: 0.35
+      pitch: 1.85
+
+    cancelled:
+      enabled: true
+      sound: "BLOCK_NOTE_BLOCK_BASS"
+      volume: 0.65
+      pitch: 0.75
+
+    complete:
+      enabled: true
+      sound: "ENTITY_ENDERMAN_TELEPORT"
+      volume: 0.45
+      pitch: 1.25
+
+    request:
+      enabled: true
+      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
+      volume: 0.55
+      pitch: 1.35
+
+    received:
+      enabled: true
+      sound: "BLOCK_NOTE_BLOCK_BELL"
+      volume: 0.6
+      pitch: 1.35
+
+  spawn:
+    open:
+      enabled: true
+      sound: "BLOCK_AMETHYST_BLOCK_CHIME"
+      volume: 0.45
+      pitch: 1.25
+
+    arrive:
+      enabled: true
+      sound: "ENTITY_PLAYER_LEVELUP"
+      volume: 0.35
+      pitch: 1.75
+
+  homes:
+    set:
+      enabled: true
+      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
+      volume: 0.6
+      pitch: 1.5
+
+    delete:
+      enabled: true
+      sound: "BLOCK_FIRE_EXTINGUISH"
+      volume: 0.55
+      pitch: 1.0
+
+  teams:
+    invite:
+      enabled: true
+      sound: "BLOCK_NOTE_BLOCK_BELL"
+      volume: 0.55
+      pitch: 1.35
+
+    create:
+      enabled: true
+      sound: "UI_TOAST_CHALLENGE_COMPLETE"
+      volume: 0.45
+      pitch: 1.2
+
+    disband:
+      enabled: true
+      sound: "BLOCK_ANVIL_LAND"
+      volume: 0.35
+      pitch: 0.8
+
+  economy:
+    pay:
+      enabled: true
+      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
+      volume: 0.55
+      pitch: 1.35
+
+    receive:
+      enabled: true
+      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
+      volume: 0.65
+      pitch: 1.75
+
+    balance:
+      enabled: true
+      sound: "BLOCK_NOTE_BLOCK_PLING"
+      volume: 0.35
+      pitch: 1.75
+
+  chat:
+    message:
+      enabled: true
+      sound: "UI_BUTTON_CLICK"
+      volume: 0.2
+      pitch: 1.6
+
+  double-jump:
+    jump:
+      enabled: true
+      sound: "BLOCK_SLIME_BLOCK_FALL"
+      volume: 0.65
+      pitch: 1.25
+
+    cooldown:
+      enabled: true
+      sound: "UI_BUTTON_CLICK"
+      volume: 0.25
+      pitch: 0.7
+
+fly:
+  enabled: true
+  permission: "mineacle.plus"
+
+  worlds:
+    - spawn1
+    - spawn1_nether
+    - spawn1_the_end
+    - spawn2
+    - spawn3
+
+  messages:
+    enabled: "&aFlight enabled"
+    disabled: "&cFlight disabled"
+    blocked-world: "&cFlight is only available in spawn"
+    upgrade-line-1: "&fElevate your gameplay experience with &dMineacle+"
+    upgrade-line-2: "&d♦ &fhttps://store.mineacle.net"
+
+portal-freeze:
+  enabled: true
+  duration-ticks: 30
+  actionbar: "&#ccccccLoading..."
+  sound:
+    enabled: true
+    key: "teleport.complete"
+
+  worlds:
+    - spawn1
+    - spawn1_nether
+    - spawn1_the_end
+    - spawn2
+    - spawn3
+    - origins
