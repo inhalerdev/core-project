@@ -1,7 +1,9 @@
 package net.mineacle.core.stats;
 
 import me.clip.placeholderapi.PlaceholderAPI;
+import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
+import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -92,7 +94,7 @@ public final class PlayerStatisticsGui implements Listener {
     public void onClick(InventoryClickEvent event) {
         HumanEntity clicker = event.getWhoClicked();
 
-        if (!(clicker instanceof Player)) {
+        if (!(clicker instanceof Player player)) {
             return;
         }
 
@@ -117,6 +119,8 @@ public final class PlayerStatisticsGui implements Listener {
         if (clicked == null || clicked.getType().isAir()) {
             return;
         }
+
+        SoundService.guiClick(player, Core.instance());
     }
 
     @EventHandler

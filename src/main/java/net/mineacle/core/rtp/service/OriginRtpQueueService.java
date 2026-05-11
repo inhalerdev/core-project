@@ -107,7 +107,7 @@ public final class OriginRtpQueueService {
                 .replace("%world%", world());
 
         sendActionBar(player, queuedMessage);
-        SoundService.teleportStart(player, core);
+        SoundService.teleportRequest(player, core);
     }
 
     public void cancel(Player player, boolean sendMessage) {
@@ -121,7 +121,6 @@ public final class OriginRtpQueueService {
 
             if (sendMessage) {
                 sendActionBar(player, TextColor.color(CANCELLED_MOVE_MESSAGE));
-                player.sendMessage(TextColor.color(CANCELLED_MOVE_MESSAGE));
                 SoundService.teleportCancelled(player, core);
             }
 
@@ -137,7 +136,6 @@ public final class OriginRtpQueueService {
 
             if (sendMessage) {
                 sendActionBar(player, TextColor.color(CANCELLED_MOVE_MESSAGE));
-                player.sendMessage(TextColor.color(CANCELLED_MOVE_MESSAGE));
                 SoundService.teleportCancelled(player, core);
             }
         }
@@ -152,16 +150,42 @@ public final class OriginRtpQueueService {
 
         OriginRtpRequest queued = queuedRequests.get(playerId);
 
-        if (queued != null && movedTooFar(queued.startLocation(), player.getLocation())) {
-            cancel(player, true);
+        if (queued != null) {
+            lockToStart(player, queued.startLocation());
             return;
         }
 
         ActiveRtp active = activeRequests.get(playerId);
 
-        if (active != null && movedTooFar(active.startLocation(), player.getLocation())) {
-            cancel(player, true);
+        if (active != null) {
+            lockToStart(player, active.startLocation());
         }
+    }
+
+    private void lockToStart(Player player, Location startLocation) {
+        if (player == null || startLocation == null) {
+            return;
+        }
+
+        if (player.getWorld() == null || startLocation.getWorld() == null) {
+            return;
+        }
+
+        if (!player.getWorld().equals(startLocation.getWorld())) {
+            return;
+        }
+
+        if (player.getLocation().distanceSquared(startLocation) <= 0.04D) {
+            return;
+        }
+
+        Location locked = startLocation.clone();
+        locked.setYaw(player.getLocation().getYaw());
+        locked.setPitch(player.getLocation().getPitch());
+
+        PortalFreezeListener.skipNextFreeze(player, core);
+        player.teleport(locked);
+        sendActionBar(player, message("searching"));
     }
 
     private void processQueue() {
@@ -217,7 +241,6 @@ public final class OriginRtpQueueService {
         );
 
         activeRequests.put(player.getUniqueId(), active);
-
         sendActionBar(player, countdownMessage(delay));
         SoundService.teleportCountdown(player, core);
 
@@ -250,10 +273,7 @@ public final class OriginRtpQueueService {
             return;
         }
 
-        if (cancelOnMove() && movedTooFar(active.startLocation(), player.getLocation())) {
-            cancel(player, true);
-            return;
-        }
+        lockToStart(player, active.startLocation());
 
         int nextSeconds = active.secondsRemaining() - 1;
 
@@ -302,8 +322,6 @@ public final class OriginRtpQueueService {
 
             PortalFreezeListener.skipNextFreeze(player, core);
             player.teleport(location);
-            PortalFreezeListener.clearFrozen(player);
-
             sendActionBar(player, message("teleported"));
             SoundService.teleportComplete(player, core);
         }));
@@ -365,23 +383,6 @@ public final class OriginRtpQueueService {
         });
     }
 
-    private boolean movedTooFar(Location start, Location current) {
-        if (start == null || current == null) {
-            return true;
-        }
-
-        if (start.getWorld() == null || current.getWorld() == null) {
-            return true;
-        }
-
-        if (!start.getWorld().equals(current.getWorld())) {
-            return true;
-        }
-
-        double distance = cancelDistance();
-        return start.distanceSquared(current) > distance * distance;
-    }
-
     private String countdownMessage(int seconds) {
         return message("countdown")
                 .replace("%seconds%", String.valueOf(seconds))
@@ -398,10 +399,6 @@ public final class OriginRtpQueueService {
 
     private boolean cancelOnMove() {
         return core.getConfig().getBoolean("origin-rtp.teleport.cancel-on-move", true);
-    }
-
-    private double cancelDistance() {
-        return Math.max(0.01D, core.getConfig().getDouble("origin-rtp.teleport.cancel-distance", 2.0D));
     }
 
     private int defaultDelaySeconds() {

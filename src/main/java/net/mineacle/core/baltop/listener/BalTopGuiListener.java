@@ -6,6 +6,7 @@ import net.mineacle.core.Core;
 import net.mineacle.core.baltop.gui.BalTopGui;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.DisplayNames;
+import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.stats.PlayerStatisticsGui;
@@ -21,6 +22,7 @@ import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.HashSet;
 import java.util.List;
@@ -69,9 +71,17 @@ public final class BalTopGuiListener implements Listener {
             return;
         }
 
+        ItemStack clicked = event.getCurrentItem();
+
+        if (clicked == null || clicked.getType().isAir()) {
+            return;
+        }
+
         int page = BalTopGui.currentPage(player);
 
         if (rawSlot == BalTopGui.previousSlot()) {
+            SoundService.guiBack(player, core);
+
             MenuHistory.openWithoutBackTrigger(
                     core,
                     player,
@@ -81,11 +91,14 @@ public final class BalTopGuiListener implements Listener {
         }
 
         if (rawSlot == BalTopGui.playerHeadSlot()) {
+            SoundService.guiConfirm(player, core);
             openStatsFromBalTop(player, page, player.getUniqueId());
             return;
         }
 
         if (rawSlot == BalTopGui.refreshSlot()) {
+            SoundService.guiClick(player, core);
+
             MenuHistory.openWithoutBackTrigger(
                     core,
                     player,
@@ -95,11 +108,27 @@ public final class BalTopGuiListener implements Listener {
         }
 
         if (rawSlot == BalTopGui.searchSlot()) {
+            if (event.getClick().isRightClick() && BalTopGui.hasSearch(player)) {
+                BalTopGui.clearSearch(player);
+                sendActionBar(player, "§7Balance Top search cleared");
+                SoundService.guiCancel(player, core);
+
+                MenuHistory.openWithoutBackTrigger(
+                        core,
+                        player,
+                        () -> BalTopGui.open(core, player, economyService, 0)
+                );
+                return;
+            }
+
+            SoundService.guiClick(player, core);
             beginSearch(player);
             return;
         }
 
         if (rawSlot == BalTopGui.nextSlot()) {
+            SoundService.guiClick(player, core);
+
             MenuHistory.openWithoutBackTrigger(
                     core,
                     player,
@@ -112,16 +141,13 @@ public final class BalTopGuiListener implements Listener {
             return;
         }
 
-        if (event.getCurrentItem() == null || event.getCurrentItem().getType().isAir()) {
-            return;
-        }
-
         UUID targetId = targetIdAtSlot(player, page, rawSlot);
 
         if (targetId == null) {
             return;
         }
 
+        SoundService.guiConfirm(player, core);
         openStatsFromBalTop(player, page, targetId);
     }
 
@@ -157,6 +183,7 @@ public final class BalTopGuiListener implements Listener {
             if (message.equalsIgnoreCase("cancel") || message.equalsIgnoreCase("clear")) {
                 BalTopGui.clearSearch(player);
                 sendActionBar(player, "§7Balance Top search cleared");
+                SoundService.guiCancel(player, core);
 
                 MenuHistory.openWithoutBackTrigger(
                         core,
@@ -170,6 +197,7 @@ public final class BalTopGuiListener implements Listener {
 
             if (targetId == null) {
                 sendActionBar(player, "§cNo Balance Top player found");
+                SoundService.guiError(player, core);
 
                 MenuHistory.openWithoutBackTrigger(
                         core,
@@ -180,6 +208,7 @@ public final class BalTopGuiListener implements Listener {
             }
 
             BalTopGui.setSearch(player, message);
+            SoundService.guiConfirm(player, core);
             openStatsFromBalTop(player, 0, targetId);
         });
     }

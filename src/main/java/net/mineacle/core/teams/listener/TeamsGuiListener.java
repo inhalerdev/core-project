@@ -139,6 +139,7 @@ public final class TeamsGuiListener implements Listener {
     private void handleStartClick(Player player, int slot) {
         if (slot == TeamStartGui.CREATE_SLOT) {
             player.closeInventory();
+            SoundService.guiClick(player, core);
 
             Component prompt = Component.text(TextColor.color("§7Type §d/team create <name> §7to create a team"))
                     .clickEvent(ClickEvent.suggestCommand("/team create "));
@@ -190,6 +191,7 @@ public final class TeamsGuiListener implements Listener {
                     && slot == members.size()
                     && members.size() < teamService.maxMembers()) {
                 player.closeInventory();
+                SoundService.guiClick(player, core);
 
                 Component invitePrompt = Component.text("§7Type §d/team invite <player> §7to invite a player")
                         .clickEvent(ClickEvent.suggestCommand("/team invite "));
@@ -218,6 +220,7 @@ public final class TeamsGuiListener implements Listener {
 
         if (slot == TeamsMainGui.SORT_SLOT) {
             TeamsMainGui.cycleSort(player);
+            SoundService.guiClick(player, core);
             TeamsMainGui.open(core, player, teamService, inviteService);
             return;
         }

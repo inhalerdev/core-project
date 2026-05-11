@@ -2,8 +2,10 @@ package net.mineacle.core.tpa.listener;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
+import net.mineacle.core.common.player.DisplayNames;
+import net.mineacle.core.common.sound.SoundService;
+import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.homes.service.TeleportService;
-import net.mineacle.core.tpa.gui.TpaRequestGui;
 import net.mineacle.core.tpa.service.TpaRequest;
 import net.mineacle.core.tpa.service.TpaRequestType;
 import net.mineacle.core.tpa.service.TpaService;
@@ -53,7 +55,10 @@ public final class TpaGuiListener implements Listener {
 
         if (slot == 15) {
             accept(player);
+            return;
         }
+
+        SoundService.guiClick(player, core);
     }
 
     private void accept(Player target) {
@@ -61,7 +66,8 @@ public final class TpaGuiListener implements Listener {
 
         if (request == null) {
             target.closeInventory();
-            target.sendMessage("§cYou have no pending teleport requests.");
+            send(target, "&cYou have no pending teleport requests");
+            SoundService.guiError(target, core);
             return;
         }
 
@@ -69,29 +75,28 @@ public final class TpaGuiListener implements Listener {
 
         if (requester == null || !requester.isOnline()) {
             target.closeInventory();
-            target.sendMessage("§cThat player is no longer online.");
+            send(target, "&cThat player is no longer online");
+            SoundService.guiError(target, core);
             return;
         }
 
         target.closeInventory();
+        SoundService.guiConfirm(target, core);
+
+        send(requester, "&aTeleport request accepted");
+        send(target, "&aTeleport request accepted");
 
         if (request.type() == TpaRequestType.TO_TARGET) {
-            requester.sendMessage("§aTeleport request accepted.");
-            target.sendMessage("§aTeleport request accepted.");
-
             teleportService.begin(requester, "TPA", () -> {
                 requester.teleport(target.getLocation());
-                requester.sendMessage("§aTeleported to §f" + target.getName() + "§a.");
+                send(requester, "&aTeleported to &d" + DisplayNames.displayName(target));
             });
             return;
         }
 
-        requester.sendMessage("§aTeleport request accepted.");
-        target.sendMessage("§aTeleport request accepted.");
-
         teleportService.begin(target, "TPA", () -> {
             target.teleport(requester.getLocation());
-            target.sendMessage("§aTeleported to §f" + requester.getName() + "§a.");
+            send(target, "&aTeleported to &d" + DisplayNames.displayName(requester));
         });
     }
 
@@ -100,19 +105,26 @@ public final class TpaGuiListener implements Listener {
 
         if (request == null) {
             target.closeInventory();
-            target.sendMessage("§cYou have no pending teleport requests.");
+            send(target, "&cYou have no pending teleport requests");
+            SoundService.guiError(target, core);
             return;
         }
 
         Player requester = tpaService.requester(request);
 
         target.closeInventory();
-        target.sendMessage("§cTeleport request denied.");
+        send(target, "&cTeleport request denied");
+        SoundService.guiCancel(target, core);
 
         if (requester != null && requester.isOnline()) {
-            requester.sendMessage("§c" + target.getName() + " denied your teleport request.");
+            send(requester, "&c" + DisplayNames.displayName(target) + " denied your teleport request");
+            SoundService.guiCancel(requester, core);
         }
 
         MenuHistory.clear(target);
+    }
+
+    private void send(Player player, String message) {
+        player.sendMessage(TextColor.color(message));
     }
 }

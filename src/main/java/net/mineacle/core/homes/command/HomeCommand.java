@@ -69,6 +69,7 @@ public final class HomeCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean handleHomeCommand(Player player) {
+        SoundService.guiClick(player, core);
         HomesMainGui.open(core, player, homeService);
         return true;
     }
@@ -147,6 +148,8 @@ public final class HomeCommand implements CommandExecutor, TabCompleter {
 
         player.setMetadata(META_HOME_PENDING, new FixedMetadataValue(core, id));
         player.setMetadata(META_HOME_CONFIRM, new FixedMetadataValue(core, 0));
+
+        SoundService.guiClick(player, core);
         ConfirmDeleteHomeGui.openPlayerDelete(core, player, id, homeService.getDisplayName(player.getUniqueId(), id));
         return true;
     }

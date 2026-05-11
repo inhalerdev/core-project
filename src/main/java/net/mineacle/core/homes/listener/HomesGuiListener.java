@@ -180,6 +180,8 @@ public final class HomesGuiListener implements Listener {
 
         player.setMetadata(META_HOME_PENDING, new FixedMetadataValue(core, id));
         player.setMetadata(META_HOME_CONFIRM, new FixedMetadataValue(core, 0));
+
+        SoundService.guiClick(player, core);
         ConfirmDeleteHomeGui.openPlayerDelete(core, player, id, homeService.getDisplayName(uuid, id));
     }
 
@@ -261,6 +263,7 @@ public final class HomesGuiListener implements Listener {
         if (slot == dyeSlot && isFounder) {
             player.setMetadata(META_TEAM_HOME_PENDING, new FixedMetadataValue(core, team.teamId()));
             player.setMetadata(META_TEAM_HOME_CONFIRM, new FixedMetadataValue(core, false));
+            SoundService.guiClick(player, core);
             ConfirmDeleteHomeGui.openTeamDelete(core, player);
             return;
         }

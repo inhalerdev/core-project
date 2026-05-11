@@ -72,6 +72,7 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 0) {
+            SoundService.guiClick(player, core);
 
             if (teamService.hasTeam(player.getUniqueId())) {
                 MenuHistory.openRoot(core, player, () -> TeamsMainGui.open(core, player, teamService, inviteService));
@@ -91,6 +92,7 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
                 && !sub.equals("accept")
                 && !sub.equals("decline")
                 && !sub.equals("deny")) {
+            SoundService.guiClick(player, core);
             MenuHistory.openRoot(core, player, () -> TeamStartGui.open(core, player, inviteService));
             return true;
         }
@@ -183,6 +185,7 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
 
             player.sendMessage(prompt);
             player.sendActionBar(actionBar("§7Type §d/team create <name> §7to create a team"));
+            SoundService.guiClick(player, core);
             return true;
         }
 
@@ -200,6 +203,7 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean invites(Player player) {
+        SoundService.guiClick(player, core);
         MenuHistory.openRoot(core, player, () -> TeamInviteGui.open(core, player, inviteService, teamService));
         return true;
     }
