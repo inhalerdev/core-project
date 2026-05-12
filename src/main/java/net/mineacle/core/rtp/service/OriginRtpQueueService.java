@@ -3,7 +3,6 @@ package net.mineacle.core.rtp.service;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
-import net.mineacle.core.common.listener.PortalFreezeListener;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
@@ -281,10 +280,7 @@ public final class OriginRtpQueueService {
                 return;
             }
 
-            PortalFreezeListener.skipNextFreeze(player, core);
             player.teleport(location);
-            PortalFreezeListener.clearFrozen(player);
-
             sendActionBar(player, message(rtpKey, "teleported"));
             SoundService.teleportComplete(player, core);
         }));

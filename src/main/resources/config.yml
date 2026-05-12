@@ -14,11 +14,11 @@ homes:
     enabled: true
     worlds:
       - origins
+      - spawn1_nether
+      - spawn1_the_end
 
   blocked-worlds:
     - spawn1
-    - spawn1_nether
-    - spawn1_the_end
     - spawn2
     - spawn3
 
@@ -115,6 +115,32 @@ placeholders:
 origin-rtp:
   enabled: true
   world: "origins"
+
+  destinations:
+    origins:
+      enabled: true
+      display-name: "Origins"
+      world: "origins"
+
+    nether:
+      enabled: true
+      display-name: "Nether"
+      world: "spawn1_nether"
+      search:
+        min-y: 32
+        max-y: 118
+        min-radius: 250
+        max-radius: 5000
+
+    end:
+      enabled: true
+      display-name: "End"
+      world: "spawn1_the_end"
+      search:
+        min-y: 48
+        max-y: 256
+        min-radius: 250
+        max-radius: 5000
 
   queue:
     enabled: true
