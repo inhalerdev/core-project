@@ -30,8 +30,8 @@ public final class MenuHistory {
 
     public static void openWithoutBackTrigger(Plugin plugin, Player player, Runnable openAction) {
         UUID uuid = player.getUniqueId();
-        PROGRAMMATIC_OPEN.put(uuid, true);
 
+        PROGRAMMATIC_OPEN.put(uuid, true);
         openAction.run();
 
         Bukkit.getScheduler().runTaskLater(plugin, () -> PROGRAMMATIC_OPEN.remove(uuid), 2L);
@@ -60,11 +60,16 @@ public final class MenuHistory {
             }
 
             openWithoutBackTrigger(plugin, player, previousMenu);
+
+            if (stack.isEmpty()) {
+                BACK_STACKS.remove(uuid);
+            }
         }, 1L);
     }
 
     public static void clear(Player player) {
         UUID uuid = player.getUniqueId();
+
         BACK_STACKS.remove(uuid);
         PROGRAMMATIC_OPEN.remove(uuid);
     }
