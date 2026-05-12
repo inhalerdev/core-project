@@ -47,6 +47,7 @@ public final class SpawnGuiListener implements Listener {
         }
 
         if (spawnService.randomEnabled() && slot == spawnService.randomSlot()) {
+            SoundService.guiClick(player, spawnService.core());
             handleRandom(player);
             return;
         }
@@ -54,10 +55,10 @@ public final class SpawnGuiListener implements Listener {
         SpawnPoint point = spawnService.spawnPointBySlot(slot);
 
         if (point == null) {
-            SoundService.guiClick(player, spawnService.core());
             return;
         }
 
+        SoundService.guiClick(player, spawnService.core());
         handleSpawnClick(player, point);
     }
 
@@ -88,7 +89,6 @@ public final class SpawnGuiListener implements Listener {
             return;
         }
 
-        SoundService.guiConfirm(player, spawnService.core());
         teleportService.begin(player, point);
     }
 

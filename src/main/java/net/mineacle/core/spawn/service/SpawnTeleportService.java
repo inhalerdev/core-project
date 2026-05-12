@@ -15,6 +15,8 @@ import java.util.UUID;
 
 public final class SpawnTeleportService {
 
+    private static final String CANCELLED_MOVE_MESSAGE = "&cTeleport cancelled — you moved";
+
     private final SpawnService spawnService;
     private final Map<UUID, PendingTeleport> pendingTeleports = new HashMap<>();
 
@@ -35,6 +37,7 @@ public final class SpawnTeleportService {
             String message = spawnService.message("world-missing")
                     .replace("%world%", point.worldName())
                     .replace("%spawn%", TextColor.color(point.displayName()));
+
             sendActionBar(player, message);
             SoundService.guiError(player, spawnService.core());
             return;
@@ -60,6 +63,7 @@ public final class SpawnTeleportService {
 
         sendActionBar(player, startMessage);
         SoundService.teleportStart(player, spawnService.core());
+        SoundService.teleportCountdown(player, spawnService.core());
 
         BukkitTask task = spawnService.core().getServer().getScheduler().runTaskTimer(
                 spawnService.core(),
@@ -121,9 +125,7 @@ public final class SpawnTeleportService {
         }
 
         if (sendMessage) {
-            String message = spawnService.message("teleport-cancelled");
-            sendActionBar(player, message);
-            player.sendMessage(TextColor.color(message));
+            sendActionBar(player, CANCELLED_MOVE_MESSAGE);
             SoundService.teleportCancelled(player, spawnService.core());
         }
     }
@@ -139,6 +141,7 @@ public final class SpawnTeleportService {
             String message = spawnService.message("world-missing")
                     .replace("%world%", point.worldName())
                     .replace("%spawn%", TextColor.color(point.displayName()));
+
             sendActionBar(player, message);
             SoundService.guiError(player, spawnService.core());
             return;
@@ -152,6 +155,14 @@ public final class SpawnTeleportService {
     }
 
     private boolean movedTooFar(Location start, Location current) {
+        if (start == null || current == null) {
+            return true;
+        }
+
+        if (start.getWorld() == null || current.getWorld() == null) {
+            return true;
+        }
+
         if (!start.getWorld().equals(current.getWorld())) {
             return true;
         }
