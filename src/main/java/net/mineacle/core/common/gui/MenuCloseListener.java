@@ -36,14 +36,14 @@ public final class MenuCloseListener implements Listener {
                 || isTpaMenu(title)
                 || isStatsMenu(title)
                 || isBalTopMenu(title)
-                || isSpawnMenu(title)
-                || isPlusMenu(title)
-                || isAdminMenu(title);
+                || isSpawnMenu(title);
     }
 
     private boolean isHomesMenu(String title) {
         return title.equalsIgnoreCase("Homes")
+                || title.equalsIgnoreCase("Player Homes")
                 || title.equalsIgnoreCase("Delete Home")
+                || title.equalsIgnoreCase("Delete Player Home")
                 || title.equalsIgnoreCase("Delete Team Home")
                 || title.equalsIgnoreCase("Overwrite Home")
                 || title.equalsIgnoreCase("Rename Home");
@@ -77,21 +77,11 @@ public final class MenuCloseListener implements Listener {
     }
 
     private boolean isBalTopMenu(String title) {
-        return title.startsWith("Balance Top (Page ");
+        return title.startsWith("Balance Top");
     }
 
     private boolean isSpawnMenu(String title) {
         return title.equalsIgnoreCase("Spawn");
-    }
-
-    private boolean isPlusMenu(String title) {
-        return title.equalsIgnoreCase("Mineacle+")
-                || title.equalsIgnoreCase("Mineacle Plus");
-    }
-
-    private boolean isAdminMenu(String title) {
-        return title.equalsIgnoreCase("Admin Panel")
-                || title.startsWith("Admin:");
     }
 
     private boolean isTeamMainMenu(String title) {
