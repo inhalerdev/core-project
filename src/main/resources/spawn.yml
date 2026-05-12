@@ -82,7 +82,7 @@ messages:
   already-here: "&#bbbbbbYou are already at &d%spawn%"
   teleport-start: "&#bbbbbbTeleporting to &d%spawn% &#bbbbbbin &d%seconds%s"
   teleport-countdown: "&#bbbbbbTeleporting to &d%spawn% &#bbbbbbin &d%seconds%s"
-    teleport-cancelled: "&cTeleport cancelled — you moved"
+  teleport-cancelled: "&cTeleport cancelled — you moved"
   teleported: "&#bbbbbbTeleported to &d%spawn%"
   world-missing: "&cThat spawn world is not loaded"
   random-missing: "&cNo spawn worlds are available"
