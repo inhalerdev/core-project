@@ -392,8 +392,6 @@ fly:
 
   worlds:
     - spawn1
-    - spawn1_nether
-    - spawn1_the_end
     - spawn2
     - spawn3
 
