@@ -22,10 +22,10 @@ public final class OriginRtpLocationService {
         this.core = core;
     }
 
-    public CompletableFuture<Location> findSafeLocation() {
+    public CompletableFuture<Location> findSafeLocation(String rtpKey) {
         CompletableFuture<Location> future = new CompletableFuture<>();
 
-        OriginRtpSearchSettings settings = OriginRtpSearchSettings.fromConfig(core);
+        OriginRtpSearchSettings settings = OriginRtpSearchSettings.fromConfig(core, rtpKey);
         World world = Bukkit.getWorld(settings.worldName());
 
         if (world == null) {
@@ -198,19 +198,7 @@ public final class OriginRtpLocationService {
 
         String name = material.name();
 
-        if (name.endsWith("_LEAVES")) {
-            return false;
-        }
-
-        if (name.endsWith("_LOG")) {
-            return false;
-        }
-
-        if (name.endsWith("_WOOD")) {
-            return false;
-        }
-
-        return true;
+        return !name.endsWith("_LEAVES") && !name.endsWith("_LOG") && !name.endsWith("_WOOD");
     }
 
     private boolean isSafeAir(Block block, OriginRtpSearchSettings settings) {

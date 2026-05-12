@@ -3,6 +3,7 @@ package net.mineacle.core.rtp.service;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
+import net.mineacle.core.common.listener.PortalFreezeListener;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
@@ -14,6 +15,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -68,8 +70,14 @@ public final class OriginRtpQueueService {
     }
 
     public void request(Player player) {
-        if (!enabled()) {
-            sendActionBar(player, message("disabled"));
+        request(player, "origins");
+    }
+
+    public void request(Player player, String rtpKey) {
+        String key = normalizeDestination(rtpKey);
+
+        if (!enabled(key)) {
+            sendActionBar(player, message(key, "disabled"));
             SoundService.guiError(player, core);
             return;
         }
@@ -77,7 +85,7 @@ public final class OriginRtpQueueService {
         UUID playerId = player.getUniqueId();
 
         if (queuedRequests.containsKey(playerId) || activeRequests.containsKey(playerId)) {
-            sendActionBar(player, message("already-queued"));
+            sendActionBar(player, message(key, "already-queued"));
             SoundService.guiError(player, core);
             return;
         }
@@ -89,10 +97,11 @@ public final class OriginRtpQueueService {
                 player.getName(),
                 player.getLocation().clone(),
                 plus,
+                key,
                 System.currentTimeMillis()
         );
 
-        if (plus && plusPriority()) {
+        if (plus && plusPriority(key)) {
             plusQueue.addLast(request);
         } else {
             defaultQueue.addLast(request);
@@ -100,13 +109,13 @@ public final class OriginRtpQueueService {
 
         queuedRequests.put(playerId, request);
 
-        String queuedMessage = message("queued-position")
+        String queuedMessage = message(key, "queued-position")
                 .replace("%position%", String.valueOf(position(playerId)))
                 .replace("%type%", plus ? "Mineacle+" : "Default")
-                .replace("%world%", world());
+                .replace("%world%", displayName(key));
 
         sendActionBar(player, queuedMessage);
-        SoundService.teleportRequest(player, core);
+        SoundService.teleportStart(player, core);
     }
 
     public void cancel(Player player, boolean sendMessage) {
@@ -120,6 +129,7 @@ public final class OriginRtpQueueService {
 
             if (sendMessage) {
                 sendActionBar(player, TextColor.color(CANCELLED_MOVE_MESSAGE));
+                player.sendMessage(TextColor.color(CANCELLED_MOVE_MESSAGE));
                 SoundService.teleportCancelled(player, core);
             }
 
@@ -135,58 +145,30 @@ public final class OriginRtpQueueService {
 
             if (sendMessage) {
                 sendActionBar(player, TextColor.color(CANCELLED_MOVE_MESSAGE));
+                player.sendMessage(TextColor.color(CANCELLED_MOVE_MESSAGE));
                 SoundService.teleportCancelled(player, core);
             }
         }
     }
 
     public void handleMove(Player player) {
-        if (!cancelOnMove()) {
-            return;
-        }
-
         UUID playerId = player.getUniqueId();
 
         OriginRtpRequest queued = queuedRequests.get(playerId);
 
-        if (queued != null) {
-            if (movedTooFar(queued.startLocation(), player.getLocation())) {
-                cancel(player, true);
-            }
-
+        if (queued != null && cancelOnMove(queued.rtpKey()) && movedTooFar(queued.startLocation(), player.getLocation(), queued.rtpKey())) {
+            cancel(player, true);
             return;
         }
 
         ActiveRtp active = activeRequests.get(playerId);
 
-        if (active != null && movedTooFar(active.startLocation(), player.getLocation())) {
+        if (active != null && cancelOnMove(active.rtpKey()) && movedTooFar(active.startLocation(), player.getLocation(), active.rtpKey())) {
             cancel(player, true);
         }
     }
 
-    private boolean movedTooFar(Location startLocation, Location currentLocation) {
-        if (startLocation == null || currentLocation == null) {
-            return true;
-        }
-
-        if (startLocation.getWorld() == null || currentLocation.getWorld() == null) {
-            return true;
-        }
-
-        if (!startLocation.getWorld().equals(currentLocation.getWorld())) {
-            return true;
-        }
-
-        double distance = Math.max(0.01D, core.getConfig().getDouble("origin-rtp.teleport.cancel-distance", 2.0D));
-
-        return startLocation.distanceSquared(currentLocation) > distance * distance;
-    }
-
     private void processQueue() {
-        if (!enabled()) {
-            return;
-        }
-
         int max = Math.max(1, core.getConfig().getInt("origin-rtp.queue.max-processing-at-once", 1));
         int started = 0;
 
@@ -221,21 +203,17 @@ public final class OriginRtpQueueService {
     }
 
     private void beginCountdown(Player player, OriginRtpRequest request) {
-        int delay = request.plus() ? plusDelaySeconds() : defaultDelaySeconds();
+        int delay = request.plus() ? plusDelaySeconds(request.rtpKey()) : defaultDelaySeconds(request.rtpKey());
 
         if (delay <= 0) {
-            beginNativeRtp(player);
+            beginNativeRtp(player, request.rtpKey());
             return;
         }
 
-        ActiveRtp active = new ActiveRtp(
-                request.startLocation(),
-                delay,
-                null
-        );
-
+        ActiveRtp active = new ActiveRtp(request.startLocation(), delay, request.rtpKey(), null);
         activeRequests.put(player.getUniqueId(), active);
-        sendActionBar(player, countdownMessage(delay));
+
+        sendActionBar(player, countdownMessage(request.rtpKey(), delay));
         SoundService.teleportCountdown(player, core);
 
         BukkitTask task = core.getServer().getScheduler().runTaskTimer(
@@ -245,14 +223,7 @@ public final class OriginRtpQueueService {
                 20L
         );
 
-        activeRequests.put(
-                player.getUniqueId(),
-                new ActiveRtp(
-                        request.startLocation(),
-                        delay,
-                        task
-                )
-        );
+        activeRequests.put(player.getUniqueId(), new ActiveRtp(request.startLocation(), delay, request.rtpKey(), task));
     }
 
     private void tickCountdown(Player player) {
@@ -267,6 +238,11 @@ public final class OriginRtpQueueService {
             return;
         }
 
+        if (cancelOnMove(active.rtpKey()) && movedTooFar(active.startLocation(), player.getLocation(), active.rtpKey())) {
+            cancel(player, true);
+            return;
+        }
+
         int nextSeconds = active.secondsRemaining() - 1;
 
         if (nextSeconds <= 0) {
@@ -277,43 +253,39 @@ public final class OriginRtpQueueService {
             }
 
             activeRequests.remove(player.getUniqueId());
-            beginNativeRtp(player);
+            beginNativeRtp(player, active.rtpKey());
             return;
         }
 
-        activeRequests.put(
-                player.getUniqueId(),
-                new ActiveRtp(
-                        active.startLocation(),
-                        nextSeconds,
-                        active.task()
-                )
-        );
+        activeRequests.put(player.getUniqueId(), new ActiveRtp(active.startLocation(), nextSeconds, active.rtpKey(), active.task()));
 
-        sendActionBar(player, countdownMessage(nextSeconds));
+        sendActionBar(player, countdownMessage(active.rtpKey(), nextSeconds));
         SoundService.teleportCountdown(player, core);
     }
 
-    private void beginNativeRtp(Player player) {
+    private void beginNativeRtp(Player player, String rtpKey) {
         if (!player.isOnline()) {
             return;
         }
 
-        sendActionBar(player, message("searching"));
+        sendActionBar(player, message(rtpKey, "searching"));
 
-        locationService.findSafeLocation().thenAccept(location -> Bukkit.getScheduler().runTask(core, () -> {
+        locationService.findSafeLocation(rtpKey).thenAccept(location -> Bukkit.getScheduler().runTask(core, () -> {
             if (!player.isOnline()) {
                 return;
             }
 
             if (location == null) {
-                sendActionBar(player, message("failed"));
+                sendActionBar(player, message(rtpKey, "failed"));
                 SoundService.guiError(player, core);
                 return;
             }
 
+            PortalFreezeListener.skipNextFreeze(player, core);
             player.teleport(location);
-            sendActionBar(player, message("teleported"));
+            PortalFreezeListener.clearFrozen(player);
+
+            sendActionBar(player, message(rtpKey, "teleported"));
             SoundService.teleportComplete(player, core);
         }));
     }
@@ -348,7 +320,6 @@ public final class OriginRtpQueueService {
 
         while (iterator.hasNext()) {
             Map.Entry<UUID, ActiveRtp> entry = iterator.next();
-
             Player player = Bukkit.getPlayer(entry.getKey());
 
             if (player == null || !player.isOnline()) {
@@ -374,35 +345,58 @@ public final class OriginRtpQueueService {
         });
     }
 
-    private String countdownMessage(int seconds) {
-        return message("countdown")
+    private boolean movedTooFar(Location start, Location current, String rtpKey) {
+        if (start == null || current == null) {
+            return true;
+        }
+
+        if (start.getWorld() == null || current.getWorld() == null) {
+            return true;
+        }
+
+        if (!start.getWorld().equals(current.getWorld())) {
+            return true;
+        }
+
+        double distance = cancelDistance(rtpKey);
+        return start.distanceSquared(current) > distance * distance;
+    }
+
+    private String countdownMessage(String rtpKey, int seconds) {
+        return message(rtpKey, "countdown")
                 .replace("%seconds%", String.valueOf(seconds))
-                .replace("%world%", world());
+                .replace("%world%", displayName(rtpKey));
     }
 
-    private boolean enabled() {
-        return core.getConfig().getBoolean("origin-rtp.enabled", true);
+    private boolean enabled(String rtpKey) {
+        return core.getConfig().getBoolean("origin-rtp.destinations." + rtpKey + ".enabled",
+                core.getConfig().getBoolean("origin-rtp.enabled", true));
     }
 
-    private String world() {
-        return core.getConfig().getString("origin-rtp.world", "origins");
+    private boolean cancelOnMove(String rtpKey) {
+        return core.getConfig().getBoolean("origin-rtp.destinations." + rtpKey + ".teleport.cancel-on-move",
+                core.getConfig().getBoolean("origin-rtp.teleport.cancel-on-move", true));
     }
 
-    private boolean cancelOnMove() {
-        return core.getConfig().getBoolean("origin-rtp.teleport.cancel-on-move", true);
+    private double cancelDistance(String rtpKey) {
+        return Math.max(0.01D, core.getConfig().getDouble("origin-rtp.destinations." + rtpKey + ".teleport.cancel-distance",
+                core.getConfig().getDouble("origin-rtp.teleport.cancel-distance", 2.0D)));
     }
 
-    private int defaultDelaySeconds() {
-        return Math.max(0, core.getConfig().getInt("origin-rtp.default.delay-seconds", 5));
+    private int defaultDelaySeconds(String rtpKey) {
+        return Math.max(0, core.getConfig().getInt("origin-rtp.destinations." + rtpKey + ".default.delay-seconds",
+                core.getConfig().getInt("origin-rtp.default.delay-seconds", 5)));
     }
 
-    private int plusDelaySeconds() {
-        return Math.max(0, core.getConfig().getInt("origin-rtp.plus.delay-seconds",
-                core.getConfig().getInt("teleport-perks.plus-delay-seconds", 3)));
+    private int plusDelaySeconds(String rtpKey) {
+        return Math.max(0, core.getConfig().getInt("origin-rtp.destinations." + rtpKey + ".plus.delay-seconds",
+                core.getConfig().getInt("origin-rtp.plus.delay-seconds",
+                        core.getConfig().getInt("teleport-perks.plus-delay-seconds", 3))));
     }
 
-    private boolean plusPriority() {
-        return core.getConfig().getBoolean("origin-rtp.plus.priority", true);
+    private boolean plusPriority(String rtpKey) {
+        return core.getConfig().getBoolean("origin-rtp.destinations." + rtpKey + ".plus.priority",
+                core.getConfig().getBoolean("origin-rtp.plus.priority", true));
     }
 
     private boolean isPlus(Player player) {
@@ -411,11 +405,47 @@ public final class OriginRtpQueueService {
         return player.hasPermission(permission);
     }
 
-    private String message(String key) {
-        return TextColor.color(core.getConfig().getString(
-                "origin-rtp.messages." + key,
-                "&cMissing origin-rtp message: " + key
-        ));
+    private String displayName(String rtpKey) {
+        return core.getConfig().getString("origin-rtp.destinations." + rtpKey + ".display-name",
+                switch (rtpKey) {
+                    case "nether" -> "Nether";
+                    case "end" -> "End";
+                    default -> "Origins";
+                });
+    }
+
+    private String message(String rtpKey, String key) {
+        String destinationPath = "origin-rtp.destinations." + rtpKey + ".messages." + key;
+
+        String raw = core.getConfig().getString(destinationPath);
+
+        if (raw == null) {
+            raw = core.getConfig().getString("origin-rtp.messages." + key, "&cMissing origin-rtp message: " + key);
+        }
+
+        return TextColor.color(raw.replace("%world%", displayName(rtpKey)));
+    }
+
+    private String normalizeDestination(String input) {
+        if (input == null || input.isBlank()) {
+            return "origins";
+        }
+
+        String value = input.toLowerCase(Locale.ROOT);
+
+        if (value.equals("origin") || value.equals("overworld") || value.equals("world")) {
+            return "origins";
+        }
+
+        if (value.equals("the_nether")) {
+            return "nether";
+        }
+
+        if (value.equals("the_end")) {
+            return "end";
+        }
+
+        return value;
     }
 
     private void sendActionBar(Player player, String message) {
@@ -429,6 +459,7 @@ public final class OriginRtpQueueService {
     private record ActiveRtp(
             Location startLocation,
             int secondsRemaining,
+            String rtpKey,
             BukkitTask task
     ) {
     }

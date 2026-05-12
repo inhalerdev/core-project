@@ -9,6 +9,7 @@ public record OriginRtpRequest(
         String playerName,
         Location startLocation,
         boolean plus,
+        String rtpKey,
         long createdAtMillis
 ) {
 }
