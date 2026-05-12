@@ -13,7 +13,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import net.mineacle.core.common.listener.PortalFreezeListener;
 
 public final class SpawnGuiListener implements Listener {
 
@@ -79,7 +78,6 @@ public final class SpawnGuiListener implements Listener {
         player.closeInventory();
 
         if (player.getWorld().getName().equalsIgnoreCase(point.worldName())) {
-            PortalFreezeListener.skipNextFreeze(player, spawnService.core());
             player.teleport(target);
 
             String message = spawnService.message("teleported")

@@ -3,7 +3,6 @@ package net.mineacle.core.homes.service;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
-import net.mineacle.core.common.listener.PortalFreezeListener;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Location;
@@ -56,7 +55,6 @@ public final class TeleportService {
 
         if (delaySeconds <= 0) {
             cancel(uuid);
-            PortalFreezeListener.skipNextFreeze(player, core);
             action.run();
             SoundService.teleportComplete(player, core);
             return;
@@ -80,7 +78,6 @@ public final class TeleportService {
 
                 if (countdown <= 0) {
                     TeleportService.this.cancel(uuid);
-                    PortalFreezeListener.skipNextFreeze(player, core);
                     action.run();
                     SoundService.teleportComplete(player, core);
                     cancel();

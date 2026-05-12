@@ -273,13 +273,6 @@ sounds:
       volume: 0.42
       pitch: 1.55
 
-  portal:
-    freeze:
-      enabled: true
-      sound: "BLOCK_AMETHYST_BLOCK_CHIME"
-      volume: 0.25
-      pitch: 1.05
-
   spawn:
     open:
       enabled: false
@@ -386,15 +379,3 @@ fly:
     blocked-world: "&cFlight is only available in spawn"
     upgrade-line-1: "&fElevate your gameplay experience with &dMineacle+"
     upgrade-line-2: "&d♦ &fhttps://store.mineacle.net"
-
-portal-freeze:
-  enabled: true
-  duration-ticks: 30
-  actionbar: "&#ccccccLoading..."
-  source-worlds:
-    - spawn1
-    - spawn2
-    - spawn3
-  sound:
-    enabled: true
-    key: "portal.freeze"

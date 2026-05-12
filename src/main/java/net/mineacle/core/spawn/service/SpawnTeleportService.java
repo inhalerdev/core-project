@@ -2,7 +2,6 @@ package net.mineacle.core.spawn.service;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.common.listener.PortalFreezeListener;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.spawn.model.SpawnPoint;
@@ -136,8 +135,6 @@ public final class SpawnTeleportService {
             pending.task().cancel();
         }
 
-        PortalFreezeListener.skipNextFreeze(player, spawnService.core());
-
         if (!spawnService.teleport(player, point)) {
             String message = spawnService.message("world-missing")
                     .replace("%world%", point.worldName())
@@ -146,8 +143,6 @@ public final class SpawnTeleportService {
             SoundService.guiError(player, spawnService.core());
             return;
         }
-
-        PortalFreezeListener.clearFrozen(player);
 
         String message = spawnService.message("teleported")
                 .replace("%spawn%", TextColor.color(point.displayName()));

@@ -4,7 +4,6 @@ import net.mineacle.core.baltop.BalTopModule;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.chat.ChatModule;
 import net.mineacle.core.common.gui.MenuCloseListener;
-import net.mineacle.core.common.listener.PortalFreezeListener;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.doublejump.DoubleJumpModule;
 import net.mineacle.core.economy.EconomyModule;
@@ -58,7 +57,6 @@ public final class Core extends JavaPlugin {
         loadEconomyFile();
 
         getServer().getPluginManager().registerEvents(new MenuCloseListener(this), this);
-        getServer().getPluginManager().registerEvents(new PortalFreezeListener(this), this);
 
         try {
             registerModule(new HomesModule());
