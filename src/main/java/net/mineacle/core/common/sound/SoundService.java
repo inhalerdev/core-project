@@ -70,6 +70,14 @@ public final class SoundService {
         play(player, core, "gui.error");
     }
 
+    public static void guiUsage(Player player, Core core) {
+        play(player, core, "gui.usage");
+    }
+
+    public static void mineaclePlus(Player player, Core core) {
+        play(player, core, "mineacle-plus.blocked");
+    }
+
     public static void teleportStart(Player player, Core core) {
         play(player, core, "teleport.start");
     }
@@ -92,6 +100,10 @@ public final class SoundService {
 
     public static void teleportReceived(Player player, Core core) {
         play(player, core, "teleport.received");
+    }
+
+    public static void portalFreeze(Player player, Core core) {
+        play(player, core, "portal.freeze");
     }
 
     public static void spawnOpen(Player player, Core core) {

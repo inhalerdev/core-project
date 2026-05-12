@@ -156,7 +156,7 @@ public final class PortalFreezeListener implements Listener {
         player.sendActionBar(actionBar(actionbar));
 
         if (core.getConfig().getBoolean("portal-freeze.sound.enabled", true)) {
-            String soundKey = core.getConfig().getString("portal-freeze.sound.key", "teleport.complete");
+            String soundKey = core.getConfig().getString("portal-freeze.sound.key", "portal.freeze");
             SoundService.play(player, core, soundKey);
         }
 

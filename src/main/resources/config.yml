@@ -228,6 +228,18 @@ sounds:
       sound: "BLOCK_NOTE_BLOCK_BASS"
       volume: 0.35
       pitch: 0.65
+    usage:
+      enabled: true
+      sound: "BLOCK_STONE_BUTTON_CLICK_ON"
+      volume: 0.25
+      pitch: 0.65
+
+  mineacle-plus:
+    blocked:
+      enabled: true
+      sound: "BLOCK_NOTE_BLOCK_BASS"
+      volume: 0.28
+      pitch: 0.75
 
   teleport:
     start:
@@ -261,6 +273,13 @@ sounds:
       volume: 0.42
       pitch: 1.55
 
+  portal:
+    freeze:
+      enabled: true
+      sound: "BLOCK_AMETHYST_BLOCK_CHIME"
+      volume: 0.25
+      pitch: 1.05
+
   spawn:
     open:
       enabled: false
@@ -283,7 +302,7 @@ sounds:
       enabled: true
       sound: "BLOCK_NOTE_BLOCK_BASS"
       volume: 0.35
-      pitch: 0.7
+      pitch: 0.70
 
   teams:
     invite:
@@ -300,13 +319,13 @@ sounds:
       enabled: true
       sound: "BLOCK_NOTE_BLOCK_BASS"
       volume: 0.40
-      pitch: 0.6
+      pitch: 0.60
 
   economy:
     pay:
       enabled: true
-      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
-      volume: 0.45
+      sound: "ENTITY_ITEM_PICKUP"
+      volume: 0.42
       pitch: 1.35
     receive:
       enabled: true
@@ -329,9 +348,9 @@ sounds:
   double-jump:
     jump:
       enabled: true
-      sound: "BLOCK_AMETHYST_BLOCK_CHIME"
-      volume: 0.38
-      pitch: 1.85
+      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
+      volume: 1.0
+      pitch: 1.5
     cooldown:
       enabled: false
       sound: "BLOCK_STONE_BUTTON_CLICK_ON"
@@ -371,15 +390,11 @@ fly:
 portal-freeze:
   enabled: true
   duration-ticks: 30
-  actionbar: "&#ccccccTeleporting you to &dOrigins"
-  sound:
-    enabled: true
-    key: "teleport.complete"
-
-  worlds:
+  actionbar: "&#ccccccLoading..."
+  source-worlds:
     - spawn1
-    - spawn1_nether
-    - spawn1_the_end
     - spawn2
     - spawn3
-    - origins
+  sound:
+    enabled: true
+    key: "portal.freeze"
