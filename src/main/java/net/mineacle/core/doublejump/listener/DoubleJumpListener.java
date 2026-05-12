@@ -13,7 +13,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -33,7 +32,6 @@ public final class DoubleJumpListener implements Listener {
 
     private final Core core;
     private final Map<UUID, Long> lastJumpMillis = new HashMap<>();
-    private final Map<UUID, Long> fallGraceUntilMillis = new HashMap<>();
     private final Set<UUID> flyEnabled = new HashSet<>();
 
     public DoubleJumpListener(Core core) {
@@ -43,16 +41,13 @@ public final class DoubleJumpListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-
         core.getServer().getScheduler().runTaskLater(core, () -> refresh(player), 2L);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
         UUID uuid = event.getPlayer().getUniqueId();
-
         lastJumpMillis.remove(uuid);
-        fallGraceUntilMillis.remove(uuid);
         flyEnabled.remove(uuid);
     }
 
@@ -83,7 +78,6 @@ public final class DoubleJumpListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onGameModeChange(PlayerGameModeChangeEvent event) {
         Player player = event.getPlayer();
-
         core.getServer().getScheduler().runTaskLater(core, () -> refresh(player), 1L);
     }
 
@@ -131,7 +125,7 @@ public final class DoubleJumpListener implements Listener {
         player.setAllowFlight(false);
 
         if (isOnCooldown(player)) {
-            SoundService.doubleJumpCooldown(player, core);
+            SoundService.play(player, core, "double-jump.cooldown");
 
             if (core.getConfig().getBoolean("double-jump.actionbar-cooldown", false)) {
                 player.sendActionBar(actionBar("&cDouble jump is cooling down"));
@@ -144,43 +138,12 @@ public final class DoubleJumpListener implements Listener {
         launch(player);
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onFallDamage(EntityDamageEvent event) {
-        if (!(event.getEntity() instanceof Player player)) {
-            return;
-        }
-
-        if (event.getCause() != EntityDamageEvent.DamageCause.FALL) {
-            return;
-        }
-
-        Long graceUntil = fallGraceUntilMillis.get(player.getUniqueId());
-
-        if (graceUntil == null) {
-            return;
-        }
-
-        if (System.currentTimeMillis() > graceUntil) {
-            fallGraceUntilMillis.remove(player.getUniqueId());
-            return;
-        }
-
-        event.setCancelled(true);
-        fallGraceUntilMillis.remove(player.getUniqueId());
-    }
-
     public boolean toggleFly(Player player) {
         UUID uuid = player.getUniqueId();
 
         if (flyEnabled.contains(uuid)) {
             flyEnabled.remove(uuid);
-            player.setFlying(false);
-
-            if (player.getGameMode() != GameMode.CREATIVE && player.getGameMode() != GameMode.SPECTATOR) {
-                player.setAllowFlight(false);
-            }
-
-            core.getServer().getScheduler().runTaskLater(core, () -> refresh(player), 5L);
+            refresh(player);
             return false;
         }
 
@@ -195,13 +158,6 @@ public final class DoubleJumpListener implements Listener {
         }
 
         for (String configuredWorld : core.getConfig().getStringList("fly.worlds")) {
-            if (configuredWorld.equalsIgnoreCase(worldName)) {
-                return true;
-            }
-        }
-
-        // Fallback: if fly.worlds is missing, use double-jump worlds
-        for (String configuredWorld : core.getConfig().getStringList("double-jump.worlds")) {
             if (configuredWorld.equalsIgnoreCase(worldName)) {
                 return true;
             }
@@ -222,7 +178,6 @@ public final class DoubleJumpListener implements Listener {
         }
 
         lastJumpMillis.clear();
-        fallGraceUntilMillis.clear();
         flyEnabled.clear();
     }
 
@@ -281,14 +236,7 @@ public final class DoubleJumpListener implements Listener {
 
     private void launch(Player player) {
         UUID uuid = player.getUniqueId();
-
         lastJumpMillis.put(uuid, System.currentTimeMillis());
-
-        long graceMillis = Math.max(0L, core.getConfig().getLong("double-jump.fall-damage-grace-millis", 3000L));
-
-        if (graceMillis > 0L) {
-            fallGraceUntilMillis.put(uuid, System.currentTimeMillis() + graceMillis);
-        }
 
         double upward = core.getConfig().getDouble("double-jump.upward-velocity", 0.62D);
         double forward = core.getConfig().getDouble("double-jump.forward-velocity", 1.25D);
@@ -301,10 +249,10 @@ public final class DoubleJumpListener implements Listener {
         }
 
         direction.setY(upward);
-        player.setVelocity(direction);
 
+        player.setVelocity(direction);
         playParticles(player);
-        SoundService.doubleJump(player, core);
+        SoundService.play(player, core, "double-jump.jump");
     }
 
     private boolean isOnCooldown(Player player) {
@@ -321,7 +269,6 @@ public final class DoubleJumpListener implements Listener {
         }
 
         long cooldownMillis = Math.round(cooldownSeconds * 1000.0D);
-
         return System.currentTimeMillis() - lastJump < cooldownMillis;
     }
 
