@@ -215,7 +215,7 @@ sounds:
       pitch: 0.85
     confirm:
       enabled: true
-      sound: "BLOCK_AMETHYST_BLOCK_CHIME"
+      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
       volume: 0.45
       pitch: 1.45
     cancel:
@@ -244,7 +244,7 @@ sounds:
   teleport:
     start:
       enabled: true
-      sound: "BLOCK_AMETHYST_BLOCK_CHIME"
+      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
       volume: 0.42
       pitch: 1.20
     countdown:
@@ -264,12 +264,12 @@ sounds:
       pitch: 1.65
     request:
       enabled: true
-      sound: "BLOCK_AMETHYST_BLOCK_CHIME"
+      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
       volume: 0.38
       pitch: 1.35
     received:
       enabled: true
-      sound: "BLOCK_AMETHYST_BLOCK_CHIME"
+      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
       volume: 0.42
       pitch: 1.55
 
@@ -288,7 +288,7 @@ sounds:
   homes:
     set:
       enabled: true
-      sound: "BLOCK_AMETHYST_BLOCK_CHIME"
+      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
       volume: 0.45
       pitch: 1.45
     delete:
@@ -300,12 +300,12 @@ sounds:
   teams:
     invite:
       enabled: true
-      sound: "BLOCK_AMETHYST_BLOCK_CHIME"
+      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
       volume: 0.40
       pitch: 1.40
     create:
       enabled: true
-      sound: "BLOCK_AMETHYST_BLOCK_CHIME"
+      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
       volume: 0.55
       pitch: 1.65
     disband:
@@ -327,7 +327,7 @@ sounds:
       pitch: 1.75
     balance:
       enabled: true
-      sound: "BLOCK_AMETHYST_BLOCK_CHIME"
+      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
       volume: 0.45
       pitch: 1.60
 
@@ -341,7 +341,7 @@ sounds:
   double-jump:
     jump:
       enabled: true
-      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
+      sound: "ENTITY_ITEM_PICKUP"
       volume: 1.0
       pitch: 1.5
     cooldown:
@@ -353,7 +353,7 @@ sounds:
   feature:
     enable:
       enabled: true
-      sound: "BLOCK_AMETHYST_BLOCK_CHIME"
+      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
       volume: 0.42
       pitch: 1.55
     disable:
