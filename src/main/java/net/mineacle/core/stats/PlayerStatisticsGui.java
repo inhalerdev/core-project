@@ -1,9 +1,7 @@
 package net.mineacle.core.stats;
 
 import me.clip.placeholderapi.PlaceholderAPI;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
-import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -94,7 +92,7 @@ public final class PlayerStatisticsGui implements Listener {
     public void onClick(InventoryClickEvent event) {
         HumanEntity clicker = event.getWhoClicked();
 
-        if (!(clicker instanceof Player player)) {
+        if (!(clicker instanceof Player)) {
             return;
         }
 
@@ -106,21 +104,6 @@ public final class PlayerStatisticsGui implements Listener {
 
         event.setCancelled(true);
         event.setResult(org.bukkit.event.Event.Result.DENY);
-
-        int rawSlot = event.getRawSlot();
-        int topSize = event.getView().getTopInventory().getSize();
-
-        if (rawSlot < 0 || rawSlot >= topSize) {
-            return;
-        }
-
-        ItemStack clicked = event.getCurrentItem();
-
-        if (clicked == null || clicked.getType().isAir()) {
-            return;
-        }
-
-        SoundService.guiClick(player, Core.instance());
     }
 
     @EventHandler
@@ -144,7 +127,6 @@ public final class PlayerStatisticsGui implements Listener {
         meta.setDisplayName(color(name));
         meta.setLore(List.of(color(value)));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-
         item.setItemMeta(meta);
         return item;
     }

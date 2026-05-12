@@ -205,34 +205,34 @@ sounds:
   gui:
     click:
       enabled: true
-      sound: "BLOCK_STONE_BUTTON_CLICK_ON"
-      volume: 0.32
-      pitch: 1.15
+      sound: UI_BUTTON_CLICK
+      volume: 0.34
+      pitch: 1.0
     back:
       enabled: true
-      sound: "BLOCK_STONE_BUTTON_CLICK_ON"
+      sound: UI_BUTTON_CLICK
       volume: 0.28
-      pitch: 0.85
+      pitch: 0.8
     confirm:
       enabled: true
-      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
-      volume: 0.45
+      sound: "BLOCK_NOTE_BLOCK_BASS"
+      volume: 0.42
       pitch: 1.45
     cancel:
       enabled: true
-      sound: "BLOCK_STONE_BUTTON_CLICK_ON"
+      sound: UI_BUTTON_CLICK
       volume: 0.30
-      pitch: 0.70
+      pitch: 0.72
     error:
       enabled: true
       sound: "BLOCK_NOTE_BLOCK_BASS"
-      volume: 0.35
+      volume: 0.30
       pitch: 0.65
     usage:
       enabled: true
-      sound: "BLOCK_STONE_BUTTON_CLICK_ON"
+      sound: UI_BUTTON_CLICK
       volume: 0.25
-      pitch: 0.65
+      pitch: 0.85
 
   mineacle-plus:
     blocked:
@@ -244,18 +244,18 @@ sounds:
   teleport:
     start:
       enabled: true
-      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
-      volume: 0.42
-      pitch: 1.20
+      sound: "BLOCK_NOTE_BLOCK_BASS"
+      volume: 0.38
+      pitch: 1.15
     countdown:
       enabled: true
       sound: "BLOCK_NOTE_BLOCK_HAT"
-      volume: 0.24
+      volume: 0.22
       pitch: 2.0
     cancelled:
       enabled: true
       sound: "BLOCK_NOTE_BLOCK_BASS"
-      volume: 0.32
+      volume: 0.30
       pitch: 0.65
     complete:
       enabled: true
@@ -264,19 +264,19 @@ sounds:
       pitch: 1.65
     request:
       enabled: true
-      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
-      volume: 0.38
-      pitch: 1.35
+      sound: "BLOCK_NOTE_BLOCK_BASS"
+      volume: 0.36
+      pitch: 1.25
     received:
       enabled: true
-      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
-      volume: 0.42
-      pitch: 1.55
+      sound: "BLOCK_NOTE_BLOCK_BASS"
+      volume: 0.40
+      pitch: 1.45
 
   spawn:
     open:
       enabled: false
-      sound: "BLOCK_STONE_BUTTON_CLICK_ON"
+      sound: UI_BUTTON_CLICK
       volume: 0.0
       pitch: 1.0
     arrive:
@@ -288,78 +288,78 @@ sounds:
   homes:
     set:
       enabled: true
-      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
-      volume: 0.45
+      sound: "BLOCK_NOTE_BLOCK_BASS"
+      volume: 0.42
       pitch: 1.45
     delete:
       enabled: true
       sound: "BLOCK_NOTE_BLOCK_BASS"
-      volume: 0.35
+      volume: 0.34
       pitch: 0.70
 
   teams:
     invite:
       enabled: true
-      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
-      volume: 0.40
-      pitch: 1.40
+      sound: "BLOCK_NOTE_BLOCK_BASS"
+      volume: 0.38
+      pitch: 1.35
     create:
       enabled: true
-      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
-      volume: 0.55
+      sound: "BLOCK_NOTE_BLOCK_BASS"
+      volume: 0.52
       pitch: 1.65
     disband:
       enabled: true
       sound: "BLOCK_NOTE_BLOCK_BASS"
-      volume: 0.40
+      volume: 0.38
       pitch: 0.60
 
   economy:
     pay:
       enabled: true
       sound: "ENTITY_ITEM_PICKUP"
-      volume: 0.42
-      pitch: 1.35
+      volume: 0.35
+      pitch: 1.25
     receive:
       enabled: true
       sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
-      volume: 0.60
+      volume: 0.56
       pitch: 1.75
     balance:
       enabled: true
-      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
-      volume: 0.45
-      pitch: 1.60
+      sound: "BLOCK_NOTE_BLOCK_BASS"
+      volume: 0.40
+      pitch: 1.65
 
   chat:
     message:
       enabled: true
-      sound: "BLOCK_STONE_BUTTON_CLICK_ON"
-      volume: 0.18
-      pitch: 1.35
+      sound: UI_BUTTON_CLICK
+      volume: 0.16
+      pitch: 1.25
 
   double-jump:
     jump:
       enabled: true
-      sound: "ENTITY_ITEM_PICKUP"
-      volume: 1.0
-      pitch: 1.5
+      sound: "BLOCK_WOODEN_BUTTON_CLICK_ON"
+      volume: 0.46
+      pitch: 0.58
     cooldown:
       enabled: false
-      sound: "BLOCK_STONE_BUTTON_CLICK_ON"
+      sound: UI_BUTTON_CLICK
       volume: 0.0
       pitch: 1.0
 
   feature:
     enable:
       enabled: true
-      sound: "ENTITY_EXPERIENCE_ORB_PICKUP"
-      volume: 0.42
+      sound: "BLOCK_NOTE_BLOCK_BASS"
+      volume: 0.40
       pitch: 1.55
     disable:
       enabled: true
-      sound: "BLOCK_STONE_BUTTON_CLICK_ON"
-      volume: 0.30
+      sound: UI_BUTTON_CLICK
+      volume: 0.28
       pitch: 0.75
 
 fly:
