@@ -150,41 +150,36 @@ public final class OriginRtpQueueService {
         OriginRtpRequest queued = queuedRequests.get(playerId);
 
         if (queued != null) {
-            lockToStart(player, queued.startLocation());
+            if (movedTooFar(queued.startLocation(), player.getLocation())) {
+                cancel(player, true);
+            }
+
             return;
         }
 
         ActiveRtp active = activeRequests.get(playerId);
 
-        if (active != null) {
-            lockToStart(player, active.startLocation());
+        if (active != null && movedTooFar(active.startLocation(), player.getLocation())) {
+            cancel(player, true);
         }
     }
 
-    private void lockToStart(Player player, Location startLocation) {
-        if (player == null || startLocation == null) {
-            return;
+    private boolean movedTooFar(Location startLocation, Location currentLocation) {
+        if (startLocation == null || currentLocation == null) {
+            return true;
         }
 
-        if (player.getWorld() == null || startLocation.getWorld() == null) {
-            return;
+        if (startLocation.getWorld() == null || currentLocation.getWorld() == null) {
+            return true;
         }
 
-        if (!player.getWorld().equals(startLocation.getWorld())) {
-            return;
+        if (!startLocation.getWorld().equals(currentLocation.getWorld())) {
+            return true;
         }
 
-        if (player.getLocation().distanceSquared(startLocation) <= 0.04D) {
-            return;
-        }
+        double distance = Math.max(0.01D, core.getConfig().getDouble("origin-rtp.teleport.cancel-distance", 2.0D));
 
-        Location locked = startLocation.clone();
-        locked.setYaw(player.getLocation().getYaw());
-        locked.setPitch(player.getLocation().getPitch());
-
-        PortalFreezeListener.skipNextFreeze(player, core);
-        player.teleport(locked);
-        sendActionBar(player, message("searching"));
+        return startLocation.distanceSquared(currentLocation) > distance * distance;
     }
 
     private void processQueue() {
@@ -272,8 +267,6 @@ public final class OriginRtpQueueService {
             return;
         }
 
-        lockToStart(player, active.startLocation());
-
         int nextSeconds = active.secondsRemaining() - 1;
 
         if (nextSeconds <= 0) {
@@ -319,7 +312,6 @@ public final class OriginRtpQueueService {
                 return;
             }
 
-            PortalFreezeListener.skipNextFreeze(player, core);
             player.teleport(location);
             sendActionBar(player, message("teleported"));
             SoundService.teleportComplete(player, core);
