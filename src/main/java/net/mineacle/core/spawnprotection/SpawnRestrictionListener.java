@@ -69,7 +69,7 @@ public final class SpawnRestrictionListener implements Listener {
         }
 
         event.setCancelled(true);
-        core.getServer().getScheduler().runTask(core, player::closeInventory);
+        core.getServer().getScheduler().runTask(core, (Runnable) player::closeInventory);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
