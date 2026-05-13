@@ -388,15 +388,26 @@ spawn-restrictions:
 
   blocked-interactions:
     - CRAFTING_TABLE
-    - GRINDSTONE
-    - SMITHING_TABLE
     - ENDER_CHEST
+    - ANVIL
+    - CHIPPED_ANVIL
+    - DAMAGED_ANVIL
+    - SMITHING_TABLE
+    - GRINDSTONE
+    - STONECUTTER
     - SCULK_SHRIEKER
     - SCULK_SENSOR
     - CALIBRATED_SCULK_SENSOR
     - SCULK_CATALYST
 
   blocked-placement:
+    - WITHER_ROSE
+    - SCULK_SHRIEKER
+    - SCULK_SENSOR
+    - CALIBRATED_SCULK_SENSOR
+    - SCULK_CATALYST
+
+  blocked-breaking:
     - WITHER_ROSE
     - SCULK_SHRIEKER
     - SCULK_SENSOR

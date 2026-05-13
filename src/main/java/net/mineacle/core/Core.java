@@ -11,6 +11,7 @@ import net.mineacle.core.homes.HomesModule;
 import net.mineacle.core.placeholders.PlaceholdersModule;
 import net.mineacle.core.rtp.RtpModule;
 import net.mineacle.core.spawn.SpawnModule;
+import net.mineacle.core.spawnprotection.SpawnProtectionModule;
 import net.mineacle.core.stats.StatsModule;
 import net.mineacle.core.teams.TeamsModule;
 import net.mineacle.core.tpa.TpaModule;
@@ -68,6 +69,7 @@ public final class Core extends JavaPlugin {
             registerModule(new ChatModule());
             registerModule(new PlaceholdersModule());
             registerModule(new SpawnModule());
+            registerModule(new SpawnProtectionModule());
             registerModule(new DoubleJumpModule());
             registerModule(new RtpModule());
 
@@ -82,9 +84,11 @@ public final class Core extends JavaPlugin {
     @Override
     public void onDisable() {
         disableModules();
+
         saveHomesFile();
         saveTeamsFile();
         saveEconomyFile();
+
         instance = null;
     }
 

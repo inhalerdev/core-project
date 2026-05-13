@@ -12,6 +12,8 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityPotionEffectEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -26,7 +28,7 @@ public final class SpawnRestrictionListener implements Listener {
         this.core = core;
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
     public void onInteract(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK) {
             return;
@@ -43,7 +45,7 @@ public final class SpawnRestrictionListener implements Listener {
             return;
         }
 
-        if (!isConfiguredMaterial("spawn-restrictions.blocked-interactions", block.getType())) {
+        if (!isBlockedInteraction(block.getType())) {
             return;
         }
 
@@ -52,7 +54,25 @@ public final class SpawnRestrictionListener implements Listener {
         event.setUseItemInHand(org.bukkit.event.Event.Result.DENY);
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    public void onInventoryOpen(InventoryOpenEvent event) {
+        if (!(event.getPlayer() instanceof Player player)) {
+            return;
+        }
+
+        if (!enabled() || !isWorldProtected(player.getWorld().getName())) {
+            return;
+        }
+
+        if (!isBlockedInventory(event.getInventory().getType())) {
+            return;
+        }
+
+        event.setCancelled(true);
+        core.getServer().getScheduler().runTask(core, player::closeInventory);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onPlace(BlockPlaceEvent event) {
         Player player = event.getPlayer();
 
@@ -67,7 +87,7 @@ public final class SpawnRestrictionListener implements Listener {
         event.setCancelled(true);
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
 
@@ -82,7 +102,7 @@ public final class SpawnRestrictionListener implements Listener {
         event.setCancelled(true);
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onPotionEffect(EntityPotionEffectEvent event) {
         Entity entity = event.getEntity();
 
@@ -123,6 +143,36 @@ public final class SpawnRestrictionListener implements Listener {
         }
 
         return false;
+    }
+
+    private boolean isBlockedInteraction(Material material) {
+        return isBuiltInBlockedInteraction(material)
+                || isConfiguredMaterial("spawn-restrictions.blocked-interactions", material);
+    }
+
+    private boolean isBuiltInBlockedInteraction(Material material) {
+        return material == Material.CRAFTING_TABLE
+                || material == Material.ENDER_CHEST
+                || material == Material.ANVIL
+                || material == Material.CHIPPED_ANVIL
+                || material == Material.DAMAGED_ANVIL
+                || material == Material.SMITHING_TABLE
+                || material == Material.GRINDSTONE
+                || material == Material.STONECUTTER
+                || material == Material.SCULK_SHRIEKER
+                || material == Material.SCULK_SENSOR
+                || material == Material.CALIBRATED_SCULK_SENSOR
+                || material == Material.SCULK_CATALYST;
+    }
+
+    private boolean isBlockedInventory(InventoryType type) {
+        return type == InventoryType.WORKBENCH
+                || type == InventoryType.CRAFTING
+                || type == InventoryType.ENDER_CHEST
+                || type == InventoryType.ANVIL
+                || type == InventoryType.SMITHING
+                || type == InventoryType.GRINDSTONE
+                || type == InventoryType.STONECUTTER;
     }
 
     private boolean isConfiguredMaterial(String path, Material material) {
