@@ -40,8 +40,7 @@ public final class DoubleJumpListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
-        core.getServer().getScheduler().runTaskLater(core, () -> refresh(player), 2L);
+        core.getServer().getScheduler().runTaskLater(core, () -> refresh(event.getPlayer()), 2L);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -57,6 +56,7 @@ public final class DoubleJumpListener implements Listener {
 
         if (!isFlyWorld(player.getWorld().getName())) {
             flyEnabled.remove(player.getUniqueId());
+            forceDisableFlight(player);
         }
 
         refresh(player);
@@ -69,6 +69,7 @@ public final class DoubleJumpListener implements Listener {
         core.getServer().getScheduler().runTaskLater(core, () -> {
             if (!isFlyWorld(player.getWorld().getName())) {
                 flyEnabled.remove(player.getUniqueId());
+                forceDisableFlight(player);
             }
 
             refresh(player);
@@ -77,8 +78,7 @@ public final class DoubleJumpListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onGameModeChange(PlayerGameModeChangeEvent event) {
-        Player player = event.getPlayer();
-        core.getServer().getScheduler().runTaskLater(core, () -> refresh(player), 1L);
+        core.getServer().getScheduler().runTaskLater(core, () -> refresh(event.getPlayer()), 1L);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -91,7 +91,7 @@ public final class DoubleJumpListener implements Listener {
         }
 
         if (!enabledForDoubleJump(player)) {
-            disablePlayer(player);
+            disableDoubleJumpFlight(player);
             return;
         }
 
@@ -108,7 +108,7 @@ public final class DoubleJumpListener implements Listener {
         if (flyEnabled.contains(player.getUniqueId())) {
             if (!canUseFly(player)) {
                 flyEnabled.remove(player.getUniqueId());
-                disablePlayer(player);
+                forceDisableFlight(player);
                 event.setCancelled(true);
             }
 
@@ -116,7 +116,7 @@ public final class DoubleJumpListener implements Listener {
         }
 
         if (!enabledForDoubleJump(player)) {
-            disablePlayer(player);
+            disableDoubleJumpFlight(player);
             return;
         }
 
@@ -125,7 +125,7 @@ public final class DoubleJumpListener implements Listener {
         player.setAllowFlight(false);
 
         if (isOnCooldown(player)) {
-            SoundService.play(player, core, "double-jump.cooldown");
+            SoundService.doubleJumpCooldown(player, core);
 
             if (core.getConfig().getBoolean("double-jump.actionbar-cooldown", false)) {
                 player.sendActionBar(actionBar("&cDouble jump is cooling down"));
@@ -143,7 +143,7 @@ public final class DoubleJumpListener implements Listener {
 
         if (flyEnabled.contains(uuid)) {
             flyEnabled.remove(uuid);
-            refresh(player);
+            forceDisableFlight(player);
             return false;
         }
 
@@ -168,13 +168,19 @@ public final class DoubleJumpListener implements Listener {
 
     public void refreshAll() {
         for (Player player : core.getServer().getOnlinePlayers()) {
+            if (flyEnabled.contains(player.getUniqueId()) && !canUseFly(player)) {
+                flyEnabled.remove(player.getUniqueId());
+                forceDisableFlight(player);
+                continue;
+            }
+
             refresh(player);
         }
     }
 
     public void disableAll() {
         for (Player player : core.getServer().getOnlinePlayers()) {
-            disablePlayer(player);
+            forceDisableFlight(player);
         }
 
         lastJumpMillis.clear();
@@ -192,7 +198,7 @@ public final class DoubleJumpListener implements Listener {
         }
 
         if (!enabledForDoubleJump(player)) {
-            disablePlayer(player);
+            disableDoubleJumpFlight(player);
             return;
         }
 
@@ -205,7 +211,7 @@ public final class DoubleJumpListener implements Listener {
     private void refreshFly(Player player) {
         if (!canUseFly(player)) {
             flyEnabled.remove(player.getUniqueId());
-            disablePlayer(player);
+            forceDisableFlight(player);
             return;
         }
 
@@ -235,8 +241,7 @@ public final class DoubleJumpListener implements Listener {
     }
 
     private void launch(Player player) {
-        UUID uuid = player.getUniqueId();
-        lastJumpMillis.put(uuid, System.currentTimeMillis());
+        lastJumpMillis.put(player.getUniqueId(), System.currentTimeMillis());
 
         double upward = core.getConfig().getDouble("double-jump.upward-velocity", 0.62D);
         double forward = core.getConfig().getDouble("double-jump.forward-velocity", 1.25D);
@@ -252,7 +257,7 @@ public final class DoubleJumpListener implements Listener {
 
         player.setVelocity(direction);
         playParticles(player);
-        SoundService.play(player, core, "double-jump.jump");
+        SoundService.doubleJump(player, core);
     }
 
     private boolean isOnCooldown(Player player) {
@@ -316,7 +321,20 @@ public final class DoubleJumpListener implements Listener {
         return false;
     }
 
-    private void disablePlayer(Player player) {
+    private void forceDisableFlight(Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+
+        if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) {
+            return;
+        }
+
+        player.setFlying(false);
+        player.setAllowFlight(false);
+    }
+
+    private void disableDoubleJumpFlight(Player player) {
         if (player == null || !player.isOnline()) {
             return;
         }
