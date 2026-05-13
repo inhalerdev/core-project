@@ -54,7 +54,6 @@ public final class TpaTargetMenuListener implements Listener {
         }
 
         if (rawSlot == TpaTargetMenuGui.CANCEL_SLOT) {
-            SoundService.guiClick(player, core);
             player.removeMetadata(TpaMenuCommand.META_TARGET, core);
             player.closeInventory();
             sendBoth(player, "&cTeleport request cancelled");
@@ -66,7 +65,6 @@ public final class TpaTargetMenuListener implements Listener {
             return;
         }
 
-        SoundService.guiClick(player, core);
         Player target = target(player);
 
         if (target == null) {

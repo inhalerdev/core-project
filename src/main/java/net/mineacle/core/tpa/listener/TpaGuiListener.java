@@ -55,10 +55,7 @@ public final class TpaGuiListener implements Listener {
 
         if (slot == 15) {
             accept(player);
-            return;
         }
-
-        SoundService.guiClick(player, core);
     }
 
     private void accept(Player target) {
@@ -81,7 +78,6 @@ public final class TpaGuiListener implements Listener {
         }
 
         target.closeInventory();
-        SoundService.guiConfirm(target, core);
 
         send(requester, "&aTeleport request accepted");
         send(target, "&aTeleport request accepted");
@@ -118,7 +114,6 @@ public final class TpaGuiListener implements Listener {
 
         if (requester != null && requester.isOnline()) {
             send(requester, "&c" + DisplayNames.displayName(target) + " denied your teleport request");
-            SoundService.guiCancel(requester, core);
         }
 
         MenuHistory.clear(target);
