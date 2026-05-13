@@ -376,3 +376,31 @@ fly:
     blocked-world: "&cFlight is only available in spawn"
     upgrade-line-1: "&fElevate your gameplay experience with &dMineacle+"
     upgrade-line-2: "&d♦ &fhttps://store.mineacle.net"
+
+spawn-restrictions:
+  enabled: true
+  worlds:
+    - spawn1
+    - spawn2
+    - spawn3
+
+  message: "&cYou cannot use that in spawn"
+
+  prevent-wither-rose-effects: true
+
+  blocked-interactions:
+    - CRAFTING_TABLE
+    - GRINDSTONE
+    - SMITHING_TABLE
+    - ENDER_CHEST
+    - SCULK_SHRIEKER
+    - SCULK_SENSOR
+    - CALIBRATED_SCULK_SENSOR
+    - SCULK_CATALYST
+
+  blocked-placement:
+    - WITHER_ROSE
+    - SCULK_SHRIEKER
+    - SCULK_SENSOR
+    - CALIBRATED_SCULK_SENSOR
+    - SCULK_CATALYST

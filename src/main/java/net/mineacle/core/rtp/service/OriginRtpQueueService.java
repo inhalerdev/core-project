@@ -114,7 +114,6 @@ public final class OriginRtpQueueService {
                 .replace("%world%", displayName(key));
 
         sendActionBar(player, queuedMessage);
-        SoundService.teleportStart(player, core);
     }
 
     public void cancel(Player player, boolean sendMessage) {
