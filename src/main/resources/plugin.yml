@@ -88,7 +88,7 @@ commands:
     usage: /lobby
     permission: mineaclespawn.use
   originrtp:
-    description: Queue for Origins random teleport
+    description: Queue for random teleport
     usage: /originrtp
     aliases: [rtp, originsrtp]
     permission: mineaclertp.use
@@ -100,6 +100,11 @@ commands:
     description: Toggle flight in spawn worlds
     usage: /fly
     permission: mineaclefly.command
+  order:
+    description: Open player orders
+    aliases: [orders]
+    usage: /order
+    permission: mineacleorders.use
 
 permissions:
   mineaclehomes.use:
@@ -155,4 +160,8 @@ permissions:
   mineaclefly.use:
     default: false
   mineaclefly.admin:
+    default: op
+  mineacleorders.use:
+    default: true
+  mineacleorders.admin:
     default: op
