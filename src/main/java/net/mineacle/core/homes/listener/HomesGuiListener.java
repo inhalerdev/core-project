@@ -67,7 +67,6 @@ public final class HomesGuiListener implements Listener {
 
             for (int i = 0; i < HomesMainGui.BED_SLOTS.length; i++) {
                 if (slot == HomesMainGui.BED_SLOTS[i]) {
-                    SoundService.guiClick(player, core);
                     handleHomeBedClick(player, i + 1);
                     return;
                 }
@@ -75,7 +74,6 @@ public final class HomesGuiListener implements Listener {
 
             for (int i = 0; i < HomesMainGui.DYE_SLOTS.length; i++) {
                 if (slot == HomesMainGui.DYE_SLOTS[i]) {
-                    SoundService.guiClick(player, core);
                     handleHomeDyeClick(player, i + 1);
                     return;
                 }
@@ -179,6 +177,7 @@ public final class HomesGuiListener implements Listener {
             return;
         }
 
+        SoundService.guiClick(player, core);
         player.setMetadata(META_HOME_PENDING, new FixedMetadataValue(core, id));
         player.setMetadata(META_HOME_CONFIRM, new FixedMetadataValue(core, 0));
         ConfirmDeleteHomeGui.openPlayerDelete(core, player, id, homeService.getDisplayName(uuid, id));
@@ -191,8 +190,6 @@ public final class HomesGuiListener implements Listener {
         if (slot != bannerSlot && slot != dyeSlot) {
             return;
         }
-
-        SoundService.guiClick(player, core);
 
         TeamService teamService = new TeamService(core);
         TeamHomeService teamHomeService = new TeamHomeService(core, teamService);
@@ -261,6 +258,7 @@ public final class HomesGuiListener implements Listener {
         }
 
         if (slot == dyeSlot && isFounder) {
+            SoundService.guiClick(player, core);
             player.setMetadata(META_TEAM_HOME_PENDING, new FixedMetadataValue(core, team.teamId()));
             player.setMetadata(META_TEAM_HOME_CONFIRM, new FixedMetadataValue(core, false));
             ConfirmDeleteHomeGui.openTeamDelete(core, player);

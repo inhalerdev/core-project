@@ -204,13 +204,11 @@ public final class TeamsGuiListener implements Listener {
         }
 
         if (slot == TeamsMainGui.TEAM_HOME_SLOT) {
-            SoundService.guiClick(player, core);
             handleTeamHomeButton(player, team);
             return;
         }
 
         if (slot == TeamsMainGui.TEAM_CHAT_SLOT) {
-            SoundService.guiClick(player, core);
             boolean enabled = teamService.toggleTeamChat(player.getUniqueId());
             String message = enabled ? "§7Team chat enabled" : "§7Team chat disabled";
 
@@ -228,7 +226,6 @@ public final class TeamsGuiListener implements Listener {
         }
 
         if (slot == TeamsMainGui.TEAM_PVP_SLOT && teamService.isAdmin(player.getUniqueId())) {
-            SoundService.guiClick(player, core);
             boolean newValue = !team.friendlyFire();
             teamService.setFriendlyFire(team.teamId(), newValue);
 
@@ -241,7 +238,6 @@ public final class TeamsGuiListener implements Listener {
         }
 
         if (slot == TeamsMainGui.TEAM_PVP_SLOT) {
-            SoundService.guiClick(player, core);
             SoundService.guiError(player, core);
         }
     }
@@ -268,6 +264,7 @@ public final class TeamsGuiListener implements Listener {
         }
 
         sendBoth(player, "§7Open Homes to set §dTeam Home");
+        SoundService.guiClick(player, core);
 
         MenuHistory.openChild(
                 core,
@@ -279,7 +276,6 @@ public final class TeamsGuiListener implements Listener {
 
     private void handleInviteClick(Player player, int slot) {
         if (slot == TeamInviteGui.ACCEPT_SLOT) {
-            SoundService.guiClick(player, core);
             if (inviteService.acceptInvite(player.getUniqueId())) {
                 sendBoth(player, "§aInvite accepted");
                 SoundService.guiConfirm(player, core);
@@ -294,7 +290,6 @@ public final class TeamsGuiListener implements Listener {
         }
 
         if (slot == TeamInviteGui.DENY_SLOT) {
-            SoundService.guiClick(player, core);
             if (inviteService.denyInvite(player.getUniqueId())) {
                 player.closeInventory();
                 sendBoth(player, "§cInvite declined");
