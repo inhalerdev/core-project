@@ -13,7 +13,6 @@ import net.mineacle.core.tpa.service.TpaRequestType;
 import net.mineacle.core.tpa.service.TpaService;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -55,6 +54,7 @@ public final class TpaTargetMenuListener implements Listener {
         }
 
         if (rawSlot == TpaTargetMenuGui.CANCEL_SLOT) {
+            SoundService.guiClick(player, core);
             player.removeMetadata(TpaMenuCommand.META_TARGET, core);
             player.closeInventory();
             sendBoth(player, "&cTeleport request cancelled");
@@ -63,13 +63,10 @@ public final class TpaTargetMenuListener implements Listener {
         }
 
         if (rawSlot != TpaTargetMenuGui.CONFIRM_SLOT) {
-            if (event.getCurrentItem() != null && !event.getCurrentItem().getType().isAir()) {
-                SoundService.guiClick(player, core);
-            }
-
             return;
         }
 
+        SoundService.guiClick(player, core);
         Player target = target(player);
 
         if (target == null) {
@@ -90,7 +87,6 @@ public final class TpaTargetMenuListener implements Listener {
 
         player.removeMetadata(TpaMenuCommand.META_TARGET, core);
         player.closeInventory();
-        SoundService.guiConfirm(player, core);
         sendRequest(player, target);
     }
 
@@ -127,11 +123,6 @@ public final class TpaTargetMenuListener implements Listener {
         ));
         target.sendActionBar(actionBar("&#cccccc" + requesterName + " &dwants to teleport to you"));
         SoundService.teleportReceived(target, core);
-
-        try {
-            target.playSound(target.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0F, 1.2F);
-        } catch (Exception ignored) {
-        }
 
         core.getServer().getScheduler().runTaskLater(core, () -> {
             if (tpaService.getRequest(target.getUniqueId()) == null) {

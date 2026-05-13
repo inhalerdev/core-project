@@ -138,8 +138,8 @@ public final class TeamsGuiListener implements Listener {
 
     private void handleStartClick(Player player, int slot) {
         if (slot == TeamStartGui.CREATE_SLOT) {
-            player.closeInventory();
             SoundService.guiClick(player, core);
+            player.closeInventory();
 
             Component prompt = Component.text(TextColor.color("§7Type §d/team create <name> §7to create a team"))
                     .clickEvent(ClickEvent.suggestCommand("/team create "));
@@ -150,7 +150,7 @@ public final class TeamsGuiListener implements Listener {
         }
 
         if (slot == TeamStartGui.INVITES_SLOT) {
-            SoundService.guiConfirm(player, core);
+            SoundService.guiClick(player, core);
 
             MenuHistory.openChild(
                     core,
@@ -176,7 +176,7 @@ public final class TeamsGuiListener implements Listener {
             if (slot < members.size()) {
                 UUID targetId = members.get(slot);
                 player.setMetadata(META_TARGET, new FixedMetadataValue(core, targetId.toString()));
-                SoundService.guiConfirm(player, core);
+                SoundService.guiClick(player, core);
 
                 MenuHistory.openChild(
                         core,
@@ -190,8 +190,8 @@ public final class TeamsGuiListener implements Listener {
             if (teamService.isAdmin(player.getUniqueId())
                     && slot == members.size()
                     && members.size() < teamService.maxMembers()) {
-                player.closeInventory();
                 SoundService.guiClick(player, core);
+                player.closeInventory();
 
                 Component invitePrompt = Component.text("§7Type §d/team invite <player> §7to invite a player")
                         .clickEvent(ClickEvent.suggestCommand("/team invite "));
@@ -204,11 +204,13 @@ public final class TeamsGuiListener implements Listener {
         }
 
         if (slot == TeamsMainGui.TEAM_HOME_SLOT) {
+            SoundService.guiClick(player, core);
             handleTeamHomeButton(player, team);
             return;
         }
 
         if (slot == TeamsMainGui.TEAM_CHAT_SLOT) {
+            SoundService.guiClick(player, core);
             boolean enabled = teamService.toggleTeamChat(player.getUniqueId());
             String message = enabled ? "§7Team chat enabled" : "§7Team chat disabled";
 
@@ -219,13 +221,14 @@ public final class TeamsGuiListener implements Listener {
         }
 
         if (slot == TeamsMainGui.SORT_SLOT) {
-            TeamsMainGui.cycleSort(player);
             SoundService.guiClick(player, core);
+            TeamsMainGui.cycleSort(player);
             TeamsMainGui.open(core, player, teamService, inviteService);
             return;
         }
 
         if (slot == TeamsMainGui.TEAM_PVP_SLOT && teamService.isAdmin(player.getUniqueId())) {
+            SoundService.guiClick(player, core);
             boolean newValue = !team.friendlyFire();
             teamService.setFriendlyFire(team.teamId(), newValue);
 
@@ -238,6 +241,7 @@ public final class TeamsGuiListener implements Listener {
         }
 
         if (slot == TeamsMainGui.TEAM_PVP_SLOT) {
+            SoundService.guiClick(player, core);
             SoundService.guiError(player, core);
         }
     }
@@ -247,7 +251,6 @@ public final class TeamsGuiListener implements Listener {
 
         if (home != null) {
             player.closeInventory();
-            SoundService.guiConfirm(player, core);
 
             teleportService.begin(player, "Team Home", () -> {
                 player.teleport(home);
@@ -265,7 +268,6 @@ public final class TeamsGuiListener implements Listener {
         }
 
         sendBoth(player, "§7Open Homes to set §dTeam Home");
-        SoundService.guiConfirm(player, core);
 
         MenuHistory.openChild(
                 core,
@@ -277,6 +279,7 @@ public final class TeamsGuiListener implements Listener {
 
     private void handleInviteClick(Player player, int slot) {
         if (slot == TeamInviteGui.ACCEPT_SLOT) {
+            SoundService.guiClick(player, core);
             if (inviteService.acceptInvite(player.getUniqueId())) {
                 sendBoth(player, "§aInvite accepted");
                 SoundService.guiConfirm(player, core);
@@ -291,6 +294,7 @@ public final class TeamsGuiListener implements Listener {
         }
 
         if (slot == TeamInviteGui.DENY_SLOT) {
+            SoundService.guiClick(player, core);
             if (inviteService.denyInvite(player.getUniqueId())) {
                 player.closeInventory();
                 sendBoth(player, "§cInvite declined");
@@ -321,17 +325,19 @@ public final class TeamsGuiListener implements Listener {
         }
 
         if (slot == 10) {
+            SoundService.guiClick(player, core);
             startConfirm(player, "PROMOTE", targetId, "Promote Player");
             return;
         }
 
         if (slot == 11) {
+            SoundService.guiClick(player, core);
             startConfirm(player, "DEMOTE", targetId, "Demote Player");
             return;
         }
 
         if (slot == 13) {
-            SoundService.guiConfirm(player, core);
+            SoundService.guiClick(player, core);
 
             MenuHistory.openChild(
                     core,
@@ -343,16 +349,19 @@ public final class TeamsGuiListener implements Listener {
         }
 
         if (slot == 15) {
+            SoundService.guiClick(player, core);
             startConfirm(player, "KICK", targetId, "Kick Player");
             return;
         }
 
         if (slot == 16) {
+            SoundService.guiClick(player, core);
             startConfirm(player, "BAN", targetId, "Ban Player");
             return;
         }
 
         if (slot == 22) {
+            SoundService.guiClick(player, core);
             startConfirm(player, "TRANSFER", targetId, "Transfer Founder");
         }
     }
@@ -361,7 +370,6 @@ public final class TeamsGuiListener implements Listener {
         player.setMetadata(META_ACTION, new FixedMetadataValue(core, action));
         player.setMetadata(META_TARGET, new FixedMetadataValue(core, targetId.toString()));
         player.removeMetadata(META_CONFIRM, core);
-        SoundService.guiConfirm(player, core);
 
         MenuHistory.openChild(
                 core,

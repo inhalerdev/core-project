@@ -67,6 +67,7 @@ public final class HomesGuiListener implements Listener {
 
             for (int i = 0; i < HomesMainGui.BED_SLOTS.length; i++) {
                 if (slot == HomesMainGui.BED_SLOTS[i]) {
+                    SoundService.guiClick(player, core);
                     handleHomeBedClick(player, i + 1);
                     return;
                 }
@@ -74,6 +75,7 @@ public final class HomesGuiListener implements Listener {
 
             for (int i = 0; i < HomesMainGui.DYE_SLOTS.length; i++) {
                 if (slot == HomesMainGui.DYE_SLOTS[i]) {
+                    SoundService.guiClick(player, core);
                     handleHomeDyeClick(player, i + 1);
                     return;
                 }
@@ -114,7 +116,6 @@ public final class HomesGuiListener implements Listener {
             }
 
             player.closeInventory();
-            SoundService.guiConfirm(player, core);
 
             teleportService.begin(player, homeService.getDisplayName(uuid, id), () -> {
                 player.teleport(target);
@@ -180,8 +181,6 @@ public final class HomesGuiListener implements Listener {
 
         player.setMetadata(META_HOME_PENDING, new FixedMetadataValue(core, id));
         player.setMetadata(META_HOME_CONFIRM, new FixedMetadataValue(core, 0));
-
-        SoundService.guiClick(player, core);
         ConfirmDeleteHomeGui.openPlayerDelete(core, player, id, homeService.getDisplayName(uuid, id));
     }
 
@@ -192,6 +191,8 @@ public final class HomesGuiListener implements Listener {
         if (slot != bannerSlot && slot != dyeSlot) {
             return;
         }
+
+        SoundService.guiClick(player, core);
 
         TeamService teamService = new TeamService(core);
         TeamHomeService teamHomeService = new TeamHomeService(core, teamService);
@@ -247,7 +248,6 @@ public final class HomesGuiListener implements Listener {
             }
 
             player.closeInventory();
-            SoundService.guiConfirm(player, core);
 
             teleportService.begin(player, "Team Home", () -> {
                 player.teleport(home);
@@ -263,7 +263,6 @@ public final class HomesGuiListener implements Listener {
         if (slot == dyeSlot && isFounder) {
             player.setMetadata(META_TEAM_HOME_PENDING, new FixedMetadataValue(core, team.teamId()));
             player.setMetadata(META_TEAM_HOME_CONFIRM, new FixedMetadataValue(core, false));
-            SoundService.guiClick(player, core);
             ConfirmDeleteHomeGui.openTeamDelete(core, player);
             return;
         }

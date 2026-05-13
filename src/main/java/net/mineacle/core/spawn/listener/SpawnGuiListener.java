@@ -8,7 +8,6 @@ import net.mineacle.core.spawn.model.SpawnPoint;
 import net.mineacle.core.spawn.service.SpawnService;
 import net.mineacle.core.spawn.service.SpawnTeleportService;
 import org.bukkit.ChatColor;
-import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -47,7 +46,6 @@ public final class SpawnGuiListener implements Listener {
         }
 
         if (spawnService.randomEnabled() && slot == spawnService.randomSlot()) {
-            SoundService.guiClick(player, spawnService.core());
             handleRandom(player);
             return;
         }
@@ -58,37 +56,34 @@ public final class SpawnGuiListener implements Listener {
             return;
         }
 
-        SoundService.guiClick(player, spawnService.core());
         handleSpawnClick(player, point);
     }
 
     private void handleSpawnClick(Player player, SpawnPoint point) {
-        Location target = spawnService.location(point);
+        if (spawnService.isCurrentWorld(player, point)) {
+            String message = spawnService.message("already-here")
+                    .replace("%spawn%", TextColor.color(point.displayName()));
 
-        if (target == null) {
+            player.sendActionBar(actionBar(message));
+            player.sendMessage(message);
+            SoundService.guiClick(player, spawnService.core());
+            player.closeInventory();
+            return;
+        }
+
+        if (spawnService.location(point) == null) {
             String message = spawnService.message("world-missing")
                     .replace("%world%", point.worldName())
                     .replace("%spawn%", TextColor.color(point.displayName()));
 
             player.sendActionBar(actionBar(message));
-            SoundService.guiError(player, spawnService.core());
+            player.sendMessage(message);
             player.closeInventory();
+            SoundService.guiError(player, spawnService.core());
             return;
         }
 
         player.closeInventory();
-
-        if (player.getWorld().getName().equalsIgnoreCase(point.worldName())) {
-            player.teleport(target);
-
-            String message = spawnService.message("teleported")
-                    .replace("%spawn%", TextColor.color(point.displayName()));
-
-            player.sendActionBar(actionBar(message));
-            SoundService.spawnArrive(player, spawnService.core());
-            return;
-        }
-
         teleportService.begin(player, point);
     }
 
@@ -99,8 +94,9 @@ public final class SpawnGuiListener implements Listener {
             String message = spawnService.message("random-missing");
 
             player.sendActionBar(actionBar(message));
-            SoundService.guiError(player, spawnService.core());
+            player.sendMessage(message);
             player.closeInventory();
+            SoundService.guiError(player, spawnService.core());
             return;
         }
 
