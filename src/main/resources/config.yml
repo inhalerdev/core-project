@@ -384,8 +384,6 @@ spawn-restrictions:
     - spawn2
     - spawn3
 
-  message: "&cYou cannot use that in spawn"
-
   prevent-wither-rose-effects: true
 
   blocked-interactions:
