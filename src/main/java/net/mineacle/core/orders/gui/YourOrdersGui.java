@@ -1,5 +1,6 @@
 package net.mineacle.core.orders.gui;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.orders.model.OrderRecord;
@@ -13,13 +14,11 @@ import java.util.Locale;
 
 public final class YourOrdersGui {
 
-    public static final String TITLE = "MY ORDERS";
-
     private YourOrdersGui() {
     }
 
     public static void open(Player player, OrderService service) {
-        Inventory inventory = Bukkit.createInventory(null, 54, TITLE);
+        Inventory inventory = Bukkit.createInventory(null, 54, title());
 
         List<OrderRecord> orders = service.ownerOrders(player.getUniqueId());
         int slot = 0;
@@ -34,6 +33,26 @@ public final class YourOrdersGui {
         }
 
         player.openInventory(inventory);
+    }
+
+    public static String title() {
+        Core core = Core.instance();
+
+        if (core == null) {
+            return "MY ORDERS";
+        }
+
+        return net.mineacle.core.common.text.TextColor.color(
+                core.getConfig().getString("orders.gui.titles.my-orders", "MY ORDERS")
+        );
+    }
+
+    public static boolean isTitle(String title) {
+        if (title == null) {
+            return false;
+        }
+
+        return title.equals(org.bukkit.ChatColor.stripColor(title()));
     }
 
     private static org.bukkit.inventory.ItemStack orderItem(OrderService service, OrderRecord order) {

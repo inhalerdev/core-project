@@ -36,7 +36,7 @@ public final class OrdersGuiListener implements Listener {
             return;
         }
 
-        if (!OrdersMainGui.isTitle(title) && !title.equals(YourOrdersGui.TITLE)) {
+        if (!OrdersMainGui.isTitle(title) && !YourOrdersGui.isTitle(title)) {
             return;
         }
 

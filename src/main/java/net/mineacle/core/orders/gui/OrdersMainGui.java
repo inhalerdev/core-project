@@ -1,11 +1,13 @@
 package net.mineacle.core.orders.gui;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.orders.model.OrderRecord;
 import net.mineacle.core.orders.service.OrderService;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.Tag;
 import org.bukkit.entity.Player;
@@ -66,26 +68,26 @@ public final class OrdersMainGui {
         }
 
         if (page > 1) {
-            inventory.setItem(PREV_SLOT, item(Material.ARROW, "&aBACK", List.of(
-                    "&fClick to go to the previous page"
+            inventory.setItem(PREV_SLOT, item(Material.ARROW, cfg("orders.gui.buttons.previous.name", "&aBACK"), List.of(
+                    cfg("orders.gui.buttons.previous.lore", "&fClick to go to the previous page")
             )));
         }
 
         inventory.setItem(SORT_SLOT, sortItem(player));
         inventory.setItem(FILTER_SLOT, filterItem(player));
-        inventory.setItem(SEARCH_SLOT, item(Material.NAME_TAG, "&aSEARCH", List.of(
-                "&fClick to search"
+        inventory.setItem(SEARCH_SLOT, item(Material.NAME_TAG, cfg("orders.gui.buttons.search.name", "&aSEARCH"), List.of(
+                cfg("orders.gui.buttons.search.lore", "&fClick to search")
         )));
-        inventory.setItem(REFRESH_SLOT, item(Material.CHEST, "&aORDERS", List.of(
-                "&fClick to refresh"
+        inventory.setItem(REFRESH_SLOT, item(Material.CHEST, cfg("orders.gui.buttons.refresh.name", "&aORDERS"), List.of(
+                cfg("orders.gui.buttons.refresh.lore", "&fClick to refresh")
         )));
-        inventory.setItem(MY_ORDERS_SLOT, item(Material.PLAYER_HEAD, "&aMY ORDERS", List.of(
-                "&fClick to manage your orders"
+        inventory.setItem(MY_ORDERS_SLOT, item(Material.PLAYER_HEAD, cfg("orders.gui.buttons.my-orders.name", "&aMY ORDERS"), List.of(
+                cfg("orders.gui.buttons.my-orders.lore", "&fClick to manage your orders")
         )));
 
         if (page < maxPage) {
-            inventory.setItem(NEXT_SLOT, item(Material.ARROW, "&aNEXT", List.of(
-                    "&fClick to go to the next page"
+            inventory.setItem(NEXT_SLOT, item(Material.ARROW, cfg("orders.gui.buttons.next.name", "&aNEXT"), List.of(
+                    cfg("orders.gui.buttons.next.lore", "&fClick to go to the next page")
             )));
         }
 
@@ -93,11 +95,20 @@ public final class OrdersMainGui {
     }
 
     public static String title(int page) {
-        return "ORDERS (Page " + page + ")";
+        return TextColor.color(cfg("orders.gui.titles.main", "ORDERS (Page %page%)")
+                .replace("%page%", String.valueOf(page)));
     }
 
     public static boolean isTitle(String title) {
-        return title != null && title.startsWith("ORDERS (Page ");
+        if (title == null) {
+            return false;
+        }
+
+        String rawTitle = cfg("orders.gui.titles.main", "ORDERS (Page %page%)");
+        String strippedPattern = ChatColor.stripColor(TextColor.color(rawTitle));
+        String beforePage = strippedPattern.split("%page%", 2)[0];
+
+        return title.startsWith(beforePage);
     }
 
     public static int page(Player player) {
@@ -167,7 +178,7 @@ public final class OrdersMainGui {
     private static ItemStack sortItem(Player player) {
         SortMode active = SORTS.getOrDefault(player.getUniqueId(), SortMode.MOST_PAID);
 
-        return item(Material.HOPPER, "&aSORT", List.of(
+        return item(Material.HOPPER, cfg("orders.gui.buttons.sort.name", "&aSORT"), List.of(
                 line(active, SortMode.MOST_PAID),
                 line(active, SortMode.MOST_DELIVERED),
                 line(active, SortMode.RECENTLY_LISTED),
@@ -178,7 +189,7 @@ public final class OrdersMainGui {
     private static ItemStack filterItem(Player player) {
         FilterMode active = FILTERS.getOrDefault(player.getUniqueId(), FilterMode.ALL);
 
-        return item(Material.FUNNEL, "&aFILTER", List.of(
+        return item(Material.HOPPER, cfg("orders.gui.buttons.filter.name", "&aFILTER"), List.of(
                 line(active, FilterMode.ALL),
                 line(active, FilterMode.BLOCKS),
                 line(active, FilterMode.TOOLS),
@@ -200,11 +211,13 @@ public final class OrdersMainGui {
         String price = economy == null ? "$" + order.pricePerItemCents() : economy.format(order.pricePerItemCents());
 
         return item(order.material(), "&a" + service.pretty(order.material()).toUpperCase(Locale.ROOT), List.of(
-                "&fBuyer: &a" + order.ownerName(),
-                "&fRemaining: &a" + order.remainingAmount() + "&8/&a" + order.requestedAmount(),
-                "&fMoney Per Item: &a" + price,
+                cfg("orders.gui.order-lore.buyer", "&fBuyer: &a%buyer%").replace("%buyer%", order.ownerName()),
+                cfg("orders.gui.order-lore.remaining", "&fRemaining: &a%remaining%&8/&a%requested%")
+                        .replace("%remaining%", String.valueOf(order.remainingAmount()))
+                        .replace("%requested%", String.valueOf(order.requestedAmount())),
+                cfg("orders.gui.order-lore.price", "&fMoney Per Item: &a%price%").replace("%price%", price),
                 "",
-                "&fClick to deliver"
+                cfg("orders.gui.order-lore.click", "&fClick to deliver")
         ));
     }
 
@@ -221,6 +234,16 @@ public final class OrdersMainGui {
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
+    }
+
+    private static String cfg(String path, String fallback) {
+        Core core = Core.instance();
+
+        if (core == null) {
+            return fallback;
+        }
+
+        return core.getConfig().getString(path, fallback);
     }
 
     private static String display(String raw) {
