@@ -396,10 +396,10 @@ orders:
     minimum-price-per-item: 0.01
   gui:
     titles:
-      main: ORDERS (Page %page%)
-      my-orders: MY ORDERS
-      confirm-deliver: CONFIRM DELIVERY
-      confirm-cancel: CONFIRM CANCEL
+      main: Orders (Page %page%)
+      my-orders: My Orders
+      confirm-deliver: Confirm Delivery
+      confirm-cancel: Confirm Cancel
       create: Create Order
     buttons:
       previous:
