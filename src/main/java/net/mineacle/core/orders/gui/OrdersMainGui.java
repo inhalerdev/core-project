@@ -7,67 +7,204 @@ import net.mineacle.core.orders.model.OrderRecord;
 import net.mineacle.core.orders.service.OrderService;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.Tag;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
 
 public final class OrdersMainGui {
 
-    public static final String TITLE = "Orders";
+    public static final int SIZE = 54;
+    public static final int ORDERS_PER_PAGE = 45;
+
+    public static final int PREV_SLOT = 45;
+    public static final int SORT_SLOT = 46;
+    public static final int FILTER_SLOT = 47;
+    public static final int SEARCH_SLOT = 48;
+    public static final int REFRESH_SLOT = 49;
+    public static final int MY_ORDERS_SLOT = 50;
+    public static final int NEXT_SLOT = 53;
+
+    private static final Map<UUID, Integer> PAGES = new HashMap<>();
+    private static final Map<UUID, SortMode> SORTS = new HashMap<>();
+    private static final Map<UUID, FilterMode> FILTERS = new HashMap<>();
+    private static final Map<UUID, String> SEARCHES = new HashMap<>();
 
     private OrdersMainGui() {
     }
 
     public static void open(Player player, OrderService service) {
-        Inventory inventory = Bukkit.createInventory(null, 54, TITLE);
+        int page = Math.max(1, PAGES.getOrDefault(player.getUniqueId(), 1));
+        List<OrderRecord> orders = filteredOrders(player, service);
 
-        List<OrderRecord> orders = service.activeOrders();
+        int maxPage = Math.max(1, (int) Math.ceil(orders.size() / (double) ORDERS_PER_PAGE));
+
+        if (page > maxPage) {
+            page = maxPage;
+            PAGES.put(player.getUniqueId(), page);
+        }
+
+        Inventory inventory = Bukkit.createInventory(null, SIZE, title(page));
+
+        int start = (page - 1) * ORDERS_PER_PAGE;
+        int end = Math.min(start + ORDERS_PER_PAGE, orders.size());
+
         int slot = 0;
 
-        for (OrderRecord order : orders) {
-            if (slot >= 45) {
-                break;
-            }
-
-            inventory.setItem(slot, orderItem(service, order));
+        for (int index = start; index < end; index++) {
+            inventory.setItem(slot, orderItem(service, orders.get(index)));
             slot++;
         }
 
-        inventory.setItem(45, item(Material.PLAYER_HEAD, "&dYour Orders", List.of(
-                "&#ccccccView and cancel your active orders",
-                "",
-                "&d➥ &#ccccccClick to open"
+        if (page > 1) {
+            inventory.setItem(PREV_SLOT, item(Material.ARROW, "&aBACK", List.of(
+                    "&fClick to go to the previous page"
+            )));
+        }
+
+        inventory.setItem(SORT_SLOT, sortItem(player));
+        inventory.setItem(FILTER_SLOT, filterItem(player));
+        inventory.setItem(SEARCH_SLOT, item(Material.NAME_TAG, "&aSEARCH", List.of(
+                "&fClick to search"
+        )));
+        inventory.setItem(REFRESH_SLOT, item(Material.CHEST, "&aORDERS", List.of(
+                "&fClick to refresh"
+        )));
+        inventory.setItem(MY_ORDERS_SLOT, item(Material.PLAYER_HEAD, "&aMY ORDERS", List.of(
+                "&fClick to manage your orders"
         )));
 
-        inventory.setItem(49, item(Material.SUNFLOWER, "&dRefresh", List.of(
-                "&#ccccccRefresh the public order board",
-                "",
-                "&d➥ &#ccccccClick to refresh"
-        )));
-
-        inventory.setItem(53, item(Material.WRITABLE_BOOK, "&dCreate Order", List.of(
-                "&#ccccccHold the item you want to order",
-                "",
-                "&d/order create <amount> <price_each>"
-        )));
+        if (page < maxPage) {
+            inventory.setItem(NEXT_SLOT, item(Material.ARROW, "&aNEXT", List.of(
+                    "&fClick to go to the next page"
+            )));
+        }
 
         player.openInventory(inventory);
+    }
+
+    public static String title(int page) {
+        return "ORDERS (Page " + page + ")";
+    }
+
+    public static boolean isTitle(String title) {
+        return title != null && title.startsWith("ORDERS (Page ");
+    }
+
+    public static int page(Player player) {
+        return Math.max(1, PAGES.getOrDefault(player.getUniqueId(), 1));
+    }
+
+    public static void nextPage(Player player, OrderService service) {
+        List<OrderRecord> orders = filteredOrders(player, service);
+        int maxPage = Math.max(1, (int) Math.ceil(orders.size() / (double) ORDERS_PER_PAGE));
+        int next = Math.min(maxPage, page(player) + 1);
+
+        PAGES.put(player.getUniqueId(), next);
+    }
+
+    public static void previousPage(Player player) {
+        PAGES.put(player.getUniqueId(), Math.max(1, page(player) - 1));
+    }
+
+    public static void cycleSort(Player player) {
+        SortMode current = SORTS.getOrDefault(player.getUniqueId(), SortMode.MOST_PAID);
+        SORTS.put(player.getUniqueId(), current.next());
+        PAGES.put(player.getUniqueId(), 1);
+    }
+
+    public static void cycleFilter(Player player) {
+        FilterMode current = FILTERS.getOrDefault(player.getUniqueId(), FilterMode.ALL);
+        FILTERS.put(player.getUniqueId(), current.next());
+        PAGES.put(player.getUniqueId(), 1);
+    }
+
+    public static void setSearch(Player player, String query) {
+        if (query == null || query.isBlank() || query.equalsIgnoreCase("clear")) {
+            SEARCHES.remove(player.getUniqueId());
+        } else {
+            SEARCHES.put(player.getUniqueId(), query.toLowerCase(Locale.ROOT));
+        }
+
+        PAGES.put(player.getUniqueId(), 1);
+    }
+
+    public static List<OrderRecord> pageOrders(Player player, OrderService service) {
+        int page = page(player);
+        List<OrderRecord> orders = filteredOrders(player, service);
+
+        int start = (page - 1) * ORDERS_PER_PAGE;
+        int end = Math.min(start + ORDERS_PER_PAGE, orders.size());
+
+        if (start >= orders.size()) {
+            return List.of();
+        }
+
+        return orders.subList(start, end);
+    }
+
+    private static List<OrderRecord> filteredOrders(Player player, OrderService service) {
+        SortMode sort = SORTS.getOrDefault(player.getUniqueId(), SortMode.MOST_PAID);
+        FilterMode filter = FILTERS.getOrDefault(player.getUniqueId(), FilterMode.ALL);
+        String search = SEARCHES.get(player.getUniqueId());
+
+        return service.activeOrders().stream()
+                .filter(order -> filter.matches(order.material()))
+                .filter(order -> search == null || order.material().name().toLowerCase(Locale.ROOT).contains(search))
+                .sorted(sort.comparator())
+                .toList();
+    }
+
+    private static ItemStack sortItem(Player player) {
+        SortMode active = SORTS.getOrDefault(player.getUniqueId(), SortMode.MOST_PAID);
+
+        return item(Material.HOPPER, "&aSORT", List.of(
+                line(active, SortMode.MOST_PAID),
+                line(active, SortMode.MOST_DELIVERED),
+                line(active, SortMode.RECENTLY_LISTED),
+                line(active, SortMode.MOST_MONEY_PER_ITEM)
+        ));
+    }
+
+    private static ItemStack filterItem(Player player) {
+        FilterMode active = FILTERS.getOrDefault(player.getUniqueId(), FilterMode.ALL);
+
+        return item(Material.FUNNEL, "&aFILTER", List.of(
+                line(active, FilterMode.ALL),
+                line(active, FilterMode.BLOCKS),
+                line(active, FilterMode.TOOLS),
+                line(active, FilterMode.FOOD),
+                line(active, FilterMode.COMBAT),
+                line(active, FilterMode.POTIONS),
+                line(active, FilterMode.BOOKS),
+                line(active, FilterMode.INGREDIENTS),
+                line(active, FilterMode.UTILITIES)
+        ));
+    }
+
+    private static String line(Enum<?> active, Enum<?> value) {
+        return (active == value ? "&a• " : "&f• ") + display(value.name());
     }
 
     public static ItemStack orderItem(OrderService service, OrderRecord order) {
         EconomyService economy = EconomyModule.economyService();
         String price = economy == null ? "$" + order.pricePerItemCents() : economy.format(order.pricePerItemCents());
 
-        return item(order.material(), "&d" + service.pretty(order.material()), List.of(
-                "&#ccccccBuyer: &d" + order.ownerName(),
-                "&#ccccccRemaining: &d" + order.remainingAmount() + "&8/&d" + order.requestedAmount(),
-                "&#ccccccPrice Each: &a" + price,
+        return item(order.material(), "&a" + service.pretty(order.material()).toUpperCase(Locale.ROOT), List.of(
+                "&fBuyer: &a" + order.ownerName(),
+                "&fRemaining: &a" + order.remainingAmount() + "&8/&a" + order.requestedAmount(),
+                "&fMoney Per Item: &a" + price,
                 "",
-                "&d➥ &#ccccccClick to deliver"
+                "&fClick to deliver"
         ));
     }
 
@@ -84,5 +221,101 @@ public final class OrdersMainGui {
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
+    }
+
+    private static String display(String raw) {
+        String[] parts = raw.toLowerCase(Locale.ROOT).split("_");
+        StringBuilder builder = new StringBuilder();
+
+        for (String part : parts) {
+            if (part.isBlank()) {
+                continue;
+            }
+
+            if (!builder.isEmpty()) {
+                builder.append(' ');
+            }
+
+            builder.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+        }
+
+        return builder.toString();
+    }
+
+    private enum SortMode {
+        MOST_PAID,
+        MOST_DELIVERED,
+        RECENTLY_LISTED,
+        MOST_MONEY_PER_ITEM;
+
+        private SortMode next() {
+            SortMode[] values = values();
+            return values[(ordinal() + 1) % values.length];
+        }
+
+        private Comparator<OrderRecord> comparator() {
+            return switch (this) {
+                case MOST_DELIVERED -> Comparator.comparingInt(OrderRecord::deliveredAmount).reversed();
+                case RECENTLY_LISTED -> Comparator.comparingLong(OrderRecord::createdAtMillis).reversed();
+                case MOST_MONEY_PER_ITEM -> Comparator.comparingLong(OrderRecord::pricePerItemCents).reversed();
+                case MOST_PAID -> Comparator.comparingLong((OrderRecord order) -> order.deliveredAmount() * order.pricePerItemCents()).reversed();
+            };
+        }
+    }
+
+    private enum FilterMode {
+        ALL,
+        BLOCKS,
+        TOOLS,
+        FOOD,
+        COMBAT,
+        POTIONS,
+        BOOKS,
+        INGREDIENTS,
+        UTILITIES;
+
+        private FilterMode next() {
+            FilterMode[] values = values();
+            return values[(ordinal() + 1) % values.length];
+        }
+
+        private boolean matches(Material material) {
+            if (this == ALL) {
+                return true;
+            }
+
+            String name = material.name();
+
+            return switch (this) {
+                case BLOCKS -> material.isBlock();
+                case TOOLS -> name.endsWith("_PICKAXE")
+                        || name.endsWith("_AXE")
+                        || name.endsWith("_SHOVEL")
+                        || name.endsWith("_HOE")
+                        || name.equals("SHEARS")
+                        || name.equals("FISHING_ROD");
+                case FOOD -> material.isEdible();
+                case COMBAT -> name.endsWith("_SWORD")
+                        || name.endsWith("_HELMET")
+                        || name.endsWith("_CHESTPLATE")
+                        || name.endsWith("_LEGGINGS")
+                        || name.endsWith("_BOOTS")
+                        || name.equals("BOW")
+                        || name.equals("CROSSBOW")
+                        || name.equals("SHIELD")
+                        || name.equals("TRIDENT");
+                case POTIONS -> name.contains("POTION") || name.equals("DRAGON_BREATH");
+                case BOOKS -> name.contains("BOOK") || name.equals("PAPER") || name.equals("MAP");
+                case INGREDIENTS -> Tag.ITEMS_COALS.isTagged(material)
+                        || name.contains("INGOT")
+                        || name.contains("NUGGET")
+                        || name.contains("DUST")
+                        || name.contains("GEM")
+                        || name.contains("SHARD")
+                        || name.contains("SCRAP");
+                case UTILITIES -> !material.isBlock() && !material.isEdible();
+                case ALL -> true;
+            };
+        }
     }
 }

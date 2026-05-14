@@ -41,6 +41,18 @@ public final class OrderCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        if (args[0].equalsIgnoreCase("search")) {
+            OrdersMainGui.setSearch(player, args.length < 2 ? "clear" : args[1]);
+            OrdersMainGui.open(player, service);
+            return true;
+        }
+
+        if (args[0].equalsIgnoreCase("clear")) {
+            OrdersMainGui.setSearch(player, "clear");
+            OrdersMainGui.open(player, service);
+            return true;
+        }
+
         if (args[0].equalsIgnoreCase("create")) {
             if (args.length < 3) {
                 player.sendMessage(TextColor.color("&d/order create <amount> <price_each>"));
@@ -75,7 +87,7 @@ public final class OrderCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return List.of("create");
+            return List.of("create", "search", "clear");
         }
 
         return List.of();

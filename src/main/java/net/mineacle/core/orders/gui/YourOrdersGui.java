@@ -1,20 +1,19 @@
 package net.mineacle.core.orders.gui;
 
-import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.orders.model.OrderRecord;
 import net.mineacle.core.orders.service.OrderService;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 
 import java.util.List;
+import java.util.Locale;
 
 public final class YourOrdersGui {
 
-    public static final String TITLE = "Your Orders";
+    public static final String TITLE = "MY ORDERS";
 
     private YourOrdersGui() {
     }
@@ -26,17 +25,13 @@ public final class YourOrdersGui {
         int slot = 0;
 
         for (OrderRecord order : orders) {
-            if (slot >= 45) {
+            if (slot >= OrdersMainGui.ORDERS_PER_PAGE) {
                 break;
             }
 
             inventory.setItem(slot, orderItem(service, order));
             slot++;
         }
-
-        inventory.setItem(49, OrdersMainGui.item(Material.BARRIER, "&cClose", List.of(
-                "&#ccccccPress ESC to close"
-        )));
 
         player.openInventory(inventory);
     }
@@ -45,12 +40,12 @@ public final class YourOrdersGui {
         EconomyService economy = EconomyModule.economyService();
         String escrow = economy == null ? "$" + order.escrowRemainingCents() : economy.format(order.escrowRemainingCents());
 
-        return OrdersMainGui.item(order.material(), "&d" + service.pretty(order.material()), List.of(
-                "&#ccccccStatus: " + (order.active() ? "&aActive" : "&cClosed"),
-                "&#ccccccDelivered: &d" + order.deliveredAmount() + "&8/&d" + order.requestedAmount(),
-                "&#ccccccRefundable Escrow: &a" + escrow,
+        return OrdersMainGui.item(order.material(), "&a" + service.pretty(order.material()).toUpperCase(Locale.ROOT), List.of(
+                "&fStatus: " + (order.active() ? "&aActive" : "&cClosed"),
+                "&fDelivered: &a" + order.deliveredAmount() + "&8/&a" + order.requestedAmount(),
+                "&fRefundable Escrow: &a" + escrow,
                 "",
-                order.active() ? "&d➥ &#ccccccClick to cancel and refund" : "&#777777Closed"
+                order.active() ? "&fClick to cancel and refund" : "&8Closed"
         ));
     }
 }

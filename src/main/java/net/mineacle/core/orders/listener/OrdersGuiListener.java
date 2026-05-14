@@ -36,7 +36,7 @@ public final class OrdersGuiListener implements Listener {
             return;
         }
 
-        if (!title.equals(OrdersMainGui.TITLE) && !title.equals(YourOrdersGui.TITLE)) {
+        if (!OrdersMainGui.isTitle(title) && !title.equals(YourOrdersGui.TITLE)) {
             return;
         }
 
@@ -49,39 +49,67 @@ public final class OrdersGuiListener implements Listener {
             return;
         }
 
-        if (title.equals(OrdersMainGui.TITLE)) {
+        if (OrdersMainGui.isTitle(title)) {
             handleMain(player, slot);
             return;
         }
 
-        handleYourOrders(player, slot);
+        handleMyOrders(player, slot);
     }
 
     private void handleMain(Player player, int slot) {
-        if (slot == 45) {
-            SoundService.guiClick(player, core);
-            YourOrdersGui.open(player, service);
-            return;
-        }
-
-        if (slot == 49) {
+        if (slot == OrdersMainGui.PREV_SLOT) {
+            OrdersMainGui.previousPage(player);
             SoundService.guiClick(player, core);
             OrdersMainGui.open(player, service);
             return;
         }
 
-        if (slot == 53) {
+        if (slot == OrdersMainGui.NEXT_SLOT) {
+            OrdersMainGui.nextPage(player, service);
+            SoundService.guiClick(player, core);
+            OrdersMainGui.open(player, service);
+            return;
+        }
+
+        if (slot == OrdersMainGui.SORT_SLOT) {
+            OrdersMainGui.cycleSort(player);
+            SoundService.guiClick(player, core);
+            OrdersMainGui.open(player, service);
+            return;
+        }
+
+        if (slot == OrdersMainGui.FILTER_SLOT) {
+            OrdersMainGui.cycleFilter(player);
+            SoundService.guiClick(player, core);
+            OrdersMainGui.open(player, service);
+            return;
+        }
+
+        if (slot == OrdersMainGui.SEARCH_SLOT) {
             SoundService.guiClick(player, core);
             player.closeInventory();
-            player.sendMessage("§d/order create <amount> <price_each>");
+            player.sendMessage("§d/order search <item>");
             return;
         }
 
-        if (slot >= 45) {
+        if (slot == OrdersMainGui.REFRESH_SLOT) {
+            SoundService.guiClick(player, core);
+            OrdersMainGui.open(player, service);
             return;
         }
 
-        List<OrderRecord> orders = service.activeOrders();
+        if (slot == OrdersMainGui.MY_ORDERS_SLOT) {
+            SoundService.guiClick(player, core);
+            YourOrdersGui.open(player, service);
+            return;
+        }
+
+        if (slot >= OrdersMainGui.ORDERS_PER_PAGE) {
+            return;
+        }
+
+        List<OrderRecord> orders = OrdersMainGui.pageOrders(player, service);
 
         if (slot >= orders.size()) {
             return;
@@ -91,13 +119,8 @@ public final class OrdersGuiListener implements Listener {
         OrdersMainGui.open(player, service);
     }
 
-    private void handleYourOrders(Player player, int slot) {
-        if (slot == 49) {
-            player.closeInventory();
-            return;
-        }
-
-        if (slot >= 45) {
+    private void handleMyOrders(Player player, int slot) {
+        if (slot >= OrdersMainGui.ORDERS_PER_PAGE) {
             return;
         }
 
