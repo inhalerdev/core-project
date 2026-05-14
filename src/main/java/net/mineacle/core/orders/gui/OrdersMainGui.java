@@ -29,11 +29,11 @@ public final class OrdersMainGui {
     public static final int ORDERS_PER_PAGE = 45;
 
     public static final int PREV_SLOT = 45;
-    public static final int SORT_SLOT = 46;
-    public static final int FILTER_SLOT = 47;
-    public static final int SEARCH_SLOT = 48;
+    public static final int SORT_SLOT = 47;
+    public static final int FILTER_SLOT = 48;
     public static final int REFRESH_SLOT = 49;
-    public static final int MY_ORDERS_SLOT = 50;
+    public static final int SEARCH_SLOT = 50;
+    public static final int MY_ORDERS_SLOT = 51;
     public static final int NEXT_SLOT = 53;
 
     private static final Map<UUID, Integer> PAGES = new HashMap<>();
@@ -75,14 +75,14 @@ public final class OrdersMainGui {
 
         inventory.setItem(SORT_SLOT, sortItem(player));
         inventory.setItem(FILTER_SLOT, filterItem(player));
-        inventory.setItem(SEARCH_SLOT, item(Material.NAME_TAG, cfg("orders.gui.buttons.search.name", "&aSEARCH"), List.of(
-                cfg("orders.gui.buttons.search.lore", "&fClick to search")
-        )));
-        inventory.setItem(REFRESH_SLOT, item(Material.CHEST, cfg("orders.gui.buttons.refresh.name", "&aORDERS"), List.of(
+        inventory.setItem(REFRESH_SLOT, item(Material.PAPER, cfg("orders.gui.buttons.refresh.name", "&aORDERS"), List.of(
                 cfg("orders.gui.buttons.refresh.lore", "&fClick to refresh")
         )));
+        inventory.setItem(SEARCH_SLOT, item(Material.OAK_SIGN, cfg("orders.gui.buttons.search.name", "&aSEARCH"), List.of(
+                cfg("orders.gui.buttons.search.lore", "&fClick to search")
+        )));
         inventory.setItem(MY_ORDERS_SLOT, item(Material.PLAYER_HEAD, cfg("orders.gui.buttons.my-orders.name", "&aMY ORDERS"), List.of(
-                cfg("orders.gui.buttons.my-orders.lore", "&fClick to manage your orders")
+                cfg("orders.gui.buttons.my-orders.lore", "&fClick to view your orders")
         )));
 
         if (page < maxPage) {
@@ -140,7 +140,7 @@ public final class OrdersMainGui {
     }
 
     public static void setSearch(Player player, String query) {
-        if (query == null || query.isBlank() || query.equalsIgnoreCase("clear")) {
+        if (query == null || query.isBlank() || query.equalsIgnoreCase("clear") || query.equalsIgnoreCase("cancel")) {
             SEARCHES.remove(player.getUniqueId());
         } else {
             SEARCHES.put(player.getUniqueId(), query.toLowerCase(Locale.ROOT));
@@ -178,7 +178,7 @@ public final class OrdersMainGui {
     private static ItemStack sortItem(Player player) {
         SortMode active = SORTS.getOrDefault(player.getUniqueId(), SortMode.MOST_PAID);
 
-        return item(Material.HOPPER, cfg("orders.gui.buttons.sort.name", "&aSORT"), List.of(
+        return item(Material.CAULDRON, cfg("orders.gui.buttons.sort.name", "&aSORT"), List.of(
                 line(active, SortMode.MOST_PAID),
                 line(active, SortMode.MOST_DELIVERED),
                 line(active, SortMode.RECENTLY_LISTED),
