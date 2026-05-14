@@ -3,6 +3,7 @@ package net.mineacle.core.orders.listener;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.orders.gui.OrderConfirmGui;
+import net.mineacle.core.orders.gui.OrderCreateGui;
 import net.mineacle.core.orders.gui.OrdersMainGui;
 import net.mineacle.core.orders.gui.YourOrdersGui;
 import net.mineacle.core.orders.model.OrderRecord;
@@ -37,7 +38,7 @@ public final class OrdersGuiListener implements Listener {
             return;
         }
 
-        if (!OrdersMainGui.isTitle(title) && !YourOrdersGui.isTitle(title) && !OrderConfirmGui.isTitle(title)) {
+        if (!OrdersMainGui.isTitle(title) && !YourOrdersGui.isTitle(title) && !OrderConfirmGui.isTitle(title) && !OrderCreateGui.isTitle(title)) {
             return;
         }
 
@@ -57,6 +58,11 @@ public final class OrdersGuiListener implements Listener {
 
         if (YourOrdersGui.isTitle(title)) {
             handleMyOrders(player, slot);
+            return;
+        }
+
+        if (OrderCreateGui.isTitle(title)) {
+            handleCreate(player, slot);
             return;
         }
 
@@ -139,12 +145,33 @@ public final class OrdersGuiListener implements Listener {
 
         OrderRecord order = orders.get(slot);
 
+        if (order.collectableAmount() > 0) {
+            service.collect(player, order);
+            YourOrdersGui.open(player, service);
+            return;
+        }
+
         if (!order.active()) {
             return;
         }
 
         SoundService.guiClick(player, core);
         OrderConfirmGui.openCancel(player, order);
+    }
+
+    private void handleCreate(Player player, int slot) {
+        if (slot == OrderCreateGui.CANCEL_SLOT) {
+            SoundService.guiCancel(player, core);
+            OrdersMainGui.open(player, service);
+            return;
+        }
+
+        if (slot == OrderCreateGui.CREATE_SLOT) {
+            SoundService.guiClick(player, core);
+            OrderCreateInputListener.begin(player);
+            player.closeInventory();
+            player.sendMessage("§dType amount and price, like: 64 10");
+        }
     }
 
     private void handleConfirm(Player player, int slot) {

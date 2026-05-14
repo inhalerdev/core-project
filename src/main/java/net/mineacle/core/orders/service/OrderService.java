@@ -14,6 +14,7 @@ import org.bukkit.inventory.ItemStack;
 
 import java.math.BigDecimal;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
@@ -116,6 +117,7 @@ public final class OrderService {
                 hand.getType(),
                 amount,
                 0,
+                0,
                 pricePerItem,
                 subtotal,
                 System.currentTimeMillis(),
@@ -188,6 +190,52 @@ public final class OrderService {
                 .replace("%money%", amount));
 
         SoundService.economyReceive(seller, core);
+    }
+
+    public void collect(Player player, OrderRecord order) {
+        if (player == null || order == null) {
+            return;
+        }
+
+        if (!order.ownerId().equals(player.getUniqueId())) {
+            SoundService.guiError(player, core);
+            return;
+        }
+
+        int amount = order.collectableAmount();
+
+        if (amount <= 0) {
+            send(player, message("nothing-to-collect", "&cThere are no items to collect"));
+            SoundService.guiError(player, core);
+            return;
+        }
+
+        HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(new ItemStack(order.material(), amount));
+
+        int leftoverAmount = 0;
+
+        for (ItemStack item : leftover.values()) {
+            if (item != null) {
+                leftoverAmount += item.getAmount();
+            }
+        }
+
+        int collected = amount - leftoverAmount;
+
+        if (collected <= 0) {
+            send(player, message("inventory-full", "&cYour inventory is full"));
+            SoundService.guiError(player, core);
+            return;
+        }
+
+        order.addCollected(collected);
+        repository.put(order);
+
+        send(player, message("collected", "&#ccccccCollected &d%amount%x %item%")
+                .replace("%amount%", String.valueOf(collected))
+                .replace("%item%", pretty(order.material())));
+
+        SoundService.guiConfirm(player, core);
     }
 
     public void cancel(Player player, OrderRecord order) {

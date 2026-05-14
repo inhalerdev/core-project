@@ -12,6 +12,7 @@ public final class OrderRecord {
     private final Material material;
     private final int requestedAmount;
     private int deliveredAmount;
+    private int collectedAmount;
     private final long pricePerItemCents;
     private long escrowRemainingCents;
     private final long createdAtMillis;
@@ -24,6 +25,7 @@ public final class OrderRecord {
             Material material,
             int requestedAmount,
             int deliveredAmount,
+            int collectedAmount,
             long pricePerItemCents,
             long escrowRemainingCents,
             long createdAtMillis,
@@ -35,6 +37,7 @@ public final class OrderRecord {
         this.material = material;
         this.requestedAmount = requestedAmount;
         this.deliveredAmount = deliveredAmount;
+        this.collectedAmount = collectedAmount;
         this.pricePerItemCents = pricePerItemCents;
         this.escrowRemainingCents = escrowRemainingCents;
         this.createdAtMillis = createdAtMillis;
@@ -65,6 +68,10 @@ public final class OrderRecord {
         return deliveredAmount;
     }
 
+    public int collectedAmount() {
+        return collectedAmount;
+    }
+
     public long pricePerItemCents() {
         return pricePerItemCents;
     }
@@ -85,6 +92,10 @@ public final class OrderRecord {
         return Math.max(0, requestedAmount - deliveredAmount);
     }
 
+    public int collectableAmount() {
+        return Math.max(0, deliveredAmount - collectedAmount);
+    }
+
     public boolean complete() {
         return remainingAmount() <= 0 || escrowRemainingCents <= 0L;
     }
@@ -95,6 +106,10 @@ public final class OrderRecord {
         if (complete()) {
             active = false;
         }
+    }
+
+    public void addCollected(int amount) {
+        collectedAmount = Math.min(deliveredAmount, collectedAmount + Math.max(0, amount));
     }
 
     public void removeEscrow(long cents) {

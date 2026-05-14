@@ -3,6 +3,7 @@ package net.mineacle.core.orders.command;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.orders.gui.OrderCreateGui;
 import net.mineacle.core.orders.gui.OrdersMainGui;
 import net.mineacle.core.orders.service.OrderService;
 import org.bukkit.command.Command;
@@ -59,6 +60,11 @@ public final class OrderCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args[0].equalsIgnoreCase("create")) {
+            if (args.length == 1) {
+                OrderCreateGui.open(player);
+                return true;
+            }
+
             if (args.length < 3) {
                 player.sendMessage(TextColor.color("&d/order create <amount> <price_each>"));
                 SoundService.guiError(player, core);

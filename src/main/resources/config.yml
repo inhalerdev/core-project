@@ -1,8 +1,7 @@
 teleport-perks:
-  plus-permission: "mineacle.plus"
+  plus-permission: mineacle.plus
   default-delay-seconds: 5
   plus-delay-seconds: 3
-
 homes:
   max-homes:
     default: 2
@@ -11,13 +10,13 @@ homes:
   allowed-worlds:
     enabled: true
     worlds:
-      - origins
-      - spawn1_nether
-      - spawn1_the_end
+    - origins
+    - spawn1_nether
+    - spawn1_the_end
   blocked-worlds:
-    - spawn1
-    - spawn2
-    - spawn3
+  - spawn1
+  - spawn2
+  - spawn3
   teleport:
     delay-seconds: 5
     plus-delay-seconds: 3
@@ -37,21 +36,19 @@ homes:
     allowed-worlds:
       enabled: true
       worlds:
-        - origins
+      - origins
     blocked-worlds:
-      - spawn1
-      - spawn1_nether
-      - spawn1_the_end
-      - spawn2
-      - spawn3
-
+    - spawn1
+    - spawn1_nether
+    - spawn1_the_end
+    - spawn2
+    - spawn3
 teams:
   enabled: true
   max-members: 45
   ban-days: 7
   invites:
     timeout-seconds: 120
-
 tpa:
   enabled: true
   request-timeout-seconds: 60
@@ -59,61 +56,55 @@ tpa:
   plus-teleport-delay-seconds: 3
   cancel-on-move: true
   cancel-distance: 1.0
-
 economy:
   enabled: true
   starting-balance: 0
-  currency-symbol: "$"
+  currency-symbol: $
   pay:
     enabled: true
     minimum: 0.01
-
 baltop:
   enabled: true
-  gui-title: "Balance Top"
+  gui-title: Balance Top
   entries-per-page: 45
-
 nickname:
   enabled: true
-  prefix: "."
+  prefix: .
   max-length: 15
-  allowed-regex: "^[a-zA-Z_0-9&§]+$"
-  op-name-color: "#FF80FF"
-  default-name-color: "#bbbbbb"
-
+  allowed-regex: ^[a-zA-Z_0-9&§]+$
+  op-name-color: '#FF80FF'
+  default-name-color: '#bbbbbb'
 chat:
   enabled: true
-  format: "%luckperms_prefix%%mineacle_chat_displayname%&#cccccc: &#cccccc%message%"
+  format: '%luckperms_prefix%%mineacle_chat_displayname%&#cccccc: &#cccccc%message%'
   worlds:
     mode: grouped
     groups:
       global:
-        - spawn1
-        - spawn1_nether
-        - spawn1_the_end
-        - spawn2
-        - spawn3
-        - origins
-
+      - spawn1
+      - spawn1_nether
+      - spawn1_the_end
+      - spawn2
+      - spawn3
+      - origins
 placeholders:
   datetime:
-    timezone: "America/Chicago"
-    date-format: "MM/dd/yy"
-    time-format: "hh:mm"
-    datetime-format: "MM/dd/yy | hh:mm"
-
+    timezone: America/Chicago
+    date-format: MM/dd/yy
+    time-format: hh:mm
+    datetime-format: MM/dd/yy | hh:mm
 origin-rtp:
   enabled: true
-  world: "origins"
+  world: origins
   destinations:
     origins:
       enabled: true
-      display-name: "Origins"
-      world: "origins"
+      display-name: Origins
+      world: origins
     nether:
       enabled: true
-      display-name: "Nether"
-      world: "spawn1_nether"
+      display-name: Nether
+      world: spawn1_nether
       search:
         min-y: 32
         max-y: 118
@@ -121,8 +112,8 @@ origin-rtp:
         max-radius: 5000
     end:
       enabled: true
-      display-name: "End"
-      world: "spawn1_the_end"
+      display-name: End
+      world: spawn1_the_end
       search:
         min-y: 48
         max-y: 256
@@ -135,7 +126,7 @@ origin-rtp:
   default:
     delay-seconds: 5
   plus:
-    permission: "mineacle.plus"
+    permission: mineacle.plus
     delay-seconds: 3
     priority: true
   teleport:
@@ -147,62 +138,59 @@ origin-rtp:
     center-z: 0
     min-radius: 250
     max-radius: 5000
-    shape: "square"
+    shape: square
     min-y: 64
     max-y: 320
     max-attempts: 256
     preload-radius: 2
     respect-worldguard: false
   unsafe-blocks:
-    - AIR
-    - CAVE_AIR
-    - VOID_AIR
-    - WATER
-    - LAVA
-    - FIRE
-    - SOUL_FIRE
-    - CACTUS
-    - MAGMA_BLOCK
-    - POWDER_SNOW
-    - BEDROCK
-    - KELP
-    - KELP_PLANT
-    - OAK_LEAVES
-    - SPRUCE_LEAVES
-    - BIRCH_LEAVES
-    - JUNGLE_LEAVES
-    - ACACIA_LEAVES
-    - DARK_OAK_LEAVES
-    - MANGROVE_LEAVES
-    - CHERRY_LEAVES
-    - AZALEA_LEAVES
-    - FLOWERING_AZALEA_LEAVES
+  - AIR
+  - CAVE_AIR
+  - VOID_AIR
+  - WATER
+  - LAVA
+  - FIRE
+  - SOUL_FIRE
+  - CACTUS
+  - MAGMA_BLOCK
+  - POWDER_SNOW
+  - BEDROCK
+  - KELP
+  - KELP_PLANT
+  - OAK_LEAVES
+  - SPRUCE_LEAVES
+  - BIRCH_LEAVES
+  - JUNGLE_LEAVES
+  - ACACIA_LEAVES
+  - DARK_OAK_LEAVES
+  - MANGROVE_LEAVES
+  - CHERRY_LEAVES
+  - AZALEA_LEAVES
+  - FLOWERING_AZALEA_LEAVES
   messages:
-    disabled: "&cRTP is disabled"
-    already-queued: "&cYou are already queued for RTP"
-    queued: "&#ccccccQueued for &d%world% RTP"
-    queued-position: "&#ccccccQueued for &d%world% RTP &#ccccccPosition &d#%position%"
-    countdown: "&#ccccccTeleporting to &d%world% &#ccccccin &d%seconds%s"
-    cancelled: "&cTeleport cancelled — you moved"
-    searching: "&#ccccccFinding a safe location in &d%world%"
-    failed: "&cCould not find a safe location in &d%world%"
-    teleported: "&#ccccccTeleported to &d%world%"
-
+    disabled: '&cRTP is disabled'
+    already-queued: '&cYou are already queued for RTP'
+    queued: '&#ccccccQueued for &d%world% RTP'
+    queued-position: '&#ccccccQueued for &d%world% RTP &#ccccccPosition &d#%position%'
+    countdown: '&#ccccccTeleporting to &d%world% &#ccccccin &d%seconds%s'
+    cancelled: '&cTeleport cancelled — you moved'
+    searching: '&#ccccccFinding a safe location in &d%world%'
+    failed: '&cCould not find a safe location in &d%world%'
+    teleported: '&#ccccccTeleported to &d%world%'
 double-jump:
   enabled: true
   worlds:
-    - spawn1
-    - spawn2
-    - spawn3
+  - spawn1
+  - spawn2
+  - spawn3
   cooldown-seconds: 0.75
   upward-velocity: 0.62
   forward-velocity: 1.25
   particles: true
   actionbar-cooldown: false
-
 sounds:
   enabled: true
-
   gui:
     click:
       enabled: true
@@ -234,14 +222,12 @@ sounds:
       sound: UI_BUTTON_CLICK
       volume: 1.0
       pitch: 1.0
-
   mineacle-plus:
     blocked:
       enabled: true
       sound: BLOCK_NOTE_BLOCK_BASS
       volume: 1.0
       pitch: 1.0
-
   teleport:
     start:
       enabled: true
@@ -273,7 +259,6 @@ sounds:
       sound: ENTITY_ITEM_PICKUP
       volume: 1.0
       pitch: 1.0
-
   spawn:
     open:
       enabled: false
@@ -285,7 +270,6 @@ sounds:
       sound: ENTITY_EXPERIENCE_ORB_PICKUP
       volume: 1.0
       pitch: 1.0
-
   homes:
     set:
       enabled: true
@@ -297,7 +281,6 @@ sounds:
       sound: BLOCK_NOTE_BLOCK_BASS
       volume: 1.0
       pitch: 1.0
-
   teams:
     invite:
       enabled: true
@@ -314,7 +297,6 @@ sounds:
       sound: BLOCK_NOTE_BLOCK_BASS
       volume: 1.0
       pitch: 1.0
-
   economy:
     pay:
       enabled: true
@@ -331,14 +313,12 @@ sounds:
       sound: ENTITY_EXPERIENCE_ORB_PICKUP
       volume: 1.0
       pitch: 1.0
-
   chat:
     message:
       enabled: true
       sound: ENTITY_ITEM_PICKUP
       volume: 1.0
       pitch: 1.0
-
   double-jump:
     jump:
       enabled: true
@@ -350,7 +330,6 @@ sounds:
       sound: UI_BUTTON_CLICK
       volume: 1.0
       pitch: 1.0
-
   feature:
     enable:
       enabled: true
@@ -362,149 +341,149 @@ sounds:
       sound: BLOCK_STONE_BUTTON_CLICK_ON
       volume: 1.0
       pitch: 1.0
-
 fly:
   enabled: true
-  permission: "mineacle.plus"
+  permission: mineacle.plus
   worlds:
-    - spawn1
-    - spawn2
-    - spawn3
+  - spawn1
+  - spawn2
+  - spawn3
   messages:
-    enabled: "&aFlight Enabled"
-    disabled: "&cFlight disabled"
-    blocked-world: "&cFlight is only available in spawn"
-    upgrade-line-1: "&fElevate your gameplay experience with &dMineacle+"
-    upgrade-line-2: "&d♦ &fhttps://store.mineacle.net"
-
+    enabled: '&aFlight Enabled'
+    disabled: '&cFlight disabled'
+    blocked-world: '&cFlight is only available in spawn'
+    upgrade-line-1: '&fElevate your gameplay experience with &dMineacle+'
+    upgrade-line-2: '&d♦ &fhttps://store.mineacle.net'
 spawn-restrictions:
   enabled: true
   worlds:
-    - spawn1
-    - spawn2
-    - spawn3
-
+  - spawn1
+  - spawn2
+  - spawn3
   prevent-wither-rose-effects: true
-
   blocked-interactions:
-    - CRAFTING_TABLE
-    - ENDER_CHEST
-    - ANVIL
-    - CHIPPED_ANVIL
-    - DAMAGED_ANVIL
-    - SMITHING_TABLE
-    - GRINDSTONE
-    - STONECUTTER
-    - SCULK_SHRIEKER
-    - SCULK_SENSOR
-    - CALIBRATED_SCULK_SENSOR
-    - SCULK_CATALYST
-
+  - CRAFTING_TABLE
+  - ENDER_CHEST
+  - ANVIL
+  - CHIPPED_ANVIL
+  - DAMAGED_ANVIL
+  - SMITHING_TABLE
+  - GRINDSTONE
+  - STONECUTTER
+  - SCULK_SHRIEKER
+  - SCULK_SENSOR
+  - CALIBRATED_SCULK_SENSOR
+  - SCULK_CATALYST
   blocked-placement:
-    - WITHER_ROSE
-    - SCULK_SHRIEKER
-    - SCULK_SENSOR
-    - CALIBRATED_SCULK_SENSOR
-    - SCULK_CATALYST
-
+  - WITHER_ROSE
+  - SCULK_SHRIEKER
+  - SCULK_SENSOR
+  - CALIBRATED_SCULK_SENSOR
+  - SCULK_CATALYST
   blocked-breaking:
-    - WITHER_ROSE
-    - SCULK_SHRIEKER
-    - SCULK_SENSOR
-    - CALIBRATED_SCULK_SENSOR
-    - SCULK_CATALYST
-
+  - WITHER_ROSE
+  - SCULK_SHRIEKER
+  - SCULK_SENSOR
+  - CALIBRATED_SCULK_SENSOR
+  - SCULK_CATALYST
 orders:
   enabled: true
   creation-tax-percent: 0.0
-
   limits:
     max-active-default: 10
     max-active-plus: 25
     max-amount: 2304
     minimum-price-per-item: 0.01
-
   gui:
     titles:
-      main: "ORDERS (Page %page%)"
-      my-orders: "MY ORDERS"
-      confirm-deliver: "CONFIRM DELIVERY"
-      confirm-cancel: "CONFIRM CANCEL"
-
+      main: ORDERS (Page %page%)
+      my-orders: MY ORDERS
+      confirm-deliver: CONFIRM DELIVERY
+      confirm-cancel: CONFIRM CANCEL
+      create: CREATE ORDER
     buttons:
       previous:
         material: ARROW
-        name: "&aBACK"
+        name: '&aBACK'
         lore:
-          - "&fClick to go to the previous page"
+        - '&fClick to go to the previous page'
       next:
         material: ARROW
-        name: "&aNEXT"
+        name: '&aNEXT'
         lore:
-          - "&fClick to go to the next page"
+        - '&fClick to go to the next page'
       sort:
         material: CAULDRON
-        name: "&aSORT"
+        name: '&aSORT'
       filter:
         material: HOPPER
-        name: "&aFILTER"
+        name: '&aFILTER'
       refresh:
         material: PAPER
-        name: "&aORDERS"
+        name: '&aORDERS'
         lore:
-          - "&fClick to refresh"
+        - '&fClick to refresh'
       search:
         material: OAK_SIGN
-        name: "&aSEARCH"
+        name: '&aSEARCH'
         lore:
-          - "&fClick to search"
+        - '&fClick to search'
       my-orders:
         material: PLAYER_HEAD
-        name: "&aMY ORDERS"
+        name: '&aMY ORDERS'
         lore:
-          - "&fClick to view your orders"
-
+        - '&fClick to view your orders'
     order-lore:
-      buyer: "&fBuyer: &a%buyer%"
-      remaining: "&fRemaining: &a%remaining%&8/&a%requested%"
-      price: "&fMoney Per Item: &a%price%"
-      click: "&fClick to deliver"
-
+      buyer: '&fBuyer: &a%buyer%'
+      remaining: '&fRemaining: &a%remaining%&8/&a%requested%'
+      price: '&fMoney Per Item: &a%price%'
+      click: '&fClick to deliver'
     my-order-lore:
-      status: "&fStatus: %status%"
-      delivered: "&fDelivered: &a%delivered%&8/&a%requested%"
-      escrow: "&fRefundable Escrow: &a%escrow%"
-      click: "&fClick to cancel and refund"
-      closed: "&8Closed"
-
+      status: '&fStatus: %status%'
+      delivered: '&fDelivered: &a%delivered%&8/&a%requested%'
+      escrow: '&fRefundable Escrow: &a%escrow%'
+      click: '&fClick to cancel and refund'
+      closed: '&8Closed'
     confirm:
       cancel:
-        name: "&cCANCEL"
-        lore: "&fClick to cancel"
+        name: '&cCANCEL'
+        lore: '&fClick to cancel'
       confirm:
-        name: "&aCONFIRM"
-        lore: "&fClick to confirm"
+        name: '&aCONFIRM'
+        lore: '&fClick to confirm'
       deliver:
-        name: "&aCONFIRM DELIVERY"
-        lore-1: "&fDelivering: &a%amount%x %item%"
-        lore-2: "&fPayout: &a%payout%"
-        lore-3: "&fClick confirm to deliver"
+        name: '&aCONFIRM DELIVERY'
+        lore-1: '&fDelivering: &a%amount%x %item%'
+        lore-2: '&fPayout: &a%payout%'
+        lore-3: '&fClick confirm to deliver'
       cancel-order:
-        name: "&cCANCEL ORDER"
-        lore-1: "&fRefund: &a%refund%"
-        lore-2: "&fClick confirm to cancel this order"
-
+        name: '&cCANCEL ORDER'
+        lore-1: '&fRefund: &a%refund%'
+        lore-2: '&fClick confirm to cancel this order'
+    create:
+      empty-name: '&cNO ITEM'
+      empty-lore: '&fHold the item you want to order'
+      item-name: '&aSELECTED ITEM'
+      item-lore: '&fThis is the item players will deliver'
+      cancel-name: '&cCANCEL'
+      cancel-lore: '&fClick to cancel'
+      create-name: '&aCREATE ORDER'
+      create-lore-1: '&fClick and type amount price'
+      create-lore-2: '&7Example: &f64 10'
   messages:
-    invalid-amount: "&cAmount must be greater than 0"
-    max-amount: "&cThat order amount is too high"
-    max-active: "&cYou have too many active orders"
-    hold-item: "&cHold the item you want to order"
-    economy-not-ready: "&cEconomy is not ready"
-    minimum-price: "&cPrice is too low"
-    not-enough-money: "&cYou do not have enough money"
-    created: "&#ccccccCreated order for &d%amount%x %item%"
-    already-complete: "&cThat order is already complete"
-    own-order: "&cYou cannot deliver to your own order"
-    missing-items: "&cYou do not have the required item"
-    delivered: "&#ccccccDelivered &d%amount%x %item% &#ccccccfor &a+%money%"
-    cancelled: "&#ccccccCancelled order and refunded &a%refund%"
+    invalid-amount: '&cAmount must be greater than 0'
+    max-amount: '&cThat order amount is too high'
+    max-active: '&cYou have too many active orders'
+    hold-item: '&cHold the item you want to order'
+    economy-not-ready: '&cEconomy is not ready'
+    minimum-price: '&cPrice is too low'
+    not-enough-money: '&cYou do not have enough money'
+    created: '&#ccccccCreated order for &d%amount%x %item%'
+    already-complete: '&cThat order is already complete'
+    own-order: '&cYou cannot deliver to your own order'
+    missing-items: '&cYou do not have the required item'
+    delivered: '&#ccccccDelivered &d%amount%x %item% &#ccccccfor &a+%money%'
+    cancelled: '&#ccccccCancelled order and refunded &a%refund%'
+    nothing-to-collect: '&cThere are no items to collect'
+    inventory-full: '&cYour inventory is full'
+    collected: '&#ccccccCollected &d%amount%x %item%'

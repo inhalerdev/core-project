@@ -64,6 +64,7 @@ public final class YamlOrdersRepository implements OrdersRepository {
                 Material material = Material.valueOf(config.getString(path + ".material", "STONE"));
                 int requestedAmount = config.getInt(path + ".requested-amount", 1);
                 int deliveredAmount = config.getInt(path + ".delivered-amount", 0);
+                int collectedAmount = config.getInt(path + ".collected-amount", 0);
                 long pricePerItemCents = config.getLong(path + ".price-per-item-cents", 1L);
                 long escrowRemainingCents = config.getLong(path + ".escrow-remaining-cents", 0L);
                 long createdAtMillis = config.getLong(path + ".created-at-millis", System.currentTimeMillis());
@@ -76,6 +77,7 @@ public final class YamlOrdersRepository implements OrdersRepository {
                         material,
                         requestedAmount,
                         deliveredAmount,
+                        collectedAmount,
                         pricePerItemCents,
                         escrowRemainingCents,
                         createdAtMillis,
@@ -103,6 +105,7 @@ public final class YamlOrdersRepository implements OrdersRepository {
             config.set(path + ".material", order.material().name());
             config.set(path + ".requested-amount", order.requestedAmount());
             config.set(path + ".delivered-amount", order.deliveredAmount());
+            config.set(path + ".collected-amount", order.collectedAmount());
             config.set(path + ".price-per-item-cents", order.pricePerItemCents());
             config.set(path + ".escrow-remaining-cents", order.escrowRemainingCents());
             config.set(path + ".created-at-millis", order.createdAtMillis());
