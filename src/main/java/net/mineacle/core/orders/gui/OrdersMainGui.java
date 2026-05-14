@@ -68,17 +68,17 @@ public final class OrdersMainGui {
         }
 
         if (page > 1) {
-            inventory.setItem(PREV_SLOT, item(material("orders.gui.buttons.previous.material", Material.ARROW), cfg("orders.gui.buttons.previous.name", "&aBACK"), lore("orders.gui.buttons.previous.lore", List.of("&fClick to go to the previous page"))));
+            inventory.setItem(PREV_SLOT, item(material("orders.gui.buttons.previous.material", Material.ARROW), cfg("orders.gui.buttons.previous.name", "&dBACK"), lore("orders.gui.buttons.previous.lore", List.of("&fClick to go to the previous page"))));
         }
 
         inventory.setItem(SORT_SLOT, sortItem(player));
         inventory.setItem(FILTER_SLOT, filterItem(player));
-        inventory.setItem(REFRESH_SLOT, item(material("orders.gui.buttons.refresh.material", Material.PAPER), cfg("orders.gui.buttons.refresh.name", "&aORDERS"), lore("orders.gui.buttons.refresh.lore", List.of("&fClick to refresh"))));
-        inventory.setItem(SEARCH_SLOT, item(material("orders.gui.buttons.search.material", Material.OAK_SIGN), cfg("orders.gui.buttons.search.name", "&aSEARCH"), lore("orders.gui.buttons.search.lore", List.of("&fClick to search"))));
-        inventory.setItem(MY_ORDERS_SLOT, item(material("orders.gui.buttons.my-orders.material", Material.PLAYER_HEAD), cfg("orders.gui.buttons.my-orders.name", "&aMY ORDERS"), lore("orders.gui.buttons.my-orders.lore", List.of("&fClick to view your orders"))));
+        inventory.setItem(REFRESH_SLOT, item(material("orders.gui.buttons.refresh.material", Material.PAPER), cfg("orders.gui.buttons.refresh.name", "&dORDERS"), lore("orders.gui.buttons.refresh.lore", List.of("&fClick to refresh"))));
+        inventory.setItem(SEARCH_SLOT, item(material("orders.gui.buttons.search.material", Material.OAK_SIGN), cfg("orders.gui.buttons.search.name", "&dSEARCH"), lore("orders.gui.buttons.search.lore", List.of("&fClick to search"))));
+        inventory.setItem(MY_ORDERS_SLOT, item(material("orders.gui.buttons.my-orders.material", Material.PLAYER_HEAD), cfg("orders.gui.buttons.my-orders.name", "&dMY ORDERS"), lore("orders.gui.buttons.my-orders.lore", List.of("&fClick to view your orders"))));
 
         if (page < maxPage) {
-            inventory.setItem(NEXT_SLOT, item(material("orders.gui.buttons.next.material", Material.ARROW), cfg("orders.gui.buttons.next.name", "&aNEXT"), lore("orders.gui.buttons.next.lore", List.of("&fClick to go to the next page"))));
+            inventory.setItem(NEXT_SLOT, item(material("orders.gui.buttons.next.material", Material.ARROW), cfg("orders.gui.buttons.next.name", "&dNEXT"), lore("orders.gui.buttons.next.lore", List.of("&fClick to go to the next page"))));
         }
 
         player.openInventory(inventory);
@@ -167,7 +167,7 @@ public final class OrdersMainGui {
     private static ItemStack sortItem(Player player) {
         SortMode active = SORTS.getOrDefault(player.getUniqueId(), SortMode.MOST_PAID);
 
-        return item(material("orders.gui.buttons.sort.material", Material.CAULDRON), cfg("orders.gui.buttons.sort.name", "&aSORT"), List.of(
+        return item(material("orders.gui.buttons.sort.material", Material.CAULDRON), cfg("orders.gui.buttons.sort.name", "&dSORT"), List.of(
                 line(active, SortMode.MOST_PAID),
                 line(active, SortMode.MOST_DELIVERED),
                 line(active, SortMode.RECENTLY_LISTED),
@@ -178,7 +178,7 @@ public final class OrdersMainGui {
     private static ItemStack filterItem(Player player) {
         FilterMode active = FILTERS.getOrDefault(player.getUniqueId(), FilterMode.ALL);
 
-        return item(material("orders.gui.buttons.filter.material", Material.HOPPER), cfg("orders.gui.buttons.filter.name", "&aFILTER"), List.of(
+        return item(material("orders.gui.buttons.filter.material", Material.HOPPER), cfg("orders.gui.buttons.filter.name", "&dFILTER"), List.of(
                 line(active, FilterMode.ALL),
                 line(active, FilterMode.BLOCKS),
                 line(active, FilterMode.TOOLS),
@@ -192,19 +192,19 @@ public final class OrdersMainGui {
     }
 
     private static String line(Enum<?> active, Enum<?> value) {
-        return (active == value ? "&a• " : "&f• ") + display(value.name());
+        return (active == value ? "&d• " : "&f• ") + display(value.name());
     }
 
     public static ItemStack orderItem(OrderService service, OrderRecord order) {
         EconomyService economy = EconomyModule.economyService();
         String price = economy == null ? "$" + order.pricePerItemCents() : economy.format(order.pricePerItemCents());
 
-        return item(order.material(), "&a" + service.pretty(order.material()).toUpperCase(Locale.ROOT), List.of(
-                cfg("orders.gui.order-lore.buyer", "&fBuyer: &a%buyer%").replace("%buyer%", order.ownerName()),
-                cfg("orders.gui.order-lore.remaining", "&fRemaining: &a%remaining%&8/&a%requested%")
+        return item(order.material(), "&d" + service.pretty(order.material()).toUpperCase(Locale.ROOT), List.of(
+                cfg("orders.gui.order-lore.buyer", "&fBuyer: &#ff6cff%buyer%").replace("%buyer%", order.ownerName()),
+                cfg("orders.gui.order-lore.remaining", "&fRemaining: &#ff6cff%remaining%&8/&#ff6cff%requested%")
                         .replace("%remaining%", String.valueOf(order.remainingAmount()))
                         .replace("%requested%", String.valueOf(order.requestedAmount())),
-                cfg("orders.gui.order-lore.price", "&fMoney Per Item: &a%price%").replace("%price%", price),
+                cfg("orders.gui.order-lore.price", "&fMoney Per Item: &#ff6cff%price%").replace("%price%", price),
                 "",
                 cfg("orders.gui.order-lore.click", "&fClick to deliver")
         ));

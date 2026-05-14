@@ -49,12 +49,12 @@ public final class YourOrdersGui {
         EconomyService economy = EconomyModule.economyService();
         String escrow = economy == null ? "$" + order.escrowRemainingCents() : economy.format(order.escrowRemainingCents());
 
-        return OrdersMainGui.item(order.material(), "&a" + service.pretty(order.material()).toUpperCase(Locale.ROOT), List.of(
-                cfg("orders.gui.my-order-lore.status", "&fStatus: %status%").replace("%status%", order.active() ? "&aActive" : "&cClosed"),
-                cfg("orders.gui.my-order-lore.delivered", "&fDelivered: &a%delivered%&8/&a%requested%")
+        return OrdersMainGui.item(order.material(), "&d" + service.pretty(order.material()).toUpperCase(Locale.ROOT), List.of(
+                cfg("orders.gui.my-order-lore.status", "&fStatus: %status%").replace("%status%", order.active() ? "&#ff6cffActive" : "&cClosed"),
+                cfg("orders.gui.my-order-lore.delivered", "&fDelivered: &#ff6cff%delivered%&8/&#ff6cff%requested%")
                         .replace("%delivered%", String.valueOf(order.deliveredAmount()))
                         .replace("%requested%", String.valueOf(order.requestedAmount())),
-                cfg("orders.gui.my-order-lore.escrow", "&fRefundable Escrow: &a%escrow%").replace("%escrow%", escrow),
+                cfg("orders.gui.my-order-lore.escrow", "&fRefundable Escrow: &#ff6cff%escrow%").replace("%escrow%", escrow),
                 "",
                 order.active()
                         ? cfg("orders.gui.my-order-lore.click", "&fClick to cancel and refund")
