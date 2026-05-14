@@ -12,7 +12,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 
 import java.util.List;
-import java.util.Locale;
 
 public final class YourOrdersGui {
 
@@ -38,7 +37,7 @@ public final class YourOrdersGui {
     }
 
     public static String title() {
-        return TextColor.color(cfg("orders.gui.titles.my-orders", "MY ORDERS"));
+        return TextColor.color(cfg("orders.gui.titles.my-orders", "My Orders"));
     }
 
     public static boolean isTitle(String title) {
@@ -49,15 +48,15 @@ public final class YourOrdersGui {
         EconomyService economy = EconomyModule.economyService();
         String escrow = economy == null ? "$" + order.escrowRemainingCents() : economy.format(order.escrowRemainingCents());
 
-        return OrdersMainGui.item(order.material(), "&d" + service.pretty(order.material()).toUpperCase(Locale.ROOT), List.of(
-                cfg("orders.gui.my-order-lore.status", "&fStatus: %status%").replace("%status%", order.active() ? "&#ff6cffActive" : "&cClosed"),
-                cfg("orders.gui.my-order-lore.delivered", "&fDelivered: &#ff6cff%delivered%&8/&#ff6cff%requested%")
+        return OrdersMainGui.item(order.material(), "&d" + service.pretty(order.material()), List.of(
+                cfg("orders.gui.my-order-lore.status", "&#ccccccStatus: %status%").replace("%status%", order.active() ? "&#ff6cffActive" : "&cClosed"),
+                cfg("orders.gui.my-order-lore.delivered", "&#ccccccDelivered: &#ff6cff%delivered%&8/&#ff6cff%requested%")
                         .replace("%delivered%", String.valueOf(order.deliveredAmount()))
                         .replace("%requested%", String.valueOf(order.requestedAmount())),
-                cfg("orders.gui.my-order-lore.escrow", "&fRefundable Escrow: &#ff6cff%escrow%").replace("%escrow%", escrow),
+                cfg("orders.gui.my-order-lore.escrow", "&#ccccccRefundable Escrow: &#ff6cff%escrow%").replace("%escrow%", escrow),
                 "",
                 order.active()
-                        ? cfg("orders.gui.my-order-lore.click", "&fClick to cancel and refund")
+                        ? cfg("orders.gui.my-order-lore.click", "&#ccccccClick to collect, cancel, or refund")
                         : cfg("orders.gui.my-order-lore.closed", "&8Closed")
         ));
     }

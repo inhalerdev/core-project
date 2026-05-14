@@ -68,24 +68,24 @@ public final class OrdersMainGui {
         }
 
         if (page > 1) {
-            inventory.setItem(PREV_SLOT, item(material("orders.gui.buttons.previous.material", Material.ARROW), cfg("orders.gui.buttons.previous.name", "&dBACK"), lore("orders.gui.buttons.previous.lore", List.of("&fClick to go to the previous page"))));
+            inventory.setItem(PREV_SLOT, item(material("orders.gui.buttons.previous.material", Material.ARROW), cfg("orders.gui.buttons.previous.name", "&dBack"), lore("orders.gui.buttons.previous.lore", List.of("&#ccccccClick to go to the previous page"))));
         }
 
         inventory.setItem(SORT_SLOT, sortItem(player));
         inventory.setItem(FILTER_SLOT, filterItem(player));
-        inventory.setItem(REFRESH_SLOT, item(material("orders.gui.buttons.refresh.material", Material.PAPER), cfg("orders.gui.buttons.refresh.name", "&dORDERS"), lore("orders.gui.buttons.refresh.lore", List.of("&fClick to refresh"))));
-        inventory.setItem(SEARCH_SLOT, item(material("orders.gui.buttons.search.material", Material.OAK_SIGN), cfg("orders.gui.buttons.search.name", "&dSEARCH"), lore("orders.gui.buttons.search.lore", List.of("&fClick to search"))));
-        inventory.setItem(MY_ORDERS_SLOT, item(material("orders.gui.buttons.my-orders.material", Material.PLAYER_HEAD), cfg("orders.gui.buttons.my-orders.name", "&dMY ORDERS"), lore("orders.gui.buttons.my-orders.lore", List.of("&fClick to view your orders"))));
+        inventory.setItem(REFRESH_SLOT, item(material("orders.gui.buttons.refresh.material", Material.PAPER), cfg("orders.gui.buttons.refresh.name", "&dOrders"), lore("orders.gui.buttons.refresh.lore", List.of("&#ccccccClick to refresh"))));
+        inventory.setItem(SEARCH_SLOT, item(material("orders.gui.buttons.search.material", Material.OAK_SIGN), cfg("orders.gui.buttons.search.name", "&dSearch"), lore("orders.gui.buttons.search.lore", List.of("&#ccccccClick to search"))));
+        inventory.setItem(MY_ORDERS_SLOT, item(material("orders.gui.buttons.my-orders.material", Material.PLAYER_HEAD), cfg("orders.gui.buttons.my-orders.name", "&dMy Orders"), lore("orders.gui.buttons.my-orders.lore", List.of("&#ccccccClick to view your orders"))));
 
         if (page < maxPage) {
-            inventory.setItem(NEXT_SLOT, item(material("orders.gui.buttons.next.material", Material.ARROW), cfg("orders.gui.buttons.next.name", "&dNEXT"), lore("orders.gui.buttons.next.lore", List.of("&fClick to go to the next page"))));
+            inventory.setItem(NEXT_SLOT, item(material("orders.gui.buttons.next.material", Material.ARROW), cfg("orders.gui.buttons.next.name", "&dNext"), lore("orders.gui.buttons.next.lore", List.of("&#ccccccClick to go to the next page"))));
         }
 
         player.openInventory(inventory);
     }
 
     public static String title(int page) {
-        return TextColor.color(cfg("orders.gui.titles.main", "ORDERS (Page %page%)")
+        return TextColor.color(cfg("orders.gui.titles.main", "Orders (Page %page%)")
                 .replace("%page%", String.valueOf(page)));
     }
 
@@ -94,7 +94,7 @@ public final class OrdersMainGui {
             return false;
         }
 
-        String rawTitle = cfg("orders.gui.titles.main", "ORDERS (Page %page%)");
+        String rawTitle = cfg("orders.gui.titles.main", "Orders (Page %page%)");
         String strippedPattern = ChatColor.stripColor(TextColor.color(rawTitle));
         String beforePage = strippedPattern.split("%page%", 2)[0];
 
@@ -117,13 +117,13 @@ public final class OrdersMainGui {
     }
 
     public static void cycleSort(Player player) {
-        SortMode current = SORTS.getOrDefault(player.getUniqueId(), SortMode.MOST_PAID);
+        SortMode current = SORTS.getOrDefault(player.getUniqueId(), SortMode.MostPaid);
         SORTS.put(player.getUniqueId(), current.next());
         PAGES.put(player.getUniqueId(), 1);
     }
 
     public static void cycleFilter(Player player) {
-        FilterMode current = FILTERS.getOrDefault(player.getUniqueId(), FilterMode.ALL);
+        FilterMode current = FILTERS.getOrDefault(player.getUniqueId(), FilterMode.All);
         FILTERS.put(player.getUniqueId(), current.next());
         PAGES.put(player.getUniqueId(), 1);
     }
@@ -153,8 +153,8 @@ public final class OrdersMainGui {
     }
 
     private static List<OrderRecord> filteredOrders(Player player, OrderService service) {
-        SortMode sort = SORTS.getOrDefault(player.getUniqueId(), SortMode.MOST_PAID);
-        FilterMode filter = FILTERS.getOrDefault(player.getUniqueId(), FilterMode.ALL);
+        SortMode sort = SORTS.getOrDefault(player.getUniqueId(), SortMode.MostPaid);
+        FilterMode filter = FILTERS.getOrDefault(player.getUniqueId(), FilterMode.All);
         String search = SEARCHES.get(player.getUniqueId());
 
         return service.activeOrders().stream()
@@ -165,48 +165,48 @@ public final class OrdersMainGui {
     }
 
     private static ItemStack sortItem(Player player) {
-        SortMode active = SORTS.getOrDefault(player.getUniqueId(), SortMode.MOST_PAID);
+        SortMode active = SORTS.getOrDefault(player.getUniqueId(), SortMode.MostPaid);
 
-        return item(material("orders.gui.buttons.sort.material", Material.CAULDRON), cfg("orders.gui.buttons.sort.name", "&dSORT"), List.of(
-                line(active, SortMode.MOST_PAID),
-                line(active, SortMode.MOST_DELIVERED),
-                line(active, SortMode.RECENTLY_LISTED),
-                line(active, SortMode.MOST_MONEY_PER_ITEM)
+        return item(material("orders.gui.buttons.sort.material", Material.CAULDRON), cfg("orders.gui.buttons.sort.name", "&dSort"), List.of(
+                line(active, SortMode.MostPaid),
+                line(active, SortMode.MostDelivered),
+                line(active, SortMode.RecentlyListed),
+                line(active, SortMode.MostMoneyPerItem)
         ));
     }
 
     private static ItemStack filterItem(Player player) {
-        FilterMode active = FILTERS.getOrDefault(player.getUniqueId(), FilterMode.ALL);
+        FilterMode active = FILTERS.getOrDefault(player.getUniqueId(), FilterMode.All);
 
-        return item(material("orders.gui.buttons.filter.material", Material.HOPPER), cfg("orders.gui.buttons.filter.name", "&dFILTER"), List.of(
-                line(active, FilterMode.ALL),
-                line(active, FilterMode.BLOCKS),
-                line(active, FilterMode.TOOLS),
-                line(active, FilterMode.FOOD),
-                line(active, FilterMode.COMBAT),
-                line(active, FilterMode.POTIONS),
-                line(active, FilterMode.BOOKS),
-                line(active, FilterMode.INGREDIENTS),
-                line(active, FilterMode.UTILITIES)
+        return item(material("orders.gui.buttons.filter.material", Material.HOPPER), cfg("orders.gui.buttons.filter.name", "&dFilter"), List.of(
+                line(active, FilterMode.All),
+                line(active, FilterMode.Blocks),
+                line(active, FilterMode.Tools),
+                line(active, FilterMode.Food),
+                line(active, FilterMode.Combat),
+                line(active, FilterMode.Potions),
+                line(active, FilterMode.Books),
+                line(active, FilterMode.Ingredients),
+                line(active, FilterMode.Utilities)
         ));
     }
 
     private static String line(Enum<?> active, Enum<?> value) {
-        return (active == value ? "&d• " : "&f• ") + display(value.name());
+        return (active == value ? "&#ff6cff• " : "&#cccccc• ") + display(value.name());
     }
 
     public static ItemStack orderItem(OrderService service, OrderRecord order) {
         EconomyService economy = EconomyModule.economyService();
         String price = economy == null ? "$" + order.pricePerItemCents() : economy.format(order.pricePerItemCents());
 
-        return item(order.material(), "&d" + service.pretty(order.material()).toUpperCase(Locale.ROOT), List.of(
-                cfg("orders.gui.order-lore.buyer", "&fBuyer: &#ff6cff%buyer%").replace("%buyer%", order.ownerName()),
-                cfg("orders.gui.order-lore.remaining", "&fRemaining: &#ff6cff%remaining%&8/&#ff6cff%requested%")
+        return item(order.material(), "&d" + service.pretty(order.material()), List.of(
+                cfg("orders.gui.order-lore.buyer", "&#ccccccBuyer: &#ff6cff%buyer%").replace("%buyer%", order.ownerName()),
+                cfg("orders.gui.order-lore.remaining", "&#ccccccRemaining: &#ff6cff%remaining%&8/&#ff6cff%requested%")
                         .replace("%remaining%", String.valueOf(order.remainingAmount()))
                         .replace("%requested%", String.valueOf(order.requestedAmount())),
-                cfg("orders.gui.order-lore.price", "&fMoney Per Item: &#ff6cff%price%").replace("%price%", price),
+                cfg("orders.gui.order-lore.price", "&#ccccccMoney Per Item: &#ff6cff%price%").replace("%price%", price),
                 "",
-                cfg("orders.gui.order-lore.click", "&fClick to deliver")
+                cfg("orders.gui.order-lore.click", "&#ccccccClick to deliver")
         ));
     }
 
@@ -266,29 +266,26 @@ public final class OrdersMainGui {
     }
 
     private static String display(String raw) {
-        String[] parts = raw.toLowerCase(Locale.ROOT).split("_");
         StringBuilder builder = new StringBuilder();
 
-        for (String part : parts) {
-            if (part.isBlank()) {
-                continue;
-            }
+        for (int index = 0; index < raw.length(); index++) {
+            char character = raw.charAt(index);
 
-            if (!builder.isEmpty()) {
+            if (index > 0 && Character.isUpperCase(character)) {
                 builder.append(' ');
             }
 
-            builder.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+            builder.append(character);
         }
 
         return builder.toString();
     }
 
     private enum SortMode {
-        MOST_PAID,
-        MOST_DELIVERED,
-        RECENTLY_LISTED,
-        MOST_MONEY_PER_ITEM;
+        MostPaid,
+        MostDelivered,
+        RecentlyListed,
+        MostMoneyPerItem;
 
         private SortMode next() {
             SortMode[] values = values();
@@ -297,24 +294,24 @@ public final class OrdersMainGui {
 
         private Comparator<OrderRecord> comparator() {
             return switch (this) {
-                case MOST_DELIVERED -> Comparator.comparingInt(OrderRecord::deliveredAmount).reversed();
-                case RECENTLY_LISTED -> Comparator.comparingLong(OrderRecord::createdAtMillis).reversed();
-                case MOST_MONEY_PER_ITEM -> Comparator.comparingLong(OrderRecord::pricePerItemCents).reversed();
-                case MOST_PAID -> Comparator.comparingLong((OrderRecord order) -> order.deliveredAmount() * order.pricePerItemCents()).reversed();
+                case MostDelivered -> Comparator.comparingInt(OrderRecord::deliveredAmount).reversed();
+                case RecentlyListed -> Comparator.comparingLong(OrderRecord::createdAtMillis).reversed();
+                case MostMoneyPerItem -> Comparator.comparingLong(OrderRecord::pricePerItemCents).reversed();
+                case MostPaid -> Comparator.comparingLong((OrderRecord order) -> order.deliveredAmount() * order.pricePerItemCents()).reversed();
             };
         }
     }
 
     private enum FilterMode {
-        ALL,
-        BLOCKS,
-        TOOLS,
-        FOOD,
-        COMBAT,
-        POTIONS,
-        BOOKS,
-        INGREDIENTS,
-        UTILITIES;
+        All,
+        Blocks,
+        Tools,
+        Food,
+        Combat,
+        Potions,
+        Books,
+        Ingredients,
+        Utilities;
 
         private FilterMode next() {
             FilterMode[] values = values();
@@ -322,22 +319,22 @@ public final class OrdersMainGui {
         }
 
         private boolean matches(Material material) {
-            if (this == ALL) {
+            if (this == All) {
                 return true;
             }
 
             String name = material.name();
 
             return switch (this) {
-                case BLOCKS -> material.isBlock();
-                case TOOLS -> name.endsWith("_PICKAXE")
+                case Blocks -> material.isBlock();
+                case Tools -> name.endsWith("_PICKAXE")
                         || name.endsWith("_AXE")
                         || name.endsWith("_SHOVEL")
                         || name.endsWith("_HOE")
                         || name.equals("SHEARS")
                         || name.equals("FISHING_ROD");
-                case FOOD -> material.isEdible();
-                case COMBAT -> name.endsWith("_SWORD")
+                case Food -> material.isEdible();
+                case Combat -> name.endsWith("_SWORD")
                         || name.endsWith("_HELMET")
                         || name.endsWith("_CHESTPLATE")
                         || name.endsWith("_LEGGINGS")
@@ -346,17 +343,17 @@ public final class OrdersMainGui {
                         || name.equals("CROSSBOW")
                         || name.equals("SHIELD")
                         || name.equals("TRIDENT");
-                case POTIONS -> name.contains("POTION") || name.equals("DRAGON_BREATH");
-                case BOOKS -> name.contains("BOOK") || name.equals("PAPER") || name.equals("MAP");
-                case INGREDIENTS -> Tag.ITEMS_COALS.isTagged(material)
+                case Potions -> name.contains("POTION") || name.equals("DRAGON_BREATH");
+                case Books -> name.contains("BOOK") || name.equals("PAPER") || name.equals("MAP");
+                case Ingredients -> Tag.ITEMS_COALS.isTagged(material)
                         || name.contains("INGOT")
                         || name.contains("NUGGET")
                         || name.contains("DUST")
                         || name.contains("GEM")
                         || name.contains("SHARD")
                         || name.contains("SCRAP");
-                case UTILITIES -> !material.isBlock() && !material.isEdible();
-                case ALL -> true;
+                case Utilities -> !material.isBlock() && !material.isEdible();
+                case All -> true;
             };
         }
     }

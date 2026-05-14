@@ -400,75 +400,76 @@ orders:
       my-orders: MY ORDERS
       confirm-deliver: CONFIRM DELIVERY
       confirm-cancel: CONFIRM CANCEL
+      create: Create Order
     buttons:
       previous:
         material: ARROW
-        name: '&dBACK'
+        name: '&dBack'
         lore:
-        - '&fClick to go to the previous page'
+        - '&#ccccccClick to go to the previous page'
       next:
         material: ARROW
-        name: '&dNEXT'
+        name: '&dNext'
         lore:
-        - '&fClick to go to the next page'
+        - '&#ccccccClick to go to the next page'
       sort:
         material: CAULDRON
-        name: '&dSORT'
+        name: '&dSort'
       filter:
         material: HOPPER
-        name: '&dFILTER'
+        name: '&dFilter'
       refresh:
         material: PAPER
-        name: '&dORDERS'
+        name: '&dOrders'
         lore:
-        - '&fClick to refresh'
+        - '&#ccccccClick to refresh'
       search:
         material: OAK_SIGN
-        name: '&dSEARCH'
+        name: '&dSearch'
         lore:
-        - '&fClick to search'
+        - '&#ccccccClick to search'
       my-orders:
         material: PLAYER_HEAD
-        name: '&dMY ORDERS'
+        name: '&dMy Orders'
         lore:
-        - '&fClick to view your orders'
+        - '&#ccccccClick to view your orders'
     order-lore:
-      buyer: '&fBuyer: &#ff6cff%buyer%'
-      remaining: '&fRemaining: &#ff6cff%remaining%&8/&#ff6cff%requested%'
-      price: '&fMoney Per Item: &#ff6cff%price%'
-      click: '&fClick to deliver'
+      buyer: '&#ccccccBuyer: &#ff6cff%buyer%'
+      remaining: '&#ccccccRemaining: &#ff6cff%remaining%&8/&#ff6cff%requested%'
+      price: '&#ccccccMoney Per Item: &#ff6cff%price%'
+      click: '&#ccccccClick to deliver'
     my-order-lore:
-      status: '&fStatus: %status%'
-      delivered: '&fDelivered: &#ff6cff%delivered%&8/&#ff6cff%requested%'
-      escrow: '&fRefundable Escrow: &#ff6cff%escrow%'
-      click: '&fClick to cancel and refund'
+      status: '&#ccccccStatus: %status%'
+      delivered: '&#ccccccDelivered: &#ff6cff%delivered%&8/&#ff6cff%requested%'
+      escrow: '&#ccccccRefundable Escrow: &#ff6cff%escrow%'
+      click: '&#ccccccClick to collect, cancel, or refund'
       closed: '&8Closed'
     confirm:
       cancel:
-        name: '&cCANCEL'
-        lore: '&fClick to cancel'
+        name: '&cCancel'
+        lore: '&#ccccccClick to cancel'
       confirm:
-        name: '&dCONFIRM'
-        lore: '&fClick to confirm'
+        name: '&dConfirm'
+        lore: '&#ccccccClick to confirm'
       deliver:
-        name: '&dCONFIRM DELIVERY'
-        lore-1: '&fDelivering: &#ff6cff%amount%x %item%'
-        lore-2: '&fPayout: &#ff6cff%payout%'
-        lore-3: '&fClick confirm to deliver'
+        name: '&dConfirm Delivery'
+        lore-1: '&#ccccccDelivering: &#ff6cff%amount%x %item%'
+        lore-2: '&#ccccccPayout: &#ff6cff%payout%'
+        lore-3: '&#ccccccClick confirm to deliver'
       cancel-order:
-        name: '&cCANCEL ORDER'
-        lore-1: '&fRefund: &#ff6cff%refund%'
-        lore-2: '&fClick confirm to cancel this order'
+        name: '&cCancel Order'
+        lore-1: '&#ccccccRefund: &#ff6cff%refund%'
+        lore-2: '&#ccccccClick confirm to cancel this order'
     create:
-      empty-name: '&cNO ITEM'
-      empty-lore: '&fHold the item you want to order'
-      item-name: '&dSELECTED ITEM'
-      item-lore: '&fThis is the item players will deliver'
-      cancel-name: '&cCANCEL'
-      cancel-lore: '&fClick to cancel'
-      create-name: '&dCREATE ORDER'
-      create-lore-1: '&fClick and type amount price'
-      create-lore-2: '&7Example: &#ff6cff64 10'
+      empty-name: '&cNo Item'
+      empty-lore: '&#ccccccHold the item you want to order'
+      item-name: '&dSelected Item'
+      item-lore: '&#ccccccThis is the item players will deliver'
+      cancel-name: '&cCancel'
+      cancel-lore: '&#ccccccClick to cancel'
+      create-name: '&dCreate Order'
+      create-lore-1: '&#ccccccClick and type amount price'
+      create-lore-2: '&#ccccccExample: &#ff6cff64 10'
   messages:
     invalid-amount: '&cAmount must be greater than 0'
     max-amount: '&cThat order amount is too high'
@@ -484,3 +485,5 @@ orders:
     delivered: '&#ccccccDelivered &#ff6cff%amount%x %item% &#ccccccfor &#ff6cff+%money%'
     cancelled: '&#ccccccCancelled order and refunded &#ff6cff%refund%'
     collected: '&#ccccccCollected &#ff6cff%amount%x %item%'
+    nothing-to-collect: '&cThere are no items to collect'
+    inventory-full: '&cYour inventory is full'
