@@ -1,11 +1,13 @@
 package net.mineacle.core.orders.gui;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.orders.model.OrderRecord;
 import net.mineacle.core.orders.service.OrderService;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 
@@ -36,23 +38,11 @@ public final class YourOrdersGui {
     }
 
     public static String title() {
-        Core core = Core.instance();
-
-        if (core == null) {
-            return "MY ORDERS";
-        }
-
-        return net.mineacle.core.common.text.TextColor.color(
-                core.getConfig().getString("orders.gui.titles.my-orders", "MY ORDERS")
-        );
+        return TextColor.color(cfg("orders.gui.titles.my-orders", "MY ORDERS"));
     }
 
     public static boolean isTitle(String title) {
-        if (title == null) {
-            return false;
-        }
-
-        return title.equals(org.bukkit.ChatColor.stripColor(title()));
+        return title != null && title.equals(ChatColor.stripColor(title()));
     }
 
     private static org.bukkit.inventory.ItemStack orderItem(OrderService service, OrderRecord order) {
@@ -60,11 +50,25 @@ public final class YourOrdersGui {
         String escrow = economy == null ? "$" + order.escrowRemainingCents() : economy.format(order.escrowRemainingCents());
 
         return OrdersMainGui.item(order.material(), "&a" + service.pretty(order.material()).toUpperCase(Locale.ROOT), List.of(
-                "&fStatus: " + (order.active() ? "&aActive" : "&cClosed"),
-                "&fDelivered: &a" + order.deliveredAmount() + "&8/&a" + order.requestedAmount(),
-                "&fRefundable Escrow: &a" + escrow,
+                cfg("orders.gui.my-order-lore.status", "&fStatus: %status%").replace("%status%", order.active() ? "&aActive" : "&cClosed"),
+                cfg("orders.gui.my-order-lore.delivered", "&fDelivered: &a%delivered%&8/&a%requested%")
+                        .replace("%delivered%", String.valueOf(order.deliveredAmount()))
+                        .replace("%requested%", String.valueOf(order.requestedAmount())),
+                cfg("orders.gui.my-order-lore.escrow", "&fRefundable Escrow: &a%escrow%").replace("%escrow%", escrow),
                 "",
-                order.active() ? "&fClick to cancel and refund" : "&8Closed"
+                order.active()
+                        ? cfg("orders.gui.my-order-lore.click", "&fClick to cancel and refund")
+                        : cfg("orders.gui.my-order-lore.closed", "&8Closed")
         ));
+    }
+
+    private static String cfg(String path, String fallback) {
+        Core core = Core.instance();
+
+        if (core == null) {
+            return fallback;
+        }
+
+        return core.getConfig().getString(path, fallback);
     }
 }

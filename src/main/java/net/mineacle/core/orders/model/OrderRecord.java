@@ -85,16 +85,24 @@ public final class OrderRecord {
         return Math.max(0, requestedAmount - deliveredAmount);
     }
 
+    public boolean complete() {
+        return remainingAmount() <= 0 || escrowRemainingCents <= 0L;
+    }
+
     public void addDelivered(int amount) {
         deliveredAmount = Math.min(requestedAmount, deliveredAmount + Math.max(0, amount));
 
-        if (remainingAmount() <= 0) {
+        if (complete()) {
             active = false;
         }
     }
 
     public void removeEscrow(long cents) {
         escrowRemainingCents = Math.max(0L, escrowRemainingCents - Math.max(0L, cents));
+
+        if (complete()) {
+            active = false;
+        }
     }
 
     public void cancel() {

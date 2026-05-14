@@ -68,27 +68,17 @@ public final class OrdersMainGui {
         }
 
         if (page > 1) {
-            inventory.setItem(PREV_SLOT, item(Material.ARROW, cfg("orders.gui.buttons.previous.name", "&aBACK"), List.of(
-                    cfg("orders.gui.buttons.previous.lore", "&fClick to go to the previous page")
-            )));
+            inventory.setItem(PREV_SLOT, item(material("orders.gui.buttons.previous.material", Material.ARROW), cfg("orders.gui.buttons.previous.name", "&aBACK"), lore("orders.gui.buttons.previous.lore", List.of("&fClick to go to the previous page"))));
         }
 
         inventory.setItem(SORT_SLOT, sortItem(player));
         inventory.setItem(FILTER_SLOT, filterItem(player));
-        inventory.setItem(REFRESH_SLOT, item(Material.PAPER, cfg("orders.gui.buttons.refresh.name", "&aORDERS"), List.of(
-                cfg("orders.gui.buttons.refresh.lore", "&fClick to refresh")
-        )));
-        inventory.setItem(SEARCH_SLOT, item(Material.OAK_SIGN, cfg("orders.gui.buttons.search.name", "&aSEARCH"), List.of(
-                cfg("orders.gui.buttons.search.lore", "&fClick to search")
-        )));
-        inventory.setItem(MY_ORDERS_SLOT, item(Material.PLAYER_HEAD, cfg("orders.gui.buttons.my-orders.name", "&aMY ORDERS"), List.of(
-                cfg("orders.gui.buttons.my-orders.lore", "&fClick to view your orders")
-        )));
+        inventory.setItem(REFRESH_SLOT, item(material("orders.gui.buttons.refresh.material", Material.PAPER), cfg("orders.gui.buttons.refresh.name", "&aORDERS"), lore("orders.gui.buttons.refresh.lore", List.of("&fClick to refresh"))));
+        inventory.setItem(SEARCH_SLOT, item(material("orders.gui.buttons.search.material", Material.OAK_SIGN), cfg("orders.gui.buttons.search.name", "&aSEARCH"), lore("orders.gui.buttons.search.lore", List.of("&fClick to search"))));
+        inventory.setItem(MY_ORDERS_SLOT, item(material("orders.gui.buttons.my-orders.material", Material.PLAYER_HEAD), cfg("orders.gui.buttons.my-orders.name", "&aMY ORDERS"), lore("orders.gui.buttons.my-orders.lore", List.of("&fClick to view your orders"))));
 
         if (page < maxPage) {
-            inventory.setItem(NEXT_SLOT, item(Material.ARROW, cfg("orders.gui.buttons.next.name", "&aNEXT"), List.of(
-                    cfg("orders.gui.buttons.next.lore", "&fClick to go to the next page")
-            )));
+            inventory.setItem(NEXT_SLOT, item(material("orders.gui.buttons.next.material", Material.ARROW), cfg("orders.gui.buttons.next.name", "&aNEXT"), lore("orders.gui.buttons.next.lore", List.of("&fClick to go to the next page"))));
         }
 
         player.openInventory(inventory);
@@ -118,9 +108,8 @@ public final class OrdersMainGui {
     public static void nextPage(Player player, OrderService service) {
         List<OrderRecord> orders = filteredOrders(player, service);
         int maxPage = Math.max(1, (int) Math.ceil(orders.size() / (double) ORDERS_PER_PAGE));
-        int next = Math.min(maxPage, page(player) + 1);
 
-        PAGES.put(player.getUniqueId(), next);
+        PAGES.put(player.getUniqueId(), Math.min(maxPage, page(player) + 1));
     }
 
     public static void previousPage(Player player) {
@@ -140,7 +129,7 @@ public final class OrdersMainGui {
     }
 
     public static void setSearch(Player player, String query) {
-        if (query == null || query.isBlank() || query.equalsIgnoreCase("clear") || query.equalsIgnoreCase("cancel")) {
+        if (query == null || query.isBlank() || query.equalsIgnoreCase("clear") || query.equalsIgnoreCase("cancel") || query.equalsIgnoreCase("cancelled")) {
             SEARCHES.remove(player.getUniqueId());
         } else {
             SEARCHES.put(player.getUniqueId(), query.toLowerCase(Locale.ROOT));
@@ -178,7 +167,7 @@ public final class OrdersMainGui {
     private static ItemStack sortItem(Player player) {
         SortMode active = SORTS.getOrDefault(player.getUniqueId(), SortMode.MOST_PAID);
 
-        return item(Material.CAULDRON, cfg("orders.gui.buttons.sort.name", "&aSORT"), List.of(
+        return item(material("orders.gui.buttons.sort.material", Material.CAULDRON), cfg("orders.gui.buttons.sort.name", "&aSORT"), List.of(
                 line(active, SortMode.MOST_PAID),
                 line(active, SortMode.MOST_DELIVERED),
                 line(active, SortMode.RECENTLY_LISTED),
@@ -189,7 +178,7 @@ public final class OrdersMainGui {
     private static ItemStack filterItem(Player player) {
         FilterMode active = FILTERS.getOrDefault(player.getUniqueId(), FilterMode.ALL);
 
-        return item(Material.HOPPER, cfg("orders.gui.buttons.filter.name", "&aFILTER"), List.of(
+        return item(material("orders.gui.buttons.filter.material", Material.HOPPER), cfg("orders.gui.buttons.filter.name", "&aFILTER"), List.of(
                 line(active, FilterMode.ALL),
                 line(active, FilterMode.BLOCKS),
                 line(active, FilterMode.TOOLS),
@@ -244,6 +233,36 @@ public final class OrdersMainGui {
         }
 
         return core.getConfig().getString(path, fallback);
+    }
+
+    private static List<String> lore(String path, List<String> fallback) {
+        Core core = Core.instance();
+
+        if (core == null || !core.getConfig().isList(path)) {
+            return fallback;
+        }
+
+        return core.getConfig().getStringList(path);
+    }
+
+    private static Material material(String path, Material fallback) {
+        Core core = Core.instance();
+
+        if (core == null) {
+            return fallback;
+        }
+
+        String raw = core.getConfig().getString(path, fallback.name());
+
+        if (raw == null || raw.isBlank()) {
+            return fallback;
+        }
+
+        try {
+            return Material.valueOf(raw.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return fallback;
+        }
     }
 
     private static String display(String raw) {

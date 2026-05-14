@@ -42,7 +42,12 @@ public final class OrderCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args[0].equalsIgnoreCase("search")) {
-            OrdersMainGui.setSearch(player, args.length < 2 ? "clear" : args[1]);
+            if (args.length < 2) {
+                OrdersMainGui.setSearch(player, "clear");
+            } else {
+                OrdersMainGui.setSearch(player, args[1]);
+            }
+
             OrdersMainGui.open(player, service);
             return true;
         }
@@ -75,6 +80,7 @@ public final class OrderCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args[0].equalsIgnoreCase("reload") && player.hasPermission("mineacleorders.admin")) {
+            core.reloadConfig();
             player.sendMessage(TextColor.color("&aOrders reloaded"));
             SoundService.guiConfirm(player, core);
             return true;

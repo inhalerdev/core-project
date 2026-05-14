@@ -413,3 +413,98 @@ spawn-restrictions:
     - SCULK_SENSOR
     - CALIBRATED_SCULK_SENSOR
     - SCULK_CATALYST
+
+orders:
+  enabled: true
+  creation-tax-percent: 0.0
+
+  limits:
+    max-active-default: 10
+    max-active-plus: 25
+    max-amount: 2304
+    minimum-price-per-item: 0.01
+
+  gui:
+    titles:
+      main: "ORDERS (Page %page%)"
+      my-orders: "MY ORDERS"
+      confirm-deliver: "CONFIRM DELIVERY"
+      confirm-cancel: "CONFIRM CANCEL"
+
+    buttons:
+      previous:
+        material: ARROW
+        name: "&aBACK"
+        lore:
+          - "&fClick to go to the previous page"
+      next:
+        material: ARROW
+        name: "&aNEXT"
+        lore:
+          - "&fClick to go to the next page"
+      sort:
+        material: CAULDRON
+        name: "&aSORT"
+      filter:
+        material: HOPPER
+        name: "&aFILTER"
+      refresh:
+        material: PAPER
+        name: "&aORDERS"
+        lore:
+          - "&fClick to refresh"
+      search:
+        material: OAK_SIGN
+        name: "&aSEARCH"
+        lore:
+          - "&fClick to search"
+      my-orders:
+        material: PLAYER_HEAD
+        name: "&aMY ORDERS"
+        lore:
+          - "&fClick to view your orders"
+
+    order-lore:
+      buyer: "&fBuyer: &a%buyer%"
+      remaining: "&fRemaining: &a%remaining%&8/&a%requested%"
+      price: "&fMoney Per Item: &a%price%"
+      click: "&fClick to deliver"
+
+    my-order-lore:
+      status: "&fStatus: %status%"
+      delivered: "&fDelivered: &a%delivered%&8/&a%requested%"
+      escrow: "&fRefundable Escrow: &a%escrow%"
+      click: "&fClick to cancel and refund"
+      closed: "&8Closed"
+
+    confirm:
+      cancel:
+        name: "&cCANCEL"
+        lore: "&fClick to cancel"
+      confirm:
+        name: "&aCONFIRM"
+        lore: "&fClick to confirm"
+      deliver:
+        name: "&aCONFIRM DELIVERY"
+        lore-1: "&fDelivering: &a%amount%x %item%"
+        lore-2: "&fPayout: &a%payout%"
+        lore-3: "&fClick confirm to deliver"
+      cancel-order:
+        name: "&cCANCEL ORDER"
+        lore-1: "&fRefund: &a%refund%"
+        lore-2: "&fClick confirm to cancel this order"
+
+  messages:
+    invalid-amount: "&cAmount must be greater than 0"
+    max-amount: "&cThat order amount is too high"
+    max-active: "&cYou have too many active orders"
+    hold-item: "&cHold the item you want to order"
+    economy-not-ready: "&cEconomy is not ready"
+    minimum-price: "&cPrice is too low"
+    not-enough-money: "&cYou do not have enough money"
+    created: "&#ccccccCreated order for &d%amount%x %item%"
+    already-complete: "&cThat order is already complete"
+    own-order: "&cYou cannot deliver to your own order"
+    missing-items: "&cYou do not have the required item"
+    delivered: "&#ccccccDelivered &d%amount%x %item% &#ccccccfor &a+%money%"
+    cancelled: "&#ccccccCancelled order and refunded &a%refund%"

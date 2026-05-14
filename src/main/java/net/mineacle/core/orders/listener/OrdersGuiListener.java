@@ -2,6 +2,7 @@ package net.mineacle.core.orders.listener;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
+import net.mineacle.core.orders.gui.OrderConfirmGui;
 import net.mineacle.core.orders.gui.OrdersMainGui;
 import net.mineacle.core.orders.gui.YourOrdersGui;
 import net.mineacle.core.orders.model.OrderRecord;
@@ -36,7 +37,7 @@ public final class OrdersGuiListener implements Listener {
             return;
         }
 
-        if (!OrdersMainGui.isTitle(title) && !YourOrdersGui.isTitle(title)) {
+        if (!OrdersMainGui.isTitle(title) && !YourOrdersGui.isTitle(title) && !OrderConfirmGui.isTitle(title)) {
             return;
         }
 
@@ -54,7 +55,12 @@ public final class OrdersGuiListener implements Listener {
             return;
         }
 
-        handleMyOrders(player, slot);
+        if (YourOrdersGui.isTitle(title)) {
+            handleMyOrders(player, slot);
+            return;
+        }
+
+        handleConfirm(player, slot);
     }
 
     private void handleMain(Player player, int slot) {
@@ -88,8 +94,9 @@ public final class OrdersGuiListener implements Listener {
 
         if (slot == OrdersMainGui.SEARCH_SLOT) {
             SoundService.guiClick(player, core);
+            OrderSearchInputListener.begin(player);
             player.closeInventory();
-            player.sendMessage("§d/order search <item>");
+            player.sendMessage("§dType an item name to search, or type clear");
             return;
         }
 
@@ -115,8 +122,8 @@ public final class OrdersGuiListener implements Listener {
             return;
         }
 
-        service.deliver(player, orders.get(slot));
-        OrdersMainGui.open(player, service);
+        SoundService.guiClick(player, core);
+        OrderConfirmGui.openDeliver(player, service, orders.get(slot));
     }
 
     private void handleMyOrders(Player player, int slot) {
@@ -133,6 +140,45 @@ public final class OrdersGuiListener implements Listener {
         OrderRecord order = orders.get(slot);
 
         if (!order.active()) {
+            return;
+        }
+
+        SoundService.guiClick(player, core);
+        OrderConfirmGui.openCancel(player, order);
+    }
+
+    private void handleConfirm(Player player, int slot) {
+        OrderConfirmGui.PendingAction pending = OrderConfirmGui.pending(player);
+
+        if (pending == null) {
+            player.closeInventory();
+            return;
+        }
+
+        if (slot == OrderConfirmGui.CANCEL_SLOT) {
+            OrderConfirmGui.clear(player);
+            SoundService.guiCancel(player, core);
+            player.closeInventory();
+            return;
+        }
+
+        if (slot != OrderConfirmGui.CONFIRM_SLOT) {
+            return;
+        }
+
+        OrderRecord order = service.get(pending.orderId());
+
+        OrderConfirmGui.clear(player);
+        player.closeInventory();
+
+        if (order == null) {
+            SoundService.guiError(player, core);
+            return;
+        }
+
+        if (pending.type() == OrderConfirmGui.PendingType.DELIVER) {
+            service.deliver(player, order);
+            OrdersMainGui.open(player, service);
             return;
         }
 
