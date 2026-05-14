@@ -71,14 +71,36 @@ public final class ChatFormatListener implements Listener {
         String kills = placeholder(player, "%mineacle_stats_kills%", String.valueOf(stat(player, Statistic.PLAYER_KILLS)));
         String deaths = placeholder(player, "%mineacle_stats_deaths%", String.valueOf(stat(player, Statistic.DEATHS)));
         String playtime = placeholder(player, "%playtime_time%", playtime(player));
+        String teamName = placeholder(player, "%mineacleteams_name%", "");
 
-        return legacy(
-                displayName + "\n"
-                        + "&a$ &#ccccccMoney &a" + money + "\n"
-                        + "&#ff0000🗡 &#ccccccKills &#ff0000" + kills + "\n"
-                        + "&#ff8800☠ &#ccccccDeaths &#ff8800" + deaths + "\n"
-                        + "&e⌚ &#ccccccPlaytime &e" + playtime
-        );
+        StringBuilder hover = new StringBuilder();
+        hover.append(displayName).append("\n");
+
+        if (hasTeam(teamName)) {
+            hover.append("&#ff6cff🔥&#cccccc Team &#ff6cff").append(teamName).append("\n");
+        }
+
+        hover.append("&a$ &#ccccccMoney &a").append(money).append("\n")
+                .append("&#ff0000🗡 &#ccccccKills &#ff0000").append(kills).append("\n")
+                .append("&#ff8800☠ &#ccccccDeaths &#ff8800").append(deaths).append("\n")
+                .append("&e⌚ &#ccccccPlaytime &e").append(playtime);
+
+        return legacy(hover.toString());
+    }
+
+    private boolean hasTeam(String teamName) {
+        if (teamName == null) {
+            return false;
+        }
+
+        String cleaned = teamName.trim();
+
+        return !cleaned.isBlank()
+                && !cleaned.equalsIgnoreCase("none")
+                && !cleaned.equalsIgnoreCase("no team")
+                && !cleaned.equalsIgnoreCase("null")
+                && !cleaned.equalsIgnoreCase("n/a")
+                && !cleaned.equalsIgnoreCase("%mineacleteams_name%");
     }
 
     private String placeholder(Player player, String placeholder, String fallback) {
