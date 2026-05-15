@@ -48,14 +48,16 @@ public final class DisplayNames {
         Core core = Core.instance();
 
         if (player != null && player.isOp()) {
-            return core == null ? "&#FF80FF" : core.getConfig().getString("nickname.op-name-color", "#FF80FF");
+            return core == null ? "&#ff6cff" : core.getConfig().getString("nickname.op-name-color", "#ff6cff");
         }
 
-        if (player instanceof Player online && online.hasPermission("mineacle.plus")) {
-            return "&d";
-        }
+        Player online = null;
 
-        Player online = player == null ? null : Bukkit.getPlayer(player.getUniqueId());
+        if (player instanceof Player current) {
+            online = current;
+        } else if (player != null) {
+            online = Bukkit.getPlayer(player.getUniqueId());
+        }
 
         if (online != null && online.hasPermission("mineacle.plus")) {
             return "&d";
