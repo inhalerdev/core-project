@@ -1,6 +1,7 @@
 package net.mineacle.core.common.player;
 
 import me.clip.placeholderapi.PlaceholderAPI;
+import net.mineacle.core.Core;
 import net.mineacle.core.chat.ChatModule;
 import net.mineacle.core.chat.service.NicknameService;
 import org.bukkit.Bukkit;
@@ -44,11 +45,23 @@ public final class DisplayNames {
     }
 
     public static String nameColor(OfflinePlayer player) {
+        Core core = Core.instance();
+
         if (player != null && player.isOp()) {
-            return "&#FF80FF";
+            return core == null ? "&#FF80FF" : core.getConfig().getString("nickname.op-name-color", "#FF80FF");
         }
 
-        return "&d";
+        if (player instanceof Player online && online.hasPermission("mineacle.plus")) {
+            return "&d";
+        }
+
+        Player online = player == null ? null : Bukkit.getPlayer(player.getUniqueId());
+
+        if (online != null && online.hasPermission("mineacle.plus")) {
+            return "&d";
+        }
+
+        return core == null ? "&#bbbbbb" : core.getConfig().getString("nickname.default-name-color", "#bbbbbb");
     }
 
     public static String coloredDisplayName(OfflinePlayer player) {
@@ -81,6 +94,7 @@ public final class DisplayNames {
             }
 
             String nickname = nickname(online);
+
             if (!nickname.isBlank() && normalize(nickname).equals(normalized)) {
                 return online;
             }

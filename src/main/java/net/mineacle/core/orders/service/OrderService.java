@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 public final class OrderService {
@@ -90,7 +91,7 @@ public final class OrderService {
             return false;
         }
 
-        long pricePerItem = economy.amountToCents(parseBigDecimal(rawPrice));
+        long pricePerItem = parseAmountToCents(economy, rawPrice);
         long minimumPrice = economy.amountToCents(BigDecimal.valueOf(core.getConfig().getDouble("orders.limits.minimum-price-per-item", 0.01D)));
 
         if (pricePerItem < minimumPrice) {
@@ -126,7 +127,7 @@ public final class OrderService {
 
         repository.put(order);
 
-        send(player, message("created", "&#ccccccCreated order for &d%amount%x %item%")
+        send(player, message("created", "&#ccccccCreated order for &#ff6cff%amount%x %item%")
                 .replace("%amount%", String.valueOf(amount))
                 .replace("%item%", pretty(order.material()))
                 .replace("%price%", economy.format(pricePerItem))
@@ -184,7 +185,7 @@ public final class OrderService {
 
         String amount = economy == null ? "$" + payout : economy.format(payout);
 
-        send(seller, message("delivered", "&#ccccccDelivered &d%amount%x %item% &#ccccccfor &a+%money%")
+        send(seller, message("delivered", "&#ccccccDelivered &#ff6cff%amount%x %item% &#ccccccfor &#ff6cff+%money%")
                 .replace("%amount%", String.valueOf(deliverAmount))
                 .replace("%item%", pretty(order.material()))
                 .replace("%money%", amount));
@@ -231,7 +232,7 @@ public final class OrderService {
         order.addCollected(collected);
         repository.put(order);
 
-        send(player, message("collected", "&#ccccccCollected &d%amount%x %item%")
+        send(player, message("collected", "&#ccccccCollected &#ff6cff%amount%x %item%")
                 .replace("%amount%", String.valueOf(collected))
                 .replace("%item%", pretty(order.material())));
 
@@ -266,7 +267,7 @@ public final class OrderService {
 
         String refundText = economy == null ? "$" + refund : economy.format(refund);
 
-        send(player, message("cancelled", "&#ccccccCancelled order and refunded &a%refund%")
+        send(player, message("cancelled", "&#ccccccCancelled order and refunded &#ff6cff%refund%")
                 .replace("%refund%", refundText));
 
         SoundService.guiCancel(player, core);
@@ -347,11 +348,29 @@ public final class OrderService {
         }
     }
 
-    private BigDecimal parseBigDecimal(String raw) {
+    private long parseAmountToCents(EconomyService economy, String raw) {
+        if (raw == null || raw.isBlank()) {
+            return -1L;
+        }
+
+        String input = raw.trim().replace(",", "").replace("_", "").toLowerCase(Locale.ROOT);
+        BigDecimal multiplier = BigDecimal.ONE;
+
+        if (input.endsWith("k")) {
+            multiplier = BigDecimal.valueOf(1_000L);
+            input = input.substring(0, input.length() - 1);
+        } else if (input.endsWith("m")) {
+            multiplier = BigDecimal.valueOf(1_000_000L);
+            input = input.substring(0, input.length() - 1);
+        } else if (input.endsWith("b")) {
+            multiplier = BigDecimal.valueOf(1_000_000_000L);
+            input = input.substring(0, input.length() - 1);
+        }
+
         try {
-            return new BigDecimal(raw);
-        } catch (Exception exception) {
-            return BigDecimal.valueOf(-1L);
+            return economy.amountToCents(new BigDecimal(input).multiply(multiplier));
+        } catch (NumberFormatException exception) {
+            return -1L;
         }
     }
 
