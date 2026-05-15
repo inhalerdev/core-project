@@ -51,18 +51,6 @@ public final class DisplayNames {
             return core == null ? "&#ff6cff" : core.getConfig().getString("nickname.op-name-color", "#ff6cff");
         }
 
-        Player online = null;
-
-        if (player instanceof Player current) {
-            online = current;
-        } else if (player != null) {
-            online = Bukkit.getPlayer(player.getUniqueId());
-        }
-
-        if (online != null && online.hasPermission("mineacle.plus")) {
-            return "&d";
-        }
-
         return core == null ? "&#bbbbbb" : core.getConfig().getString("nickname.default-name-color", "#bbbbbb");
     }
 
