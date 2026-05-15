@@ -3,6 +3,7 @@ package net.mineacle.core.spawn;
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.spawn.command.SpawnCommand;
+import net.mineacle.core.spawn.listener.SpawnBedRespawnListener;
 import net.mineacle.core.spawn.listener.SpawnGuiListener;
 import net.mineacle.core.spawn.listener.SpawnJoinQuitListener;
 import net.mineacle.core.spawn.listener.SpawnVoidListener;
@@ -28,6 +29,7 @@ public final class SpawnModule extends Module {
         SpawnCommand command = new SpawnCommand(spawnService);
 
         PluginCommand spawn = core.getCommand("spawn");
+
         if (spawn != null) {
             spawn.setExecutor(command);
             spawn.setTabCompleter(command);
@@ -36,6 +38,7 @@ public final class SpawnModule extends Module {
         }
 
         PluginCommand lobby = core.getCommand("lobby");
+
         if (lobby != null) {
             lobby.setExecutor(command);
             lobby.setTabCompleter(command);
@@ -55,6 +58,11 @@ public final class SpawnModule extends Module {
 
         core.getServer().getPluginManager().registerEvents(
                 new SpawnJoinQuitListener(spawnService),
+                core
+        );
+
+        core.getServer().getPluginManager().registerEvents(
+                new SpawnBedRespawnListener(spawnService),
                 core
         );
     }

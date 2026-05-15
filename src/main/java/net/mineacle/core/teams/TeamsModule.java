@@ -2,6 +2,7 @@ package net.mineacle.core.teams;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
+import net.mineacle.core.homes.listener.HomesMoveListener;
 import net.mineacle.core.homes.service.HomeService;
 import net.mineacle.core.homes.service.TeleportService;
 import net.mineacle.core.stats.PlayerStatisticsGui;
@@ -40,7 +41,6 @@ public final class TeamsModule extends Module {
     @Override
     public void enable(Core core) {
         this.core = core;
-
         this.teamService = new TeamService(core);
         activeTeamService = this.teamService;
 
@@ -59,6 +59,7 @@ public final class TeamsModule extends Module {
         );
 
         PluginCommand team = core.getCommand("team");
+
         if (team != null) {
             team.setExecutor(command);
             team.setTabCompleter(command);
@@ -76,6 +77,11 @@ public final class TeamsModule extends Module {
                         teleportService,
                         playerStatisticsGui
                 ),
+                core
+        );
+
+        core.getServer().getPluginManager().registerEvents(
+                new HomesMoveListener(teleportService),
                 core
         );
 
