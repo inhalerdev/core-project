@@ -7,6 +7,7 @@ import net.mineacle.core.common.gui.MenuCloseListener;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.doublejump.DoubleJumpModule;
 import net.mineacle.core.economy.EconomyModule;
+import net.mineacle.core.gamemode.GamemodeModule;
 import net.mineacle.core.homes.HomesModule;
 import net.mineacle.core.orders.OrdersModule;
 import net.mineacle.core.placeholders.PlaceholdersModule;
@@ -74,6 +75,7 @@ public final class Core extends JavaPlugin {
             registerModule(new DoubleJumpModule());
             registerModule(new RtpModule());
             registerModule(new OrdersModule());
+            registerModule(new GamemodeModule());
 
             getLogger().info("MineacleCore enabled successfully");
         } catch (Exception exception) {

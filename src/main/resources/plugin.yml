@@ -105,12 +105,30 @@ commands:
     aliases: [orders]
     usage: /order
     permission: mineacleorders.use
+  gmc:
+    description: Set gamemode creative
+    usage: /gmc
+    permission: mineacle.gamemode
+  gms:
+    description: Set gamemode survival
+    usage: /gms
+    permission: mineacle.gamemode
+  gmsp:
+    description: Set gamemode spectator
+    usage: /gmsp
+    permission: mineacle.gamemode
+  gma:
+    description: Set gamemode adventure
+    usage: /gma
+    permission: mineacle.gamemode
 
 permissions:
   mineaclehomes.use:
     default: true
   mineacle.plus:
     default: false
+  mineacle.gamemode:
+    default: op
   mineaclehomes.admin:
     default: op
   mineacleteams.use:
