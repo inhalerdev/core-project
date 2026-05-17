@@ -72,7 +72,7 @@ nickname:
   prefix: .
   max-length: 15
   allowed-regex: ^[a-zA-Z_0-9&§]+$
-  op-name-color: '#FF80FF'
+  op-name-color: '#ff88ff'
   default-name-color: '#bbbbbb'
 chat:
   enabled: true
@@ -187,7 +187,7 @@ double-jump:
   cooldown-seconds: 0.75
   upward-velocity: 0.62
   forward-velocity: 1.25
-  particles: true
+  particles: false
   actionbar-cooldown: false
 sounds:
   enabled: true
@@ -231,7 +231,7 @@ sounds:
   teleport:
     start:
       enabled: true
-      sound: ENTITY_ENDER_EYE_LAUNCH
+      sound: UI_BUTTON_CLICK
       volume: 1.0
       pitch: 1.0
     countdown:

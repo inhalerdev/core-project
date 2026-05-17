@@ -21,7 +21,6 @@ public final class HomeService {
 
     public int getMaxHomes(Player player) {
         FileConfiguration config = core.getConfig();
-
         int defaultMax = config.getInt("homes.max-homes.default", 2);
         int plusMax = config.getInt("homes.max-homes.plus", 5);
         String plusPermission = config.getString("homes.plus-permission", "mineacle.plus");
@@ -184,7 +183,8 @@ public final class HomeService {
     }
 
     public String getDefaultDisplayName(int id) {
-        return "Home " + id;
+        return core.getConfig().getString("homes.default-name-format", "Home%id%")
+                .replace("%id%", String.valueOf(id));
     }
 
     public Integer findHomeIdByName(UUID uuid, int maxHomes, String input) {
@@ -192,22 +192,22 @@ public final class HomeService {
             return null;
         }
 
-        for (int id = 1; id <= 5; id++) {
+        String trimmed = input.trim();
+
+        for (int id = 1; id <= maxHomes && id <= 5; id++) {
             if (!exists(uuid, id)) {
                 continue;
             }
 
-            String displayName = getDisplayName(uuid, id);
-
-            if (displayName.equalsIgnoreCase(input.trim())) {
+            if (getDisplayName(uuid, id).equalsIgnoreCase(trimmed)) {
                 return id;
             }
         }
 
         try {
-            int parsed = Integer.parseInt(input.trim());
+            int parsed = Integer.parseInt(trimmed);
 
-            if (parsed >= 1 && parsed <= 5 && exists(uuid, parsed)) {
+            if (parsed >= 1 && parsed <= maxHomes && parsed <= 5 && exists(uuid, parsed)) {
                 return parsed;
             }
         } catch (NumberFormatException ignored) {
@@ -218,8 +218,9 @@ public final class HomeService {
 
     public Integer findFirstEmptySlot(Player player) {
         UUID uuid = player.getUniqueId();
+        int maxHomes = getMaxHomes(player);
 
-        for (int id = 1; id <= 5; id++) {
+        for (int id = 1; id <= maxHomes && id <= 5; id++) {
             if (!exists(uuid, id)) {
                 return id;
             }
@@ -233,12 +234,14 @@ public final class HomeService {
             return null;
         }
 
-        for (int id = 1; id <= 5; id++) {
+        String trimmed = name.trim();
+
+        for (int id = 1; id <= maxHomes && id <= 5; id++) {
             if (!exists(uuid, id)) {
                 continue;
             }
 
-            if (getDisplayName(uuid, id).equalsIgnoreCase(name.trim())) {
+            if (getDisplayName(uuid, id).equalsIgnoreCase(trimmed)) {
                 return id;
             }
         }
@@ -249,8 +252,9 @@ public final class HomeService {
     public List<String> getSavedHomeNames(Player player) {
         List<String> names = new ArrayList<>();
         UUID uuid = player.getUniqueId();
+        int maxHomes = getMaxHomes(player);
 
-        for (int id = 1; id <= 5; id++) {
+        for (int id = 1; id <= maxHomes && id <= 5; id++) {
             if (exists(uuid, id)) {
                 names.add(getDisplayName(uuid, id));
             }

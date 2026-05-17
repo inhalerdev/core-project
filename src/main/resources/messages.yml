@@ -83,7 +83,7 @@ teams:
     enabled: "&aTeam chat enabled."
     disabled: "&cTeam chat disabled."
     usage: "&cUsage: /team chat <message>"
-    format: "&8[%team%&8] &f%player%&8: &f%message%"
+    format: "&d[%team%&d] &f%player%&8: &f%message%"
     not-in-team: "&cYou are not in a team."
 
   management:

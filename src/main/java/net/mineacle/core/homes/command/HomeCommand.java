@@ -75,23 +75,8 @@ public final class HomeCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean handleSetHomeCommand(Player player, String[] args) {
-        if (args.length < 1) {
-            player.sendMessage("§cUsage: /sethome <name>");
-            SoundService.guiError(player, core);
-            return true;
-        }
-
-        String requestedName = String.join(" ", args).trim();
-
-        if (!homeService.isValidName(requestedName)) {
-            player.sendMessage(core.getMessage("homes.invalid-name"));
-            SoundService.guiError(player, core);
-            return true;
-        }
-
         if (!homeService.canSetPersonalHomeHere(player)) {
             String message = blockedWorldMessage();
-
             player.sendActionBar(actionBar(message));
             player.sendMessage(message);
             SoundService.guiError(player, core);
@@ -100,8 +85,20 @@ public final class HomeCommand implements CommandExecutor, TabCompleter {
 
         UUID uuid = player.getUniqueId();
         int maxHomes = homeService.getMaxHomes(player);
+        String requestedName = args.length == 0 ? "" : String.join(" ", args).trim();
 
-        Integer existingId = homeService.findByName(uuid, maxHomes, requestedName);
+        Integer existingId = null;
+
+        if (!requestedName.isBlank()) {
+            if (!homeService.isValidName(requestedName)) {
+                player.sendMessage(core.getMessage("homes.invalid-name"));
+                SoundService.guiError(player, core);
+                return true;
+            }
+
+            existingId = homeService.findByName(uuid, maxHomes, requestedName);
+        }
+
         int targetId;
 
         if (existingId != null) {
@@ -118,7 +115,11 @@ public final class HomeCommand implements CommandExecutor, TabCompleter {
             targetId = emptySlot;
         }
 
-        homeService.set(uuid, targetId, player.getLocation(), requestedName);
+        String displayName = requestedName.isBlank()
+                ? homeService.getDefaultDisplayName(targetId)
+                : requestedName;
+
+        homeService.set(uuid, targetId, player.getLocation(), displayName);
 
         String message = core.getMessage("homes.set")
                 .replace("%home%", homeService.getDisplayName(uuid, targetId));
@@ -131,7 +132,7 @@ public final class HomeCommand implements CommandExecutor, TabCompleter {
 
     private boolean handleDeleteHomeCommand(Player player, String[] args) {
         if (args.length < 1) {
-            player.sendMessage("§cUsage: /delhome <name>");
+            player.sendMessage("§cUsage: /delhome <home>");
             SoundService.guiError(player, core);
             return true;
         }
@@ -156,7 +157,7 @@ public final class HomeCommand implements CommandExecutor, TabCompleter {
 
     private boolean handleRenameHomeCommand(Player player, String[] args) {
         if (args.length < 2) {
-            player.sendMessage("§cUsage: /renamehome <name> <new name>");
+            player.sendMessage("§cUsage: /renamehome <existing home> <new home name>");
             SoundService.guiError(player, core);
             return true;
         }
@@ -172,7 +173,6 @@ public final class HomeCommand implements CommandExecutor, TabCompleter {
 
         UUID uuid = player.getUniqueId();
         int maxHomes = homeService.getMaxHomes(player);
-
         Integer id = homeService.findHomeIdByName(uuid, maxHomes, oldName);
 
         if (id == null) {
