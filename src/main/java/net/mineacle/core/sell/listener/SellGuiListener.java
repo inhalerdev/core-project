@@ -102,7 +102,7 @@ public final class SellGuiListener implements Listener {
             return;
         }
 
-        String chat = sellService.message("sold-chat", "&#bbbbbbSold &#ff6fff%amount%x items &#bbbbbbfor &a+%money%")
+        String chat = sellService.message("sold-chat", "&#bbbbbbSold &#ff88ff%amount%x items &#bbbbbbfor &a+%money%")
                 .replace("%amount%", String.valueOf(result.totalAmount()))
                 .replace("%money%", sellService.format(result.totalCents()));
 

@@ -235,19 +235,10 @@ public final class SellService {
                 continue;
             }
 
-            long unitWorth = unitWorthCents(player, item.getType());
-            long stackWorth = unitWorth * item.getAmount();
+            long totalWorth = unitWorthCents(player, item.getType()) * item.getAmount();
 
             List<String> lore = new ArrayList<>();
-            lore.add(TextColor.color("&#bbbbbbWorth: &a" + format(unitWorth)));
-
-            if (item.getAmount() > 1) {
-                lore.add(TextColor.color("&#bbbbbbStack Worth: &a" + format(stackWorth)));
-            }
-
-            if (hasDemandAdjustment(item.getType())) {
-                lore.add(TextColor.color("&#bbbbbbDemand: &#ff6fff" + formatMultiplier(demandMultiplier(item.getType())) + "x"));
-            }
+            lore.add(TextColor.color("&#bbbbbbWorth: &a" + format(totalWorth)));
 
             meta.setLore(lore);
             item.setItemMeta(meta);

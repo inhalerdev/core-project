@@ -51,7 +51,7 @@ public final class SellHistoryGui {
                     Material.CHEST,
                     "&dNo Sell History",
                     List.of(
-                            "&#bbbbbbSell items with &#ff6fff/sell",
+                            "&#bbbbbbSell items with &#ff88ff/sell",
                             "&#bbbbbbYour sold items will appear here"
                     )
             ));
@@ -126,8 +126,8 @@ public final class SellHistoryGui {
                 "&d" + sellService.pretty(entry.material()),
                 List.of(
                         "&#bbbbbbTotal Price: &a" + sellService.format(entry.totalCents()),
-                        "&#bbbbbbTotal Amount: &#ff6fff" + MoneyFormatter.compact(entry.amount()),
-                        "&#bbbbbbCategory: &#ff6fff" + sellService.categoryDisplay(entry.material())
+                        "&#bbbbbbTotal Amount: &#ff88ff" + MoneyFormatter.compact(entry.amount()),
+                        "&#bbbbbbCategory: &#ff88ff" + sellService.categoryDisplay(entry.material())
                 )
         );
     }
@@ -138,7 +138,7 @@ public final class SellHistoryGui {
         lore.add("");
 
         for (SortMode mode : SortMode.values()) {
-            lore.add((mode == current ? "&#ff6fff" : "&#bbbbbb") + mode.displayName());
+            lore.add((mode == current ? "&#ff88ff" : "&#bbbbbb") + mode.displayName());
         }
 
         return item(Material.ANVIL, "&dSell History", lore);

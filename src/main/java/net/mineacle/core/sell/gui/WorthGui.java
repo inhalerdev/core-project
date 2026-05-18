@@ -153,20 +153,11 @@ public final class WorthGui {
 
     private static ItemStack priceItem(Player player, SellService sellService, Material material) {
         long worth = sellService.unitWorthCents(player, material);
-        List<String> lore = new ArrayList<>();
-
-        lore.add("&#bbbbbbWorth: &a" + sellService.format(worth));
-
-        if (sellService.hasDemandAdjustment(material)) {
-            lore.add("&#bbbbbbDemand: &#ff88ff" + SellService.formatMultiplier(sellService.demandMultiplier(material)) + "x");
-        }
-
-        lore.add("&#bbbbbbCategory: &#ff88ff" + categoryDisplay(material));
 
         return item(
                 material,
                 "&d" + sellService.pretty(material),
-                lore
+                List.of("&#bbbbbbWorth: &a" + sellService.format(worth))
         );
     }
 

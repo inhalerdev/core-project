@@ -54,12 +54,12 @@ public final class SellMultiGui {
                 categoryMaterial(category),
                 "&d" + sellService.categoryDisplay(category),
                 List.of(
-                        "&#bbbbbbMultiplier: &#ff6fff" + SellService.formatMultiplier(multiplier) + "x",
-                        "&#bbbbbbSold: &#ff6fff" + MoneyFormatter.compact(sold),
-                        "&#bbbbbbProgress: &#ff6fff" + MoneyFormatter.compact(progress) + "&#bbbbbb/&#ff6fff" + MoneyFormatter.compact(needed),
-                        "&#bbbbbbRemaining: &#ff6fff" + MoneyFormatter.compact(remaining),
-                        "&#bbbbbbNext Upgrade: &#ff6fff+" + SellService.formatMultiplier(increase) + "x",
-                        "&#bbbbbbMax Multiplier: &#ff6fff" + SellService.formatMultiplier(max) + "x"
+                        "&#bbbbbbMultiplier: &#ff88ff" + SellService.formatMultiplier(multiplier) + "x",
+                        "&#bbbbbbSold: &#ff88ff" + MoneyFormatter.compact(sold),
+                        "&#bbbbbbProgress: &#ff88ff" + MoneyFormatter.compact(progress) + "&#bbbbbb/&#ff88ff" + MoneyFormatter.compact(needed),
+                        "&#bbbbbbRemaining: &#ff88ff" + MoneyFormatter.compact(remaining),
+                        "&#bbbbbbNext Upgrade: &#ff88ff+" + SellService.formatMultiplier(increase) + "x",
+                        "&#bbbbbbMax Multiplier: &#ff88ff" + SellService.formatMultiplier(max) + "x"
                 )
         );
     }
