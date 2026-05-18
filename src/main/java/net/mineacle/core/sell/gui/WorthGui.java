@@ -27,9 +27,9 @@ public final class WorthGui {
     public static final int ENTRIES_PER_PAGE = 45;
 
     public static final int PREVIOUS_SLOT = 45;
-    public static final int SORT_SLOT = 49;
-    public static final int FILTER_SLOT = 50;
-    public static final int REFRESH_SLOT = 51;
+    public static final int SORT_SLOT = 48;
+    public static final int FILTER_SLOT = 49;
+    public static final int REFRESH_SLOT = 50;
     public static final int NEXT_SLOT = 53;
 
     public static final String META_PAGE = "mineacle_worth_page";
@@ -158,10 +158,10 @@ public final class WorthGui {
         lore.add("&#bbbbbbWorth: &a" + sellService.format(worth));
 
         if (sellService.hasDemandAdjustment(material)) {
-            lore.add("&#bbbbbbDemand: &#ff6fff" + SellService.formatMultiplier(sellService.demandMultiplier(material)) + "x");
+            lore.add("&#bbbbbbDemand: &#ff88ff" + SellService.formatMultiplier(sellService.demandMultiplier(material)) + "x");
         }
 
-        lore.add("&#bbbbbbCategory: &#ff6fff" + categoryDisplay(material));
+        lore.add("&#bbbbbbCategory: &#ff88ff" + categoryDisplay(material));
 
         return item(
                 material,
@@ -176,7 +176,7 @@ public final class WorthGui {
         lore.add("");
 
         for (SortMode mode : SortMode.values()) {
-            lore.add((mode == current ? "&#ff6fff" : "&#bbbbbb") + mode.displayName());
+            lore.add((mode == current ? "&#ff88ff" : "&#bbbbbb") + mode.displayName());
         }
 
         return item(Material.ANVIL, "&dSort", lore);
@@ -186,7 +186,7 @@ public final class WorthGui {
         List<String> lore = new ArrayList<>();
 
         for (FilterMode mode : FilterMode.values()) {
-            lore.add((mode == current ? "&#ff6fff" : "&#bbbbbb") + mode.displayName());
+            lore.add((mode == current ? "&#ff88ff" : "&#bbbbbb") + mode.displayName());
         }
 
         return item(Material.HOPPER, "&dFilter", lore);

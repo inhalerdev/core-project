@@ -3,6 +3,7 @@ package net.mineacle.core.sell;
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.sell.command.SellCommand;
+import net.mineacle.core.sell.listener.PlayerWorthLoreListener;
 import net.mineacle.core.sell.listener.SellGuiListener;
 import net.mineacle.core.sell.listener.SellMultiGuiListener;
 import net.mineacle.core.sell.listener.WorthGuiListener;
@@ -36,6 +37,7 @@ public final class SellModule extends Module {
         core.getServer().getPluginManager().registerEvents(new SellGuiListener(core, sellService), core);
         core.getServer().getPluginManager().registerEvents(new WorthGuiListener(core, sellService), core);
         core.getServer().getPluginManager().registerEvents(new SellMultiGuiListener(), core);
+        core.getServer().getPluginManager().registerEvents(new PlayerWorthLoreListener(core, sellService), core);
     }
 
     @Override
