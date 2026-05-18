@@ -16,6 +16,8 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.HashSet;
@@ -33,16 +35,55 @@ public final class SellGuiListener implements Listener {
         this.sellService = sellService;
     }
 
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onSellClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+
+        if (!isSellMenu(event.getView().getTitle())) {
+            return;
+        }
+
+        core.getServer().getScheduler().runTask(core, () -> {
+            if (!player.isOnline()) {
+                return;
+            }
+
+            if (isSellMenu(player.getOpenInventory().getTitle())) {
+                sellService.applyWorthLore(player, player.getOpenInventory().getTopInventory());
+            }
+        });
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onSellDrag(InventoryDragEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+
+        if (!isSellMenu(event.getView().getTitle())) {
+            return;
+        }
+
+        core.getServer().getScheduler().runTask(core, () -> {
+            if (!player.isOnline()) {
+                return;
+            }
+
+            if (isSellMenu(player.getOpenInventory().getTitle())) {
+                sellService.applyWorthLore(player, player.getOpenInventory().getTopInventory());
+            }
+        });
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onSellClose(InventoryCloseEvent event) {
         if (!(event.getPlayer() instanceof Player player)) {
             return;
         }
 
-        String title = ChatColor.stripColor(event.getView().getTitle());
-        String sellTitle = ChatColor.stripColor(SellGui.title(core));
-
-        if (title == null || sellTitle == null || !title.equals(sellTitle)) {
+        if (!isSellMenu(event.getView().getTitle())) {
             return;
         }
 
@@ -118,12 +159,21 @@ public final class SellGuiListener implements Listener {
         }
     }
 
+    private boolean isSellMenu(String rawTitle) {
+        String title = ChatColor.stripColor(rawTitle);
+        String sellTitle = ChatColor.stripColor(SellGui.title(core));
+
+        return title != null && sellTitle != null && title.equals(sellTitle);
+    }
+
     private void returnItem(Player player, ItemStack item) {
         if (item == null || item.getType().isAir()) {
             return;
         }
 
-        player.getInventory().addItem(item).values().forEach(leftover ->
+        ItemStack clean = sellService.stripWorthLore(item);
+
+        player.getInventory().addItem(clean).values().forEach(leftover ->
                 player.getWorld().dropItemNaturally(player.getLocation(), leftover)
         );
     }
