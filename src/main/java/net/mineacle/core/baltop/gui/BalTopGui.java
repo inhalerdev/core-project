@@ -215,6 +215,7 @@ public final class BalTopGui {
     private static ItemStack selfHead(Player player, EconomyService economyService) {
         long balanceCents = economyService.getBalanceCents(player.getUniqueId());
         String balance = economyService.format(balanceCents);
+        int placement = placementForEntry(economyService, player.getUniqueId());
 
         ItemStack item = new ItemStack(Material.PLAYER_HEAD);
         ItemMeta rawMeta = item.getItemMeta();
@@ -226,7 +227,7 @@ public final class BalTopGui {
         meta.setOwningPlayer(player);
         meta.setDisplayName(color(DisplayNames.prefixedDisplayName(player)));
         meta.setLore(List.of(
-                color("&#bbbbbbBalance: &a" + balance),
+                color("&#bbbbbbBalance: &a" + balance + " &#ff6fff(#" + placement + ")"),
                 color("&#bbbbbbClick to view stats")
         ));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
