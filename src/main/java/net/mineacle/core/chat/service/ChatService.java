@@ -1,7 +1,12 @@
 package net.mineacle.core.chat.service;
 
 import me.clip.placeholderapi.PlaceholderAPI;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
+import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -65,10 +70,7 @@ public final class ChatService {
             return;
         }
 
-        String formatted = core.getMessage("chat.private-message-format")
-                .replace("%sender%", nicknameService.displayName(sender))
-                .replace("%receiver%", nicknameService.displayName(receiver))
-                .replace("%message%", TextColor.color(message));
+        Component formatted = privateMessageComponent(sender, receiver, message);
 
         sender.sendMessage(formatted);
         receiver.sendMessage(formatted);
@@ -173,6 +175,27 @@ public final class ChatService {
         return TextColor.color(output);
     }
 
+    private Component privateMessageComponent(Player sender, Player receiver, String message) {
+        Component component = legacy(
+                "&d" + DisplayNames.displayName(sender)
+                        + " &#bbbbbb-> &d"
+                        + DisplayNames.displayName(receiver)
+                        + "&#bbbbbb: &#bbbbbb"
+                        + message
+        );
+
+        component = component.hoverEvent(HoverEvent.showText(legacy(
+                "&#bbbbbbPrivate message\n"
+                        + "&#bbbbbbFrom: &#ff6fff" + DisplayNames.displayName(sender) + "\n"
+                        + "&#bbbbbbTo: &#ff6fff" + DisplayNames.displayName(receiver) + "\n"
+                        + "&#bbbbbbClick to reply"
+        )));
+
+        component = component.clickEvent(ClickEvent.suggestCommand("/msg " + DisplayNames.commandDisplayName(sender) + " "));
+
+        return component;
+    }
+
     private List<Player> groupedRecipients(Player sender) {
         List<Player> recipients = new ArrayList<>();
         String senderGroup = worldGroup(sender.getWorld().getName());
@@ -212,6 +235,7 @@ public final class ChatService {
         ignored.clear();
 
         ConfigurationSection section = config.getConfigurationSection("ignored");
+
         if (section == null) {
             return;
         }
@@ -250,5 +274,9 @@ public final class ChatService {
             core.getLogger().severe("Could not save chat.yml");
             exception.printStackTrace();
         }
+    }
+
+    private Component legacy(String message) {
+        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
     }
 }

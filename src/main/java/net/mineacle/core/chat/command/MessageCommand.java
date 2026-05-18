@@ -2,13 +2,16 @@ package net.mineacle.core.chat.command;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.chat.service.ChatService;
+import net.mineacle.core.common.player.DisplayNames;
 import org.bukkit.Bukkit;
-import org.bukkit.command.*;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 public final class MessageCommand implements CommandExecutor, TabCompleter {
 
@@ -37,7 +40,7 @@ public final class MessageCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        Player target = Bukkit.getPlayerExact(args[0]);
+        Player target = DisplayNames.resolveOnline(args[0]);
 
         if (target == null) {
             player.sendMessage(core.getMessage("chat.player-not-found"));
@@ -52,7 +55,7 @@ public final class MessageCommand implements CommandExecutor, TabCompleter {
         StringBuilder builder = new StringBuilder();
 
         for (int index = start; index < args.length; index++) {
-            if (builder.length() > 0) {
+            if (!builder.isEmpty()) {
                 builder.append(' ');
             }
 
@@ -70,11 +73,11 @@ public final class MessageCommand implements CommandExecutor, TabCompleter {
             return completions;
         }
 
-        String partial = args[0].toLowerCase(Locale.ROOT);
+        String partial = args[0];
 
         for (Player online : Bukkit.getOnlinePlayers()) {
-            if (online.getName().toLowerCase(Locale.ROOT).startsWith(partial)) {
-                completions.add(online.getName());
+            if (DisplayNames.startsWithDisplay(online, partial)) {
+                completions.add(DisplayNames.commandDisplayName(online));
             }
         }
 

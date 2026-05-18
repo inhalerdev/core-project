@@ -112,14 +112,15 @@ public final class TpaTargetMenuListener implements Listener {
         String requesterName = DisplayNames.displayName(requester);
         String targetName = DisplayNames.displayName(target);
 
-        sendBoth(requester, "&#ccccccTeleport request sent to &d" + targetName);
+        sendBoth(requester, "&#bbbbbbTeleport request sent to &#ff6fff" + targetName);
         SoundService.teleportRequest(requester, core);
 
         target.sendMessage(requestMessage(
-                "&#cccccc" + requesterName + " &dwants to teleport to you",
+                "&#bbbbbb" + requesterName + " &#ff6fffwants to teleport to you",
                 requester
         ));
-        target.sendActionBar(actionBar("&#cccccc" + requesterName + " &dwants to teleport to you"));
+
+        target.sendActionBar(actionBar("&#bbbbbb" + requesterName + " &#ff6fffwants to teleport to you"));
         SoundService.teleportReceived(target, core);
 
         core.getServer().getScheduler().runTaskLater(core, () -> {
@@ -145,14 +146,11 @@ public final class TpaTargetMenuListener implements Listener {
         return Component.text()
                 .append(legacy(message))
                 .append(Component.newline())
-                .append(legacy("&dAccept")
-                        .clickEvent(ClickEvent.runCommand("/tpaccept")))
-                .append(legacy(" &#cccccc/ "))
-                .append(legacy("&dDeny")
-                        .clickEvent(ClickEvent.runCommand("/tpdeny")))
-                .append(legacy(" &#cccccc/ "))
-                .append(legacy("&dView")
-                        .clickEvent(ClickEvent.runCommand("/tpamenu " + DisplayNames.commandDisplayName(requester))))
+                .append(legacy("&dAccept").clickEvent(ClickEvent.runCommand("/tpaccept")))
+                .append(legacy(" &#bbbbbb/ "))
+                .append(legacy("&dDeny").clickEvent(ClickEvent.runCommand("/tpdeny")))
+                .append(legacy(" &#bbbbbb/ "))
+                .append(legacy("&dView").clickEvent(ClickEvent.runCommand("/tpamenu " + DisplayNames.commandDisplayName(requester))))
                 .build();
     }
 

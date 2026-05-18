@@ -55,7 +55,7 @@ public final class ChatFormatListener implements Listener {
     }
 
     private Component chatComponent(Player sender, Player recipient, String message) {
-        Component base = legacy(DisplayNames.prefixedDisplayName(sender) + "&#cccccc: &#cccccc" + message)
+        Component base = legacy(DisplayNames.prefixedDisplayName(sender) + "&#bbbbbb: &#bbbbbb" + message)
                 .hoverEvent(HoverEvent.showText(hoverStats(sender)));
 
         if (!sender.getUniqueId().equals(recipient.getUniqueId())) {
@@ -77,13 +77,13 @@ public final class ChatFormatListener implements Listener {
         hover.append(displayName).append("\n");
 
         if (hasTeam(teamName)) {
-            hover.append("&#ff6cff🔥&#cccccc Team &#ff6cff").append(teamName).append("\n");
+            hover.append("&#ff6fff🔥 &#bbbbbbTeam &#ff6fff").append(teamName).append("\n");
         }
 
-        hover.append("&a$ &#ccccccMoney &a").append(money).append("\n")
-                .append("&#ff0000🗡 &#ccccccKills &#ff0000").append(kills).append("\n")
-                .append("&#ff8800☠ &#ccccccDeaths &#ff8800").append(deaths).append("\n")
-                .append("&e⌚ &#ccccccPlaytime &e").append(playtime);
+        hover.append("&#ff6fff$ &#bbbbbbMoney &#ff6fff").append(money).append("\n")
+                .append("&#ff6fff🗡 &#bbbbbbKills &#ff6fff").append(kills).append("\n")
+                .append("&#ff6fff☠ &#bbbbbbDeaths &#ff6fff").append(deaths).append("\n")
+                .append("&#ff6fff⌚ &#bbbbbbPlaytime &#ff6fff").append(playtime);
 
         return legacy(hover.toString());
     }

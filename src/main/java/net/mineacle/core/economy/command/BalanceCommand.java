@@ -45,12 +45,13 @@ public final class BalanceCommand implements CommandExecutor, TabCompleter {
             }
 
             String balance = economyService.format(economyService.getBalanceCents(player.getUniqueId()));
+
             player.sendMessage(core.getMessage("economy.balance-self").replace("%balance%", balance));
             SoundService.economyBalance(player, core);
             return true;
         }
 
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[0]);
+        OfflinePlayer target = DisplayNames.resolveOffline(args[0]);
 
         if (target.getName() == null && !target.hasPlayedBefore()) {
             sender.sendMessage(core.getMessage("economy.player-not-found"));
@@ -86,8 +87,8 @@ public final class BalanceCommand implements CommandExecutor, TabCompleter {
         String partial = args[0].toLowerCase(Locale.ROOT);
 
         for (Player online : Bukkit.getOnlinePlayers()) {
-            if (online.getName().toLowerCase(Locale.ROOT).startsWith(partial)) {
-                completions.add(online.getName());
+            if (DisplayNames.startsWithDisplay(online, partial)) {
+                completions.add(DisplayNames.commandDisplayName(online));
             }
         }
 

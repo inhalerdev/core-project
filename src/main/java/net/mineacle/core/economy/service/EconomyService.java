@@ -18,6 +18,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -115,6 +116,7 @@ public final class EconomyService {
         sender.sendMessage(message("economy.pay-sent")
                 .replace("%amount%", amount)
                 .replace("%player%", targetName));
+
         SoundService.economyPay(sender, core);
 
         Player onlineTarget = target.getPlayer();
@@ -180,7 +182,7 @@ public final class EconomyService {
             entries.add(entry);
         }
 
-        entries.sort(Map.Entry.<UUID, Long>comparingByValue(Comparator.reverseOrder()));
+        entries.sort(Map.Entry.comparingByValue(Comparator.reverseOrder()));
 
         if (limit <= 0 || entries.size() <= limit) {
             return entries;
@@ -194,9 +196,22 @@ public final class EconomyService {
             return -1L;
         }
 
+        String input = raw.trim().replace(",", "").replace("_", "").toLowerCase(Locale.ROOT);
+        BigDecimal multiplier = BigDecimal.ONE;
+
+        if (input.endsWith("k")) {
+            multiplier = BigDecimal.valueOf(1_000L);
+            input = input.substring(0, input.length() - 1);
+        } else if (input.endsWith("m")) {
+            multiplier = BigDecimal.valueOf(1_000_000L);
+            input = input.substring(0, input.length() - 1);
+        } else if (input.endsWith("b")) {
+            multiplier = BigDecimal.valueOf(1_000_000_000L);
+            input = input.substring(0, input.length() - 1);
+        }
+
         try {
-            BigDecimal amount = new BigDecimal(raw.trim());
-            return amountToCents(amount);
+            return amountToCents(new BigDecimal(input).multiply(multiplier));
         } catch (NumberFormatException exception) {
             return -1L;
         }
@@ -237,6 +252,7 @@ public final class EconomyService {
 
         for (Map.Entry<UUID, OfflinePaymentNotice> entry : offlinePayments.entrySet()) {
             String path = "offline-payments." + entry.getKey();
+
             config.set(path + ".total-cents", entry.getValue().totalCents());
             config.set(path + ".senders", new ArrayList<>(entry.getValue().senders()));
         }
@@ -249,8 +265,8 @@ public final class EconomyService {
         offlinePayments.clear();
 
         FileConfiguration config = core.getEconomyConfig();
-
         ConfigurationSection balanceSection = config.getConfigurationSection("balances");
+
         if (balanceSection != null) {
             for (String key : balanceSection.getKeys(false)) {
                 try {
@@ -265,6 +281,7 @@ public final class EconomyService {
         }
 
         ConfigurationSection offlineSection = config.getConfigurationSection("offline-payments");
+
         if (offlineSection != null) {
             for (String key : offlineSection.getKeys(false)) {
                 try {

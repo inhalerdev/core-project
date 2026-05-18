@@ -22,7 +22,6 @@ import java.util.List;
 public final class TpaRequestGui {
 
     public static final String TITLE = ChatColor.DARK_GRAY + "Teleport Request";
-
     public static final int DENY_SLOT = 11;
     public static final int REQUESTER_SLOT = 13;
     public static final int ACCEPT_SLOT = 15;
@@ -52,7 +51,7 @@ public final class TpaRequestGui {
                         "&cDeny",
                         List.of(
                                 "&#bbbbbbDecline this teleport request",
-                                "&#bbbbbbFrom &d" + plainRequesterName
+                                "&#bbbbbbFrom &#ff6fff" + plainRequesterName
                         )
                 )
         );
@@ -64,15 +63,15 @@ public final class TpaRequestGui {
                         requesterName,
                         request.type() == TpaRequestType.TO_TARGET
                                 ? List.of(
-                                "&#bbbbbbWants to teleport to you",
-                                "&#bbbbbbClick green to accept",
-                                "&#bbbbbbClick red to deny"
-                        )
+                                        "&#bbbbbbWants to teleport to you",
+                                        "&#bbbbbbClick &#ff6fffAccept &#bbbbbbto allow",
+                                        "&#bbbbbbClick &cDeny &#bbbbbbto decline"
+                                )
                                 : List.of(
-                                "&#bbbbbbWants you to teleport to them",
-                                "&#bbbbbbClick green to accept",
-                                "&#bbbbbbClick red to deny"
-                        )
+                                        "&#bbbbbbWants you to teleport to them",
+                                        "&#bbbbbbClick &#ff6fffAccept &#bbbbbbto teleport",
+                                        "&#bbbbbbClick &cDeny &#bbbbbbto decline"
+                                )
                 )
         );
 
@@ -80,18 +79,15 @@ public final class TpaRequestGui {
                 ACCEPT_SLOT,
                 item(
                         Material.LIME_STAINED_GLASS_PANE,
-                        "&aAccept",
+                        "&dAccept",
                         List.of(
                                 "&#bbbbbbAccept this teleport request",
-                                "&#bbbbbbFrom &d" + plainRequesterName
+                                "&#bbbbbbFrom &#ff6fff" + plainRequesterName
                         )
                 )
         );
 
-        inventory.setItem(
-                WORLD_SLOT,
-                worldItem(requesterOnline, request)
-        );
+        inventory.setItem(WORLD_SLOT, worldItem(requesterOnline, request));
 
         viewer.openInventory(inventory);
     }
@@ -105,10 +101,7 @@ public final class TpaRequestGui {
             );
         }
 
-        World world = request.type() == TpaRequestType.TO_TARGET
-                ? requesterOnline.getWorld()
-                : requesterOnline.getWorld();
-
+        World world = requesterOnline.getWorld();
         Material material = worldMaterial(world);
         String worldName = world == null ? "Unknown" : world.getName();
 
@@ -116,7 +109,7 @@ public final class TpaRequestGui {
                 material,
                 "&dRequest Location",
                 List.of(
-                        "&#bbbbbbWorld: &d" + worldName,
+                        "&#bbbbbbWorld: &#ff6fff" + worldName,
                         request.type() == TpaRequestType.TO_TARGET
                                 ? "&#bbbbbbThey will teleport to you"
                                 : "&#bbbbbbYou will teleport to them"
@@ -158,7 +151,6 @@ public final class TpaRequestGui {
         meta.setDisplayName(color(name));
         meta.setLore(lore.stream().map(TpaRequestGui::color).toList());
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-
         item.setItemMeta(meta);
         return item;
     }
@@ -174,7 +166,6 @@ public final class TpaRequestGui {
         meta.setDisplayName(color(name));
         meta.setLore(lore.stream().map(TpaRequestGui::color).toList());
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-
         item.setItemMeta(meta);
         return item;
     }

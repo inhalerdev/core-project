@@ -22,11 +22,11 @@ gui:
     available-lore:
       - "&#bbbbbb%online%&8/&#bbbbbb%max%"
       - ""
-      - "&#ff80ff➥ Return to Spawn"
+      - "&#ff6fff➥ Return to Spawn"
 
   random:
     lore:
-      - "&#bbbbbbClick to teleport to a random &#ff80ffSpawn"
+      - "&#bbbbbbClick to teleport to a random &#ff6fffSpawn"
 
 worlds:
   lobby1:

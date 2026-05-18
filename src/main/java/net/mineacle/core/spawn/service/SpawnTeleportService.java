@@ -46,7 +46,6 @@ public final class SpawnTeleportService {
         int delay = spawnService.teleportDelaySeconds(player);
 
         if (delay <= 0) {
-            SoundService.teleportStart(player, spawnService.core());
             complete(player, point);
             return;
         }
@@ -54,16 +53,13 @@ public final class SpawnTeleportService {
         Location start = player.getLocation().clone();
         String displayName = TextColor.color(point.displayName());
 
-        PendingTeleport pending = new PendingTeleport(point, start, delay, null);
-        pendingTeleports.put(player.getUniqueId(), pending);
+        pendingTeleports.put(player.getUniqueId(), new PendingTeleport(point, start, delay, null));
 
         String startMessage = spawnService.message("teleport-start")
                 .replace("%spawn%", displayName)
                 .replace("%seconds%", String.valueOf(delay));
 
         sendActionBar(player, startMessage);
-        SoundService.teleportStart(player, spawnService.core());
-        SoundService.teleportCountdown(player, spawnService.core());
 
         BukkitTask task = spawnService.core().getServer().getScheduler().runTaskTimer(
                 spawnService.core(),

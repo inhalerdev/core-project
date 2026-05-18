@@ -29,40 +29,36 @@ public final class TpaTargetMenuGui {
     }
 
     public static void open(Player viewer, Player target) {
-        Inventory inventory = Bukkit.createInventory(
-                null,
-                27,
-                TextColor.color(TITLE)
-        );
+        Inventory inventory = Bukkit.createInventory(null, 27, TextColor.color(TITLE));
 
         inventory.setItem(CANCEL_SLOT, item(
                 Material.RED_STAINED_GLASS_PANE,
                 "&cCancel",
-                List.of("&#ccccccClick to cancel the teleport")
+                List.of("&#bbbbbbClick to cancel the teleport")
         ));
 
         inventory.setItem(REGION_SLOT, item(
                 regionMaterial(target),
-                "&aRegion",
-                List.of("&#cccccc" + regionName(target))
+                "&dRegion",
+                List.of("&#bbbbbb" + regionName(target))
         ));
 
         inventory.setItem(PLAYER_SLOT, playerHead(
                 target,
-                "&aPlayer",
-                List.of("&#cccccc" + DisplayNames.displayName(target))
+                "&dPlayer",
+                List.of("&#ff6fff" + DisplayNames.displayName(target))
         ));
 
         inventory.setItem(LOCATION_SLOT, item(
                 Material.FEATHER,
-                "&aLocation",
-                List.of("&#cccccc" + locationName(target))
+                "&dLocation",
+                List.of("&#bbbbbb" + locationName(target))
         ));
 
         inventory.setItem(CONFIRM_SLOT, item(
                 Material.LIME_STAINED_GLASS_PANE,
-                "&aConfirm",
-                List.of("&#ccccccClick to send &d" + DisplayNames.displayName(target) + " &#cccccaa tpa request")
+                "&dConfirm",
+                List.of("&#bbbbbbClick to send &#ff6fff" + DisplayNames.displayName(target) + " &#bbbbbba TPA request")
         ));
 
         viewer.openInventory(inventory);
@@ -128,7 +124,6 @@ public final class TpaTargetMenuGui {
         meta.setDisplayName(color(name));
         meta.setLore(coloredLore(lore));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-
         item.setItemMeta(meta);
         return item;
     }
@@ -144,7 +139,6 @@ public final class TpaTargetMenuGui {
         meta.setDisplayName(color(name));
         meta.setLore(coloredLore(lore));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-
         item.setItemMeta(meta);
         return item;
     }

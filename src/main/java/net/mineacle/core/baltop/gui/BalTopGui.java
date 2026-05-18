@@ -28,7 +28,6 @@ public final class BalTopGui {
 
     private static final int SIZE = 54;
     private static final int ENTRIES_PER_PAGE = 45;
-
     private static final int SLOT_PREVIOUS = 45;
     private static final int SLOT_PLAYER_HEAD = 48;
     private static final int SLOT_REFRESH = 49;
@@ -60,9 +59,8 @@ public final class BalTopGui {
             Map.Entry<UUID, Long> entry = entries.get(index);
             int slot = index - start;
             int placement = placementForEntry(economyService, entry.getKey());
-
             OfflinePlayer target = Bukkit.getOfflinePlayer(entry.getKey());
-            String name = DisplayNames.luckPermsPrefix(target) + "&d" + DisplayNames.displayName(target);
+            String name = DisplayNames.prefixedDisplayName(target);
             String balance = economyService.format(entry.getValue());
 
             inventory.setItem(slot, playerEntry(target, name, balance, placement));
@@ -168,17 +166,14 @@ public final class BalTopGui {
         }
 
         String lowerQuery = query.toLowerCase();
-
         List<Map.Entry<UUID, Long>> filtered = new ArrayList<>();
 
         for (Map.Entry<UUID, Long> entry : entries) {
             OfflinePlayer target = Bukkit.getOfflinePlayer(entry.getKey());
-
             String username = target.getName() == null ? "" : target.getName();
             String displayName = DisplayNames.displayName(target);
 
-            if (username.toLowerCase().contains(lowerQuery)
-                    || displayName.toLowerCase().contains(lowerQuery)) {
+            if (username.toLowerCase().contains(lowerQuery) || displayName.toLowerCase().contains(lowerQuery)) {
                 filtered.add(entry);
             }
         }
@@ -209,11 +204,10 @@ public final class BalTopGui {
         meta.setOwningPlayer(owner);
         meta.setDisplayName(color(name));
         meta.setLore(List.of(
-                color("&#bbbbbbBalance: &#bbbbbb" + balance + " &d(#" + placement + ")"),
+                color("&#bbbbbbBalance: &#ff6fff" + balance + " &#bbbbbb(#&#ff6fff" + placement + "&#bbbbbb)"),
                 color("&#bbbbbbClick to view stats")
         ));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-
         item.setItemMeta(meta);
         return item;
     }
@@ -232,11 +226,10 @@ public final class BalTopGui {
         meta.setOwningPlayer(player);
         meta.setDisplayName(color("&dYour Balance"));
         meta.setLore(List.of(
-                color("&#bbbbbbBalance: &#bbbbbb" + balance),
+                color("&#bbbbbbBalance: &#ff6fff" + balance),
                 color("&#bbbbbbClick to view your stats")
         ));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-
         item.setItemMeta(meta);
         return item;
     }
@@ -247,7 +240,7 @@ public final class BalTopGui {
                     Material.OAK_SIGN,
                     "&dSearch",
                     List.of(
-                            "&#bbbbbbCurrent search: &d" + search(player),
+                            "&#bbbbbbCurrent search: &#ff6fff" + search(player),
                             "&#bbbbbbLeft-click to search again",
                             "&#bbbbbbRight-click to clear search"
                     )
@@ -282,7 +275,6 @@ public final class BalTopGui {
 
         meta.setLore(coloredLore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-
         item.setItemMeta(meta);
         return item;
     }

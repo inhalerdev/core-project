@@ -1,15 +1,16 @@
 package net.mineacle.core.homes.gui;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.homes.service.HomeService;
 import net.mineacle.core.teams.model.TeamRecord;
 import net.mineacle.core.teams.service.TeamHomeService;
 import net.mineacle.core.teams.service.TeamService;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -25,7 +26,7 @@ public final class HomesMainGui {
     }
 
     public static void open(Core core, Player player, HomeService homeService) {
-        String title = ChatColor.translateAlternateColorCodes('&', core.getMessage("homes.gui.title"));
+        String title = core.getMessage("homes.gui.title");
         Inventory inventory = Bukkit.createInventory(null, 9 * 4, title);
 
         UUID uuid = player.getUniqueId();
@@ -41,32 +42,74 @@ public final class HomesMainGui {
             if (exists) {
                 inventory.setItem(
                         bedSlot,
-                        item(Material.PURPLE_BED, "&d" + displayName, List.of("&fClick to &dteleport &fto this home"))
+                        item(
+                                Material.PURPLE_BED,
+                                "&d" + displayName,
+                                List.of(
+                                        "&#bbbbbbClick to teleport to &#ff6fff" + displayName
+                                )
+                        )
                 );
+
                 inventory.setItem(
                         dyeSlot,
-                        item(Material.PURPLE_DYE, "&d" + displayName, List.of("&fClick to &cdelete &fthis home"))
+                        item(
+                                Material.PURPLE_DYE,
+                                "&d" + displayName,
+                                List.of(
+                                        "&#bbbbbbClick to delete &#ff6fff" + displayName
+                                )
+                        )
                 );
+
                 continue;
             }
 
             if (hasFreeCapacity) {
                 inventory.setItem(
                         bedSlot,
-                        item(Material.WHITE_BED, "&f" + displayName, List.of("&7Click to save this location"))
+                        item(
+                                Material.WHITE_BED,
+                                "&d" + displayName,
+                                List.of(
+                                        "&#bbbbbbClick to save this location",
+                                        "&#bbbbbbSlot &#ff6fff" + id
+                                )
+                        )
                 );
+
                 inventory.setItem(
                         dyeSlot,
-                        item(Material.GRAY_DYE, "&f" + displayName, List.of("&7Click to save this location"))
+                        item(
+                                Material.GRAY_DYE,
+                                "&d" + displayName,
+                                List.of(
+                                        "&#bbbbbbClick to save this location",
+                                        "&#bbbbbbSlot &#ff6fff" + id
+                                )
+                        )
                 );
             } else {
                 inventory.setItem(
                         bedSlot,
-                        item(Material.LIGHT_GRAY_BED, "&cHome Locked", List.of("&dMineacle+&f required to use this feature."))
+                        item(
+                                Material.LIGHT_GRAY_BED,
+                                "&cHome Locked",
+                                List.of(
+                                        "&#ff6fffMineacle+ &#bbbbbbrequired to use this feature"
+                                )
+                        )
                 );
+
                 inventory.setItem(
                         dyeSlot,
-                        item(Material.GRAY_DYE, "&cHome Locked", List.of("&dMineacle+&f required to use this feature."))
+                        item(
+                                Material.GRAY_DYE,
+                                "&cHome Locked",
+                                List.of(
+                                        "&#ff6fffMineacle+ &#bbbbbbrequired to use this feature"
+                                )
+                        )
                 );
             }
         }
@@ -92,11 +135,11 @@ public final class HomesMainGui {
                     bannerSlot,
                     item(
                             Material.LIGHT_GRAY_BANNER,
-                            "&7No Team",
+                            "&dNo Team",
                             List.of(
-                                    "&fYou are not in a team",
-                                    "&7Type &d/team create <name>",
-                                    "&7to create a team."
+                                    "&#bbbbbbYou are not in a team",
+                                    "&#bbbbbbType &#ff6fff/team create",
+                                    "&#bbbbbbto create a team"
                             )
                     )
             );
@@ -105,14 +148,15 @@ public final class HomesMainGui {
                     dyeSlot,
                     item(
                             Material.GRAY_DYE,
-                            "&7No Team",
+                            "&dNo Team",
                             List.of(
-                                    "&fYou are not in a team",
-                                    "&7Type &d/team create <name>",
-                                    "&7to create a team."
+                                    "&#bbbbbbYou are not in a team",
+                                    "&#bbbbbbType &#ff6fff/team create",
+                                    "&#bbbbbbto create a team"
                             )
                     )
             );
+
             return;
         }
 
@@ -127,11 +171,11 @@ public final class HomesMainGui {
                         bannerSlot,
                         item(
                                 Material.WHITE_BANNER,
-                                "&fTeam Home",
+                                "&dTeam Home",
                                 List.of(
-                                        "&7Team: " + teamDisplay,
-                                        "&7Click to set &dTeam Home",
-                                        "&7to your current location."
+                                        "&#bbbbbbTeam: " + teamDisplay,
+                                        "&#bbbbbbClick to set &#ff6fffTeam Home",
+                                        "&#bbbbbbto your current location"
                                 )
                         )
                 );
@@ -140,11 +184,11 @@ public final class HomesMainGui {
                         dyeSlot,
                         item(
                                 Material.LIGHT_GRAY_DYE,
-                                "&fTeam Home",
+                                "&dTeam Home",
                                 List.of(
-                                        "&7Team: " + teamDisplay,
-                                        "&7Click to set &dTeam Home",
-                                        "&7to your current location."
+                                        "&#bbbbbbTeam: " + teamDisplay,
+                                        "&#bbbbbbClick to set &#ff6fffTeam Home",
+                                        "&#bbbbbbto your current location"
                                 )
                         )
                 );
@@ -153,11 +197,11 @@ public final class HomesMainGui {
                         bannerSlot,
                         item(
                                 Material.LIGHT_GRAY_BANNER,
-                                "&7Team Home",
+                                "&dTeam Home",
                                 List.of(
-                                        "&7Team: " + teamDisplay,
-                                        "&fYour team does not have a home yet",
-                                        "&7Ask your &dteam owner &7to set Team Home"
+                                        "&#bbbbbbTeam: " + teamDisplay,
+                                        "&#bbbbbbYour team does not have a home yet",
+                                        "&#bbbbbbAsk your &#ff6fffteam founder &#bbbbbbto set Team Home"
                                 )
                         )
                 );
@@ -166,15 +210,16 @@ public final class HomesMainGui {
                         dyeSlot,
                         item(
                                 Material.GRAY_DYE,
-                                "&7Team Home",
+                                "&dTeam Home",
                                 List.of(
-                                        "&7Team: " + teamDisplay,
-                                        "&fYour team does not have a home yet",
-                                        "&7Ask your &dteam owner &7to set Team Home"
+                                        "&#bbbbbbTeam: " + teamDisplay,
+                                        "&#bbbbbbYour team does not have a home yet",
+                                        "&#bbbbbbAsk your &#ff6fffteam founder &#bbbbbbto set Team Home"
                                 )
                         )
                 );
             }
+
             return;
         }
 
@@ -182,10 +227,11 @@ public final class HomesMainGui {
                 bannerSlot,
                 item(
                         Material.PURPLE_BANNER,
-                        teamDisplay + " &dTeam Home",
+                        "&dTeam Home",
                         List.of(
-                                "&fClick to teleport to &dTeam Home",
-                                "&7Banner: &f" + "Purple"
+                                "&#bbbbbbTeam: " + teamDisplay,
+                                "&#bbbbbbClick to teleport to &#ff6fffTeam Home",
+                                "&#bbbbbbBanner: &#ff6fffPurple"
                         )
                 )
         );
@@ -197,8 +243,8 @@ public final class HomesMainGui {
                             Material.PURPLE_DYE,
                             "&cDelete Team Home",
                             List.of(
-                                    "&fClick to delete &dTeam Home",
-                                    "&7Team: " + teamDisplay
+                                    "&#bbbbbbClick to delete &#ff6fffTeam Home",
+                                    "&#bbbbbbTeam: " + teamDisplay
                             )
                     )
             );
@@ -207,10 +253,10 @@ public final class HomesMainGui {
                     dyeSlot,
                     item(
                             Material.GRAY_DYE,
-                            "&7Team Home",
+                            "&dTeam Home",
                             List.of(
-                                    "&fYour team home is set.",
-                                    "&7Only the founder can delete it."
+                                    "&#bbbbbbYour team home is set",
+                                    "&#bbbbbbOnly the founder can delete it"
                             )
                     )
             );
@@ -225,9 +271,9 @@ public final class HomesMainGui {
             return item;
         }
 
-        meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
-        meta.setLore(lore.stream().map(line -> ChatColor.translateAlternateColorCodes('&', line)).toList());
-
+        meta.setDisplayName(TextColor.color(name));
+        meta.setLore(lore.stream().map(TextColor::color).toList());
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
     }

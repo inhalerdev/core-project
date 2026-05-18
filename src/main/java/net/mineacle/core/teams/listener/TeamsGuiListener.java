@@ -121,12 +121,7 @@ public final class TeamsGuiListener implements Listener {
                 continue;
             }
 
-            String expectedTitle = possibleTeam.name()
-                    + " ("
-                    + teamService.getTeamMembers(possibleTeam.teamId()).size()
-                    + "/"
-                    + teamService.maxMembers()
-                    + ")";
+            String expectedTitle = possibleTeam.name() + " (" + teamService.getTeamMembers(possibleTeam.teamId()).size() + "/" + teamService.maxMembers() + ")";
 
             if (title.equals(expectedTitle)) {
                 return true;
@@ -141,11 +136,11 @@ public final class TeamsGuiListener implements Listener {
             SoundService.guiClick(player, core);
             player.closeInventory();
 
-            Component prompt = Component.text(TextColor.color("§7Type §d/team create <name> §7to create a team"))
+            Component prompt = Component.text(TextColor.color("§7Type §d/team create  §7to create a team"))
                     .clickEvent(ClickEvent.suggestCommand("/team create "));
 
             player.sendMessage(prompt);
-            player.sendActionBar(actionBar("§7Type §d/team create <name> §7to create a team"));
+            player.sendActionBar(actionBar("§7Type §d/team create  §7to create a team"));
             return;
         }
 
@@ -175,6 +170,7 @@ public final class TeamsGuiListener implements Listener {
         if (slot >= 0 && slot < 45) {
             if (slot < members.size()) {
                 UUID targetId = members.get(slot);
+
                 player.setMetadata(META_TARGET, new FixedMetadataValue(core, targetId.toString()));
                 SoundService.guiClick(player, core);
 
@@ -184,16 +180,15 @@ public final class TeamsGuiListener implements Listener {
                         () -> TeamsMainGui.open(core, player, teamService, inviteService),
                         () -> TeamMemberGui.open(player, targetId, teamService)
                 );
+
                 return;
             }
 
-            if (teamService.isAdmin(player.getUniqueId())
-                    && slot == members.size()
-                    && members.size() < teamService.maxMembers()) {
+            if (teamService.isAdmin(player.getUniqueId()) && slot == members.size() && members.size() < teamService.maxMembers()) {
                 SoundService.guiClick(player, core);
                 player.closeInventory();
 
-                Component invitePrompt = Component.text("§7Type §d/team invite <player> §7to invite a player")
+                Component invitePrompt = Component.text("§7Type §d/team invite  §7to invite a player")
                         .clickEvent(ClickEvent.suggestCommand("/team invite "));
 
                 player.sendMessage(invitePrompt);
@@ -227,6 +222,7 @@ public final class TeamsGuiListener implements Listener {
 
         if (slot == TeamsMainGui.TEAM_PVP_SLOT && teamService.isAdmin(player.getUniqueId())) {
             boolean newValue = !team.friendlyFire();
+
             teamService.setFriendlyFire(team.teamId(), newValue);
 
             String message = newValue ? "§aTeam PvP enabled" : "§cTeam PvP disabled";
@@ -256,14 +252,11 @@ public final class TeamsGuiListener implements Listener {
             return;
         }
 
-        if (!teamService.isFounder(player.getUniqueId())) {
-            sendBoth(player, "§cYour team does not have a home set");
-            player.sendMessage("§7Ask your §dteam founder §7to set Team Home");
+        if (!teamService.isAdmin(player.getUniqueId())) {
             SoundService.guiError(player, core);
             return;
         }
 
-        sendBoth(player, "§7Open Homes to set §dTeam Home");
         SoundService.guiClick(player, core);
 
         MenuHistory.openChild(
@@ -340,6 +333,7 @@ public final class TeamsGuiListener implements Listener {
                     () -> TeamMemberGui.open(player, targetId, teamService),
                     () -> playerStatisticsGui.open(player, targetId)
             );
+
             return;
         }
 

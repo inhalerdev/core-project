@@ -55,6 +55,7 @@ public final class TpaGuiListener implements Listener {
 
         if (slot == 15) {
             accept(player);
+            return;
         }
     }
 
@@ -78,21 +79,22 @@ public final class TpaGuiListener implements Listener {
         }
 
         target.closeInventory();
+        SoundService.guiConfirm(target, core);
 
-        send(requester, "&aTeleport request accepted");
-        send(target, "&aTeleport request accepted");
+        send(requester, "&#bbbbbbTeleport request accepted");
+        send(target, "&#bbbbbbTeleport request accepted");
 
         if (request.type() == TpaRequestType.TO_TARGET) {
             teleportService.begin(requester, "TPA", () -> {
                 requester.teleport(target.getLocation());
-                send(requester, "&aTeleported to &d" + DisplayNames.displayName(target));
+                send(requester, "&#bbbbbbTeleported to &#ff6fff" + DisplayNames.displayName(target));
             });
             return;
         }
 
         teleportService.begin(target, "TPA", () -> {
             target.teleport(requester.getLocation());
-            send(target, "&aTeleported to &d" + DisplayNames.displayName(requester));
+            send(target, "&#bbbbbbTeleported to &#ff6fff" + DisplayNames.displayName(requester));
         });
     }
 
@@ -114,6 +116,7 @@ public final class TpaGuiListener implements Listener {
 
         if (requester != null && requester.isOnline()) {
             send(requester, "&c" + DisplayNames.displayName(target) + " denied your teleport request");
+            SoundService.guiCancel(requester, core);
         }
 
         MenuHistory.clear(target);
