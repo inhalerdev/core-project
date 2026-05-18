@@ -84,7 +84,7 @@ nickname:
 
 chat:
   enabled: true
-  format: "%luckperms_prefix%%mineacle_chat_displayname%&#cccccc: &#cccccc%message%"
+  format: "%luckperms_prefix%%mineacle_chat_displayname%&#bbbbbb: &#bbbbbb%message%"
   worlds:
     mode: grouped
     groups:
@@ -181,13 +181,13 @@ origin-rtp:
   messages:
     disabled: "&cRTP is disabled"
     already-queued: "&cYou are already queued for RTP"
-    queued: "&#ccccccQueued for &d%world% RTP"
-    queued-position: "&#ccccccQueued for &d%world% RTP &#ccccccPosition &d#%position%"
-    countdown: "&#ccccccTeleporting to &d%world% &#ccccccin &d%seconds%s"
+    queued: "&#bbbbbbQueued for &d%world% RTP"
+    queued-position: "&#bbbbbbQueued for &d%world% RTP &#bbbbbbPosition &d#%position%"
+    countdown: "&#bbbbbbTeleporting to &d%world% &#bbbbbbin &d%seconds%s"
     cancelled: "&cTeleport cancelled — you moved"
-    searching: "&#ccccccFinding a safe location in &d%world%"
+    searching: "&#bbbbbbFinding a safe location in &d%world%"
     failed: "&cCould not find a safe location in &d%world%"
-    teleported: "&#ccccccTeleported to &d%world%"
+    teleported: "&#bbbbbbTeleported to &d%world%"
 
 double-jump:
   enabled: true
@@ -402,7 +402,7 @@ spawn-restrictions:
     - SCULK_CATALYST
 
 gamemode:
-  message: "&#ccccccGamemode set to &#ff6cff%mode%"
+  message: "&#bbbbbbGamemode set to &#ff6cff%mode%"
 
 orders:
   enabled: true
@@ -424,12 +424,12 @@ orders:
         material: ARROW
         name: "&dBack"
         lore:
-          - "&#ccccccClick to go to the previous page"
+          - "&#bbbbbbClick to go to the previous page"
       next:
         material: ARROW
         name: "&dNext"
         lore:
-          - "&#ccccccClick to go to the next page"
+          - "&#bbbbbbClick to go to the next page"
       sort:
         material: CAULDRON
         name: "&dSort"
@@ -440,54 +440,54 @@ orders:
         material: PAPER
         name: "&dOrders"
         lore:
-          - "&#ccccccClick to refresh"
+          - "&#bbbbbbClick to refresh"
       search:
         material: OAK_SIGN
         name: "&dSearch"
         lore:
-          - "&#ccccccClick to search"
+          - "&#bbbbbbClick to search"
       my-orders:
         material: PLAYER_HEAD
         name: "&dMy Orders"
         lore:
-          - "&#ccccccClick to view your orders"
+          - "&#bbbbbbClick to view your orders"
     order-lore:
-      buyer: "&#ccccccBuyer: &#ff6cff%buyer%"
-      remaining: "&#ccccccRemaining: &#ff6cff%remaining%&8/&#ff6cff%requested%"
-      price: "&#ccccccMoney Per Item: &#ff6cff%price%"
-      click: "&#ccccccClick to deliver"
+      buyer: "&#bbbbbbBuyer: &#ff6cff%buyer%"
+      remaining: "&#bbbbbbRemaining: &#ff6cff%remaining%&8/&#ff6cff%requested%"
+      price: "&#bbbbbbMoney Per Item: &#ff6cff%price%"
+      click: "&#bbbbbbClick to deliver"
     my-order-lore:
-      status: "&#ccccccStatus: %status%"
-      delivered: "&#ccccccDelivered: &#ff6cff%delivered%&8/&#ff6cff%requested%"
-      escrow: "&#ccccccRefundable Escrow: &#ff6cff%escrow%"
-      click: "&#ccccccClick to collect, cancel, or refund"
+      status: "&#bbbbbbStatus: %status%"
+      delivered: "&#bbbbbbDelivered: &#ff6cff%delivered%&8/&#ff6cff%requested%"
+      escrow: "&#bbbbbbRefundable Escrow: &#ff6cff%escrow%"
+      click: "&#bbbbbbClick to collect, cancel, or refund"
       closed: "&8Closed"
     confirm:
       cancel:
         name: "&cCancel"
-        lore: "&#ccccccClick to cancel"
+        lore: "&#bbbbbbClick to cancel"
       confirm:
         name: "&dConfirm"
-        lore: "&#ccccccClick to confirm"
+        lore: "&#bbbbbbClick to confirm"
       deliver:
         name: "&dConfirm Delivery"
-        lore-1: "&#ccccccDelivering: &#ff6cff%amount%x %item%"
-        lore-2: "&#ccccccPayout: &#ff6cff%payout%"
-        lore-3: "&#ccccccClick confirm to deliver"
+        lore-1: "&#bbbbbbDelivering: &#ff6cff%amount%x %item%"
+        lore-2: "&#bbbbbbPayout: &#ff6cff%payout%"
+        lore-3: "&#bbbbbbClick confirm to deliver"
       cancel-order:
         name: "&cCancel Order"
-        lore-1: "&#ccccccRefund: &#ff6cff%refund%"
-        lore-2: "&#ccccccClick confirm to cancel this order"
+        lore-1: "&#bbbbbbRefund: &#ff6cff%refund%"
+        lore-2: "&#bbbbbbClick confirm to cancel this order"
     create:
       empty-name: "&cNo Item"
-      empty-lore: "&#ccccccHold the item you want to order"
+      empty-lore: "&#bbbbbbHold the item you want to order"
       item-name: "&dSelected Item"
-      item-lore: "&#ccccccThis is the item players will deliver"
+      item-lore: "&#bbbbbbThis is the item players will deliver"
       cancel-name: "&cCancel"
-      cancel-lore: "&#ccccccClick to cancel"
+      cancel-lore: "&#bbbbbbClick to cancel"
       create-name: "&dCreate Order"
-      create-lore-1: "&#ccccccClick and type amount price"
-      create-lore-2: "&#ccccccExample: &#ff6cff64 10"
+      create-lore-1: "&#bbbbbbClick and type amount price"
+      create-lore-2: "&#bbbbbbExample: &#ff6cff64 10"
   messages:
     invalid-amount: "&cAmount must be greater than 0"
     max-amount: "&cThat order amount is too high"
@@ -496,12 +496,12 @@ orders:
     economy-not-ready: "&cEconomy is not ready"
     minimum-price: "&cPrice is too low"
     not-enough-money: "&cYou do not have enough money"
-    created: "&#ccccccCreated order for &#ff6cff%amount%x %item%"
+    created: "&#bbbbbbCreated order for &#ff6cff%amount%x %item%"
     already-complete: "&cThat order is already complete"
     own-order: "&cYou cannot deliver to your own order"
     missing-items: "&cYou do not have the required item"
-    delivered: "&#ccccccDelivered &#ff6cff%amount%x %item% &#ccccccfor &#ff6cff+%money%"
-    cancelled: "&#ccccccCancelled order and refunded &#ff6cff%refund%"
-    collected: "&#ccccccCollected &#ff6cff%amount%x %item%"
+    delivered: "&#bbbbbbDelivered &#ff6cff%amount%x %item% &#bbbbbbfor &#ff6cff+%money%"
+    cancelled: "&#bbbbbbCancelled order and refunded &#ff6cff%refund%"
+    collected: "&#bbbbbbCollected &#ff6cff%amount%x %item%"
     nothing-to-collect: "&cThere are no items to collect"
     inventory-full: "&cYour inventory is full"
