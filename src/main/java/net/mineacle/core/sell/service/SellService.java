@@ -7,11 +7,13 @@ import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.sell.model.SaleResult;
 import net.mineacle.core.sell.model.SellHistoryEntry;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.ShulkerBox;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -91,7 +93,9 @@ public final class SellService {
         long totalCents = 0L;
         long totalAmount = 0L;
 
-        for (ItemStack item : inventory.getContents()) {
+        for (ItemStack rawItem : inventory.getContents()) {
+            ItemStack item = stripWorthLore(rawItem);
+
             if (item == null || item.getType() == Material.AIR) {
                 continue;
             }
@@ -159,6 +163,8 @@ public final class SellService {
     }
 
     public boolean canSell(ItemStack item) {
+        item = stripWorthLore(item);
+
         if (item == null || item.getType() == Material.AIR) {
             return false;
         }
@@ -201,6 +207,92 @@ public final class SellService {
         }
 
         return baseWorthCents(material) > 0L;
+    }
+
+
+    public void applyWorthLore(Player player, Inventory inventory) {
+        if (player == null || inventory == null) {
+            return;
+        }
+
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            ItemStack rawItem = inventory.getItem(slot);
+            ItemStack item = stripWorthLore(rawItem);
+
+            if (item == null || item.getType() == Material.AIR) {
+                continue;
+            }
+
+            if (!canSell(item)) {
+                inventory.setItem(slot, item);
+                continue;
+            }
+
+            ItemMeta meta = item.getItemMeta();
+
+            if (meta == null) {
+                inventory.setItem(slot, item);
+                continue;
+            }
+
+            long unitWorth = unitWorthCents(player, item.getType());
+            long stackWorth = unitWorth * item.getAmount();
+
+            List<String> lore = new ArrayList<>();
+            lore.add(TextColor.color("&#bbbbbbWorth: &a" + format(unitWorth)));
+
+            if (item.getAmount() > 1) {
+                lore.add(TextColor.color("&#bbbbbbStack Worth: &a" + format(stackWorth)));
+            }
+
+            if (hasDemandAdjustment(item.getType())) {
+                lore.add(TextColor.color("&#bbbbbbDemand: &#ff6fff" + formatMultiplier(demandMultiplier(item.getType())) + "x"));
+            }
+
+            meta.setLore(lore);
+            item.setItemMeta(meta);
+            inventory.setItem(slot, item);
+        }
+    }
+
+    public ItemStack stripWorthLore(ItemStack item) {
+        if (item == null || item.getType() == Material.AIR) {
+            return item;
+        }
+
+        ItemStack clone = item.clone();
+        ItemMeta meta = clone.getItemMeta();
+
+        if (meta == null || !meta.hasLore() || meta.getLore() == null) {
+            return clone;
+        }
+
+        List<String> cleaned = new ArrayList<>();
+
+        for (String line : meta.getLore()) {
+            String stripped = ChatColor.stripColor(line);
+
+            if (stripped == null) {
+                continue;
+            }
+
+            if (stripped.startsWith("Worth:")
+                    || stripped.startsWith("Stack Worth:")
+                    || stripped.startsWith("Demand:")) {
+                continue;
+            }
+
+            cleaned.add(line);
+        }
+
+        if (cleaned.isEmpty()) {
+            meta.setLore(null);
+        } else {
+            meta.setLore(cleaned);
+        }
+
+        clone.setItemMeta(meta);
+        return clone;
     }
 
     public long baseWorthCents(Material material) {
