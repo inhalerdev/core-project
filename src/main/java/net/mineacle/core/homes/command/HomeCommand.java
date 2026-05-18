@@ -69,7 +69,6 @@ public final class HomeCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean handleHomeCommand(Player player) {
-        SoundService.guiClick(player, core);
         HomesMainGui.open(core, player, homeService);
         return true;
     }

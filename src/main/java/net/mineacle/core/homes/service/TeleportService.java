@@ -47,18 +47,21 @@ public final class TeleportService {
 
         int delaySeconds = getDelaySeconds(player, targetName);
 
-        teleporting.add(uuid);
-        teleportOrigins.put(uuid, player.getLocation().clone());
-        teleportTargets.put(uuid, targetName == null ? "" : targetName);
-
-        SoundService.teleportStart(player, core);
-
         if (delaySeconds <= 0) {
-            cancel(uuid);
             action.run();
             SoundService.teleportComplete(player, core);
             return;
         }
+
+        teleporting.add(uuid);
+        teleportOrigins.put(uuid, player.getLocation().clone());
+        teleportTargets.put(uuid, targetName == null ? "" : targetName);
+
+        String startMessage = core.getMessage("homes.teleporting")
+                .replace("%target%", targetName == null ? "destination" : targetName)
+                .replace("%seconds%", String.valueOf(delaySeconds));
+
+        player.sendActionBar(actionBar(startMessage));
 
         new BukkitRunnable() {
             int countdown = delaySeconds;
@@ -76,6 +79,8 @@ public final class TeleportService {
                     return;
                 }
 
+                countdown--;
+
                 if (countdown <= 0) {
                     TeleportService.this.cancel(uuid);
                     action.run();
@@ -90,9 +95,8 @@ public final class TeleportService {
 
                 player.sendActionBar(actionBar(message));
                 SoundService.teleportCountdown(player, core);
-                countdown--;
             }
-        }.runTaskTimer(core, 0L, 20L);
+        }.runTaskTimer(core, 20L, 20L);
     }
 
     public void handleMove(Player player, Location to) {

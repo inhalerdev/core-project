@@ -148,9 +148,10 @@ public final class SellService {
     public long unitWorthCents(UUID playerId, Material material) {
         long base = baseWorthCents(material);
         String category = category(material);
-        double multiplier = multiplier(playerId, category);
+        double playerMultiplier = multiplier(playerId, category);
+        double demandMultiplier = demandMultiplier(material);
 
-        return Math.max(1L, Math.round(base * multiplier));
+        return Math.max(1L, Math.round(base * playerMultiplier * demandMultiplier));
     }
 
     public long unitWorthCents(Player player, Material material) {
@@ -470,6 +471,14 @@ public final class SellService {
         sellConfig.addDefault("multipliers.enabled", true);
         sellConfig.addDefault("multipliers.max-multiplier", 2.0D);
 
+        sellConfig.addDefault("demand.enabled", true);
+        sellConfig.addDefault("demand.update-every-minutes", 30);
+        sellConfig.addDefault("demand.min-multiplier", 0.65D);
+        sellConfig.addDefault("demand.max-multiplier", 1.75D);
+        sellConfig.addDefault("demand.oversold-threshold", 25000);
+        sellConfig.addDefault("demand.undersold-threshold", 2500);
+        sellConfig.addDefault("demand.excluded-items", List.of("BEDROCK", "BARRIER", "COMMAND_BLOCK", "STRUCTURE_BLOCK", "PLAYER_HEAD"));
+
         sellConfig.options().copyDefaults(true);
     }
 
@@ -551,6 +560,116 @@ public final class SellService {
         long amountPerLevel = categoryAmountPerLevel(category);
         long progress = categoryProgressAmount(playerId, category);
         return Math.max(0L, amountPerLevel - progress);
+    }
+
+
+    public boolean demandEnabled() {
+        return sellConfig.getBoolean("demand.enabled", true);
+    }
+
+    public double demandMultiplier(Material material) {
+        if (!demandEnabled()) {
+            return 1.0D;
+        }
+
+        recalculateDemandIfNeeded();
+
+        return Math.max(
+                demandMinMultiplier(),
+                Math.min(
+                        demandMaxMultiplier(),
+                        sellConfig.getDouble("demand-data." + material.name() + ".multiplier", 1.0D)
+                )
+        );
+    }
+
+    public boolean hasDemandAdjustment(Material material) {
+        return Math.abs(demandMultiplier(material) - 1.0D) >= 0.01D;
+    }
+
+    public double demandMinMultiplier() {
+        return Math.max(0.01D, sellConfig.getDouble("demand.min-multiplier", 0.65D));
+    }
+
+    public double demandMaxMultiplier() {
+        return Math.max(demandMinMultiplier(), sellConfig.getDouble("demand.max-multiplier", 1.75D));
+    }
+
+    public long demandLastUpdate() {
+        return sellConfig.getLong("demand.last-update", 0L);
+    }
+
+    public long demandUpdateIntervalMillis() {
+        return Math.max(1L, sellConfig.getLong("demand.update-every-minutes", 30L)) * 60L * 1000L;
+    }
+
+    public boolean demandNeedsUpdate() {
+        return System.currentTimeMillis() - demandLastUpdate() >= demandUpdateIntervalMillis();
+    }
+
+    public void recalculateDemandIfNeeded() {
+        if (!demandEnabled()) {
+            return;
+        }
+
+        if (demandNeedsUpdate()) {
+            recalculateDemand();
+        }
+    }
+
+    public void recalculateDemand() {
+        if (!demandEnabled()) {
+            return;
+        }
+
+        long oversoldThreshold = Math.max(1L, sellConfig.getLong("demand.oversold-threshold", 25000L));
+        long undersoldThreshold = Math.max(0L, sellConfig.getLong("demand.undersold-threshold", 2500L));
+        double min = demandMinMultiplier();
+        double max = demandMaxMultiplier();
+
+        for (Material material : Material.values()) {
+            if (!material.isItem() || material == Material.AIR) {
+                continue;
+            }
+
+            if (baseWorthCents(material) <= 0L) {
+                continue;
+            }
+
+            if (sellConfig.getStringList("demand.excluded-items").contains(material.name())) {
+                continue;
+            }
+
+            long sold = sellConfig.getLong("server-volume." + material.name() + ".amount", 0L);
+            double multiplier = 1.0D;
+
+            if (sold >= oversoldThreshold) {
+                double pressure = Math.min(1.0D, (double) sold / (oversoldThreshold * 2.0D));
+                multiplier = 1.0D - ((1.0D - min) * pressure);
+            } else if (sold <= undersoldThreshold) {
+                double scarcity = undersoldThreshold <= 0L
+                        ? 1.0D
+                        : 1.0D - Math.min(1.0D, (double) sold / (double) undersoldThreshold);
+
+                multiplier = 1.0D + ((max - 1.0D) * scarcity);
+            }
+
+            multiplier = BigDecimal.valueOf(multiplier).setScale(2, RoundingMode.HALF_UP).doubleValue();
+
+            sellConfig.set("demand-data." + material.name() + ".sold-amount", sold);
+            sellConfig.set("demand-data." + material.name() + ".multiplier", multiplier);
+            sellConfig.set("demand-data." + material.name() + ".last-updated", System.currentTimeMillis());
+        }
+
+        sellConfig.set("demand.last-update", System.currentTimeMillis());
+        save();
+    }
+
+    public void resetDemandData() {
+        sellConfig.set("demand-data", null);
+        sellConfig.set("server-volume", null);
+        sellConfig.set("demand.last-update", 0L);
+        save();
     }
 
     public String message(String path, String fallback) {
