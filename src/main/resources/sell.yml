@@ -1,0 +1,105 @@
+settings:
+  allow-all-items-with-fallback: true
+  deny-custom-items: true
+  deny-damaged-tools: true
+  deny-filled-containers: true
+  deny-enchanted-items: true
+
+fallback-prices:
+  blocks: 0.03
+  ores: 1.0
+  wood: 0.12
+  farming: 0.08
+  mob_drops: 0.15
+  nether: 0.2
+  end: 0.35
+  misc: 0.01
+
+prices:
+  DIAMOND:
+    price: 250.0
+    category: ores
+  EMERALD:
+    price: 200.0
+    category: ores
+  NETHERITE_INGOT:
+    price: 3000.0
+    category: ores
+  GOLD_INGOT:
+    price: 14.0
+    category: ores
+  IRON_INGOT:
+    price: 8.0
+    category: ores
+  COPPER_INGOT:
+    price: 3.0
+    category: ores
+  COAL:
+    price: 2.0
+    category: ores
+  REDSTONE:
+    price: 1.5
+    category: ores
+  LAPIS_LAZULI:
+    price: 2.0
+    category: ores
+  QUARTZ:
+    price: 2.0
+    category: nether
+
+multipliers:
+  enabled: true
+  max-multiplier: 2.0
+  categories:
+    blocks:
+      display-name: Blocks
+      base-multiplier: 1.0
+      amount-per-level: 5000
+      increase-per-level: 0.02
+      max-multiplier: 2.0
+    ores:
+      display-name: Ores
+      base-multiplier: 1.0
+      amount-per-level: 500
+      increase-per-level: 0.03
+      max-multiplier: 2.0
+    wood:
+      display-name: Wood
+      base-multiplier: 1.0
+      amount-per-level: 2500
+      increase-per-level: 0.02
+      max-multiplier: 2.0
+    farming:
+      display-name: Farming
+      base-multiplier: 1.0
+      amount-per-level: 2500
+      increase-per-level: 0.02
+      max-multiplier: 2.0
+    mob_drops:
+      display-name: Mob Drops
+      base-multiplier: 1.0
+      amount-per-level: 1500
+      increase-per-level: 0.02
+      max-multiplier: 2.0
+    nether:
+      display-name: Nether
+      base-multiplier: 1.0
+      amount-per-level: 1500
+      increase-per-level: 0.025
+      max-multiplier: 2.0
+    end:
+      display-name: End
+      base-multiplier: 1.0
+      amount-per-level: 1000
+      increase-per-level: 0.025
+      max-multiplier: 2.0
+    misc:
+      display-name: Misc
+      base-multiplier: 1.0
+      amount-per-level: 5000
+      increase-per-level: 0.01
+      max-multiplier: 2.0
+
+messages:
+  sold-chat: "&#bbbbbbSold &#ff6fff%amount%x items &#bbbbbbfor &a+%money%"
+  sold-actionbar: "&a+%money%"

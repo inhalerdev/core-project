@@ -23,9 +23,11 @@ commands:
   mineaclehomes:
     description: Reload homes config
     permission: mineaclehomes.admin
+
   team:
     description: Create, join, and manage your team
     permission: mineacleteams.use
+
   tpa:
     description: Request to teleport to a player
     permission: mineacletpa.use
@@ -42,9 +44,11 @@ commands:
     description: Open teleport request menu for a player
     usage: /tpamenu <player>
     permission: mineacletpa.use
+
   stats:
     description: View player stats
     permission: mineaclestats.use
+
   bal:
     description: View your balance
     aliases: [balance, money]
@@ -59,6 +63,7 @@ commands:
     description: View balance top
     aliases: [balancetop]
     permission: mineaclebaltop.use
+
   msg:
     description: Send a private message
     aliases: [tell, w, whisper, m]
@@ -79,6 +84,7 @@ commands:
   realname:
     description: Check a player's real name from nickname
     permission: mineaclechat.realname
+
   spawn:
     description: Open the spawn menu
     usage: /spawn
@@ -87,11 +93,13 @@ commands:
     description: Open the spawn menu
     usage: /lobby
     permission: mineaclespawn.use
+
   originrtp:
     description: Queue for random teleport
     usage: /originrtp
     aliases: [rtp, originsrtp]
     permission: mineaclertp.use
+
   doublejump:
     description: Reload double jump config
     usage: /doublejump reload
@@ -100,11 +108,26 @@ commands:
     description: Toggle flight in spawn worlds
     usage: /fly
     permission: mineaclefly.command
+
   order:
     description: Open player orders
     aliases: [orders]
     usage: /order
     permission: mineacleorders.use
+
+  sell:
+    description: Open sell menu
+    usage: /sell
+    permission: mineaclesell.use
+  worth:
+    description: Open item prices menu
+    usage: /worth
+    permission: mineaclesell.use
+  sellmulti:
+    description: View sell multiplier progress
+    usage: /sellmulti
+    permission: mineaclesell.use
+
   gmc:
     description: Set gamemode creative
     usage: /gmc
@@ -123,36 +146,43 @@ commands:
     permission: mineacle.gamemode
 
 permissions:
-  mineaclehomes.use:
-    default: true
   mineacle.plus:
     default: false
   mineacle.gamemode:
     default: op
+
+  mineaclehomes.use:
+    default: true
   mineaclehomes.admin:
     default: op
+
   mineacleteams.use:
     default: true
   mineacleteams.admin:
     default: op
+
   mineacletpa.use:
     default: true
   mineacletpa.admin:
     default: op
+
   mineaclestats.use:
     default: true
   mineaclestats.admin:
     default: op
+
   mineacleeconomy.use:
     default: true
   mineacleeconomy.pay:
     default: true
   mineacleeconomy.admin:
     default: op
+
   mineaclebaltop.use:
     default: true
   mineaclebaltop.admin:
     default: op
+
   mineaclechat.message:
     default: true
   mineaclechat.ignore:
@@ -163,23 +193,33 @@ permissions:
     default: true
   mineaclechat.admin:
     default: op
+
   mineaclespawn.use:
     default: true
   mineaclespawn.admin:
     default: op
+
   mineaclertp.use:
     default: true
   mineaclertp.admin:
     default: op
+
   mineacledoublejump.admin:
     default: op
+
   mineaclefly.command:
     default: true
   mineaclefly.use:
     default: false
   mineaclefly.admin:
     default: op
+
   mineacleorders.use:
     default: true
   mineacleorders.admin:
+    default: op
+
+  mineaclesell.use:
+    default: true
+  mineaclesell.admin:
     default: op

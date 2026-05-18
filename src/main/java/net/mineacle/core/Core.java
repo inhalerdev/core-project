@@ -12,6 +12,7 @@ import net.mineacle.core.homes.HomesModule;
 import net.mineacle.core.orders.OrdersModule;
 import net.mineacle.core.placeholders.PlaceholdersModule;
 import net.mineacle.core.rtp.RtpModule;
+import net.mineacle.core.sell.SellModule;
 import net.mineacle.core.spawn.SpawnModule;
 import net.mineacle.core.spawnprotection.SpawnProtectionModule;
 import net.mineacle.core.stats.StatsModule;
@@ -75,6 +76,7 @@ public final class Core extends JavaPlugin {
             registerModule(new DoubleJumpModule());
             registerModule(new RtpModule());
             registerModule(new OrdersModule());
+            registerModule(new SellModule());
             registerModule(new GamemodeModule());
 
             getLogger().info("MineacleCore enabled successfully");
