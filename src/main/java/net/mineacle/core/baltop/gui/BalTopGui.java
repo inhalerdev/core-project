@@ -224,10 +224,10 @@ public final class BalTopGui {
         }
 
         meta.setOwningPlayer(player);
-        meta.setDisplayName(color("&dYour Balance"));
+        meta.setDisplayName(color(DisplayNames.prefixedDisplayName(player)));
         meta.setLore(List.of(
-                color("&#bbbbbbBalance: &#ff6fff" + balance),
-                color("&#bbbbbbClick to view your stats")
+                color("&#bbbbbbBalance: &a" + balance),
+                color("&#bbbbbbClick to view stats")
         ));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
