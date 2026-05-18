@@ -15,6 +15,20 @@ fallback-prices:
   end: 0.35
   misc: 0.01
 
+demand:
+  enabled: true
+  update-every-minutes: 30
+  min-multiplier: 0.65
+  max-multiplier: 1.75
+  oversold-threshold: 25000
+  undersold-threshold: 2500
+  excluded-items:
+    - BEDROCK
+    - BARRIER
+    - COMMAND_BLOCK
+    - STRUCTURE_BLOCK
+    - PLAYER_HEAD
+
 prices:
   DIAMOND:
     price: 250.0
@@ -46,6 +60,66 @@ prices:
   QUARTZ:
     price: 2.0
     category: nether
+  OAK_LOG:
+    price: 1.25
+    category: wood
+  SPRUCE_LOG:
+    price: 1.25
+    category: wood
+  BIRCH_LOG:
+    price: 1.25
+    category: wood
+  JUNGLE_LOG:
+    price: 1.25
+    category: wood
+  ACACIA_LOG:
+    price: 1.25
+    category: wood
+  DARK_OAK_LOG:
+    price: 1.25
+    category: wood
+  CHERRY_LOG:
+    price: 1.25
+    category: wood
+  MANGROVE_LOG:
+    price: 1.25
+    category: wood
+  WHEAT:
+    price: 0.25
+    category: farming
+  CARROT:
+    price: 0.22
+    category: farming
+  POTATO:
+    price: 0.22
+    category: farming
+  SUGAR_CANE:
+    price: 0.18
+    category: farming
+  MELON_SLICE:
+    price: 0.08
+    category: farming
+  PUMPKIN:
+    price: 0.35
+    category: farming
+  ROTTEN_FLESH:
+    price: 0.08
+    category: mob_drops
+  BONE:
+    price: 0.12
+    category: mob_drops
+  STRING:
+    price: 0.1
+    category: mob_drops
+  GUNPOWDER:
+    price: 0.25
+    category: mob_drops
+  SPIDER_EYE:
+    price: 0.18
+    category: mob_drops
+  ENDER_PEARL:
+    price: 2.0
+    category: end
 
 multipliers:
   enabled: true
@@ -101,5 +175,5 @@ multipliers:
       max-multiplier: 2.0
 
 messages:
-  sold-chat: "&#bbbbbbSold &#ff6fff%amount%x items &#bbbbbbfor &a+%money%"
+  sold-chat: "&#bbbbbbSold &#ff88ff%amount%x items &#bbbbbbfor &a+%money%"
   sold-actionbar: "&a+%money%"
