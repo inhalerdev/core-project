@@ -184,6 +184,8 @@ public final class WorthGui {
 
     private static ItemStack filterItem(FilterMode current) {
         List<String> lore = new ArrayList<>();
+        lore.add("&#bbbbbbClick to filter");
+        lore.add("");
 
         for (FilterMode mode : FilterMode.values()) {
             lore.add((mode == current ? "&#ff88ff" : "&#bbbbbb") + mode.displayName());

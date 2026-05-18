@@ -44,7 +44,7 @@ public final class PlayerWorthLoreListener implements Listener {
         updateLater(event.getPlayer());
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onInventoryOpen(InventoryOpenEvent event) {
         if (event.getPlayer() instanceof Player player) {
             updateLater(player);
