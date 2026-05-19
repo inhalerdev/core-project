@@ -144,12 +144,6 @@ public final class SellWorthPacketListener extends PacketAdapter {
 
         lore.add(0, TextColor.color("&#bbbbbbWorth: &a" + sellService.format(totalWorth)));
 
-        long enchantWorth = sellService.enchantWorthCents(item);
-
-        if (enchantWorth > 0L) {
-            lore.add(1, TextColor.color("&#bbbbbbEnchant Value: &a" + sellService.format(enchantWorth)));
-        }
-
         meta.setLore(lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
