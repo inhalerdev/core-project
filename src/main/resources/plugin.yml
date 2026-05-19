@@ -3,7 +3,7 @@ main: net.mineacle.core.Core
 version: 1.0.0
 api-version: "1.21"
 author: Mineacle
-softdepend: [Vault, PlaceholderAPI]
+softdepend: [Vault, PlaceholderAPI, ProtocolLib]
 loadbefore: [ajLeaderboards, DeluxeMenus, TAB]
 
 commands:
@@ -128,6 +128,11 @@ commands:
     usage: /sellmulti
     permission: mineaclesell.use
 
+  bounty:
+    description: View or place bounties
+    usage: /bounty
+    permission: mineaclebounty.use
+
   gmc:
     description: Set gamemode creative
     usage: /gmc
@@ -222,4 +227,9 @@ permissions:
   mineaclesell.use:
     default: true
   mineaclesell.admin:
+    default: op
+
+  mineaclebounty.use:
+    default: true
+  mineaclebounty.admin:
     default: op

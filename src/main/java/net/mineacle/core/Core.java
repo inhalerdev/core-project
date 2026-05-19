@@ -2,6 +2,7 @@ package net.mineacle.core;
 
 import net.mineacle.core.baltop.BalTopModule;
 import net.mineacle.core.bootstrap.Module;
+import net.mineacle.core.bounty.BountyModule;
 import net.mineacle.core.chat.ChatModule;
 import net.mineacle.core.common.gui.MenuCloseListener;
 import net.mineacle.core.common.text.TextColor;
@@ -77,6 +78,7 @@ public final class Core extends JavaPlugin {
             registerModule(new RtpModule());
             registerModule(new OrdersModule());
             registerModule(new SellModule());
+            registerModule(new BountyModule());
             registerModule(new GamemodeModule());
 
             getLogger().info("MineacleCore enabled successfully");

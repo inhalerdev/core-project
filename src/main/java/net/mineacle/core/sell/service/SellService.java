@@ -15,7 +15,6 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
@@ -171,37 +170,18 @@ public final class SellService {
 
         Material material = item.getType();
 
-        if (!sellConfig.getBoolean("settings.allow-all-items-with-fallback", true)
-                && !sellConfig.contains("prices." + material.name())) {
+        if (!material.isItem()) {
             return false;
         }
 
         ItemMeta meta = item.getItemMeta();
 
-        if (meta != null) {
-            if (sellConfig.getBoolean("settings.deny-custom-items", true)) {
-                if (meta.hasDisplayName() || meta.hasLore() || meta.hasCustomModelData()) {
+        if (sellConfig.getBoolean("settings.deny-filled-containers", true)
+                && meta instanceof BlockStateMeta blockStateMeta
+                && blockStateMeta.getBlockState() instanceof ShulkerBox shulkerBox) {
+            for (ItemStack content : shulkerBox.getInventory().getContents()) {
+                if (content != null && content.getType() != Material.AIR) {
                     return false;
-                }
-            }
-
-            if (sellConfig.getBoolean("settings.deny-enchanted-items", false) && meta.hasEnchants()) {
-                return false;
-            }
-
-            if (sellConfig.getBoolean("settings.deny-damaged-tools", true) && meta instanceof Damageable damageable) {
-                if (damageable.hasDamage() && damageable.getDamage() > 0) {
-                    return false;
-                }
-            }
-
-            if (sellConfig.getBoolean("settings.deny-filled-containers", true)
-                    && meta instanceof BlockStateMeta blockStateMeta
-                    && blockStateMeta.getBlockState() instanceof ShulkerBox shulkerBox) {
-                for (ItemStack content : shulkerBox.getInventory().getContents()) {
-                    if (content != null && content.getType() != Material.AIR) {
-                        return false;
-                    }
                 }
             }
         }
@@ -269,6 +249,7 @@ public final class SellService {
 
             if (stripped.startsWith("Worth:")
                     || stripped.startsWith("Stack Worth:")
+                    || stripped.startsWith("Enchant Value:")
                     || stripped.startsWith("Demand:")) {
                 continue;
             }
@@ -297,7 +278,7 @@ public final class SellService {
         long baseStackWorth = unitWorthCents(playerId, item.getType()) * Math.max(1, item.getAmount());
         long enchantWorth = enchantWorthCents(item);
 
-        return Math.max(0L, baseStackWorth + enchantWorth);
+        return Math.max(1L, baseStackWorth + enchantWorth);
     }
 
     public long stackWorthCents(Player player, ItemStack item) {
@@ -559,8 +540,8 @@ public final class SellService {
 
     private void ensureDefaults() {
         sellConfig.addDefault("settings.allow-all-items-with-fallback", true);
-        sellConfig.addDefault("settings.deny-custom-items", true);
-        sellConfig.addDefault("settings.deny-damaged-tools", true);
+        sellConfig.addDefault("settings.deny-custom-items", false);
+        sellConfig.addDefault("settings.deny-damaged-tools", false);
         sellConfig.addDefault("settings.deny-filled-containers", true);
         sellConfig.addDefault("settings.deny-enchanted-items", false);
 

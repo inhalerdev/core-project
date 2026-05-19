@@ -5,7 +5,7 @@ import java.util.UUID;
 public record BountyRecord(
         UUID targetId,
         String targetName,
-        long amount,
-        long updatedAt
+        long amountCents,
+        long lastUpdated
 ) {
 }

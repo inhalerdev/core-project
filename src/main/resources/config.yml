@@ -74,6 +74,19 @@ baltop:
   gui-title: Balance Top
   entries-per-page: 45
 
+bounty:
+  minimum: "1"
+  maximum: "100m"
+  tax-percent: -1
+
+sounds:
+  bounty:
+    claim:
+      enabled: true
+      sound: BLOCK_BEACON_POWER_SELECT
+      volume: 1.0
+      pitch: 1.25
+
 nickname:
   enabled: true
   prefix: "."

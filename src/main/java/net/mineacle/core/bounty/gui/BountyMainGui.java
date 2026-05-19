@@ -1,199 +1,165 @@
 package net.mineacle.core.bounty;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.player.DisplayNames;
+import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
-import org.bukkit.Sound;
-import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.metadata.FixedMetadataValue;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 
-public final class BountyMainGui implements Listener {
+public final class BountyMainGui {
 
-    private final Core core;
-    private final BountyModule bountyModule;
-    private BountyConfirmGui confirmGui;
+    public static final String TITLE_PREFIX = "Bounties (Page ";
+    public static final int SIZE = 54;
+    public static final int ENTRIES_PER_PAGE = 45;
+    public static final int PREVIOUS_SLOT = 45;
+    public static final int SORT_SLOT = 49;
+    public static final int REFRESH_SLOT = 51;
+    public static final int NEXT_SLOT = 53;
+    public static final String META_PAGE = "mineacle_bounty_page";
+    public static final String META_SORT = "mineacle_bounty_sort";
 
-    public BountyMainGui(Core core, BountyModule bountyModule) {
-        this.core = core;
-        this.bountyModule = bountyModule;
+    private BountyMainGui() {
     }
 
-    public void setConfirmGui(BountyConfirmGui confirmGui) {
-        this.confirmGui = confirmGui;
+    public static void open(Core core, Player player, BountyService bountyService, int page) {
+        BountySortMode sortMode = sortMode(player);
+        List<BountyRecord> records = bountyService.list(sortMode);
+
+        int totalPages = Math.max(1, (int) Math.ceil(records.size() / (double) ENTRIES_PER_PAGE));
+        int safePage = Math.max(0, Math.min(page, totalPages - 1));
+
+        Inventory inventory = Bukkit.createInventory(null, SIZE, TITLE_PREFIX + (safePage + 1) + ")");
+        player.setMetadata(META_PAGE, new FixedMetadataValue(core, safePage));
+
+        int start = safePage * ENTRIES_PER_PAGE;
+        int end = Math.min(records.size(), start + ENTRIES_PER_PAGE);
+
+        for (int index = start; index < end; index++) {
+            inventory.setItem(index - start, bountyItem(records.get(index), bountyService));
+        }
+
+        if (records.isEmpty()) {
+            inventory.setItem(22, item(
+                    Material.SKELETON_SKULL,
+                    "&dNo Bounties",
+                    List.of("&#bbbbbbNo active bounties right now")
+            ));
+        }
+
+        if (safePage > 0) {
+            inventory.setItem(PREVIOUS_SLOT, item(Material.ARROW, "&dBack", List.of("&#bbbbbbClick to go to previous page")));
+        }
+
+        inventory.setItem(SORT_SLOT, sortItem(sortMode));
+        inventory.setItem(REFRESH_SLOT, item(Material.EMERALD, "&dRefresh", List.of("&#bbbbbbClick to refresh")));
+
+        if (safePage < totalPages - 1) {
+            inventory.setItem(NEXT_SLOT, item(Material.ARROW, "&dNext", List.of("&#bbbbbbClick to go to next page")));
+        }
+
+        player.openInventory(inventory);
     }
 
-    public void open(Player viewer) {
-        Inventory inventory = Bukkit.createInventory(null, 54, title());
+    public static boolean isTitle(String title) {
+        return title != null && title.startsWith(TITLE_PREFIX);
+    }
+
+    public static int currentPage(Player player) {
+        if (!player.hasMetadata(META_PAGE)) {
+            return 0;
+        }
+
+        return player.getMetadata(META_PAGE).get(0).asInt();
+    }
+
+    public static BountySortMode sortMode(Player player) {
+        if (!player.hasMetadata(META_SORT)) {
+            return BountySortMode.AMOUNT;
+        }
 
         try {
-            List<BountyRecord> active = new ArrayList<>(bountyModule.bountyService().listBounties());
-            active.sort(Comparator.comparingLong(BountyRecord::amount).reversed());
-
-            int slot = 0;
-            for (BountyRecord record : active) {
-                if (slot >= 27) {
-                    break;
-                }
-                inventory.setItem(slot++, activeBountyItem(record));
-            }
-        } catch (Exception exception) {
-            core.getLogger().warning("Failed to load active bounties: " + exception.getMessage());
-        }
-
-        List<Player> onlineTargets = new ArrayList<>(Bukkit.getOnlinePlayers().stream()
-                .filter(player -> !player.getUniqueId().equals(viewer.getUniqueId()))
-                .sorted(Comparator.comparing(Player::getName, String.CASE_INSENSITIVE_ORDER))
-                .toList());
-
-        int slot = 27;
-        for (Player target : onlineTargets) {
-            if (slot >= 45) {
-                break;
-            }
-            inventory.setItem(slot++, targetItem(target));
-        }
-
-        inventory.setItem(49, simpleItem(
-                Material.PAPER,
-                resolve("bounty.gui-help-name", "&fBounty Help"),
-                List.of(
-                        resolve("bounty.gui-help-line-1", "&7Top half: active bounties"),
-                        resolve("bounty.gui-help-line-2", "&7Bottom half: online players"),
-                        "",
-                        resolve("bounty.gui-help-line-3", "&eClick a player head to place or add a bounty")
-                )
-        ));
-
-        viewer.openInventory(inventory);
-        viewer.playSound(viewer.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
-    }
-
-    @EventHandler
-    public void onClick(InventoryClickEvent event) {
-        HumanEntity clicker = event.getWhoClicked();
-        if (!(clicker instanceof Player player)) {
-            return;
-        }
-
-        if (!title().equals(event.getView().getTitle())) {
-            return;
-        }
-
-        event.setCancelled(true);
-
-        int slot = event.getRawSlot();
-        if (slot < 0 || slot >= event.getView().getTopInventory().getSize()) {
-            return;
-        }
-
-        if (slot == 49) {
-            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.7f, 1.0f);
-            return;
-        }
-
-        ItemStack clicked = event.getCurrentItem();
-        if (clicked == null || clicked.getType() != Material.PLAYER_HEAD) {
-            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.7f, 1.0f);
-            return;
-        }
-
-        if (!(clicked.getItemMeta() instanceof SkullMeta skullMeta)) {
-            return;
-        }
-
-        OfflinePlayer target = skullMeta.getOwningPlayer();
-        if (target == null || target.getUniqueId() == null || target.getPlayer() == null) {
-            player.sendMessage(resolve("bounty.player-not-found", "&cThat player is not online."));
-            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.9f, 0.9f);
-            return;
-        }
-
-        if (confirmGui != null) {
-            confirmGui.open(player, target.getUniqueId());
-            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            return BountySortMode.valueOf(player.getMetadata(META_SORT).get(0).asString());
+        } catch (IllegalArgumentException exception) {
+            return BountySortMode.AMOUNT;
         }
     }
 
-    @EventHandler
-    public void onDrag(InventoryDragEvent event) {
-        if (title().equals(event.getView().getTitle())) {
-            event.setCancelled(true);
-        }
+    public static void cycleSort(Core core, Player player) {
+        BountySortMode next = sortMode(player).next();
+        player.setMetadata(META_SORT, new FixedMetadataValue(core, next.name()));
     }
 
-    private ItemStack activeBountyItem(BountyRecord record) {
+    public static UUID targetAt(Player player, BountyService bountyService, int slot) {
+        if (slot < 0 || slot >= ENTRIES_PER_PAGE) {
+            return null;
+        }
+
+        List<BountyRecord> records = bountyService.list(sortMode(player));
+        int index = (currentPage(player) * ENTRIES_PER_PAGE) + slot;
+
+        if (index < 0 || index >= records.size()) {
+            return null;
+        }
+
+        return records.get(index).targetId();
+    }
+
+    private static ItemStack bountyItem(BountyRecord record, BountyService bountyService) {
         OfflinePlayer target = Bukkit.getOfflinePlayer(record.targetId());
+        ItemStack item = new ItemStack(Material.PLAYER_HEAD);
+        SkullMeta meta = (SkullMeta) item.getItemMeta();
 
-        ItemStack stack = new ItemStack(Material.PLAYER_HEAD);
-        SkullMeta meta = (SkullMeta) stack.getItemMeta();
-        if (meta != null) {
-            meta.setOwningPlayer(target);
-            meta.setDisplayName(color("&6" + record.targetName()));
-            meta.setLore(List.of(
-                    color("&7Active bounty: &f$" + record.amount()),
-                    "",
-                    color("&eClick to add more bounty")
-            ));
-            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-            stack.setItemMeta(meta);
+        if (meta == null) {
+            return item;
         }
-        return stack;
+
+        meta.setOwningPlayer(target);
+        meta.setDisplayName(TextColor.color("&d" + DisplayNames.displayName(target)));
+        meta.setLore(List.of(
+                TextColor.color("&#bbbbbbBounty: &a" + bountyService.format(record.amountCents())),
+                TextColor.color("&#bbbbbbClick to view stats")
+        ));
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        item.setItemMeta(meta);
+        return item;
     }
 
-    private ItemStack targetItem(Player target) {
-        ItemStack stack = new ItemStack(Material.PLAYER_HEAD);
-        SkullMeta meta = (SkullMeta) stack.getItemMeta();
-        if (meta != null) {
-            meta.setOwningPlayer(target);
-            meta.setDisplayName(color("&f" + target.getName()));
-            meta.setLore(List.of(
-                    color("&7Place a bounty on this player."),
-                    "",
-                    color("&eClick to choose an amount")
-            ));
-            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-            stack.setItemMeta(meta);
+    private static ItemStack sortItem(BountySortMode current) {
+        List<String> lore = new ArrayList<>();
+        lore.add("&#bbbbbbClick to sort");
+        lore.add("");
+
+        for (BountySortMode mode : BountySortMode.values()) {
+            lore.add((mode == current ? "&#ff88ff" : "&#bbbbbb") + mode.displayName());
         }
-        return stack;
+
+        return item(Material.ANVIL, "&dSort", lore);
     }
 
-    private ItemStack simpleItem(Material material, String name, List<String> lore) {
-        ItemStack stack = new ItemStack(material);
-        ItemMeta meta = stack.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(color(name));
-            meta.setLore(lore.stream().map(this::color).toList());
-            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-            stack.setItemMeta(meta);
+    private static ItemStack item(Material material, String name, List<String> lore) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+
+        if (meta == null) {
+            return item;
         }
-        return stack;
-    }
 
-    private String title() {
-        return color(resolve("bounty.gui-title", "&8Bounty"));
-    }
-
-    private String resolve(String key, String fallback) {
-        String raw = core.messages().raw(key);
-        return raw == null || raw.equals(key) ? fallback : core.messages().get(key);
-    }
-
-    private String color(String input) {
-        return ChatColor.translateAlternateColorCodes('&', input);
+        meta.setDisplayName(TextColor.color(name));
+        meta.setLore(lore.stream().map(TextColor::color).toList());
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        item.setItemMeta(meta);
+        return item;
     }
 }
