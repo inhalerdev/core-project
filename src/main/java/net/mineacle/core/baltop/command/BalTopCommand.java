@@ -41,7 +41,6 @@ public final class BalTopCommand implements CommandExecutor, TabCompleter {
         }
 
         if (sender instanceof Player player) {
-            SoundService.guiClick(player, core);
             MenuHistory.openRoot(core, player, () -> BalTopGui.open(core, player, economyService, 0));
             return true;
         }

@@ -1,14 +1,11 @@
 package net.mineacle.core.baltop.listener;
 
-import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.baltop.gui.BalTopGui;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.DisplayNames;
-import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.stats.PlayerStatisticsGui;
@@ -75,31 +72,26 @@ public final class BalTopGuiListener implements Listener {
         int page = BalTopGui.currentPage(player);
 
         if (rawSlot == BalTopGui.previousSlot()) {
-            SoundService.guiClick(player, core);
             MenuHistory.openWithoutBackTrigger(core, player, () -> BalTopGui.open(core, player, economyService, page - 1));
             return;
         }
 
         if (rawSlot == BalTopGui.playerHeadSlot()) {
-            SoundService.guiClick(player, core);
             openStatsFromBalTop(player, page, player.getUniqueId());
             return;
         }
 
         if (rawSlot == BalTopGui.refreshSlot()) {
-            SoundService.guiClick(player, core);
             MenuHistory.openWithoutBackTrigger(core, player, () -> BalTopGui.open(core, player, economyService, page));
             return;
         }
 
         if (rawSlot == BalTopGui.searchSlot()) {
-            SoundService.guiClick(player, core);
             beginSearch(player);
             return;
         }
 
         if (rawSlot == BalTopGui.nextSlot()) {
-            SoundService.guiClick(player, core);
             MenuHistory.openWithoutBackTrigger(core, player, () -> BalTopGui.open(core, player, economyService, page + 1));
             return;
         }
@@ -118,7 +110,6 @@ public final class BalTopGuiListener implements Listener {
             return;
         }
 
-        SoundService.guiClick(player, core);
         openStatsFromBalTop(player, page, targetId);
     }
 
@@ -134,8 +125,8 @@ public final class BalTopGuiListener implements Listener {
         event.setResult(org.bukkit.event.Event.Result.DENY);
     }
 
-    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
-    public void onAsyncChat(AsyncChatEvent event) {
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    public void onSearchChat(AsyncPlayerChatEvent event) {
         Player player = event.getPlayer();
 
         if (!waitingForSearch.remove(player.getUniqueId())) {
@@ -143,42 +134,22 @@ public final class BalTopGuiListener implements Listener {
         }
 
         event.setCancelled(true);
-        String message = PlainTextComponentSerializer.plainText().serialize(event.message());
-        handleSearch(player, message);
-    }
-
-    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
-    public void onLegacySearchChat(AsyncPlayerChatEvent event) {
-        Player player = event.getPlayer();
-
-        if (!waitingForSearch.remove(player.getUniqueId())) {
-            return;
-        }
-
-        event.setCancelled(true);
-        event.getRecipients().clear();
-
         String message = event.getMessage();
-        event.setMessage("");
 
-        handleSearch(player, message);
-    }
-
-    private void handleSearch(Player player, String message) {
         core.getServer().getScheduler().runTask(core, () -> {
             if (!player.isOnline()) {
                 return;
             }
 
             if (message.equalsIgnoreCase("cancel") || message.equalsIgnoreCase("cancelled")) {
-                sendActionBar(player, "&#bbbbbbBalance Top search cancelled");
+                sendActionBar(player, "§7Balance Top search cancelled");
                 MenuHistory.openWithoutBackTrigger(core, player, () -> BalTopGui.open(core, player, economyService, BalTopGui.currentPage(player)));
                 return;
             }
 
             if (message.equalsIgnoreCase("clear")) {
                 BalTopGui.clearSearch(player);
-                sendActionBar(player, "&#bbbbbbBalance Top search cleared");
+                sendActionBar(player, "§7Balance Top search cleared");
                 MenuHistory.openWithoutBackTrigger(core, player, () -> BalTopGui.open(core, player, economyService, 0));
                 return;
             }
@@ -186,7 +157,7 @@ public final class BalTopGuiListener implements Listener {
             UUID targetId = findPlayer(message);
 
             if (targetId == null) {
-                sendActionBar(player, "&cNo Balance Top player found");
+                sendActionBar(player, "§cNo Balance Top player found");
                 MenuHistory.openWithoutBackTrigger(core, player, () -> BalTopGui.open(core, player, economyService, 0));
                 return;
             }

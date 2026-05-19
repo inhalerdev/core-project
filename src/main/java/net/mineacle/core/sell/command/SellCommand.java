@@ -46,31 +46,26 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
         }
 
         if (commandName.equals("worth")) {
-            SoundService.guiClick(player, core);
             WorthGui.open(core, player, sellService, 0);
             return true;
         }
 
         if (commandName.equals("sellmulti")) {
-            SoundService.guiClick(player, core);
             SellMultiGui.open(core, player, sellService);
             return true;
         }
 
         if (args.length > 0 && args[0].equalsIgnoreCase("history")) {
-            SoundService.guiClick(player, core);
             SellHistoryGui.open(core, player, sellService, 0);
             return true;
         }
 
         if (args.length > 0 && args[0].equalsIgnoreCase("worth")) {
-            SoundService.guiClick(player, core);
             WorthGui.open(core, player, sellService, 0);
             return true;
         }
 
         if (args.length > 0 && (args[0].equalsIgnoreCase("multi") || args[0].equalsIgnoreCase("multipliers"))) {
-            SoundService.guiClick(player, core);
             SellMultiGui.open(core, player, sellService);
             return true;
         }
@@ -163,7 +158,7 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        long cents = sellService.unitWorthCents(player, item.getType());
+        long cents = sellService.stackWorthCents(player, item);
         String category = sellService.category(item.getType());
         double multiplier = sellService.multiplier(player.getUniqueId(), category);
         double demand = sellService.demandMultiplier(item.getType());

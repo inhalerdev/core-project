@@ -72,8 +72,6 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 0) {
-            SoundService.guiClick(player, core);
-
             if (teamService.hasTeam(player.getUniqueId())) {
                 MenuHistory.openRoot(core, player, () -> TeamsMainGui.open(core, player, teamService, inviteService));
             } else {
@@ -92,7 +90,6 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
                 && !sub.equals("accept")
                 && !sub.equals("decline")
                 && !sub.equals("deny")) {
-            SoundService.guiClick(player, core);
             MenuHistory.openRoot(core, player, () -> TeamStartGui.open(core, player, inviteService));
             return true;
         }
@@ -101,71 +98,54 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
             case "create" -> {
                 return create(player, args);
             }
-
             case "join", "invites" -> {
                 return invites(player);
             }
-
             case "accept" -> {
                 return accept(player);
             }
-
             case "decline", "deny" -> {
                 return decline(player);
             }
-
             case "invite" -> {
                 return invite(player, args);
             }
-
             case "chat" -> {
                 return teamChat(player);
             }
-
             case "leave" -> {
                 return leave(player);
             }
-
             case "disband" -> {
                 return disband(player);
             }
-
             case "kick" -> {
-                return confirmTargetAction(player, args, "KICK", "Kick Player", "§cUsage: /team kick <player>");
+                return confirmTargetAction(player, args, "KICK", "Kick Player", "§cUsage: /team kick ");
             }
-
             case "ban" -> {
-                return confirmTargetAction(player, args, "BAN", "Ban Player", "§cUsage: /team ban <player>");
+                return confirmTargetAction(player, args, "BAN", "Ban Player", "§cUsage: /team ban ");
             }
-
             case "promote" -> {
-                return confirmTargetAction(player, args, "PROMOTE", "Promote Player", "§cUsage: /team promote <player>");
+                return confirmTargetAction(player, args, "PROMOTE", "Promote Player", "§cUsage: /team promote ");
             }
-
             case "demote" -> {
-                return confirmTargetAction(player, args, "DEMOTE", "Demote Player", "§cUsage: /team demote <player>");
+                return confirmTargetAction(player, args, "DEMOTE", "Demote Player", "§cUsage: /team demote ");
             }
-
             case "transfer" -> {
-                return confirmTargetAction(player, args, "TRANSFER", "Transfer Founder", "§cUsage: /team transfer <player>");
+                return confirmTargetAction(player, args, "TRANSFER", "Transfer Founder", "§cUsage: /team transfer ");
             }
-
             case "home" -> {
                 return home(player);
             }
-
             case "sethome" -> {
                 return setHome(player);
             }
-
             case "delhome" -> {
                 return delHome(player);
             }
-
             case "pvp" -> {
                 return pvp(player);
             }
-
             default -> {
                 sendError(player, "§cUnknown team command");
                 return true;
@@ -180,12 +160,11 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length < 2) {
-            Component prompt = Component.text(TextColor.color("§7Type §d/team create <name> §7to create a team"))
+            Component prompt = Component.text(TextColor.color("§7Type §d/team create  §7to create a team"))
                     .clickEvent(ClickEvent.suggestCommand("/team create "));
 
             player.sendMessage(prompt);
-            player.sendActionBar(actionBar("§7Type §d/team create <name> §7to create a team"));
-            SoundService.guiClick(player, core);
+            player.sendActionBar(actionBar("§7Type §d/team create  §7to create a team"));
             return true;
         }
 
@@ -196,14 +175,12 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        sendBoth(player, "§aTeam created");
+        sendBoth(player, "§7Team §d" + name + " §7created");
         SoundService.teamCreate(player, core);
-        MenuHistory.openRoot(core, player, () -> TeamsMainGui.open(core, player, teamService, inviteService));
         return true;
     }
 
     private boolean invites(Player player) {
-        SoundService.guiClick(player, core);
         MenuHistory.openRoot(core, player, () -> TeamInviteGui.open(core, player, inviteService, teamService));
         return true;
     }
@@ -252,7 +229,7 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length < 2) {
-            sendError(player, "§cUsage: /team invite <player>");
+            sendError(player, "§cUsage: /team invite ");
             return true;
         }
 
@@ -291,10 +268,8 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
 
         Component accept = Component.text(TextColor.color("&d[Accept]"))
                 .clickEvent(ClickEvent.runCommand("/team accept"));
-
         Component deny = Component.text(TextColor.color("&d[Deny]"))
                 .clickEvent(ClickEvent.runCommand("/team deny"));
-
         Component view = Component.text(TextColor.color("&d[View]"))
                 .clickEvent(ClickEvent.runCommand("/team invites"));
 
@@ -333,8 +308,6 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
 
         clearConfirmMeta(player);
         player.setMetadata(META_ACTION, new FixedMetadataValue(core, "LEAVE"));
-        SoundService.guiConfirm(player, core);
-
         MenuHistory.openRoot(core, player, () -> TeamConfirmGui.open(core, player, "Leave Team"));
         return true;
     }
@@ -347,8 +320,6 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
 
         clearConfirmMeta(player);
         player.setMetadata(META_ACTION, new FixedMetadataValue(core, "DISBAND"));
-        SoundService.guiConfirm(player, core);
-
         MenuHistory.openRoot(core, player, () -> TeamConfirmGui.open(core, player, "Disband Team"));
         return true;
     }
@@ -377,8 +348,6 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
         clearConfirmMeta(player);
         player.setMetadata(META_ACTION, new FixedMetadataValue(core, action));
         player.setMetadata(META_TARGET, new FixedMetadataValue(core, target.getUniqueId().toString()));
-        SoundService.guiConfirm(player, core);
-
         MenuHistory.openRoot(core, player, () -> TeamConfirmGui.open(core, player, title));
         return true;
     }
@@ -398,8 +367,7 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        SoundService.guiConfirm(player, core);
-
+        SoundService.guiClick(player, core);
         teleportService.begin(player, "Team Home", () -> {
             player.teleport(home);
             sendBoth(player, "§7Teleported to §dTeam Home");
@@ -452,8 +420,6 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
 
         clearConfirmMeta(player);
         player.setMetadata(META_ACTION, new FixedMetadataValue(core, "DELETE_HOME"));
-        SoundService.guiConfirm(player, core);
-
         MenuHistory.openRoot(core, player, () -> TeamConfirmGui.open(core, player, "Delete Team Home"));
         return true;
     }
@@ -502,19 +468,8 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
                 options = List.of("create", "join", "invites", "accept", "deny");
             } else if (teamService.isAdmin(player.getUniqueId())) {
                 options = List.of(
-                        "invite",
-                        "chat",
-                        "home",
-                        "sethome",
-                        "delhome",
-                        "pvp",
-                        "promote",
-                        "demote",
-                        "kick",
-                        "ban",
-                        "transfer",
-                        "leave",
-                        "disband"
+                        "invite", "chat", "home", "sethome", "delhome", "pvp",
+                        "promote", "demote", "kick", "ban", "transfer", "leave", "disband"
                 );
             } else {
                 options = List.of("chat", "home", "leave");

@@ -38,7 +38,6 @@ public final class StatsCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length < 1) {
-            SoundService.guiClick(viewer, core);
             playerStatisticsGui.open(viewer, viewer.getUniqueId());
             return true;
         }
@@ -51,7 +50,6 @@ public final class StatsCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        SoundService.guiClick(viewer, core);
         playerStatisticsGui.open(viewer, target.getUniqueId());
         return true;
     }

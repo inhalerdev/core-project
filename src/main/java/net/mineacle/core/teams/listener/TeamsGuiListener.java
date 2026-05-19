@@ -133,20 +133,17 @@ public final class TeamsGuiListener implements Listener {
 
     private void handleStartClick(Player player, int slot) {
         if (slot == TeamStartGui.CREATE_SLOT) {
-            SoundService.guiClick(player, core);
             player.closeInventory();
 
-            Component prompt = Component.text(TextColor.color("§7Type §d/team create  §7to create a team"))
+            Component prompt = Component.text(TextColor.color("§7Type §d/team create §7to create a team"))
                     .clickEvent(ClickEvent.suggestCommand("/team create "));
 
             player.sendMessage(prompt);
-            player.sendActionBar(actionBar("§7Type §d/team create  §7to create a team"));
+            player.sendActionBar(actionBar("§7Type §d/team create §7to create a team"));
             return;
         }
 
         if (slot == TeamStartGui.INVITES_SLOT) {
-            SoundService.guiClick(player, core);
-
             MenuHistory.openChild(
                     core,
                     player,
@@ -170,9 +167,7 @@ public final class TeamsGuiListener implements Listener {
         if (slot >= 0 && slot < 45) {
             if (slot < members.size()) {
                 UUID targetId = members.get(slot);
-
                 player.setMetadata(META_TARGET, new FixedMetadataValue(core, targetId.toString()));
-                SoundService.guiClick(player, core);
 
                 MenuHistory.openChild(
                         core,
@@ -180,15 +175,13 @@ public final class TeamsGuiListener implements Listener {
                         () -> TeamsMainGui.open(core, player, teamService, inviteService),
                         () -> TeamMemberGui.open(player, targetId, teamService)
                 );
-
                 return;
             }
 
             if (teamService.isAdmin(player.getUniqueId()) && slot == members.size() && members.size() < teamService.maxMembers()) {
-                SoundService.guiClick(player, core);
                 player.closeInventory();
 
-                Component invitePrompt = Component.text("§7Type §d/team invite  §7to invite a player")
+                Component invitePrompt = Component.text("§7Type §d/team invite §7to invite a player")
                         .clickEvent(ClickEvent.suggestCommand("/team invite "));
 
                 player.sendMessage(invitePrompt);
@@ -214,7 +207,6 @@ public final class TeamsGuiListener implements Listener {
         }
 
         if (slot == TeamsMainGui.SORT_SLOT) {
-            SoundService.guiClick(player, core);
             TeamsMainGui.cycleSort(player);
             TeamsMainGui.open(core, player, teamService, inviteService);
             return;
@@ -222,7 +214,6 @@ public final class TeamsGuiListener implements Listener {
 
         if (slot == TeamsMainGui.TEAM_PVP_SLOT && teamService.isAdmin(player.getUniqueId())) {
             boolean newValue = !team.friendlyFire();
-
             teamService.setFriendlyFire(team.teamId(), newValue);
 
             String message = newValue ? "§aTeam PvP enabled" : "§cTeam PvP disabled";
@@ -242,13 +233,13 @@ public final class TeamsGuiListener implements Listener {
         org.bukkit.Location home = teamHomeService.getTeamHome(team.teamId());
 
         if (home != null) {
+            SoundService.guiClick(player, core);
             player.closeInventory();
 
             teleportService.begin(player, "Team Home", () -> {
                 player.teleport(home);
                 sendBoth(player, "§7Teleported to §dTeam Home");
             });
-
             return;
         }
 
@@ -256,8 +247,6 @@ public final class TeamsGuiListener implements Listener {
             SoundService.guiError(player, core);
             return;
         }
-
-        SoundService.guiClick(player, core);
 
         MenuHistory.openChild(
                 core,
@@ -313,44 +302,36 @@ public final class TeamsGuiListener implements Listener {
         }
 
         if (slot == 10) {
-            SoundService.guiClick(player, core);
             startConfirm(player, "PROMOTE", targetId, "Promote Player");
             return;
         }
 
         if (slot == 11) {
-            SoundService.guiClick(player, core);
             startConfirm(player, "DEMOTE", targetId, "Demote Player");
             return;
         }
 
         if (slot == 13) {
-            SoundService.guiClick(player, core);
-
             MenuHistory.openChild(
                     core,
                     player,
                     () -> TeamMemberGui.open(player, targetId, teamService),
                     () -> playerStatisticsGui.open(player, targetId)
             );
-
             return;
         }
 
         if (slot == 15) {
-            SoundService.guiClick(player, core);
             startConfirm(player, "KICK", targetId, "Kick Player");
             return;
         }
 
         if (slot == 16) {
-            SoundService.guiClick(player, core);
             startConfirm(player, "BAN", targetId, "Ban Player");
             return;
         }
 
         if (slot == 22) {
-            SoundService.guiClick(player, core);
             startConfirm(player, "TRANSFER", targetId, "Transfer Founder");
         }
     }
@@ -419,7 +400,6 @@ public final class TeamsGuiListener implements Listener {
                 sendBoth(player, "§cOnly the founder can disband the team");
                 SoundService.guiError(player, core);
             }
-
             case "LEAVE" -> {
                 if (teamService.removeMember(player.getUniqueId())) {
                     clearConfirmMeta(player);
@@ -434,7 +414,6 @@ public final class TeamsGuiListener implements Listener {
                 sendBoth(player, "§cYou cannot leave as founder Use /team disband");
                 SoundService.guiError(player, core);
             }
-
             case "DELETE_HOME" -> {
                 TeamRecord team = teamService.getTeamByPlayer(player.getUniqueId());
 
@@ -467,9 +446,7 @@ public final class TeamsGuiListener implements Listener {
                 sendBoth(player, "§cTeam home deleted");
                 SoundService.homeDelete(player, core);
             }
-
             case "PROMOTE", "DEMOTE", "KICK", "BAN", "TRANSFER" -> executeConfirmedTargetAction(player, action);
-
             default -> {
                 clearConfirmMeta(player);
                 player.closeInventory();
@@ -505,7 +482,6 @@ public final class TeamsGuiListener implements Listener {
                 sendBoth(player, "§cYou cannot promote this player");
                 SoundService.guiError(player, core);
             }
-
             case "DEMOTE" -> {
                 if (teamService.setMemberRole(player.getUniqueId(), targetId, TeamRole.MEMBER)) {
                     clearConfirmMeta(player);
@@ -520,7 +496,6 @@ public final class TeamsGuiListener implements Listener {
                 sendBoth(player, "§cYou cannot demote this player");
                 SoundService.guiError(player, core);
             }
-
             case "KICK" -> {
                 if (teamService.kickMember(player.getUniqueId(), targetId)) {
                     clearConfirmMeta(player);
@@ -535,7 +510,6 @@ public final class TeamsGuiListener implements Listener {
                 sendBoth(player, "§cYou cannot kick that player");
                 SoundService.guiError(player, core);
             }
-
             case "BAN" -> {
                 if (teamService.banMember(player.getUniqueId(), targetId)) {
                     clearConfirmMeta(player);
@@ -550,7 +524,6 @@ public final class TeamsGuiListener implements Listener {
                 sendBoth(player, "§cYou cannot ban that player");
                 SoundService.guiError(player, core);
             }
-
             case "TRANSFER" -> {
                 if (teamService.transferFounder(player.getUniqueId(), targetId)) {
                     clearConfirmMeta(player);
@@ -565,7 +538,6 @@ public final class TeamsGuiListener implements Listener {
                 sendBoth(player, "§cYou cannot transfer founder to that player");
                 SoundService.guiError(player, core);
             }
-
             default -> {
                 clearConfirmMeta(player);
                 player.closeInventory();

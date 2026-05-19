@@ -1,9 +1,9 @@
 settings:
   allow-all-items-with-fallback: true
-  deny-custom-items: true
-  deny-damaged-tools: true
+  deny-custom-items: false
+  deny-damaged-tools: false
   deny-filled-containers: true
-  deny-enchanted-items: true
+  deny-enchanted-items: false
 
 fallback-prices:
   blocks: 0.03
@@ -28,6 +28,19 @@ demand:
     - COMMAND_BLOCK
     - STRUCTURE_BLOCK
     - PLAYER_HEAD
+
+enchant-values:
+  default-per-level-cents: 2500
+  treasure-multiplier: 2.0
+  unsafe-multiplier: 1.25
+  enchants:
+    MENDING: 10000
+    PROTECTION: 3500
+    SHARPNESS: 3500
+    EFFICIENCY: 3000
+    UNBREAKING: 2500
+    FORTUNE: 5000
+    SILK_TOUCH: 7500
 
 prices:
   DIAMOND:
