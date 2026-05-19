@@ -1,19 +1,23 @@
 package net.mineacle.core.sell;
 
+import com.comphenix.protocol.ProtocolLibrary;
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.sell.command.SellCommand;
 import net.mineacle.core.sell.listener.SellGuiListener;
 import net.mineacle.core.sell.listener.SellMultiGuiListener;
+import net.mineacle.core.sell.listener.SellWorthPacketListener;
 import net.mineacle.core.sell.listener.WorthGuiListener;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.plugin.Plugin;
 
 public final class SellModule extends Module {
 
     private static SellService sellService;
+    private SellWorthPacketListener packetListener;
 
     public static SellService sellService() {
         return sellService;
@@ -36,10 +40,25 @@ public final class SellModule extends Module {
         core.getServer().getPluginManager().registerEvents(new SellGuiListener(core, sellService), core);
         core.getServer().getPluginManager().registerEvents(new WorthGuiListener(core, sellService), core);
         core.getServer().getPluginManager().registerEvents(new SellMultiGuiListener(), core);
+
+        Plugin protocolLib = core.getServer().getPluginManager().getPlugin("ProtocolLib");
+
+        if (protocolLib != null && protocolLib.isEnabled()) {
+            packetListener = new SellWorthPacketListener(core, sellService);
+            ProtocolLibrary.getProtocolManager().addPacketListener(packetListener);
+            core.getLogger().info("Enabled packet-based sell worth lore");
+        } else {
+            core.getLogger().warning("ProtocolLib not found; global sell worth hover lore is disabled");
+        }
     }
 
     @Override
     public void disable() {
+        if (packetListener != null) {
+            ProtocolLibrary.getProtocolManager().removePacketListener(packetListener);
+            packetListener = null;
+        }
+
         if (sellService != null) {
             sellService.save();
         }
