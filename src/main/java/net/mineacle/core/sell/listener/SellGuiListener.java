@@ -16,8 +16,6 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
-import org.bukkit.event.inventory.InventoryDragEvent;
-import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.HashSet;
@@ -33,48 +31,6 @@ public final class SellGuiListener implements Listener {
     public SellGuiListener(Core core, SellService sellService) {
         this.core = core;
         this.sellService = sellService;
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
-    public void onSellClick(InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player player)) {
-            return;
-        }
-
-        if (!isSellMenu(event.getView().getTitle())) {
-            return;
-        }
-
-        core.getServer().getScheduler().runTask(core, () -> {
-            if (!player.isOnline()) {
-                return;
-            }
-
-            if (isSellMenu(player.getOpenInventory().getTitle())) {
-                sellService.applyWorthLore(player, player.getOpenInventory().getTopInventory());
-            }
-        });
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
-    public void onSellDrag(InventoryDragEvent event) {
-        if (!(event.getWhoClicked() instanceof Player player)) {
-            return;
-        }
-
-        if (!isSellMenu(event.getView().getTitle())) {
-            return;
-        }
-
-        core.getServer().getScheduler().runTask(core, () -> {
-            if (!player.isOnline()) {
-                return;
-            }
-
-            if (isSellMenu(player.getOpenInventory().getTitle())) {
-                sellService.applyWorthLore(player, player.getOpenInventory().getTopInventory());
-            }
-        });
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
