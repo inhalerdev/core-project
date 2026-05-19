@@ -49,6 +49,15 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        if (args[0].equalsIgnoreCase("add") || args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("place")) {
+            if (args.length < 3) {
+                sendError(player, "§cUsage: /bounty add <player> <amount>");
+                return true;
+            }
+
+            return confirm(player, args[1], args[2]);
+        }
+
         if (args[0].equalsIgnoreCase("reload")) {
             if (!player.hasPermission("mineaclebounty.admin")) {
                 sendError(player, "§cYou do not have permission");
@@ -65,7 +74,7 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length < 2) {
-            sendError(player, "§cUsage: /bounty <player> <amount>");
+            sendError(player, "§cUsage: /bounty add <player> <amount>");
             return true;
         }
 
@@ -162,7 +171,7 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             String partial = args[0].toLowerCase(Locale.ROOT);
 
-            for (String option : List.of("list", "remove", "reload")) {
+            for (String option : List.of("add", "list", "remove", "reload")) {
                 if (option.startsWith(partial)) {
                     completions.add(option);
                 }
@@ -177,7 +186,10 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
             return completions;
         }
 
-        if (args.length == 2 && args[0].equalsIgnoreCase("remove")) {
+        if (args.length == 2 && (args[0].equalsIgnoreCase("add")
+                || args[0].equalsIgnoreCase("set")
+                || args[0].equalsIgnoreCase("place")
+                || args[0].equalsIgnoreCase("remove"))) {
             String partial = args[1];
 
             for (Player player : Bukkit.getOnlinePlayers()) {
@@ -187,7 +199,22 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
             }
         }
 
-        if (args.length == 2 && !args[0].equalsIgnoreCase("remove")) {
+        if (args.length == 3 && (args[0].equalsIgnoreCase("add")
+                || args[0].equalsIgnoreCase("set")
+                || args[0].equalsIgnoreCase("place"))) {
+            String partial = args[2].toLowerCase(Locale.ROOT);
+
+            for (String option : List.of("1k", "10k", "100k", "1m")) {
+                if (option.startsWith(partial)) {
+                    completions.add(option);
+                }
+            }
+        }
+
+        if (args.length == 2 && !args[0].equalsIgnoreCase("remove")
+                && !args[0].equalsIgnoreCase("add")
+                && !args[0].equalsIgnoreCase("set")
+                && !args[0].equalsIgnoreCase("place")) {
             for (String option : List.of("1k", "10k", "100k", "1m")) {
                 if (option.startsWith(args[1].toLowerCase(Locale.ROOT))) {
                     completions.add(option);
