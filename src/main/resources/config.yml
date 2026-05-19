@@ -196,9 +196,9 @@ double-jump:
     - spawn2
     - spawn3
   cooldown-seconds: 0.75
-  upward-velocity: 0.62
-  forward-velocity: 1.25
-  particles: true
+  upward-velocity: 0.75
+  forward-velocity: 1.50
+  particles: false
   actionbar-cooldown: false
 
 sounds:

@@ -7,6 +7,7 @@ import net.mineacle.core.sell.command.SellCommand;
 import net.mineacle.core.sell.listener.SellGuiListener;
 import net.mineacle.core.sell.listener.SellMultiGuiListener;
 import net.mineacle.core.sell.listener.SellWorthPacketListener;
+import net.mineacle.core.sell.listener.SellWorthRefreshListener;
 import net.mineacle.core.sell.listener.WorthGuiListener;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.command.CommandExecutor;
@@ -46,6 +47,7 @@ public final class SellModule extends Module {
         if (protocolLib != null && protocolLib.isEnabled()) {
             packetListener = new SellWorthPacketListener(core, sellService);
             ProtocolLibrary.getProtocolManager().addPacketListener(packetListener);
+            core.getServer().getPluginManager().registerEvents(new SellWorthRefreshListener(core), core);
             core.getLogger().info("Enabled packet-based sell worth lore");
         } else {
             core.getLogger().warning("ProtocolLib not found; global sell worth hover lore is disabled");

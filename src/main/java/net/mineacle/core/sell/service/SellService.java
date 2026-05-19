@@ -13,6 +13,7 @@ import org.bukkit.block.ShulkerBox;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -107,8 +108,7 @@ public final class SellService {
 
             Material material = item.getType();
             int amount = item.getAmount();
-            long unitCents = unitWorthCents(playerId, material);
-            long payout = unitCents * amount;
+            long payout = stackWorthCents(playerId, item);
 
             if (payout <= 0L) {
                 returned.add(item.clone());
@@ -185,7 +185,7 @@ public final class SellService {
                 }
             }
 
-            if (sellConfig.getBoolean("settings.deny-enchanted-items", true) && meta.hasEnchants()) {
+            if (sellConfig.getBoolean("settings.deny-enchanted-items", false) && meta.hasEnchants()) {
                 return false;
             }
 
@@ -284,6 +284,71 @@ public final class SellService {
 
         clone.setItemMeta(meta);
         return clone;
+    }
+
+
+    public long stackWorthCents(UUID playerId, ItemStack item) {
+        item = stripWorthLore(item);
+
+        if (item == null || item.getType() == Material.AIR) {
+            return 0L;
+        }
+
+        long baseStackWorth = unitWorthCents(playerId, item.getType()) * Math.max(1, item.getAmount());
+        long enchantWorth = enchantWorthCents(item);
+
+        return Math.max(0L, baseStackWorth + enchantWorth);
+    }
+
+    public long stackWorthCents(Player player, ItemStack item) {
+        if (player == null) {
+            return 0L;
+        }
+
+        return stackWorthCents(player.getUniqueId(), item);
+    }
+
+    public long enchantWorthCents(ItemStack item) {
+        item = stripWorthLore(item);
+
+        if (item == null || item.getType() == Material.AIR) {
+            return 0L;
+        }
+
+        ItemMeta meta = item.getItemMeta();
+
+        if (meta == null || !meta.hasEnchants()) {
+            return 0L;
+        }
+
+        long total = 0L;
+        long perLevel = Math.max(0L, sellConfig.getLong("enchant-values.default-per-level-cents", 2500L));
+        double treasureMultiplier = Math.max(0.0D, sellConfig.getDouble("enchant-values.treasure-multiplier", 2.0D));
+        double unsafeMultiplier = Math.max(0.0D, sellConfig.getDouble("enchant-values.unsafe-multiplier", 1.25D));
+
+        for (Map.Entry<Enchantment, Integer> entry : meta.getEnchants().entrySet()) {
+            Enchantment enchantment = entry.getKey();
+            int level = Math.max(1, entry.getValue());
+
+            long enchantBase = sellConfig.getLong(
+                    "enchant-values.enchants." + enchantment.getKey().getKey().toUpperCase(Locale.ROOT),
+                    perLevel
+            );
+
+            double multiplier = 1.0D;
+
+            if (enchantment.isTreasure()) {
+                multiplier *= treasureMultiplier;
+            }
+
+            if (level > enchantment.getMaxLevel()) {
+                multiplier *= unsafeMultiplier;
+            }
+
+            total += Math.round(enchantBase * level * multiplier);
+        }
+
+        return Math.max(0L, total);
     }
 
     public long baseWorthCents(Material material) {
@@ -497,7 +562,7 @@ public final class SellService {
         sellConfig.addDefault("settings.deny-custom-items", true);
         sellConfig.addDefault("settings.deny-damaged-tools", true);
         sellConfig.addDefault("settings.deny-filled-containers", true);
-        sellConfig.addDefault("settings.deny-enchanted-items", true);
+        sellConfig.addDefault("settings.deny-enchanted-items", false);
 
         sellConfig.addDefault("fallback-prices.blocks", 0.03D);
         sellConfig.addDefault("fallback-prices.ores", 1.0D);

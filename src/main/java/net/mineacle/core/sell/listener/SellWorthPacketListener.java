@@ -73,10 +73,10 @@ public final class SellWorthPacketListener extends PacketAdapter {
     }
 
     private void handleWindowItems(PacketEvent event, Player player) {
-        StructureModifier<List<ItemStack>> modifier = event.getPacket().getItemListModifier();
+        StructureModifier<List<ItemStack>> listModifier = event.getPacket().getItemListModifier();
 
-        for (int index = 0; index < modifier.size(); index++) {
-            List<ItemStack> original = modifier.readSafely(index);
+        for (int index = 0; index < listModifier.size(); index++) {
+            List<ItemStack> original = listModifier.readSafely(index);
 
             if (original == null || original.isEmpty()) {
                 continue;
@@ -93,7 +93,32 @@ public final class SellWorthPacketListener extends PacketAdapter {
                 updated.add(withWorthLore(player, item));
             }
 
-            modifier.writeSafely(index, updated);
+            listModifier.writeSafely(index, updated);
+        }
+
+        StructureModifier<ItemStack[]> arrayModifier = event.getPacket().getItemArrayModifier();
+
+        for (int index = 0; index < arrayModifier.size(); index++) {
+            ItemStack[] original = arrayModifier.readSafely(index);
+
+            if (original == null || original.length == 0) {
+                continue;
+            }
+
+            ItemStack[] updated = new ItemStack[original.length];
+
+            for (int slot = 0; slot < original.length; slot++) {
+                ItemStack item = original[slot];
+
+                if (item == null || item.getType() == Material.AIR) {
+                    updated[slot] = item;
+                    continue;
+                }
+
+                updated[slot] = withWorthLore(player, item);
+            }
+
+            arrayModifier.writeSafely(index, updated);
         }
     }
 
@@ -111,8 +136,19 @@ public final class SellWorthPacketListener extends PacketAdapter {
 
         lore.removeIf(this::isWorthLine);
 
-        long totalWorth = sellService.unitWorthCents(player, item.getType()) * Math.max(1, item.getAmount());
+        long totalWorth = sellService.stackWorthCents(player, item);
+
+        if (totalWorth <= 0L) {
+            return item;
+        }
+
         lore.add(0, TextColor.color("&#bbbbbbWorth: &a" + sellService.format(totalWorth)));
+
+        long enchantWorth = sellService.enchantWorthCents(item);
+
+        if (enchantWorth > 0L) {
+            lore.add(1, TextColor.color("&#bbbbbbEnchant Value: &a" + sellService.format(enchantWorth)));
+        }
 
         meta.setLore(lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
@@ -133,6 +169,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
         }
 
         return stripped.startsWith("Worth:")
+                || stripped.startsWith("Enchant Value:")
                 || stripped.startsWith("Stack Worth:")
                 || stripped.startsWith("Demand:");
     }
@@ -170,6 +207,6 @@ public final class SellWorthPacketListener extends PacketAdapter {
                 || title.startsWith("Sell History")
                 || title.contains("Statistics")
                 || title.endsWith("Stats")
-                || title.contains("(") && title.endsWith(")");
+                || (title.contains("(") && title.endsWith(")"));
     }
 }
