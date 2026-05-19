@@ -1,5 +1,7 @@
 package net.mineacle.core.tpa.listener;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.DisplayNames;
@@ -55,7 +57,6 @@ public final class TpaGuiListener implements Listener {
 
         if (slot == 15) {
             accept(player);
-            return;
         }
     }
 
@@ -64,7 +65,7 @@ public final class TpaGuiListener implements Listener {
 
         if (request == null) {
             target.closeInventory();
-            send(target, "&cYou have no pending teleport requests");
+            sendBoth(target, "&cYou have no pending teleport requests");
             SoundService.guiError(target, core);
             return;
         }
@@ -73,7 +74,7 @@ public final class TpaGuiListener implements Listener {
 
         if (requester == null || !requester.isOnline()) {
             target.closeInventory();
-            send(target, "&cThat player is no longer online");
+            sendBoth(target, "&cThat player is no longer online");
             SoundService.guiError(target, core);
             return;
         }
@@ -81,20 +82,20 @@ public final class TpaGuiListener implements Listener {
         target.closeInventory();
         SoundService.guiConfirm(target, core);
 
-        send(requester, "&#bbbbbbTeleport request accepted");
-        send(target, "&#bbbbbbTeleport request accepted");
+        sendBoth(requester, "&#bbbbbbTeleport request accepted");
+        sendBoth(target, "&#bbbbbbTeleport request accepted");
 
         if (request.type() == TpaRequestType.TO_TARGET) {
             teleportService.begin(requester, "TPA", () -> {
                 requester.teleport(target.getLocation());
-                send(requester, "&#bbbbbbTeleported to &#ff6fff" + DisplayNames.displayName(target));
+                sendBoth(requester, "&#bbbbbbTeleported to &#ff88ff" + DisplayNames.displayName(target));
             });
             return;
         }
 
         teleportService.begin(target, "TPA", () -> {
             target.teleport(requester.getLocation());
-            send(target, "&#bbbbbbTeleported to &#ff6fff" + DisplayNames.displayName(requester));
+            sendBoth(target, "&#bbbbbbTeleported to &#ff88ff" + DisplayNames.displayName(requester));
         });
     }
 
@@ -103,7 +104,7 @@ public final class TpaGuiListener implements Listener {
 
         if (request == null) {
             target.closeInventory();
-            send(target, "&cYou have no pending teleport requests");
+            sendBoth(target, "&cYou have no pending teleport requests");
             SoundService.guiError(target, core);
             return;
         }
@@ -111,18 +112,23 @@ public final class TpaGuiListener implements Listener {
         Player requester = tpaService.requester(request);
 
         target.closeInventory();
-        send(target, "&cTeleport request denied");
+        sendBoth(target, "&cTeleport request denied");
         SoundService.guiCancel(target, core);
 
         if (requester != null && requester.isOnline()) {
-            send(requester, "&c" + DisplayNames.displayName(target) + " denied your teleport request");
+            sendBoth(requester, "&c" + DisplayNames.displayName(target) + " denied your teleport request");
             SoundService.guiCancel(requester, core);
         }
 
         MenuHistory.clear(target);
     }
 
-    private void send(Player player, String message) {
+    private void sendBoth(Player player, String message) {
         player.sendMessage(TextColor.color(message));
+        player.sendActionBar(actionBar(message));
+    }
+
+    private Component actionBar(String message) {
+        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
     }
 }

@@ -133,6 +133,7 @@ public final class TeamsGuiListener implements Listener {
 
     private void handleStartClick(Player player, int slot) {
         if (slot == TeamStartGui.CREATE_SLOT) {
+            SoundService.guiClick(player, core);
             player.closeInventory();
 
             Component prompt = Component.text(TextColor.color("§7Type §d/team create §7to create a team"))
@@ -144,6 +145,7 @@ public final class TeamsGuiListener implements Listener {
         }
 
         if (slot == TeamStartGui.INVITES_SLOT) {
+            SoundService.guiClick(player, core);
             MenuHistory.openChild(
                     core,
                     player,
@@ -166,6 +168,7 @@ public final class TeamsGuiListener implements Listener {
 
         if (slot >= 0 && slot < 45) {
             if (slot < members.size()) {
+                SoundService.guiClick(player, core);
                 UUID targetId = members.get(slot);
                 player.setMetadata(META_TARGET, new FixedMetadataValue(core, targetId.toString()));
 
@@ -179,6 +182,7 @@ public final class TeamsGuiListener implements Listener {
             }
 
             if (teamService.isAdmin(player.getUniqueId()) && slot == members.size() && members.size() < teamService.maxMembers()) {
+                SoundService.guiClick(player, core);
                 player.closeInventory();
 
                 Component invitePrompt = Component.text("§7Type §d/team invite §7to invite a player")
@@ -207,6 +211,7 @@ public final class TeamsGuiListener implements Listener {
         }
 
         if (slot == TeamsMainGui.SORT_SLOT) {
+            SoundService.guiClick(player, core);
             TeamsMainGui.cycleSort(player);
             TeamsMainGui.open(core, player, teamService, inviteService);
             return;
@@ -248,6 +253,7 @@ public final class TeamsGuiListener implements Listener {
             return;
         }
 
+        SoundService.guiClick(player, core);
         MenuHistory.openChild(
                 core,
                 player,
@@ -312,6 +318,7 @@ public final class TeamsGuiListener implements Listener {
         }
 
         if (slot == 13) {
+            SoundService.guiClick(player, core);
             MenuHistory.openChild(
                     core,
                     player,
@@ -337,6 +344,7 @@ public final class TeamsGuiListener implements Listener {
     }
 
     private void startConfirm(Player player, String action, UUID targetId, String title) {
+        SoundService.guiClick(player, core);
         player.setMetadata(META_ACTION, new FixedMetadataValue(core, action));
         player.setMetadata(META_TARGET, new FixedMetadataValue(core, targetId.toString()));
         player.removeMetadata(META_CONFIRM, core);

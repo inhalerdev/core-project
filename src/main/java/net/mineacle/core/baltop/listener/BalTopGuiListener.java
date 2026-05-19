@@ -6,6 +6,7 @@ import net.mineacle.core.Core;
 import net.mineacle.core.baltop.gui.BalTopGui;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.DisplayNames;
+import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.stats.PlayerStatisticsGui;
@@ -72,26 +73,31 @@ public final class BalTopGuiListener implements Listener {
         int page = BalTopGui.currentPage(player);
 
         if (rawSlot == BalTopGui.previousSlot()) {
+            SoundService.guiClick(player, core);
             MenuHistory.openWithoutBackTrigger(core, player, () -> BalTopGui.open(core, player, economyService, page - 1));
             return;
         }
 
         if (rawSlot == BalTopGui.playerHeadSlot()) {
+            SoundService.guiClick(player, core);
             openStatsFromBalTop(player, page, player.getUniqueId());
             return;
         }
 
         if (rawSlot == BalTopGui.refreshSlot()) {
+            SoundService.guiClick(player, core);
             MenuHistory.openWithoutBackTrigger(core, player, () -> BalTopGui.open(core, player, economyService, page));
             return;
         }
 
         if (rawSlot == BalTopGui.searchSlot()) {
+            SoundService.guiClick(player, core);
             beginSearch(player);
             return;
         }
 
         if (rawSlot == BalTopGui.nextSlot()) {
+            SoundService.guiClick(player, core);
             MenuHistory.openWithoutBackTrigger(core, player, () -> BalTopGui.open(core, player, economyService, page + 1));
             return;
         }
@@ -110,6 +116,7 @@ public final class BalTopGuiListener implements Listener {
             return;
         }
 
+        SoundService.guiClick(player, core);
         openStatsFromBalTop(player, page, targetId);
     }
 
