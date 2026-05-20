@@ -1,4 +1,4 @@
-enabled: true
+﻿enabled: true
 title: "Spawn"
 size: 27
 max-players-display: 100
@@ -16,13 +16,13 @@ login-reroute:
 gui:
   spawn:
     current-lore:
-      - "&#bbbbbb%online%&8/&#bbbbbb%max%"
+      - "&#bbbbbb%online%&#bbbbbb/&#bbbbbb%max%"
       - ""
-      - "&a➥ You are currently here"
+      - "&aâž¥ You are currently here"
     available-lore:
-      - "&#bbbbbb%online%&8/&#bbbbbb%max%"
+      - "&#bbbbbb%online%&#bbbbbb/&#bbbbbb%max%"
       - ""
-      - "&#ff88ff➥ Return to Spawn"
+      - "&#ff88ffâž¥ Return to Spawn"
   random:
     lore:
       - "&#bbbbbbClick to teleport to a random &#ff88ffSpawn"
@@ -78,7 +78,7 @@ messages:
   already-here: "&#bbbbbbYou are already at &d%spawn%"
   teleport-start: "&#bbbbbbTeleporting to &d%spawn% &#bbbbbbin &d%seconds%s"
   teleport-countdown: "&#bbbbbbTeleporting to &d%spawn% &#bbbbbbin &d%seconds%s"
-  teleport-cancelled: "&cTeleport cancelled — you moved"
+  teleport-cancelled: "&cTeleport cancelled â€” you moved"
   teleported: "&#bbbbbbTeleported to &d%spawn%"
   world-missing: "&cThat spawn world is not loaded"
   random-missing: "&cNo spawn worlds are available"

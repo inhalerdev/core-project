@@ -182,7 +182,7 @@ public final class NicknameService {
     }
 
     public String opNameColor() {
-        return core.getConfig().getString("nickname.op-name-color", "#FF80FF");
+        return core.getConfig().getString("nickname.op-name-color", "#ff88ff");
     }
 
     public String defaultNameColor() {
@@ -196,7 +196,6 @@ public final class NicknameService {
 
     private void load() {
         nicknames.clear();
-
         ConfigurationSection section = config.getConfigurationSection("nicknames");
 
         if (section == null) {

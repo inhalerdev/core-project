@@ -48,7 +48,7 @@ public final class DisplayNames {
         Core core = Core.instance();
 
         if (player != null && player.isOp()) {
-            return core == null ? "&#ff6cff" : core.getConfig().getString("nickname.op-name-color", "#ff6cff");
+            return core == null ? "&#ff88ff" : core.getConfig().getString("nickname.op-name-color", "#ff88ff");
         }
 
         return core == null ? "&#bbbbbb" : core.getConfig().getString("nickname.default-name-color", "#bbbbbb");

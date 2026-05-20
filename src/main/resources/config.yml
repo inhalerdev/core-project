@@ -1,4 +1,4 @@
-teleport-perks:
+﻿teleport-perks:
   plus-permission: mineacle.plus
   default-delay-seconds: 5
   plus-delay-seconds: 3
@@ -78,8 +78,8 @@ nickname:
   enabled: true
   prefix: "."
   max-length: 15
-  allowed-regex: "^[a-zA-Z_0-9&§]+$"
-  op-name-color: "#ff6cff"
+  allowed-regex: "^[a-zA-Z_0-9&Â§]+$"
+  op-name-color: "#ff88ff"
   default-name-color: "#bbbbbb"
 
 chat:
@@ -184,7 +184,7 @@ origin-rtp:
     queued: "&#bbbbbbQueued for &d%world% RTP"
     queued-position: "&#bbbbbbQueued for &d%world% RTP &#bbbbbbPosition &d#%position%"
     countdown: "&#bbbbbbTeleporting to &d%world% &#bbbbbbin &d%seconds%s"
-    cancelled: "&cTeleport cancelled — you moved"
+    cancelled: "&cTeleport cancelled â€” you moved"
     searching: "&#bbbbbbFinding a safe location in &d%world%"
     failed: "&cCould not find a safe location in &d%world%"
     teleported: "&#bbbbbbTeleported to &d%world%"
@@ -372,7 +372,7 @@ fly:
     disabled: "&dMineacle+ &cFlight disabled"
     blocked-world: "&cFlight is only available in spawn"
     upgrade-line-1: "&fElevate your gameplay experience with &dMineacle+"
-    upgrade-line-2: "&d♦ &fhttps://store.mineacle.net"
+    upgrade-line-2: "&dâ™¦ &fhttps://store.mineacle.net"
 
 spawn-restrictions:
   enabled: true
@@ -464,15 +464,15 @@ orders:
           - "&#bbbbbbClick to view your orders"
     order-lore:
       buyer: "&#bbbbbbBuyer: &#ff88ff%buyer%"
-      remaining: "&#bbbbbbRemaining: &#ff88ff%remaining%&8/&#ff88ff%requested%"
+      remaining: "&#bbbbbbRemaining: &#ff88ff%remaining%&#bbbbbb/&#ff88ff%requested%"
       price: "&#bbbbbbMoney Per Item: &#ff88ff%price%"
       click: "&#bbbbbbClick to deliver"
     my-order-lore:
       status: "&#bbbbbbStatus: %status%"
-      delivered: "&#bbbbbbDelivered: &#ff88ff%delivered%&8/&#ff88ff%requested%"
+      delivered: "&#bbbbbbDelivered: &#ff88ff%delivered%&#bbbbbb/&#ff88ff%requested%"
       escrow: "&#bbbbbbRefundable Escrow: &#ff88ff%escrow%"
       click: "&#bbbbbbClick to collect, cancel, or refund"
-      closed: "&8Closed"
+      closed: "&#bbbbbbClosed"
     confirm:
       cancel:
         name: "&cCancel"
