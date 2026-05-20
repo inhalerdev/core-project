@@ -46,7 +46,7 @@ public final class TpaTargetMenuGui {
         inventory.setItem(PLAYER_SLOT, playerHead(
                 target,
                 "&dPlayer",
-                List.of("&#ff6fff" + DisplayNames.displayName(target))
+                List.of("&#ff88ff" + DisplayNames.displayName(target))
         ));
 
         inventory.setItem(LOCATION_SLOT, item(
@@ -58,7 +58,7 @@ public final class TpaTargetMenuGui {
         inventory.setItem(CONFIRM_SLOT, item(
                 Material.LIME_STAINED_GLASS_PANE,
                 "&dConfirm",
-                List.of("&#bbbbbbClick to send &#ff6fff" + DisplayNames.displayName(target) + " &#bbbbbba TPA request")
+                List.of("&#bbbbbbClick to send &#ff88ff" + DisplayNames.displayName(target) + " &#bbbbbba TPA request")
         ));
 
         viewer.openInventory(inventory);

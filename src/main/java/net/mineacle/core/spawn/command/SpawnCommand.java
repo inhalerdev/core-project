@@ -215,10 +215,10 @@ public final class SpawnCommand implements CommandExecutor, TabCompleter {
 
             player.sendMessage(TextColor.color(
                     "&#bbbbbb- &d" + point.id()
-                            + " &8| &#bbbbbbworld: &d" + point.worldName()
-                            + " &8| &#bbbbbbslot: &d" + point.slot()
-                            + " &8| " + status
-                            + " &8| " + loaded
+                            + " &#bbbbbb| &#bbbbbbworld: &d" + point.worldName()
+                            + " &#bbbbbb| &#bbbbbbslot: &d" + point.slot()
+                            + " &#bbbbbb| " + status
+                            + " &#bbbbbb| " + loaded
             ));
         }
     }

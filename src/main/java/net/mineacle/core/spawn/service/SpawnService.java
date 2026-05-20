@@ -314,7 +314,7 @@ public final class SpawnService {
         }
 
         return List.of(
-                "&#bbbbbb%online%&8/&#bbbbbb%max%",
+                "&#bbbbbb%online%&#bbbbbb/&#bbbbbb%max%",
                 "",
                 "&a➥ You are currently here"
         );
@@ -328,7 +328,7 @@ public final class SpawnService {
         }
 
         return List.of(
-                "&#bbbbbb%online%&8/&#bbbbbb%max%",
+                "&#bbbbbb%online%&#bbbbbb/&#bbbbbb%max%",
                 "",
                 "&e➥ Return to Spawn"
         );

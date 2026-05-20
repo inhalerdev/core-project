@@ -44,7 +44,7 @@ public final class GamemodeShortcutCommand implements CommandExecutor {
             case ADVENTURE -> "Adventure";
         };
 
-        String message = core.getConfig().getString("gamemode.message", "&#ccccccGamemode set to &#ff6cff%mode%")
+        String message = core.getConfig().getString("gamemode.message", "&#ccccccGamemode set to &#ff88ff%mode%")
                 .replace("%mode%", mode);
 
         player.sendMessage(TextColor.color(message));

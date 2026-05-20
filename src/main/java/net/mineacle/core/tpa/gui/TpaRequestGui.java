@@ -51,7 +51,7 @@ public final class TpaRequestGui {
                         "&cDeny",
                         List.of(
                                 "&#bbbbbbDecline this teleport request",
-                                "&#bbbbbbFrom &#ff6fff" + plainRequesterName
+                                "&#bbbbbbFrom &#ff88ff" + plainRequesterName
                         )
                 )
         );
@@ -64,12 +64,12 @@ public final class TpaRequestGui {
                         request.type() == TpaRequestType.TO_TARGET
                                 ? List.of(
                                         "&#bbbbbbWants to teleport to you",
-                                        "&#bbbbbbClick &#ff6fffAccept &#bbbbbbto allow",
+                                        "&#bbbbbbClick &#ff88ffAccept &#bbbbbbto allow",
                                         "&#bbbbbbClick &cDeny &#bbbbbbto decline"
                                 )
                                 : List.of(
                                         "&#bbbbbbWants you to teleport to them",
-                                        "&#bbbbbbClick &#ff6fffAccept &#bbbbbbto teleport",
+                                        "&#bbbbbbClick &#ff88ffAccept &#bbbbbbto teleport",
                                         "&#bbbbbbClick &cDeny &#bbbbbbto decline"
                                 )
                 )
@@ -82,7 +82,7 @@ public final class TpaRequestGui {
                         "&dAccept",
                         List.of(
                                 "&#bbbbbbAccept this teleport request",
-                                "&#bbbbbbFrom &#ff6fff" + plainRequesterName
+                                "&#bbbbbbFrom &#ff88ff" + plainRequesterName
                         )
                 )
         );
@@ -109,7 +109,7 @@ public final class TpaRequestGui {
                 material,
                 "&dRequest Location",
                 List.of(
-                        "&#bbbbbbWorld: &#ff6fff" + worldName,
+                        "&#bbbbbbWorld: &#ff88ff" + worldName,
                         request.type() == TpaRequestType.TO_TARGET
                                 ? "&#bbbbbbThey will teleport to you"
                                 : "&#bbbbbbYou will teleport to them"

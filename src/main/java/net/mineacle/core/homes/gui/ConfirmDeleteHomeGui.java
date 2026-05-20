@@ -44,7 +44,7 @@ public final class ConfirmDeleteHomeGui {
                         "&cDelete " + displayName,
                         List.of(
                                 "&#bbbbbbThis action needs confirmation",
-                                "&#bbbbbbHome: &#ff6fff" + displayName
+                                "&#bbbbbbHome: &#ff88ff" + displayName
                         )
                 )
         );
@@ -87,7 +87,7 @@ public final class ConfirmDeleteHomeGui {
                         "&cDelete Team Home",
                         List.of(
                                 "&#bbbbbbThis action needs confirmation",
-                                "&#bbbbbbAction: &#ff6fffDelete Team Home"
+                                "&#bbbbbbAction: &#ff88ffDelete Team Home"
                         )
                 )
         );

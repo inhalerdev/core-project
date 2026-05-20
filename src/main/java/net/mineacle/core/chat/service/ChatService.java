@@ -186,8 +186,8 @@ public final class ChatService {
 
         component = component.hoverEvent(HoverEvent.showText(legacy(
                 "&#bbbbbbPrivate message\n"
-                        + "&#bbbbbbFrom: &#ff6fff" + DisplayNames.displayName(sender) + "\n"
-                        + "&#bbbbbbTo: &#ff6fff" + DisplayNames.displayName(receiver) + "\n"
+                        + "&#bbbbbbFrom: &#ff88ff" + DisplayNames.displayName(sender) + "\n"
+                        + "&#bbbbbbTo: &#ff88ff" + DisplayNames.displayName(receiver) + "\n"
                         + "&#bbbbbbClick to reply"
         )));
 

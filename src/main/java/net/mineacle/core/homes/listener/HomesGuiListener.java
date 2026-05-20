@@ -214,7 +214,7 @@ public final class HomesGuiListener implements Listener {
 
             teamHomeService.setTeamHome(team.teamId(), player.getLocation());
 
-            String message = "Â&#bbbbbbTeam Home set to your current location";
+            String message = "&#bbbbbbTeam Home set to your current location";
 
             player.sendActionBar(actionBar(message));
             player.sendMessage(message);
@@ -237,7 +237,7 @@ public final class HomesGuiListener implements Listener {
             teleportService.begin(player, "Team Home", () -> {
                 player.teleport(home);
 
-                String message = "Â&#bbbbbbTeleported to Â&dTeam Home";
+                String message = "&#bbbbbbTeleported to &dTeam Home";
 
                 player.sendActionBar(actionBar(message));
                 player.sendMessage(message);
@@ -255,7 +255,7 @@ public final class HomesGuiListener implements Listener {
         }
 
         if (slot == dyeSlot) {
-            String message = "Â&cOnly the founder can delete Team Home";
+            String message = "&cOnly the founder can delete Team Home";
 
             player.sendActionBar(actionBar(message));
             player.sendMessage(message);
@@ -279,7 +279,7 @@ public final class HomesGuiListener implements Listener {
             player.closeInventory();
             HomesMainGui.open(core, player, homeService);
 
-            String message = "Â&cTeam home delete cancelled";
+            String message = "&cTeam home delete cancelled";
 
             player.sendActionBar(actionBar(message));
             player.sendMessage(message);
@@ -298,7 +298,7 @@ public final class HomesGuiListener implements Listener {
         if (!confirmed) {
             player.setMetadata(META_TEAM_HOME_CONFIRM, new FixedMetadataValue(core, true));
 
-            String message = "Â&#bbbbbbClick confirm again to continue";
+            String message = "&#bbbbbbClick confirm again to continue";
 
             player.sendActionBar(actionBar(message));
             player.sendMessage(message);
@@ -321,7 +321,7 @@ public final class HomesGuiListener implements Listener {
                 if (currentTeamId.equals(teamId) && currentConfirmed) {
                     player.setMetadata(META_TEAM_HOME_CONFIRM, new FixedMetadataValue(core, false));
 
-                    String timeoutMessage = "Â&cAction timed out";
+                    String timeoutMessage = "&cAction timed out";
 
                     player.sendActionBar(actionBar(timeoutMessage));
                     player.sendMessage(timeoutMessage);
@@ -339,7 +339,7 @@ public final class HomesGuiListener implements Listener {
             clearTeamHomeDeleteMeta(player);
             player.closeInventory();
 
-            String message = "Â&cYour team does not have a home set";
+            String message = "&cYour team does not have a home set";
 
             player.sendActionBar(actionBar(message));
             player.sendMessage(message);
@@ -351,7 +351,7 @@ public final class HomesGuiListener implements Listener {
         clearTeamHomeDeleteMeta(player);
         player.closeInventory();
 
-        String message = "Â&cTeam Home deleted";
+        String message = "&cTeam Home deleted";
 
         player.sendActionBar(actionBar(message));
         player.sendMessage(message);
@@ -408,7 +408,7 @@ public final class HomesGuiListener implements Listener {
 
         player.setMetadata(META_HOME_CONFIRM, new FixedMetadataValue(core, id));
 
-        String message = "Â&#bbbbbbClick confirm again to continue";
+        String message = "&#bbbbbbClick confirm again to continue";
 
         player.sendActionBar(actionBar(message));
         player.sendMessage(message);
@@ -431,7 +431,7 @@ public final class HomesGuiListener implements Listener {
             if (pendingId == id && currentConfirmValue == id) {
                 player.setMetadata(META_HOME_CONFIRM, new FixedMetadataValue(core, 0));
 
-                String timeoutMessage = "Â&cAction timed out";
+                String timeoutMessage = "&cAction timed out";
 
                 player.sendActionBar(actionBar(timeoutMessage));
                 player.sendMessage(timeoutMessage);
@@ -477,9 +477,9 @@ public final class HomesGuiListener implements Listener {
     }
 
     private void sendCreateTeamPrompt(Player player) {
-        player.sendMessage("Â&cYou are not in a team");
+        player.sendMessage("&cYou are not in a team");
 
-        Component clickable = Component.text("Â&#bbbbbbType Â&d/team create  Â&#bbbbbbto create a team")
+        Component clickable = Component.text("&#bbbbbbType &d/team create  &#bbbbbbto create a team")
                 .clickEvent(ClickEvent.suggestCommand("/team create "));
 
         player.sendMessage(clickable);

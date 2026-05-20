@@ -127,7 +127,7 @@ public final class OrderService {
 
         repository.put(order);
 
-        send(player, message("created", "&#ccccccCreated order for &#ff6cff%amount%x %item%")
+        send(player, message("created", "&#ccccccCreated order for &#ff88ff%amount%x %item%")
                 .replace("%amount%", String.valueOf(amount))
                 .replace("%item%", pretty(order.material()))
                 .replace("%price%", economy.format(pricePerItem))
@@ -185,7 +185,7 @@ public final class OrderService {
 
         String amount = economy == null ? "$" + payout : economy.format(payout);
 
-        send(seller, message("delivered", "&#ccccccDelivered &#ff6cff%amount%x %item% &#ccccccfor &#ff6cff+%money%")
+        send(seller, message("delivered", "&#ccccccDelivered &#ff88ff%amount%x %item% &#ccccccfor &#ff88ff+%money%")
                 .replace("%amount%", String.valueOf(deliverAmount))
                 .replace("%item%", pretty(order.material()))
                 .replace("%money%", amount));
@@ -232,7 +232,7 @@ public final class OrderService {
         order.addCollected(collected);
         repository.put(order);
 
-        send(player, message("collected", "&#ccccccCollected &#ff6cff%amount%x %item%")
+        send(player, message("collected", "&#ccccccCollected &#ff88ff%amount%x %item%")
                 .replace("%amount%", String.valueOf(collected))
                 .replace("%item%", pretty(order.material())));
 
@@ -267,7 +267,7 @@ public final class OrderService {
 
         String refundText = economy == null ? "$" + refund : economy.format(refund);
 
-        send(player, message("cancelled", "&#ccccccCancelled order and refunded &#ff6cff%refund%")
+        send(player, message("cancelled", "&#ccccccCancelled order and refunded &#ff88ff%refund%")
                 .replace("%refund%", refundText));
 
         SoundService.guiCancel(player, core);

@@ -112,15 +112,15 @@ public final class TpaTargetMenuListener implements Listener {
         String requesterName = DisplayNames.displayName(requester);
         String targetName = DisplayNames.displayName(target);
 
-        sendBoth(requester, "&#bbbbbbTeleport request sent to &#ff6fff" + targetName);
+        sendBoth(requester, "&#bbbbbbTeleport request sent to &#ff88ff" + targetName);
         SoundService.teleportRequest(requester, core);
 
         target.sendMessage(requestMessage(
-                "&#bbbbbb" + requesterName + " &#ff6fffwants to teleport to you",
+                "&#bbbbbb" + requesterName + " &#ff88ffwants to teleport to you",
                 requester
         ));
 
-        target.sendActionBar(actionBar("&#bbbbbb" + requesterName + " &#ff6fffwants to teleport to you"));
+        target.sendActionBar(actionBar("&#bbbbbb" + requesterName + " &#ff88ffwants to teleport to you"));
         SoundService.teleportReceived(target, core);
 
         core.getServer().getScheduler().runTaskLater(core, () -> {

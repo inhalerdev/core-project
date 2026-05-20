@@ -33,7 +33,7 @@ public final class TeamJoinListener implements Listener {
                 return;
             }
 
-            String message = "Â&#bbbbbbTeam chat enabled";
+            String message = "&#bbbbbbTeam chat enabled";
 
             player.sendMessage(message);
             player.sendActionBar(actionBar(message));

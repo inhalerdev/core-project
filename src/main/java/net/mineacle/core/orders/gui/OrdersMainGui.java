@@ -192,7 +192,7 @@ public final class OrdersMainGui {
     }
 
     private static String line(Enum<?> active, Enum<?> value) {
-        return (active == value ? "&#ff6cff• " : "&#cccccc• ") + display(value.name());
+        return (active == value ? "&#ff88ff• " : "&#cccccc• ") + display(value.name());
     }
 
     public static ItemStack orderItem(OrderService service, OrderRecord order) {
@@ -200,11 +200,11 @@ public final class OrdersMainGui {
         String price = economy == null ? "$" + order.pricePerItemCents() : economy.format(order.pricePerItemCents());
 
         return item(order.material(), "&d" + service.pretty(order.material()), List.of(
-                cfg("orders.gui.order-lore.buyer", "&#ccccccBuyer: &#ff6cff%buyer%").replace("%buyer%", order.ownerName()),
-                cfg("orders.gui.order-lore.remaining", "&#ccccccRemaining: &#ff6cff%remaining%&8/&#ff6cff%requested%")
+                cfg("orders.gui.order-lore.buyer", "&#ccccccBuyer: &#ff88ff%buyer%").replace("%buyer%", order.ownerName()),
+                cfg("orders.gui.order-lore.remaining", "&#ccccccRemaining: &#ff88ff%remaining%&#bbbbbb/&#ff88ff%requested%")
                         .replace("%remaining%", String.valueOf(order.remainingAmount()))
                         .replace("%requested%", String.valueOf(order.requestedAmount())),
-                cfg("orders.gui.order-lore.price", "&#ccccccMoney Per Item: &#ff6cff%price%").replace("%price%", price),
+                cfg("orders.gui.order-lore.price", "&#ccccccMoney Per Item: &#ff88ff%price%").replace("%price%", price),
                 "",
                 cfg("orders.gui.order-lore.click", "&#ccccccClick to deliver")
         ));

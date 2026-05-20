@@ -46,7 +46,7 @@ public final class HomesMainGui {
                                 Material.PURPLE_BED,
                                 "&d" + displayName,
                                 List.of(
-                                        "&#bbbbbbClick to teleport to &#ff6fff" + displayName
+                                        "&#bbbbbbClick to teleport to &#ff88ff" + displayName
                                 )
                         )
                 );
@@ -57,7 +57,7 @@ public final class HomesMainGui {
                                 Material.PURPLE_DYE,
                                 "&d" + displayName,
                                 List.of(
-                                        "&#bbbbbbClick to delete &#ff6fff" + displayName
+                                        "&#bbbbbbClick to delete &#ff88ff" + displayName
                                 )
                         )
                 );
@@ -73,7 +73,7 @@ public final class HomesMainGui {
                                 "&d" + displayName,
                                 List.of(
                                         "&#bbbbbbClick to save this location",
-                                        "&#bbbbbbSlot &#ff6fff" + id
+                                        "&#bbbbbbSlot &#ff88ff" + id
                                 )
                         )
                 );
@@ -85,7 +85,7 @@ public final class HomesMainGui {
                                 "&d" + displayName,
                                 List.of(
                                         "&#bbbbbbClick to save this location",
-                                        "&#bbbbbbSlot &#ff6fff" + id
+                                        "&#bbbbbbSlot &#ff88ff" + id
                                 )
                         )
                 );
@@ -96,7 +96,7 @@ public final class HomesMainGui {
                                 Material.LIGHT_GRAY_BED,
                                 "&cHome Locked",
                                 List.of(
-                                        "&#ff6fffMineacle+ &#bbbbbbrequired to use this feature"
+                                        "&#ff88ffMineacle+ &#bbbbbbrequired to use this feature"
                                 )
                         )
                 );
@@ -107,7 +107,7 @@ public final class HomesMainGui {
                                 Material.GRAY_DYE,
                                 "&cHome Locked",
                                 List.of(
-                                        "&#ff6fffMineacle+ &#bbbbbbrequired to use this feature"
+                                        "&#ff88ffMineacle+ &#bbbbbbrequired to use this feature"
                                 )
                         )
                 );
@@ -138,7 +138,7 @@ public final class HomesMainGui {
                             "&dNo Team",
                             List.of(
                                     "&#bbbbbbYou are not in a team",
-                                    "&#bbbbbbType &#ff6fff/team create",
+                                    "&#bbbbbbType &#ff88ff/team create",
                                     "&#bbbbbbto create a team"
                             )
                     )
@@ -151,7 +151,7 @@ public final class HomesMainGui {
                             "&dNo Team",
                             List.of(
                                     "&#bbbbbbYou are not in a team",
-                                    "&#bbbbbbType &#ff6fff/team create",
+                                    "&#bbbbbbType &#ff88ff/team create",
                                     "&#bbbbbbto create a team"
                             )
                     )
@@ -174,7 +174,7 @@ public final class HomesMainGui {
                                 "&dTeam Home",
                                 List.of(
                                         "&#bbbbbbTeam: " + teamDisplay,
-                                        "&#bbbbbbClick to set &#ff6fffTeam Home",
+                                        "&#bbbbbbClick to set &#ff88ffTeam Home",
                                         "&#bbbbbbto your current location"
                                 )
                         )
@@ -187,7 +187,7 @@ public final class HomesMainGui {
                                 "&dTeam Home",
                                 List.of(
                                         "&#bbbbbbTeam: " + teamDisplay,
-                                        "&#bbbbbbClick to set &#ff6fffTeam Home",
+                                        "&#bbbbbbClick to set &#ff88ffTeam Home",
                                         "&#bbbbbbto your current location"
                                 )
                         )
@@ -201,7 +201,7 @@ public final class HomesMainGui {
                                 List.of(
                                         "&#bbbbbbTeam: " + teamDisplay,
                                         "&#bbbbbbYour team does not have a home yet",
-                                        "&#bbbbbbAsk your &#ff6fffteam founder &#bbbbbbto set Team Home"
+                                        "&#bbbbbbAsk your &#ff88ffteam founder &#bbbbbbto set Team Home"
                                 )
                         )
                 );
@@ -214,7 +214,7 @@ public final class HomesMainGui {
                                 List.of(
                                         "&#bbbbbbTeam: " + teamDisplay,
                                         "&#bbbbbbYour team does not have a home yet",
-                                        "&#bbbbbbAsk your &#ff6fffteam founder &#bbbbbbto set Team Home"
+                                        "&#bbbbbbAsk your &#ff88ffteam founder &#bbbbbbto set Team Home"
                                 )
                         )
                 );
@@ -230,8 +230,8 @@ public final class HomesMainGui {
                         "&dTeam Home",
                         List.of(
                                 "&#bbbbbbTeam: " + teamDisplay,
-                                "&#bbbbbbClick to teleport to &#ff6fffTeam Home",
-                                "&#bbbbbbBanner: &#ff6fffPurple"
+                                "&#bbbbbbClick to teleport to &#ff88ffTeam Home",
+                                "&#bbbbbbBanner: &#ff88ffPurple"
                         )
                 )
         );
@@ -243,7 +243,7 @@ public final class HomesMainGui {
                             Material.PURPLE_DYE,
                             "&cDelete Team Home",
                             List.of(
-                                    "&#bbbbbbClick to delete &#ff6fffTeam Home",
+                                    "&#bbbbbbClick to delete &#ff88ffTeam Home",
                                     "&#bbbbbbTeam: " + teamDisplay
                             )
                     )

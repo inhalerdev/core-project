@@ -1,4 +1,4 @@
-﻿teleport-perks:
+teleport-perks:
   plus-permission: mineacle.plus
   default-delay-seconds: 5
   plus-delay-seconds: 3
@@ -78,7 +78,7 @@ nickname:
   enabled: true
   prefix: "."
   max-length: 15
-  allowed-regex: "^[a-zA-Z_0-9&Â§]+$"
+  allowed-regex: "^[a-zA-Z_0-9&§]+$"
   op-name-color: "#ff88ff"
   default-name-color: "#bbbbbb"
 

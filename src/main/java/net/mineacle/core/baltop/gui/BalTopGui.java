@@ -204,7 +204,7 @@ public final class BalTopGui {
         meta.setOwningPlayer(owner);
         meta.setDisplayName(color(name));
         meta.setLore(List.of(
-                color("&#bbbbbbBalance: &a" + balance + " &#ff6fff(#" + placement + ")"),
+                color("&#bbbbbbBalance: &a" + balance + " &#ff88ff(#" + placement + ")"),
                 color("&#bbbbbbClick to view stats")
         ));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
@@ -227,7 +227,7 @@ public final class BalTopGui {
         meta.setOwningPlayer(player);
         meta.setDisplayName(color(DisplayNames.prefixedDisplayName(player)));
         meta.setLore(List.of(
-                color("&#bbbbbbBalance: &a" + balance + " &#ff6fff(#" + placement + ")"),
+                color("&#bbbbbbBalance: &a" + balance + " &#ff88ff(#" + placement + ")"),
                 color("&#bbbbbbClick to view stats")
         ));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
@@ -241,7 +241,7 @@ public final class BalTopGui {
                     Material.OAK_SIGN,
                     "&dSearch",
                     List.of(
-                            "&#bbbbbbCurrent search: &#ff6fff" + search(player),
+                            "&#bbbbbbCurrent search: &#ff88ff" + search(player),
                             "&#bbbbbbLeft-click to search again",
                             "&#bbbbbbRight-click to clear search"
                     )

@@ -51,7 +51,7 @@ public final class YourOrdersGui {
         return OrdersMainGui.item(order.material(), "&d" + service.pretty(order.material()), List.of(
                 cfg("orders.gui.my-order-lore.status", "&#bbbbbbStatus: %status%")
                         .replace("%status%", order.active() ? "&#ff88ffActive" : "&cClosed"),
-                cfg("orders.gui.my-order-lore.delivered", "&#bbbbbbDelivered: &#ff88ff%delivered%&8/&#ff88ff%requested%")
+                cfg("orders.gui.my-order-lore.delivered", "&#bbbbbbDelivered: &#ff88ff%delivered%&#bbbbbb/&#ff88ff%requested%")
                         .replace("%delivered%", String.valueOf(order.deliveredAmount()))
                         .replace("%requested%", String.valueOf(order.requestedAmount())),
                 cfg("orders.gui.my-order-lore.escrow", "&#bbbbbbRefundable Escrow: &#ff88ff%escrow%")
@@ -59,7 +59,7 @@ public final class YourOrdersGui {
                 "",
                 order.active()
                         ? cfg("orders.gui.my-order-lore.click", "&#bbbbbbClick to collect, cancel, or refund")
-                        : cfg("orders.gui.my-order-lore.closed", "&8Closed")
+                        : cfg("orders.gui.my-order-lore.closed", "&#bbbbbbClosed")
         ));
     }
 

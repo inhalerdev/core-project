@@ -149,14 +149,14 @@ public final class BalTopGuiListener implements Listener {
             }
 
             if (message.equalsIgnoreCase("cancel") || message.equalsIgnoreCase("cancelled")) {
-                sendActionBar(player, "Â&#bbbbbbBalance Top search cancelled");
+                sendActionBar(player, "&#bbbbbbBalance Top search cancelled");
                 MenuHistory.openWithoutBackTrigger(core, player, () -> BalTopGui.open(core, player, economyService, BalTopGui.currentPage(player)));
                 return;
             }
 
             if (message.equalsIgnoreCase("clear")) {
                 BalTopGui.clearSearch(player);
-                sendActionBar(player, "Â&#bbbbbbBalance Top search cleared");
+                sendActionBar(player, "&#bbbbbbBalance Top search cleared");
                 MenuHistory.openWithoutBackTrigger(core, player, () -> BalTopGui.open(core, player, economyService, 0));
                 return;
             }
@@ -164,7 +164,7 @@ public final class BalTopGuiListener implements Listener {
             UUID targetId = findPlayer(message);
 
             if (targetId == null) {
-                sendActionBar(player, "Â&cNo Balance Top player found");
+                sendActionBar(player, "&cNo Balance Top player found");
                 MenuHistory.openWithoutBackTrigger(core, player, () -> BalTopGui.open(core, player, economyService, 0));
                 return;
             }

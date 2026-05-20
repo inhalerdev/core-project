@@ -77,13 +77,13 @@ public final class ChatFormatListener implements Listener {
         hover.append(displayName).append("\n");
 
         if (hasTeam(teamName)) {
-            hover.append("&#ff6fff🔥 &#bbbbbbTeam &#ff6fff").append(teamName).append("\n");
+            hover.append("&#ff88ff🔥 &#bbbbbbTeam &#ff88ff").append(teamName).append("\n");
         }
 
-        hover.append("&#ff6fff$ &#bbbbbbMoney &#ff6fff").append(money).append("\n")
-                .append("&#ff6fff🗡 &#bbbbbbKills &#ff6fff").append(kills).append("\n")
-                .append("&#ff6fff☠ &#bbbbbbDeaths &#ff6fff").append(deaths).append("\n")
-                .append("&#ff6fff⌚ &#bbbbbbPlaytime &#ff6fff").append(playtime);
+        hover.append("&#ff88ff$ &#bbbbbbMoney &#ff88ff").append(money).append("\n")
+                .append("&#ff88ff🗡 &#bbbbbbKills &#ff88ff").append(kills).append("\n")
+                .append("&#ff88ff☠ &#bbbbbbDeaths &#ff88ff").append(deaths).append("\n")
+                .append("&#ff88ff⌚ &#bbbbbbPlaytime &#ff88ff").append(playtime);
 
         return legacy(hover.toString());
     }
