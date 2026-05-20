@@ -22,11 +22,10 @@ gui:
     available-lore:
       - "&#bbbbbb%online%&8/&#bbbbbb%max%"
       - ""
-      - "&#ff6fff➥ Return to Spawn"
-
+      - "&#ff88ff➥ Return to Spawn"
   random:
     lore:
-      - "&#bbbbbbClick to teleport to a random &#ff6fffSpawn"
+      - "&#bbbbbbClick to teleport to a random &#ff88ffSpawn"
 
 worlds:
   lobby1:
@@ -39,7 +38,6 @@ worlds:
     z: -0.5
     yaw: -180.0
     pitch: 0.0
-
   lobby2:
     enabled: true
     slot: 12
@@ -50,7 +48,6 @@ worlds:
     z: -0.5
     yaw: -180.0
     pitch: 0.0
-
   lobby3:
     enabled: true
     slot: 13
@@ -61,12 +58,11 @@ worlds:
     z: -0.5
     yaw: -180.0
     pitch: 0.0
-
-random:
-  enabled: true
-  slot: 15
-  display-name: "&aRandom Spawn"
-  mode: "LOWEST_POPULATION"
+  random:
+    enabled: true
+    slot: 15
+    display-name: "&aRandom Spawn"
+    mode: "LOWEST_POPULATION"
 
 void:
   enabled: true

@@ -74,19 +74,6 @@ baltop:
   gui-title: Balance Top
   entries-per-page: 45
 
-bounty:
-  minimum: "1"
-  maximum: "100m"
-  tax-percent: -1
-
-sounds:
-  bounty:
-    claim:
-      enabled: true
-      sound: BLOCK_BEACON_POWER_SELECT
-      volume: 1.0
-      pitch: 1.25
-
 nickname:
   enabled: true
   prefix: "."
@@ -319,7 +306,7 @@ sounds:
       pitch: 1.0
     disband:
       enabled: true
-      sound: BLOCK_NOTE_BLOCK_BASS
+      sound: BLOCK_BEACON_DEACTIVATE
       volume: 1.0
       pitch: 1.0
   economy:
@@ -366,6 +353,12 @@ sounds:
       sound: BLOCK_STONE_BUTTON_CLICK_ON
       volume: 1.0
       pitch: 1.0
+  bounty:
+    claim:
+      enabled: true
+      sound: BLOCK_BEACON_POWER_SELECT
+      volume: 1.0
+      pitch: 1.25
 
 fly:
   enabled: true
@@ -375,8 +368,8 @@ fly:
     - spawn2
     - spawn3
   messages:
-    enabled: "&aFlight Enabled"
-    disabled: "&cFlight disabled"
+    enabled: "&dMineacle+ &aFlight Enabled"
+    disabled: "&dMineacle+ &cFlight disabled"
     blocked-world: "&cFlight is only available in spawn"
     upgrade-line-1: "&fElevate your gameplay experience with &dMineacle+"
     upgrade-line-2: "&d♦ &fhttps://store.mineacle.net"
@@ -415,7 +408,12 @@ spawn-restrictions:
     - SCULK_CATALYST
 
 gamemode:
-  message: "&#bbbbbbGamemode set to &#ff6cff%mode%"
+  message: "&#bbbbbbGamemode set to &#ff88ff%mode%"
+
+bounty:
+  minimum: "1"
+  maximum: "999B"
+  tax-percent: -1
 
 orders:
   enabled: true
@@ -465,14 +463,14 @@ orders:
         lore:
           - "&#bbbbbbClick to view your orders"
     order-lore:
-      buyer: "&#bbbbbbBuyer: &#ff6cff%buyer%"
-      remaining: "&#bbbbbbRemaining: &#ff6cff%remaining%&8/&#ff6cff%requested%"
-      price: "&#bbbbbbMoney Per Item: &#ff6cff%price%"
+      buyer: "&#bbbbbbBuyer: &#ff88ff%buyer%"
+      remaining: "&#bbbbbbRemaining: &#ff88ff%remaining%&8/&#ff88ff%requested%"
+      price: "&#bbbbbbMoney Per Item: &#ff88ff%price%"
       click: "&#bbbbbbClick to deliver"
     my-order-lore:
       status: "&#bbbbbbStatus: %status%"
-      delivered: "&#bbbbbbDelivered: &#ff6cff%delivered%&8/&#ff6cff%requested%"
-      escrow: "&#bbbbbbRefundable Escrow: &#ff6cff%escrow%"
+      delivered: "&#bbbbbbDelivered: &#ff88ff%delivered%&8/&#ff88ff%requested%"
+      escrow: "&#bbbbbbRefundable Escrow: &#ff88ff%escrow%"
       click: "&#bbbbbbClick to collect, cancel, or refund"
       closed: "&8Closed"
     confirm:
@@ -484,12 +482,12 @@ orders:
         lore: "&#bbbbbbClick to confirm"
       deliver:
         name: "&dConfirm Delivery"
-        lore-1: "&#bbbbbbDelivering: &#ff6cff%amount%x %item%"
-        lore-2: "&#bbbbbbPayout: &#ff6cff%payout%"
+        lore-1: "&#bbbbbbDelivering: &#ff88ff%amount%x %item%"
+        lore-2: "&#bbbbbbPayout: &#ff88ff%payout%"
         lore-3: "&#bbbbbbClick confirm to deliver"
       cancel-order:
         name: "&cCancel Order"
-        lore-1: "&#bbbbbbRefund: &#ff6cff%refund%"
+        lore-1: "&#bbbbbbRefund: &#ff88ff%refund%"
         lore-2: "&#bbbbbbClick confirm to cancel this order"
     create:
       empty-name: "&cNo Item"
@@ -500,7 +498,7 @@ orders:
       cancel-lore: "&#bbbbbbClick to cancel"
       create-name: "&dCreate Order"
       create-lore-1: "&#bbbbbbClick and type amount price"
-      create-lore-2: "&#bbbbbbExample: &#ff6cff64 10"
+      create-lore-2: "&#bbbbbbExample: &#ff88ff64 10"
   messages:
     invalid-amount: "&cAmount must be greater than 0"
     max-amount: "&cThat order amount is too high"
@@ -509,12 +507,12 @@ orders:
     economy-not-ready: "&cEconomy is not ready"
     minimum-price: "&cPrice is too low"
     not-enough-money: "&cYou do not have enough money"
-    created: "&#bbbbbbCreated order for &#ff6cff%amount%x %item%"
+    created: "&#bbbbbbCreated order for &#ff88ff%amount%x %item%"
     already-complete: "&cThat order is already complete"
     own-order: "&cYou cannot deliver to your own order"
     missing-items: "&cYou do not have the required item"
-    delivered: "&#bbbbbbDelivered &#ff6cff%amount%x %item% &#bbbbbbfor &#ff6cff+%money%"
-    cancelled: "&#bbbbbbCancelled order and refunded &#ff6cff%refund%"
-    collected: "&#bbbbbbCollected &#ff6cff%amount%x %item%"
+    delivered: "&#bbbbbbDelivered &#ff88ff%amount%x %item% &#bbbbbbfor &#ff88ff+%money%"
+    cancelled: "&#bbbbbbCancelled order and refunded &#ff88ff%refund%"
+    collected: "&#bbbbbbCollected &#ff88ff%amount%x %item%"
     nothing-to-collect: "&cThere are no items to collect"
     inventory-full: "&cYour inventory is full"

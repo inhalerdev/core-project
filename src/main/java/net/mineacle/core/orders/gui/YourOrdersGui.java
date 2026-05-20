@@ -20,8 +20,8 @@ public final class YourOrdersGui {
 
     public static void open(Player player, OrderService service) {
         Inventory inventory = Bukkit.createInventory(null, 54, title());
-
         List<OrderRecord> orders = service.ownerOrders(player.getUniqueId());
+
         int slot = 0;
 
         for (OrderRecord order : orders) {
@@ -49,14 +49,16 @@ public final class YourOrdersGui {
         String escrow = economy == null ? "$" + order.escrowRemainingCents() : economy.format(order.escrowRemainingCents());
 
         return OrdersMainGui.item(order.material(), "&d" + service.pretty(order.material()), List.of(
-                cfg("orders.gui.my-order-lore.status", "&#ccccccStatus: %status%").replace("%status%", order.active() ? "&#ff6cffActive" : "&cClosed"),
-                cfg("orders.gui.my-order-lore.delivered", "&#ccccccDelivered: &#ff6cff%delivered%&8/&#ff6cff%requested%")
+                cfg("orders.gui.my-order-lore.status", "&#bbbbbbStatus: %status%")
+                        .replace("%status%", order.active() ? "&#ff88ffActive" : "&cClosed"),
+                cfg("orders.gui.my-order-lore.delivered", "&#bbbbbbDelivered: &#ff88ff%delivered%&8/&#ff88ff%requested%")
                         .replace("%delivered%", String.valueOf(order.deliveredAmount()))
                         .replace("%requested%", String.valueOf(order.requestedAmount())),
-                cfg("orders.gui.my-order-lore.escrow", "&#ccccccRefundable Escrow: &#ff6cff%escrow%").replace("%escrow%", escrow),
+                cfg("orders.gui.my-order-lore.escrow", "&#bbbbbbRefundable Escrow: &#ff88ff%escrow%")
+                        .replace("%escrow%", escrow),
                 "",
                 order.active()
-                        ? cfg("orders.gui.my-order-lore.click", "&#ccccccClick to collect, cancel, or refund")
+                        ? cfg("orders.gui.my-order-lore.click", "&#bbbbbbClick to collect, cancel, or refund")
                         : cfg("orders.gui.my-order-lore.closed", "&8Closed")
         ));
     }
