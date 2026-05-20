@@ -15,7 +15,10 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 public final class BountyGuiListener implements Listener {
@@ -23,6 +26,7 @@ public final class BountyGuiListener implements Listener {
     private final Core core;
     private final BountyService bountyService;
     private final PlayerStatisticsGui statsGui = new PlayerStatisticsGui();
+    private final Set<UUID> waitingForSearch = new HashSet<>();
 
     public BountyGuiListener(Core core, BountyService bountyService) {
         this.core = core;
@@ -79,6 +83,12 @@ public final class BountyGuiListener implements Listener {
             return;
         }
 
+        if (slot == BountyMainGui.SEARCH_SLOT) {
+            SoundService.guiClick(player, core);
+            beginSearch(player);
+            return;
+        }
+
         if (slot == BountyMainGui.NEXT_SLOT) {
             SoundService.guiClick(player, core);
             BountyMainGui.open(core, player, bountyService, page + 1);
@@ -98,6 +108,49 @@ public final class BountyGuiListener implements Listener {
                 () -> BountyMainGui.open(core, player, bountyService, page),
                 () -> statsGui.open(player, targetId)
         );
+    }
+
+    private void beginSearch(Player player) {
+        waitingForSearch.add(player.getUniqueId());
+        player.closeInventory();
+
+        player.sendMessage(TextColor.color("&#bbbbbbType a player name to search bounties"));
+        player.sendMessage(TextColor.color("&#bbbbbbType &dcancel &#bbbbbbto cancel or &dclear &#bbbbbbto reset search"));
+        player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(TextColor.color("&#bbbbbbType a player name to search bounties")));
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    public void onSearchChat(AsyncPlayerChatEvent event) {
+        Player player = event.getPlayer();
+
+        if (!waitingForSearch.remove(player.getUniqueId())) {
+            return;
+        }
+
+        event.setCancelled(true);
+        String message = event.getMessage();
+
+        core.getServer().getScheduler().runTask(core, () -> {
+            if (!player.isOnline()) {
+                return;
+            }
+
+            if (message.equalsIgnoreCase("cancel") || message.equalsIgnoreCase("cancelled")) {
+                player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(TextColor.color("&#bbbbbbBounty search cancelled")));
+                BountyMainGui.open(core, player, bountyService, BountyMainGui.currentPage(player));
+                return;
+            }
+
+            if (message.equalsIgnoreCase("clear")) {
+                BountyMainGui.clearSearch(player);
+                player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(TextColor.color("&#bbbbbbBounty search cleared")));
+                BountyMainGui.open(core, player, bountyService, 0);
+                return;
+            }
+
+            BountyMainGui.setSearch(player, message);
+            BountyMainGui.open(core, player, bountyService, 0);
+        });
     }
 
     private void handleConfirmClick(InventoryClickEvent event, Player player) {
@@ -141,10 +194,10 @@ public final class BountyGuiListener implements Listener {
         clearMeta(player);
         player.closeInventory();
 
-        String message = "&#bbbbbbPlaced &a" + bountyService.format(amount) + " &#bbbbbbbounty on &#ff88ff" + DisplayNames.displayName(target);
+        String output = "&#bbbbbbPlaced &a" + bountyService.format(amount) + " &#bbbbbbbounty on &#ff88ff" + DisplayNames.displayName(target);
 
-        player.sendMessage(TextColor.color(message));
-        player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message)));
+        player.sendMessage(TextColor.color(output));
+        player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(TextColor.color(output)));
         SoundService.guiConfirm(player, core);
 
         Player onlineTarget = target.getPlayer();

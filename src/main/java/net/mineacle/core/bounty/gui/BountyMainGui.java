@@ -15,7 +15,9 @@ import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.metadata.FixedMetadataValue;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public final class BountyMainGui {
@@ -23,19 +25,23 @@ public final class BountyMainGui {
     public static final String TITLE_PREFIX = "Bounties (Page ";
     public static final int SIZE = 54;
     public static final int ENTRIES_PER_PAGE = 45;
+
     public static final int PREVIOUS_SLOT = 45;
-    public static final int SORT_SLOT = 49;
-    public static final int REFRESH_SLOT = 51;
+    public static final int SORT_SLOT = 48;
+    public static final int REFRESH_SLOT = 49;
+    public static final int SEARCH_SLOT = 50;
     public static final int NEXT_SLOT = 53;
+
     public static final String META_PAGE = "mineacle_bounty_page";
     public static final String META_SORT = "mineacle_bounty_sort";
+
+    private static final Map<UUID, String> SEARCHES = new HashMap<>();
 
     private BountyMainGui() {
     }
 
     public static void open(Core core, Player player, BountyService bountyService, int page) {
-        BountySortMode sortMode = sortMode(player);
-        List<BountyRecord> records = bountyService.list(sortMode);
+        List<BountyRecord> records = filteredRecords(player, bountyService);
 
         int totalPages = Math.max(1, (int) Math.ceil(records.size() / (double) ENTRIES_PER_PAGE));
         int safePage = Math.max(0, Math.min(page, totalPages - 1));
@@ -59,14 +65,38 @@ public final class BountyMainGui {
         }
 
         if (safePage > 0) {
-            inventory.setItem(PREVIOUS_SLOT, item(Material.ARROW, "&dBack", List.of("&#bbbbbbClick to go to previous page")));
+            inventory.setItem(PREVIOUS_SLOT, item(
+                    Material.ARROW,
+                    "&dBack",
+                    List.of("&#bbbbbbClick to go to the previous page")
+            ));
         }
 
-        inventory.setItem(SORT_SLOT, sortItem(sortMode));
-        inventory.setItem(REFRESH_SLOT, item(Material.EMERALD, "&dRefresh", List.of("&#bbbbbbClick to refresh")));
+        inventory.setItem(SORT_SLOT, sortItem(sortMode(player)));
+
+        inventory.setItem(REFRESH_SLOT, item(
+                Material.EMERALD,
+                "&dBounties",
+                List.of(
+                        "&#bbbbbbClick to refresh",
+                        "",
+                        "&#bbbbbbSet a bounty using this:",
+                        "&#bbbbbb/bounty add (player) (amount)"
+                )
+        ));
+
+        inventory.setItem(SEARCH_SLOT, item(
+                Material.OAK_SIGN,
+                "&dSearch",
+                List.of("&#bbbbbbClick to search")
+        ));
 
         if (safePage < totalPages - 1) {
-            inventory.setItem(NEXT_SLOT, item(Material.ARROW, "&dNext", List.of("&#bbbbbbClick to go to next page")));
+            inventory.setItem(NEXT_SLOT, item(
+                    Material.ARROW,
+                    "&dNext",
+                    List.of("&#bbbbbbClick to go to the next page")
+            ));
         }
 
         player.openInventory(inventory);
@@ -101,12 +131,50 @@ public final class BountyMainGui {
         player.setMetadata(META_SORT, new FixedMetadataValue(core, next.name()));
     }
 
+    public static void setSearch(Player player, String query) {
+        if (query == null || query.isBlank()) {
+            SEARCHES.remove(player.getUniqueId());
+            return;
+        }
+
+        SEARCHES.put(player.getUniqueId(), query.toLowerCase());
+    }
+
+    public static void clearSearch(Player player) {
+        SEARCHES.remove(player.getUniqueId());
+    }
+
+    public static String search(Player player) {
+        return SEARCHES.getOrDefault(player.getUniqueId(), "");
+    }
+
+    public static List<BountyRecord> filteredRecords(Player player, BountyService bountyService) {
+        List<BountyRecord> records = new ArrayList<>(bountyService.list(sortMode(player)));
+        String query = search(player);
+
+        if (query == null || query.isBlank()) {
+            return records;
+        }
+
+        records.removeIf(record -> {
+            OfflinePlayer target = Bukkit.getOfflinePlayer(record.targetId());
+            String username = target.getName() == null ? "" : target.getName();
+            String displayName = DisplayNames.displayName(target);
+
+            return !username.toLowerCase().contains(query)
+                    && !displayName.toLowerCase().contains(query)
+                    && !record.targetName().toLowerCase().contains(query);
+        });
+
+        return records;
+    }
+
     public static UUID targetAt(Player player, BountyService bountyService, int slot) {
         if (slot < 0 || slot >= ENTRIES_PER_PAGE) {
             return null;
         }
 
-        List<BountyRecord> records = bountyService.list(sortMode(player));
+        List<BountyRecord> records = filteredRecords(player, bountyService);
         int index = (currentPage(player) * ENTRIES_PER_PAGE) + slot;
 
         if (index < 0 || index >= records.size()) {
@@ -128,8 +196,7 @@ public final class BountyMainGui {
         meta.setOwningPlayer(target);
         meta.setDisplayName(TextColor.color("&d" + DisplayNames.displayName(target)));
         meta.setLore(List.of(
-                TextColor.color("&#bbbbbbBounty: &a" + bountyService.format(record.amountCents())),
-                TextColor.color("&#bbbbbbClick to view stats")
+                TextColor.color("&#bbbbbbBounty: &a" + bountyService.format(record.amountCents()))
         ));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
@@ -137,15 +204,11 @@ public final class BountyMainGui {
     }
 
     private static ItemStack sortItem(BountySortMode current) {
-        List<String> lore = new ArrayList<>();
-        lore.add("&#bbbbbbClick to sort");
-        lore.add("");
-
-        for (BountySortMode mode : BountySortMode.values()) {
-            lore.add((mode == current ? "&#ff88ff" : "&#bbbbbb") + mode.displayName());
-        }
-
-        return item(Material.ANVIL, "&dSort", lore);
+        return item(
+                Material.HOPPER,
+                "&dSort",
+                List.of("&#bbbbbbClick to sort (" + current.displayName() + ")")
+        );
     }
 
     private static ItemStack item(Material material, String name, List<String> lore) {
