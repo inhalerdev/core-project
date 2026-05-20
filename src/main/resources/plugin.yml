@@ -133,6 +133,16 @@ commands:
     usage: /bounty
     permission: mineaclebounty.use
 
+  hide:
+    description: Toggle hidden mode
+    usage: /hide
+    permission: mineaclehide.use
+  mineaclenametags:
+    description: Reload Mineacle nametags
+    aliases: [nametags]
+    usage: /mineaclenametags reload
+    permission: mineaclenametags.admin
+
   gmc:
     description: Set gamemode creative
     usage: /gmc
@@ -150,28 +160,18 @@ commands:
     usage: /gma
     permission: mineacle.gamemode
 
-  links:
-    description: Open Mineacle links menu
-    aliases: [ link ]
-    usage: /links
-    permission: mineaclelinks.use
-  discord:
-    description: Open Mineacle links menu
-    usage: /discord
-    permission: mineaclelinks.use
-  store:
-    description: Open Mineacle links menu
-    usage: /store
-    permission: mineaclelinks.use
-  appeal:
-    description: Open Mineacle links menu
-    usage: /appeal
-    permission: mineaclelinks.use
-
 permissions:
   mineacle.plus:
     default: false
   mineacle.gamemode:
+    default: op
+
+  mineaclehide.use:
+    default: true
+  mineaclehide.admin:
+    default: op
+
+  mineaclenametags.admin:
     default: op
 
   mineaclehomes.use:
@@ -250,9 +250,4 @@ permissions:
   mineaclebounty.use:
     default: true
   mineaclebounty.admin:
-    default: op
-
-  mineaclelinks.use:
-    default: true
-  mineaclelinks.admin:
     default: op

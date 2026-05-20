@@ -1,0 +1,14 @@
+enabled: true
+required-votes: 3
+
+reward:
+  commands:
+    - "phoenixcrates key give %player% VoteKey 1"
+
+messages:
+  progress:
+    enabled: true
+    text: "&#bbbbbbVote received &#ff88ff%votes%&#bbbbbb/&#ff88ff%required% &#bbbbbbtoward a Vote Crate Key"
+  reward:
+    enabled: true
+    text: "&#bbbbbbYou earned a &#ff88ffVote Crate Key &#bbbbbbfor voting"

@@ -1,0 +1,14 @@
+enabled: true
+permission: mineacle.plus
+admin-see-permission: mineaclehide.admin
+
+hide-from-tab: true
+disable-pickup: true
+disable-entity-target: true
+
+messages:
+  enabled: "&#bbbbbbHidden mode &#ff88ffenabled"
+  disabled: "&#bbbbbbHidden mode &cdisabled"
+  blocked: "&cMineacle+ is required to use /hide"
+  actionbar: "&#bbbbbbYou are hidden"
+  visible-to-admin: "&#ff88ff[Hidden] &#bbbbbb%player%"
