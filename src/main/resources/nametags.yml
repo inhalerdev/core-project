@@ -1,0 +1,15 @@
+enabled: true
+update-interval-seconds: 5
+
+colors:
+  op: "#ff88ff"
+  default: "#bbbbbb"
+  hidden: "#ff88ff"
+
+rank:
+  use-placeholderapi: true
+  placeholder: "%luckperms_prefix%"
+  fallback: ""
+
+hidden:
+  admin-prefix: "&#ff88ff[Hidden] "
