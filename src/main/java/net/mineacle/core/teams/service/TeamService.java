@@ -409,10 +409,10 @@ public final class TeamService {
 
     public String formatTeamName(TeamRecord team) {
         if (team == null) {
-            return "�&#bbbbbbNo Team";
+            return "Â&#bbbbbbNo Team";
         }
 
-        return "§d" + team.name();
+        return "Â&d" + team.name();
     }
 
     private void load() {
