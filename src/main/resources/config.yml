@@ -134,7 +134,7 @@ origin-rtp:
     process-every-ticks: 10
     max-processing-at-once: 2
   default:
-    delay-seconds: 5
+    delay-seconds: 4
   plus:
     permission: mineacle.plus
     delay-seconds: 3
