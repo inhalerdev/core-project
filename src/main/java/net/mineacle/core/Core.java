@@ -10,6 +10,7 @@ import net.mineacle.core.doublejump.DoubleJumpModule;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.gamemode.GamemodeModule;
 import net.mineacle.core.homes.HomesModule;
+import net.mineacle.core.links.LinksModule;
 import net.mineacle.core.orders.OrdersModule;
 import net.mineacle.core.placeholders.PlaceholdersModule;
 import net.mineacle.core.rtp.RtpModule;
@@ -65,6 +66,7 @@ public final class Core extends JavaPlugin {
 
         try {
             registerModule(new HomesModule());
+            registerModule(new LinksModule());
             registerModule(new TeamsModule());
             registerModule(new TpaModule());
             registerModule(new StatsModule());

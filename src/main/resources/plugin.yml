@@ -150,6 +150,24 @@ commands:
     usage: /gma
     permission: mineacle.gamemode
 
+  links:
+    description: Open Mineacle links menu
+    aliases: [ link ]
+    usage: /links
+    permission: mineaclelinks.use
+  discord:
+    description: Open Mineacle links menu
+    usage: /discord
+    permission: mineaclelinks.use
+  store:
+    description: Open Mineacle links menu
+    usage: /store
+    permission: mineaclelinks.use
+  appeal:
+    description: Open Mineacle links menu
+    usage: /appeal
+    permission: mineaclelinks.use
+
 permissions:
   mineacle.plus:
     default: false
@@ -232,4 +250,9 @@ permissions:
   mineaclebounty.use:
     default: true
   mineaclebounty.admin:
+    default: op
+
+  mineaclelinks.use:
+    default: true
+  mineaclelinks.admin:
     default: op
