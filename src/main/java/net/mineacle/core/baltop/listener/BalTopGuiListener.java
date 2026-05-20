@@ -149,14 +149,14 @@ public final class BalTopGuiListener implements Listener {
             }
 
             if (message.equalsIgnoreCase("cancel") || message.equalsIgnoreCase("cancelled")) {
-                sendActionBar(player, "ยง7Balance Top search cancelled");
+                sendActionBar(player, "ย&#bbbbbbBalance Top search cancelled");
                 MenuHistory.openWithoutBackTrigger(core, player, () -> BalTopGui.open(core, player, economyService, BalTopGui.currentPage(player)));
                 return;
             }
 
             if (message.equalsIgnoreCase("clear")) {
                 BalTopGui.clearSearch(player);
-                sendActionBar(player, "ยง7Balance Top search cleared");
+                sendActionBar(player, "ย&#bbbbbbBalance Top search cleared");
                 MenuHistory.openWithoutBackTrigger(core, player, () -> BalTopGui.open(core, player, economyService, 0));
                 return;
             }

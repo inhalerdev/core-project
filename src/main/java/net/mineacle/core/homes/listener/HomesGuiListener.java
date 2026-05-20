@@ -214,7 +214,7 @@ public final class HomesGuiListener implements Listener {
 
             teamHomeService.setTeamHome(team.teamId(), player.getLocation());
 
-            String message = "Â§7Team Home set to your current location";
+            String message = "Â&#bbbbbbTeam Home set to your current location";
 
             player.sendActionBar(actionBar(message));
             player.sendMessage(message);
@@ -237,7 +237,7 @@ public final class HomesGuiListener implements Listener {
             teleportService.begin(player, "Team Home", () -> {
                 player.teleport(home);
 
-                String message = "Â§7Teleported to Â§dTeam Home";
+                String message = "Â&#bbbbbbTeleported to Â§dTeam Home";
 
                 player.sendActionBar(actionBar(message));
                 player.sendMessage(message);
@@ -298,7 +298,7 @@ public final class HomesGuiListener implements Listener {
         if (!confirmed) {
             player.setMetadata(META_TEAM_HOME_CONFIRM, new FixedMetadataValue(core, true));
 
-            String message = "Â§7Click confirm again to continue";
+            String message = "Â&#bbbbbbClick confirm again to continue";
 
             player.sendActionBar(actionBar(message));
             player.sendMessage(message);
@@ -408,7 +408,7 @@ public final class HomesGuiListener implements Listener {
 
         player.setMetadata(META_HOME_CONFIRM, new FixedMetadataValue(core, id));
 
-        String message = "Â§7Click confirm again to continue";
+        String message = "Â&#bbbbbbClick confirm again to continue";
 
         player.sendActionBar(actionBar(message));
         player.sendMessage(message);
@@ -479,7 +479,7 @@ public final class HomesGuiListener implements Listener {
     private void sendCreateTeamPrompt(Player player) {
         player.sendMessage("Â§cYou are not in a team");
 
-        Component clickable = Component.text("Â§7Type Â§d/team create  Â§7to create a team")
+        Component clickable = Component.text("Â&#bbbbbbType Â§d/team create  Â&#bbbbbbto create a team")
                 .clickEvent(ClickEvent.suggestCommand("/team create "));
 
         player.sendMessage(clickable);

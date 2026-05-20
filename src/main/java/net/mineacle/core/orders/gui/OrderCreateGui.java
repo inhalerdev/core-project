@@ -41,7 +41,7 @@ public final class OrderCreateGui {
 
         inventory.setItem(CREATE_SLOT, OrdersMainGui.item(Material.LIME_STAINED_GLASS_PANE, cfg("orders.gui.create.create-name", "&aCREATE ORDER"), List.of(
                 cfg("orders.gui.create.create-lore-1", "&fClick and type amount price"),
-                cfg("orders.gui.create.create-lore-2", "&7Example: &f64 10")
+                cfg("orders.gui.create.create-lore-2", "&#bbbbbbExample: &f64 10")
         )));
 
         player.openInventory(inventory);

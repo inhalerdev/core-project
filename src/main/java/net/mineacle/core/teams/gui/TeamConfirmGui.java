@@ -32,8 +32,8 @@ public final class TeamConfirmGui {
                 Material.RED_STAINED_GLASS_PANE,
                 "&cCancel",
                 List.of(
-                        "&7Do not continue.",
-                        "&7Click to cancel this action."
+                        "&#bbbbbbDo not continue.",
+                        "&#bbbbbbClick to cancel this action."
                 )
         ));
 
@@ -41,8 +41,8 @@ public final class TeamConfirmGui {
                 Material.RED_DYE,
                 "&c" + actionName,
                 List.of(
-                        "&7This action needs confirmation.",
-                        "&7Use the green pane to continue."
+                        "&#bbbbbbThis action needs confirmation.",
+                        "&#bbbbbbUse the green pane to continue."
                 )
         ));
 
@@ -50,8 +50,8 @@ public final class TeamConfirmGui {
                 Material.LIME_STAINED_GLASS_PANE,
                 "&aConfirm",
                 List.of(
-                        "&7Click once to ready this action.",
-                        "&7Click again to confirm."
+                        "&#bbbbbbClick once to ready this action.",
+                        "&#bbbbbbClick again to confirm."
                 )
         ));
 

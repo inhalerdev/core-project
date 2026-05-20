@@ -38,8 +38,8 @@ public final class TeamInviteGui {
         if (invite == null) {
             inventory.setItem(CENTER_SLOT, item(
                     Material.GRAY_STAINED_GLASS_PANE,
-                    "&7No Team Invites",
-                    List.of("&7You do not have any pending team invites")
+                    "&#bbbbbbNo Team Invites",
+                    List.of("&#bbbbbbYou do not have any pending team invites")
             ));
 
             player.openInventory(inventory);
@@ -54,7 +54,7 @@ public final class TeamInviteGui {
             inventory.setItem(CENTER_SLOT, item(
                     Material.BARRIER,
                     "&cInvite Expired",
-                    List.of("&7That team no longer exists")
+                    List.of("&#bbbbbbThat team no longer exists")
             ));
 
             player.openInventory(inventory);
@@ -68,8 +68,8 @@ public final class TeamInviteGui {
                 Material.LIME_CONCRETE,
                 "&dAccept",
                 List.of(
-                        "&7Join &d" + team.name(),
-                        "&7Invited by &d" + inviterName
+                        "&#bbbbbbJoin &d" + team.name(),
+                        "&#bbbbbbInvited by &d" + inviterName
                 )
         ));
 
@@ -77,9 +77,9 @@ public final class TeamInviteGui {
                 Material.PURPLE_BANNER,
                 "&d" + team.name(),
                 List.of(
-                        "&7Team invite",
-                        "&7Invited by &d" + inviterName,
-                        "&7Expires in &d" + inviteService.remainingSeconds(player.getUniqueId()) + "s"
+                        "&#bbbbbbTeam invite",
+                        "&#bbbbbbInvited by &d" + inviterName,
+                        "&#bbbbbbExpires in &d" + inviteService.remainingSeconds(player.getUniqueId()) + "s"
                 )
         ));
 
@@ -87,8 +87,8 @@ public final class TeamInviteGui {
                 Material.RED_CONCRETE,
                 "&dDeny",
                 List.of(
-                        "&7Decline this invite",
-                        "&7Team &d" + team.name()
+                        "&#bbbbbbDecline this invite",
+                        "&#bbbbbbTeam &d" + team.name()
                 )
         ));
 

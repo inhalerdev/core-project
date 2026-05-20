@@ -214,9 +214,9 @@ public final class SpawnCommand implements CommandExecutor, TabCompleter {
             String loaded = Bukkit.getWorld(point.worldName()) == null ? "&cNot loaded" : "&aLoaded";
 
             player.sendMessage(TextColor.color(
-                    "&7- &d" + point.id()
-                            + " &8| &7world: &d" + point.worldName()
-                            + " &8| &7slot: &d" + point.slot()
+                    "&#bbbbbb- &d" + point.id()
+                            + " &8| &#bbbbbbworld: &d" + point.worldName()
+                            + " &8| &#bbbbbbslot: &d" + point.slot()
                             + " &8| " + status
                             + " &8| " + loaded
             ));

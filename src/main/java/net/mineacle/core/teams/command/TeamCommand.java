@@ -160,11 +160,11 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length < 2) {
-            Component prompt = Component.text(TextColor.color("ยง7Type ยงd/team create  ยง7to create a team"))
+            Component prompt = Component.text(TextColor.color("ย&#bbbbbbType ยงd/team create  ย&#bbbbbbto create a team"))
                     .clickEvent(ClickEvent.suggestCommand("/team create "));
 
             player.sendMessage(prompt);
-            player.sendActionBar(actionBar("ยง7Type ยงd/team create  ยง7to create a team"));
+            player.sendActionBar(actionBar("ย&#bbbbbbType ยงd/team create  ย&#bbbbbbto create a team"));
             return true;
         }
 
@@ -175,7 +175,7 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        sendBoth(player, "ยง7Team ยงd" + name + " ยง7created");
+        sendBoth(player, "ย&#bbbbbbTeam ยงd" + name + " ย&#bbbbbbcreated");
         SoundService.teamCreate(player, core);
         return true;
     }
@@ -273,7 +273,7 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
         Component view = Component.text(TextColor.color("&d[View]"))
                 .clickEvent(ClickEvent.runCommand("/team invites"));
 
-        Component inviteMessage = Component.text(TextColor.color("ยง7You received a team invite to &d" + team.name() + " ยง7"))
+        Component inviteMessage = Component.text(TextColor.color("ย&#bbbbbbYou received a team invite to &d" + team.name() + " ย&#bbbbbb"))
                 .append(accept)
                 .append(Component.text(" "))
                 .append(deny)
@@ -293,7 +293,7 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
         }
 
         boolean enabled = teamService.toggleTeamChat(player.getUniqueId());
-        String message = enabled ? "ยง7Team chat enabled" : "ยง7Team chat disabled";
+        String message = enabled ? "ย&#bbbbbbTeam chat enabled" : "ย&#bbbbbbTeam chat disabled";
 
         sendBoth(player, message);
         SoundService.guiConfirm(player, core);
@@ -370,7 +370,7 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
         SoundService.guiClick(player, core);
         teleportService.begin(player, "Team Home", () -> {
             player.teleport(home);
-            sendBoth(player, "ยง7Teleported to ยงdTeam Home");
+            sendBoth(player, "ย&#bbbbbbTeleported to ยงdTeam Home");
         });
 
         return true;
@@ -395,7 +395,7 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
         }
 
         teamHomeService.setTeamHome(team.teamId(), player.getLocation());
-        sendBoth(player, "ยง7Team Home set to your current location");
+        sendBoth(player, "ย&#bbbbbbTeam Home set to your current location");
         SoundService.homeSet(player, core);
         return true;
     }

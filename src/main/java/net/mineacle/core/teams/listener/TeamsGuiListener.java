@@ -136,11 +136,11 @@ public final class TeamsGuiListener implements Listener {
             SoundService.guiClick(player, core);
             player.closeInventory();
 
-            Component prompt = Component.text(TextColor.color("ยง7Type ยงd/team create ยง7to create a team"))
+            Component prompt = Component.text(TextColor.color("ย&#bbbbbbType ยงd/team create ย&#bbbbbbto create a team"))
                     .clickEvent(ClickEvent.suggestCommand("/team create "));
 
             player.sendMessage(prompt);
-            player.sendActionBar(actionBar("ยง7Type ยงd/team create ยง7to create a team"));
+            player.sendActionBar(actionBar("ย&#bbbbbbType ยงd/team create ย&#bbbbbbto create a team"));
             return;
         }
 
@@ -185,7 +185,7 @@ public final class TeamsGuiListener implements Listener {
                 SoundService.guiClick(player, core);
                 player.closeInventory();
 
-                Component invitePrompt = Component.text("ยง7Type ยงd/team invite ยง7to invite a player")
+                Component invitePrompt = Component.text("ย&#bbbbbbType ยงd/team invite ย&#bbbbbbto invite a player")
                         .clickEvent(ClickEvent.suggestCommand("/team invite "));
 
                 player.sendMessage(invitePrompt);
@@ -202,7 +202,7 @@ public final class TeamsGuiListener implements Listener {
 
         if (slot == TeamsMainGui.TEAM_CHAT_SLOT) {
             boolean enabled = teamService.toggleTeamChat(player.getUniqueId());
-            String message = enabled ? "ยง7Team chat enabled" : "ยง7Team chat disabled";
+            String message = enabled ? "ย&#bbbbbbTeam chat enabled" : "ย&#bbbbbbTeam chat disabled";
 
             sendBoth(player, message);
             SoundService.guiConfirm(player, core);
@@ -243,7 +243,7 @@ public final class TeamsGuiListener implements Listener {
 
             teleportService.begin(player, "Team Home", () -> {
                 player.teleport(home);
-                sendBoth(player, "ยง7Teleported to ยงdTeam Home");
+                sendBoth(player, "ย&#bbbbbbTeleported to ยงdTeam Home");
             });
             return;
         }
@@ -566,7 +566,7 @@ public final class TeamsGuiListener implements Listener {
     private void markConfirmReady(Player player, String action) {
         player.setMetadata(META_CONFIRM, new FixedMetadataValue(core, action));
 
-        String message = "ยง7Click confirm again to continue";
+        String message = "ย&#bbbbbbClick confirm again to continue";
 
         sendBoth(player, message);
         SoundService.guiConfirm(player, core);

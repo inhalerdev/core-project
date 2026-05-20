@@ -34,17 +34,17 @@ public final class TeamStartGui {
                 Material.PURPLE_BANNER,
                 "&dCreate Team",
                 List.of(
-                        "&7Create your own team",
-                        "&7Click to autofill &d/team create"
+                        "&#bbbbbbCreate your own team",
+                        "&#bbbbbbClick to autofill &d/team create"
                 )
         ));
 
         inventory.setItem(INVITES_SLOT, item(
                 hasInvite ? Material.LIME_STAINED_GLASS_PANE : Material.GRAY_STAINED_GLASS_PANE,
-                hasInvite ? "&dTeam Invites" : "&7No Team Invites",
+                hasInvite ? "&dTeam Invites" : "&#bbbbbbNo Team Invites",
                 List.of(
-                        hasInvite ? "&7You have a pending team invite" : "&7You do not have any team invites",
-                        "&7Click to view invites"
+                        hasInvite ? "&#bbbbbbYou have a pending team invite" : "&#bbbbbbYou do not have any team invites",
+                        "&#bbbbbbClick to view invites"
                 )
         ));
 
@@ -52,9 +52,9 @@ public final class TeamStartGui {
                 Material.BOOK,
                 "&dTeams",
                 List.of(
-                        "&7Create a team, invite friends",
-                        "&7set Team Home, toggle Team PvP",
-                        "&7and use Team Chat"
+                        "&#bbbbbbCreate a team, invite friends",
+                        "&#bbbbbbset Team Home, toggle Team PvP",
+                        "&#bbbbbband use Team Chat"
                 )
         ));
 

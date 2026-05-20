@@ -17,7 +17,7 @@ public final class TextColor {
             return "";
         }
 
-        String output = input.replace("&7", "&#bbbbbb");
+        String output = input.replace("&#bbbbbb", "&#bbbbbb");
 
         Matcher matcher = HEX_PATTERN.matcher(output);
         StringBuilder builder = new StringBuilder();

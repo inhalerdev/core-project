@@ -314,7 +314,7 @@ public final class SpawnService {
         }
 
         return List.of(
-                "&7%online%&8/&7%max%",
+                "&#bbbbbb%online%&8/&#bbbbbb%max%",
                 "",
                 "&a➥ You are currently here"
         );
@@ -328,7 +328,7 @@ public final class SpawnService {
         }
 
         return List.of(
-                "&7%online%&8/&7%max%",
+                "&#bbbbbb%online%&8/&#bbbbbb%max%",
                 "",
                 "&e➥ Return to Spawn"
         );
@@ -342,9 +342,9 @@ public final class SpawnService {
         }
 
         return List.of(
-                "&7Click to teleport to a random &#b777f5Spawn",
+                "&#bbbbbbClick to teleport to a random &#b777f5Spawn",
                 "",
-                "&7Chooses the lowest-populated spawn"
+                "&#bbbbbbChooses the lowest-populated spawn"
         );
     }
 
