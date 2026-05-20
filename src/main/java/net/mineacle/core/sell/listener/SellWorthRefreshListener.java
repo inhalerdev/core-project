@@ -1,6 +1,7 @@
 package net.mineacle.core.sell.listener;
 
 import net.mineacle.core.Core;
+import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -51,6 +52,11 @@ public final class SellWorthRefreshListener implements Listener {
     private void refresh(Player player, long delay) {
         core.getServer().getScheduler().runTaskLater(core, () -> {
             if (!player.isOnline()) {
+                return;
+            }
+
+            if (player.getGameMode() == GameMode.CREATIVE
+                    || player.getGameMode() == GameMode.SPECTATOR) {
                 return;
             }
 

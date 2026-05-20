@@ -13,6 +13,7 @@ import net.mineacle.core.sell.gui.SellMultiGui;
 import net.mineacle.core.sell.gui.WorthGui;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.ChatColor;
+import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.InventoryView;
@@ -44,7 +45,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
     public void onPacketSending(PacketEvent event) {
         Player player = event.getPlayer();
 
-        if (player == null || shouldSkip(player)) {
+        if (player == null || isUnsafeInventoryMode(player) || shouldSkip(player)) {
             return;
         }
 
@@ -166,6 +167,11 @@ public final class SellWorthPacketListener extends PacketAdapter {
                 || stripped.startsWith("Enchant Value:")
                 || stripped.startsWith("Stack Worth:")
                 || stripped.startsWith("Demand:");
+    }
+
+    private boolean isUnsafeInventoryMode(Player player) {
+        return player.getGameMode() == GameMode.CREATIVE
+                || player.getGameMode() == GameMode.SPECTATOR;
     }
 
     private boolean shouldSkip(Player player) {
