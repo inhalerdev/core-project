@@ -24,7 +24,7 @@ public final class VoteRewardModule extends Module {
             core.getLogger().warning("NuVotifier/Votifier not found; vote reward listener may not receive vote events");
         }
 
-        core.getServer().getPluginManager().registerEvents(new VoteRewardListener(core, service), core);
+        core.getServer().getPluginManager().registerEvents(new VoteRewardListener(service), core);
     }
 
     @Override
