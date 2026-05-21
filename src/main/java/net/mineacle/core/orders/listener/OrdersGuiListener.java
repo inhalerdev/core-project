@@ -1,6 +1,7 @@
 package net.mineacle.core.orders.listener;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.orders.gui.OrderConfirmGui;
@@ -75,38 +76,40 @@ public final class OrdersGuiListener implements Listener {
     }
 
     private void handleMain(Player player, int slot) {
+        int page = OrdersMainGui.page(player);
+
         if (slot == OrdersMainGui.PREV_SLOT) {
             OrdersMainGui.previousPage(player);
             SoundService.guiClick(player, core);
-            OrdersMainGui.open(player, service);
+            MenuHistory.openWithoutBackTrigger(core, player, () -> OrdersMainGui.open(player, service));
             return;
         }
 
         if (slot == OrdersMainGui.NEXT_SLOT) {
             OrdersMainGui.nextPage(player, service);
             SoundService.guiClick(player, core);
-            OrdersMainGui.open(player, service);
+            MenuHistory.openWithoutBackTrigger(core, player, () -> OrdersMainGui.open(player, service));
             return;
         }
 
         if (slot == OrdersMainGui.SORT_SLOT) {
             OrdersMainGui.cycleSort(player);
             SoundService.guiClick(player, core);
-            OrdersMainGui.open(player, service);
+            MenuHistory.openWithoutBackTrigger(core, player, () -> OrdersMainGui.open(player, service));
             return;
         }
 
         if (slot == OrdersMainGui.FILTER_SLOT) {
             OrdersMainGui.cycleFilter(player);
             SoundService.guiClick(player, core);
-            OrdersMainGui.open(player, service);
+            MenuHistory.openWithoutBackTrigger(core, player, () -> OrdersMainGui.open(player, service));
             return;
         }
 
         if (slot == OrdersMainGui.SEARCH_SLOT) {
             SoundService.guiClick(player, core);
             OrderSearchInputListener.begin(player);
-            player.closeInventory();
+            MenuHistory.openWithoutBackTrigger(core, player, player::closeInventory);
             player.sendMessage(TextColor.color("&#bbbbbbType an item name to search orders"));
             player.sendMessage(TextColor.color("&#bbbbbbType &#ff88ffclear &#bbbbbbto reset or &#ff88ffcancel &#bbbbbbto stop"));
             return;
@@ -114,13 +117,18 @@ public final class OrdersGuiListener implements Listener {
 
         if (slot == OrdersMainGui.REFRESH_SLOT) {
             SoundService.guiClick(player, core);
-            OrdersMainGui.open(player, service);
+            MenuHistory.openWithoutBackTrigger(core, player, () -> OrdersMainGui.open(player, service));
             return;
         }
 
         if (slot == OrdersMainGui.MY_ORDERS_SLOT) {
             SoundService.guiClick(player, core);
-            YourOrdersGui.open(player, service);
+            MenuHistory.openChild(
+                    core,
+                    player,
+                    () -> OrdersMainGui.open(player, service),
+                    () -> YourOrdersGui.open(player, service)
+            );
             return;
         }
 
@@ -135,7 +143,22 @@ public final class OrdersGuiListener implements Listener {
         }
 
         SoundService.guiClick(player, core);
-        OrderConfirmGui.openDeliver(player, service, orders.get(slot));
+        MenuHistory.openChild(
+                core,
+                player,
+                () -> {
+                    while (OrdersMainGui.page(player) > page) {
+                        OrdersMainGui.previousPage(player);
+                    }
+
+                    while (OrdersMainGui.page(player) < page) {
+                        OrdersMainGui.nextPage(player, service);
+                    }
+
+                    OrdersMainGui.open(player, service);
+                },
+                () -> OrderConfirmGui.openDeliver(player, service, orders.get(slot))
+        );
     }
 
     private void handleMyOrders(Player player, int slot) {
@@ -153,7 +176,7 @@ public final class OrdersGuiListener implements Listener {
 
         if (order.deliveredAmount() > 0) {
             service.collect(player, order);
-            YourOrdersGui.open(player, service);
+            MenuHistory.openWithoutBackTrigger(core, player, () -> YourOrdersGui.open(player, service));
             return;
         }
 
@@ -162,35 +185,40 @@ public final class OrdersGuiListener implements Listener {
         }
 
         SoundService.guiClick(player, core);
-        OrderConfirmGui.openCancel(player, order);
+        MenuHistory.openChild(
+                core,
+                player,
+                () -> YourOrdersGui.open(player, service),
+                () -> OrderConfirmGui.openCancel(player, order)
+        );
     }
 
     private void handleCreate(Player player, int slot) {
         if (slot == OrderCreateGui.PREV_SLOT) {
             OrderCreateGui.previousPage(player);
             SoundService.guiClick(player, core);
-            OrderCreateGui.open(player, service);
+            MenuHistory.openWithoutBackTrigger(core, player, () -> OrderCreateGui.open(player, service));
             return;
         }
 
         if (slot == OrderCreateGui.NEXT_SLOT) {
             OrderCreateGui.nextPage(player);
             SoundService.guiClick(player, core);
-            OrderCreateGui.open(player, service);
+            MenuHistory.openWithoutBackTrigger(core, player, () -> OrderCreateGui.open(player, service));
             return;
         }
 
         if (slot == OrderCreateGui.FILTER_SLOT) {
             OrderCreateGui.cycleFilter(player);
             SoundService.guiClick(player, core);
-            OrderCreateGui.open(player, service);
+            MenuHistory.openWithoutBackTrigger(core, player, () -> OrderCreateGui.open(player, service));
             return;
         }
 
         if (slot == OrderCreateGui.SEARCH_SLOT) {
             SoundService.guiClick(player, core);
             OrderSearchInputListener.beginCreateSearch(player);
-            player.closeInventory();
+            MenuHistory.openWithoutBackTrigger(core, player, player::closeInventory);
             player.sendMessage(TextColor.color("&#bbbbbbType an item name to search"));
             player.sendMessage(TextColor.color("&#bbbbbbType &#ff88ffclear &#bbbbbbto reset or &#ff88ffcancel &#bbbbbbto stop"));
             return;
@@ -203,13 +231,7 @@ public final class OrdersGuiListener implements Listener {
                 return;
             }
 
-            SoundService.guiClick(player, core);
-            player.closeInventory();
-            OrderCreateInputListener.beginAmount(player, selected);
-            player.sendMessage(TextColor.color(""));
-            player.sendMessage(TextColor.color("&#bbbbbbHow many &#ff88ff" + service.pretty(selected) + " &#bbbbbbdo you want?"));
-            player.sendMessage(TextColor.color("&#bbbbbbExamples: &#ff88ff64&#bbbbbb, &#ff88ff2304"));
-            player.sendMessage(TextColor.color("&#bbbbbbType &#ff88ffcancel &#bbbbbbto stop"));
+            beginAmountInput(player, selected);
             return;
         }
 
@@ -225,8 +247,12 @@ public final class OrdersGuiListener implements Listener {
 
         Material material = materials.get(slot);
         OrderCreateGui.select(player, material);
+        beginAmountInput(player, material);
+    }
+
+    private void beginAmountInput(Player player, Material material) {
         SoundService.guiClick(player, core);
-        player.closeInventory();
+        MenuHistory.openWithoutBackTrigger(core, player, player::closeInventory);
         OrderCreateInputListener.beginAmount(player, material);
         player.sendMessage(TextColor.color(""));
         player.sendMessage(TextColor.color("&#bbbbbbHow many &#ff88ff" + service.pretty(material) + " &#bbbbbbdo you want?"));
@@ -238,14 +264,14 @@ public final class OrdersGuiListener implements Listener {
         OrderConfirmGui.PendingAction pending = OrderConfirmGui.pending(player);
 
         if (pending == null) {
-            player.closeInventory();
+            MenuHistory.openWithoutBackTrigger(core, player, player::closeInventory);
             return;
         }
 
         if (slot == OrderConfirmGui.CANCEL_SLOT) {
             OrderConfirmGui.clear(player);
             SoundService.guiCancel(player, core);
-            player.closeInventory();
+            MenuHistory.openWithoutBackTrigger(core, player, player::closeInventory);
             return;
         }
 
@@ -255,20 +281,20 @@ public final class OrdersGuiListener implements Listener {
 
         OrderRecord order = service.get(pending.orderId());
         OrderConfirmGui.clear(player);
-        player.closeInventory();
 
         if (order == null) {
             SoundService.guiError(player, core);
+            MenuHistory.openWithoutBackTrigger(core, player, player::closeInventory);
             return;
         }
 
         if (pending.type() == OrderConfirmGui.PendingType.DELIVER) {
             service.deliver(player, order);
-            OrdersMainGui.open(player, service);
+            MenuHistory.openWithoutBackTrigger(core, player, () -> OrdersMainGui.open(player, service));
             return;
         }
 
         service.cancel(player, order);
-        YourOrdersGui.open(player, service);
+        MenuHistory.openWithoutBackTrigger(core, player, () -> YourOrdersGui.open(player, service));
     }
 }

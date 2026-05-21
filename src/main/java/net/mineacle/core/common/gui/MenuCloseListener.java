@@ -36,14 +36,17 @@ public final class MenuCloseListener implements Listener {
                 || isTpaMenu(title)
                 || isStatsMenu(title)
                 || isBalTopMenu(title)
-                || isSpawnMenu(title);
+                || isSpawnMenu(title)
+                || isPlusMenu(title)
+                || isAdminMenu(title)
+                || isSellMenu(title)
+                || isOrdersMenu(title)
+                || isBountyMenu(title);
     }
 
     private boolean isHomesMenu(String title) {
         return title.equalsIgnoreCase("Homes")
-                || title.equalsIgnoreCase("Player Homes")
                 || title.equalsIgnoreCase("Delete Home")
-                || title.equalsIgnoreCase("Delete Player Home")
                 || title.equalsIgnoreCase("Delete Team Home")
                 || title.equalsIgnoreCase("Overwrite Home")
                 || title.equalsIgnoreCase("Rename Home");
@@ -77,11 +80,39 @@ public final class MenuCloseListener implements Listener {
     }
 
     private boolean isBalTopMenu(String title) {
-        return title.startsWith("Balance Top");
+        return title.startsWith("Balance Top (Page ");
     }
 
     private boolean isSpawnMenu(String title) {
         return title.equalsIgnoreCase("Spawn");
+    }
+
+    private boolean isPlusMenu(String title) {
+        return title.equalsIgnoreCase("Mineacle+") || title.equalsIgnoreCase("Mineacle Plus");
+    }
+
+    private boolean isAdminMenu(String title) {
+        return title.equalsIgnoreCase("Admin Panel") || title.startsWith("Admin:");
+    }
+
+    private boolean isSellMenu(String title) {
+        return title.equalsIgnoreCase("Place Items In Here To Sell")
+                || title.equalsIgnoreCase("Sell")
+                || title.equalsIgnoreCase("Sell Multipliers")
+                || title.startsWith("Sell History");
+    }
+
+    private boolean isOrdersMenu(String title) {
+        return title.startsWith("Orders (Page ")
+                || title.equalsIgnoreCase("My Orders")
+                || title.startsWith("Choose Item (Page ")
+                || title.equalsIgnoreCase("Confirm Delivery")
+                || title.equalsIgnoreCase("Confirm Cancel");
+    }
+
+    private boolean isBountyMenu(String title) {
+        return title.startsWith("Bounties (Page ")
+                || title.equalsIgnoreCase("Place Bounty");
     }
 
     private boolean isTeamMainMenu(String title) {

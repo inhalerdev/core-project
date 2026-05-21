@@ -40,7 +40,7 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
         }
 
         if (!player.hasPermission("mineaclebounty.use")) {
-            sendError(player, "§cYou do not have permission");
+            sendError(player, "&cYou do not have permission");
             return true;
         }
 
@@ -51,16 +51,20 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
 
         if (args[0].equalsIgnoreCase("add") || args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("place")) {
             if (args.length < 3) {
-                sendError(player, "§cUsage: /bounty add <player> <amount>");
+                sendError(player, "&cUsage: /bounty add <player> <amount>");
                 return true;
             }
 
             return confirm(player, args[1], args[2]);
         }
 
+        if (args[0].equalsIgnoreCase("remove")) {
+            return remove(player, args);
+        }
+
         if (args[0].equalsIgnoreCase("reload")) {
             if (!player.hasPermission("mineaclebounty.admin")) {
-                sendError(player, "§cYou do not have permission");
+                sendError(player, "&cYou do not have permission");
                 return true;
             }
 
@@ -69,35 +73,27 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (args[0].equalsIgnoreCase("remove")) {
-            return remove(player, args);
-        }
-
-        if (args.length < 2) {
-            sendError(player, "§cUsage: /bounty add <player> <amount>");
-            return true;
-        }
-
-        return confirm(player, args[0], args[1]);
+        sendError(player, "&cUsage: /bounty add <player> <amount>");
+        return true;
     }
 
     private boolean confirm(Player player, String targetInput, String amountInput) {
         OfflinePlayer target = bountyService.resolveTarget(targetInput);
 
         if (target == null) {
-            sendError(player, "§cThat player could not be found");
+            sendError(player, "&cThat player could not be found");
             return true;
         }
 
         if (target.getUniqueId().equals(player.getUniqueId())) {
-            sendError(player, "§cYou cannot place a bounty on yourself");
+            sendError(player, "&cYou cannot place a bounty on yourself");
             return true;
         }
 
         long amount = bountyService.parseAmount(amountInput);
 
         if (amount <= 0L) {
-            sendError(player, "§cThat is not a valid amount");
+            sendError(player, "&cThat is not a valid amount");
             return true;
         }
 
@@ -105,19 +101,19 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
         long maximum = bountyService.maximumCents();
 
         if (amount < minimum) {
-            sendError(player, "§cMinimum bounty is " + bountyService.format(minimum));
+            sendError(player, "&cMinimum bounty is " + bountyService.format(minimum));
             return true;
         }
 
         if (maximum > 0L && amount > maximum) {
-            sendError(player, "§cMaximum bounty is " + bountyService.format(maximum));
+            sendError(player, "&cMaximum bounty is " + bountyService.format(maximum));
             return true;
         }
 
         EconomyService economy = EconomyModule.economyService();
 
         if (economy == null || !economy.has(player.getUniqueId(), amount)) {
-            sendError(player, "§cYou do not have enough money");
+            sendError(player, "&cYou do not have enough money");
             return true;
         }
 
@@ -130,26 +126,26 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
 
     private boolean remove(Player player, String[] args) {
         if (!player.hasPermission("mineaclebounty.admin")) {
-            sendError(player, "§cYou do not have permission");
+            sendError(player, "&cYou do not have permission");
             return true;
         }
 
         if (args.length < 2) {
-            sendError(player, "§cUsage: /bounty remove <player>");
+            sendError(player, "&cUsage: /bounty remove <player>");
             return true;
         }
 
         OfflinePlayer target = bountyService.resolveTarget(args[1]);
 
         if (target == null) {
-            sendError(player, "§cThat player could not be found");
+            sendError(player, "&cThat player could not be found");
             return true;
         }
 
         long removed = bountyService.remove(target.getUniqueId());
 
         if (removed <= 0L) {
-            sendError(player, "§cThat player has no bounty");
+            sendError(player, "&cThat player has no bounty");
             return true;
         }
 
@@ -168,60 +164,83 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> completions = new ArrayList<>();
 
+        if (!(sender instanceof Player player)) {
+            return completions;
+        }
+
+        if (!player.hasPermission("mineaclebounty.use")) {
+            return completions;
+        }
+
         if (args.length == 1) {
             String partial = args[0].toLowerCase(Locale.ROOT);
 
-            for (String option : List.of("add", "list", "remove", "reload")) {
+            for (String option : visibleRootOptions(player)) {
                 if (option.startsWith(partial)) {
                     completions.add(option);
-                }
-            }
-
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                if (DisplayNames.startsWithDisplay(player, args[0])) {
-                    completions.add(DisplayNames.commandDisplayName(player));
                 }
             }
 
             return completions;
         }
 
-        if (args.length == 2 && (args[0].equalsIgnoreCase("add")
-                || args[0].equalsIgnoreCase("set")
-                || args[0].equalsIgnoreCase("place")
-                || args[0].equalsIgnoreCase("remove"))) {
+        if (args.length == 2 && isPlaceSubcommand(args[0])) {
             String partial = args[1];
 
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                if (DisplayNames.startsWithDisplay(player, partial)) {
-                    completions.add(DisplayNames.commandDisplayName(player));
+            for (Player target : Bukkit.getOnlinePlayers()) {
+                if (target.getUniqueId().equals(player.getUniqueId())) {
+                    continue;
+                }
+
+                if (DisplayNames.startsWithDisplay(target, partial)) {
+                    completions.add(DisplayNames.commandDisplayName(target));
                 }
             }
+
+            return completions;
         }
 
-        if (args.length == 3 && (args[0].equalsIgnoreCase("add")
-                || args[0].equalsIgnoreCase("set")
-                || args[0].equalsIgnoreCase("place"))) {
+        if (args.length == 2 && args[0].equalsIgnoreCase("remove") && player.hasPermission("mineaclebounty.admin")) {
+            String partial = args[1];
+
+            for (Player target : Bukkit.getOnlinePlayers()) {
+                if (DisplayNames.startsWithDisplay(target, partial)) {
+                    completions.add(DisplayNames.commandDisplayName(target));
+                }
+            }
+
+            return completions;
+        }
+
+        if (args.length == 3 && isPlaceSubcommand(args[0])) {
             String partial = args[2].toLowerCase(Locale.ROOT);
 
-            for (String option : List.of("1k", "10k", "100k", "1m")) {
-                if (option.startsWith(partial)) {
-                    completions.add(option);
-                }
-            }
-        }
-
-        if (args.length == 2 && !args[0].equalsIgnoreCase("remove")
-                && !args[0].equalsIgnoreCase("add")
-                && !args[0].equalsIgnoreCase("set")
-                && !args[0].equalsIgnoreCase("place")) {
-            for (String option : List.of("1k", "10k", "100k", "1m")) {
-                if (option.startsWith(args[1].toLowerCase(Locale.ROOT))) {
+            for (String option : List.of("1k", "10k", "100k", "1M", "10M", "100M", "1B")) {
+                if (option.toLowerCase(Locale.ROOT).startsWith(partial)) {
                     completions.add(option);
                 }
             }
         }
 
         return completions;
+    }
+
+    private List<String> visibleRootOptions(Player player) {
+        List<String> options = new ArrayList<>();
+        options.add("add");
+        options.add("list");
+
+        if (player.hasPermission("mineaclebounty.admin")) {
+            options.add("remove");
+            options.add("reload");
+        }
+
+        return options;
+    }
+
+    private boolean isPlaceSubcommand(String input) {
+        return input.equalsIgnoreCase("add")
+                || input.equalsIgnoreCase("set")
+                || input.equalsIgnoreCase("place");
     }
 }

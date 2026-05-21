@@ -101,8 +101,8 @@ public final class OrderService {
         }
 
         /*
-         * rawTotalPay is the total amount the buyer wants to pay for the whole order.
-         * Example: 64 logs for 100k means total escrow is 100k, not 100k each.
+         * rawTotalPay is total pay for the entire order.
+         * Example: 64 oak logs for 100k means 100k total, not 100k each.
          */
         long subtotal = economy.parseAmountToCents(rawTotalPay);
 
@@ -148,6 +148,7 @@ public final class OrderService {
                 DisplayNames.displayName(player),
                 material,
                 amount,
+                0,
                 0,
                 pricePerItem,
                 escrow,
@@ -224,7 +225,7 @@ public final class OrderService {
             return;
         }
 
-        int amount = order.deliveredAmount();
+        int amount = order.collectableAmount();
 
         if (amount <= 0) {
             send(player, message("nothing-to-collect", "&cThere are no items to collect"));
@@ -250,7 +251,7 @@ public final class OrderService {
             return;
         }
 
-        order.addDelivered(-collected);
+        order.addCollected(collected);
         repository.put(order);
 
         send(player, "&#bbbbbbCollected &#ff88ff" + collected + "x " + pretty(order.material()));
