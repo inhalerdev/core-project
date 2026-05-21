@@ -4,8 +4,7 @@ import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
-import net.mineacle.core.chat.ChatModule;
-import net.mineacle.core.chat.service.NicknameService;
+import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.hide.HideModule;
 import net.mineacle.core.hide.HideService;
@@ -18,6 +17,7 @@ import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
 import java.io.File;
+import java.util.List;
 import java.util.Locale;
 
 public final class NametagService {
@@ -52,24 +52,46 @@ public final class NametagService {
         return Math.max(1L, config.getLong("update-interval-seconds", 5L));
     }
 
-    public void refreshAll() {
-        if (!enabled()) {
-            return;
+    public boolean enabledInWorld(Player player) {
+        if (player == null) {
+            return false;
         }
 
+        if (!config.getBoolean("worlds.enabled", true)) {
+            return true;
+        }
+
+        List<String> worlds = config.getStringList("worlds.list");
+
+        if (worlds.isEmpty()) {
+            return true;
+        }
+
+        return worlds.stream().anyMatch(world -> world.equalsIgnoreCase(player.getWorld().getName()));
+    }
+
+    public void refreshAll() {
         Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
 
         for (Player player : Bukkit.getOnlinePlayers()) {
+            if (!enabled() || !enabledInWorld(player)) {
+                removeFromMineacleTeams(player, scoreboard);
+                continue;
+            }
+
             refresh(player, scoreboard);
         }
     }
 
     public void refresh(Player player) {
-        if (!enabled()) {
+        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+
+        if (!enabled() || !enabledInWorld(player)) {
+            removeFromMineacleTeams(player, scoreboard);
             return;
         }
 
-        refresh(player, Bukkit.getScoreboardManager().getMainScoreboard());
+        refresh(player, scoreboard);
     }
 
     private void refresh(Player player, Scoreboard scoreboard) {
@@ -80,12 +102,17 @@ public final class NametagService {
             team = scoreboard.registerNewTeam(teamName);
         }
 
-        cleanupOtherTeams(player, scoreboard, teamName);
+        removeFromOtherMineacleTeams(player, scoreboard, teamName);
 
         if (!team.hasEntry(player.getName())) {
             team.addEntry(player.getName());
         }
 
+        /*
+         * Native Paper scoreboards cannot replace the actual username above the head.
+         * This applies rank prefix + color to the visible nametag. Full nickname replacement
+         * above head requires packet/TAB/ProtocolLib work.
+         */
         team.prefix(prefix(player));
         team.suffix(Component.empty());
         team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
@@ -154,12 +181,24 @@ public final class NametagService {
         return String.format("mn%02d_%s", priority, clean);
     }
 
-    private void cleanupOtherTeams(Player player, Scoreboard scoreboard, String currentTeamName) {
+    private void removeFromOtherMineacleTeams(Player player, Scoreboard scoreboard, String currentTeamName) {
         for (Team team : scoreboard.getTeams()) {
             if (team.getName().equals(currentTeamName)) {
                 continue;
             }
 
+            if (!team.getName().startsWith("mn")) {
+                continue;
+            }
+
+            if (team.hasEntry(player.getName())) {
+                team.removeEntry(player.getName());
+            }
+        }
+    }
+
+    private void removeFromMineacleTeams(Player player, Scoreboard scoreboard) {
+        for (Team team : scoreboard.getTeams()) {
             if (!team.getName().startsWith("mn")) {
                 continue;
             }

@@ -81,7 +81,7 @@ public final class BountyMainGui {
                         "&#bbbbbbClick to refresh",
                         "",
                         "&#bbbbbbSet a bounty using this:",
-                        "&#bbbbbb/bounty add (player) (amount)"
+                        "&#ff88ff/bounty add (player) (amount)"
                 )
         ));
 
@@ -196,7 +196,8 @@ public final class BountyMainGui {
         meta.setOwningPlayer(target);
         meta.setDisplayName(TextColor.color("&d" + DisplayNames.displayName(target)));
         meta.setLore(List.of(
-                TextColor.color("&#bbbbbbBounty: &a" + bountyService.format(record.amountCents()))
+                TextColor.color("&#bbbbbbBounty: &a" + bountyService.format(record.amountCents())),
+                TextColor.color("&#bbbbbbClick to view stats")
         ));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
@@ -204,11 +205,19 @@ public final class BountyMainGui {
     }
 
     private static ItemStack sortItem(BountySortMode current) {
-        return item(
-                Material.HOPPER,
-                "&dSort",
-                List.of("&#bbbbbbClick to sort (" + current.displayName() + ")")
-        );
+        List<String> lore = new ArrayList<>();
+        lore.add("&#bbbbbbClick to sort");
+        lore.add("");
+
+        for (BountySortMode mode : BountySortMode.values()) {
+            if (mode == current) {
+                lore.add("&#ff88ff" + mode.displayName());
+            } else {
+                lore.add("&#bbbbbb" + mode.displayName());
+            }
+        }
+
+        return item(Material.HOPPER, "&dSort", lore);
     }
 
     private static ItemStack item(Material material, String name, List<String> lore) {
