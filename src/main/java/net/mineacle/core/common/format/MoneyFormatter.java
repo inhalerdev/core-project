@@ -7,7 +7,7 @@ public final class MoneyFormatter {
 
     private static final String[] SUFFIXES = {
             "",
-            "K",
+            "k",
             "M",
             "B",
             "T",
@@ -24,13 +24,12 @@ public final class MoneyFormatter {
     }
 
     public static String compact(double value) {
-        boolean negative = value < 0;
+        boolean negative = value < 0.0D;
         double number = Math.abs(value);
-
         int suffixIndex = 0;
 
-        while (number >= 1000.0 && suffixIndex < SUFFIXES.length - 1) {
-            number /= 1000.0;
+        while (number >= 1000.0D && suffixIndex < SUFFIXES.length - 1) {
+            number /= 1000.0D;
             suffixIndex++;
         }
 
@@ -38,9 +37,9 @@ public final class MoneyFormatter {
 
         if (suffixIndex == 0) {
             formatted = stripZeros(BigDecimal.valueOf(number).setScale(2, RoundingMode.HALF_UP));
-        } else if (number >= 100) {
+        } else if (number >= 100.0D) {
             formatted = String.format("%.0f", number);
-        } else if (number >= 10) {
+        } else if (number >= 10.0D) {
             formatted = stripZeros(BigDecimal.valueOf(number).setScale(1, RoundingMode.HALF_UP));
         } else {
             formatted = stripZeros(BigDecimal.valueOf(number).setScale(2, RoundingMode.HALF_UP));
@@ -52,7 +51,7 @@ public final class MoneyFormatter {
     public static String money(double value) {
         double absolute = Math.abs(value);
 
-        if (absolute >= 1000.0) {
+        if (absolute >= 1000.0D) {
             return "$" + compact(value);
         }
 
@@ -60,7 +59,7 @@ public final class MoneyFormatter {
     }
 
     public static String moneyFromCents(long cents) {
-        return money(cents / 100.0);
+        return money(cents / 100.0D);
     }
 
     private static String stripZeros(BigDecimal value) {

@@ -8,7 +8,7 @@ homes:
     default: 2
     plus: 5
   plus-permission: mineacle.plus
-  default-name-format: "Home%id%"
+  default-name-format: "Home %id%"
   allowed-worlds:
     enabled: true
     worlds:
@@ -114,7 +114,7 @@ origin-rtp:
     nether:
       enabled: true
       display-name: Nether
-      world: spawn1_nether
+      world: origins_nether
       search:
         min-y: 32
         max-y: 118
