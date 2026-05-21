@@ -4,7 +4,6 @@ import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
-import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.hide.HideModule;
 import net.mineacle.core.hide.HideService;
@@ -108,11 +107,15 @@ public final class NametagService {
             team.addEntry(player.getName());
         }
 
-        /*
-         * Native Paper scoreboards cannot replace the actual username above the head.
-         * This applies rank prefix + color to the visible nametag. Full nickname replacement
-         * above head requires packet/TAB/ProtocolLib work.
-         */
+        HideService hideService = HideModule.service();
+
+        if (hideService != null && hideService.shouldHideRealNametag(player)) {
+            team.prefix(Component.empty());
+            team.suffix(Component.empty());
+            team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
+            return;
+        }
+
         team.prefix(prefix(player));
         team.suffix(Component.empty());
         team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
@@ -120,12 +123,6 @@ public final class NametagService {
 
     private Component prefix(Player player) {
         StringBuilder builder = new StringBuilder();
-
-        HideService hideService = HideModule.service();
-
-        if (hideService != null && hideService.isHidden(player.getUniqueId())) {
-            builder.append(config.getString("hidden.admin-prefix", "&#ff88ff[Hidden] "));
-        }
 
         String rank = rankPrefix(player);
 

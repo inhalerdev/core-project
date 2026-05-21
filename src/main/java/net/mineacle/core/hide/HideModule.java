@@ -9,7 +9,7 @@ import org.bukkit.command.TabCompleter;
 
 public final class HideModule extends Module {
 
-    private HideService service;
+    private static HideService service;
 
     @Override
     public String name() {
@@ -19,9 +19,11 @@ public final class HideModule extends Module {
     @Override
     public void enable(Core core) {
         service = new HideService(core);
-        HideCommand command = new HideCommand(core, service);
+        service.start();
 
+        HideCommand command = new HideCommand(core, service);
         register(core, "hide", command);
+
         core.getServer().getPluginManager().registerEvents(new HideListener(core, service), core);
 
         service.applyAll();
@@ -32,19 +34,14 @@ public final class HideModule extends Module {
     public void disable() {
         if (service != null) {
             service.showAll();
+            service.stop();
         }
 
         service = null;
     }
 
     public static HideService service() {
-        for (Module module : Core.instance().modules()) {
-            if (module instanceof HideModule hideModule) {
-                return hideModule.service;
-            }
-        }
-
-        return null;
+        return service;
     }
 
     private void register(Core core, String commandName, CommandExecutor executor) {

@@ -1,8 +1,6 @@
 package net.mineacle.core.hide;
 
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
-import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.nametag.NametagModule;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Mob;
@@ -43,7 +41,7 @@ public final class HideListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
-        // Hidden state is session-only by design.
+        service.show(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -95,14 +93,5 @@ public final class HideListener implements Listener {
         if (service.isHidden(player.getUniqueId())) {
             event.setCancelled(true);
         }
-    }
-
-    public void sendHiddenActionBar(Player player) {
-        if (!service.isHidden(player.getUniqueId())) {
-            return;
-        }
-
-        String message = service.message("actionbar", "&#bbbbbbYou are hidden");
-        player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message)));
     }
 }
