@@ -41,7 +41,7 @@ homes:
         - origins
     blocked-worlds:
       - spawn1
-      -origins_nether
+      - origins_nether
       - origins_the_end
       - spawn2
       - spawn3
