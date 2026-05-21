@@ -2,6 +2,7 @@ package net.mineacle.core.orders.listener;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
+import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.orders.gui.OrderConfirmGui;
 import net.mineacle.core.orders.gui.OrderCreateGui;
 import net.mineacle.core.orders.gui.OrdersMainGui;
@@ -9,6 +10,7 @@ import net.mineacle.core.orders.gui.YourOrdersGui;
 import net.mineacle.core.orders.model.OrderRecord;
 import net.mineacle.core.orders.service.OrderService;
 import org.bukkit.ChatColor;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -38,7 +40,10 @@ public final class OrdersGuiListener implements Listener {
             return;
         }
 
-        if (!OrdersMainGui.isTitle(title) && !YourOrdersGui.isTitle(title) && !OrderConfirmGui.isTitle(title) && !OrderCreateGui.isTitle(title)) {
+        if (!OrdersMainGui.isTitle(title)
+                && !YourOrdersGui.isTitle(title)
+                && !OrderConfirmGui.isTitle(title)
+                && !OrderCreateGui.isTitle(title)) {
             return;
         }
 
@@ -102,7 +107,8 @@ public final class OrdersGuiListener implements Listener {
             SoundService.guiClick(player, core);
             OrderSearchInputListener.begin(player);
             player.closeInventory();
-            player.sendMessage("§dType an item name to search, or type clear");
+            player.sendMessage(TextColor.color("&#bbbbbbType an item name to search orders"));
+            player.sendMessage(TextColor.color("&#bbbbbbType &#ff88ffclear &#bbbbbbto reset or &#ff88ffcancel &#bbbbbbto stop"));
             return;
         }
 
@@ -145,7 +151,7 @@ public final class OrdersGuiListener implements Listener {
 
         OrderRecord order = orders.get(slot);
 
-        if (order.collectableAmount() > 0) {
+        if (order.deliveredAmount() > 0) {
             service.collect(player, order);
             YourOrdersGui.open(player, service);
             return;
@@ -160,18 +166,72 @@ public final class OrdersGuiListener implements Listener {
     }
 
     private void handleCreate(Player player, int slot) {
-        if (slot == OrderCreateGui.CANCEL_SLOT) {
-            SoundService.guiCancel(player, core);
-            OrdersMainGui.open(player, service);
+        if (slot == OrderCreateGui.PREV_SLOT) {
+            OrderCreateGui.previousPage(player);
+            SoundService.guiClick(player, core);
+            OrderCreateGui.open(player, service);
             return;
         }
 
-        if (slot == OrderCreateGui.CREATE_SLOT) {
+        if (slot == OrderCreateGui.NEXT_SLOT) {
+            OrderCreateGui.nextPage(player);
             SoundService.guiClick(player, core);
-            OrderCreateInputListener.begin(player);
-            player.closeInventory();
-            player.sendMessage("§dType amount and price, like: 64 10");
+            OrderCreateGui.open(player, service);
+            return;
         }
+
+        if (slot == OrderCreateGui.FILTER_SLOT) {
+            OrderCreateGui.cycleFilter(player);
+            SoundService.guiClick(player, core);
+            OrderCreateGui.open(player, service);
+            return;
+        }
+
+        if (slot == OrderCreateGui.SEARCH_SLOT) {
+            SoundService.guiClick(player, core);
+            OrderSearchInputListener.beginCreateSearch(player);
+            player.closeInventory();
+            player.sendMessage(TextColor.color("&#bbbbbbType an item name to search"));
+            player.sendMessage(TextColor.color("&#bbbbbbType &#ff88ffclear &#bbbbbbto reset or &#ff88ffcancel &#bbbbbbto stop"));
+            return;
+        }
+
+        if (slot == OrderCreateGui.SELECTED_SLOT) {
+            Material selected = OrderCreateGui.selected(player);
+
+            if (selected == null) {
+                return;
+            }
+
+            SoundService.guiClick(player, core);
+            player.closeInventory();
+            OrderCreateInputListener.beginAmount(player, selected);
+            player.sendMessage(TextColor.color(""));
+            player.sendMessage(TextColor.color("&#bbbbbbHow many &#ff88ff" + service.pretty(selected) + " &#bbbbbbdo you want?"));
+            player.sendMessage(TextColor.color("&#bbbbbbExamples: &#ff88ff64&#bbbbbb, &#ff88ff2304"));
+            player.sendMessage(TextColor.color("&#bbbbbbType &#ff88ffcancel &#bbbbbbto stop"));
+            return;
+        }
+
+        if (slot >= OrderCreateGui.ITEMS_PER_PAGE) {
+            return;
+        }
+
+        List<Material> materials = OrderCreateGui.pageItems(player);
+
+        if (slot >= materials.size()) {
+            return;
+        }
+
+        Material material = materials.get(slot);
+        OrderCreateGui.select(player, material);
+        SoundService.guiClick(player, core);
+        player.closeInventory();
+        OrderCreateInputListener.beginAmount(player, material);
+        player.sendMessage(TextColor.color(""));
+        player.sendMessage(TextColor.color("&#bbbbbbHow many &#ff88ff" + service.pretty(material) + " &#bbbbbbdo you want?"));
+        player.sendMessage(TextColor.color("&#bbbbbbExamples: &#ff88ff64&#bbbbbb, &#ff88ff2304"));
+        player.sendMessage(TextColor.color("&#bbbbbbType &#ff88ffcancel &#bbbbbbto stop"));
     }
 
     private void handleConfirm(Player player, int slot) {
@@ -194,7 +254,6 @@ public final class OrdersGuiListener implements Listener {
         }
 
         OrderRecord order = service.get(pending.orderId());
-
         OrderConfirmGui.clear(player);
         player.closeInventory();
 

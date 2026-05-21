@@ -16,7 +16,6 @@ import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 
 public final class OrderService {
@@ -49,7 +48,25 @@ public final class OrderService {
     }
 
     public boolean create(Player player, int amount, String rawPrice) {
+        ItemStack hand = player.getInventory().getItemInMainHand();
+
+        if (hand == null || hand.getType() == Material.AIR) {
+            send(player, message("hold-item", "&cChoose an item from the order menu"));
+            SoundService.guiError(player, core);
+            return false;
+        }
+
+        return create(player, hand.getType(), amount, rawPrice);
+    }
+
+    public boolean create(Player player, Material material, int amount, String rawTotalPay) {
         if (player == null) {
+            return false;
+        }
+
+        if (material == null || material == Material.AIR || !material.isItem()) {
+            send(player, message("hold-item", "&cChoose an item from the order menu"));
+            SoundService.guiError(player, core);
             return false;
         }
 
@@ -75,14 +92,6 @@ public final class OrderService {
             return false;
         }
 
-        ItemStack hand = player.getInventory().getItemInMainHand();
-
-        if (hand == null || hand.getType() == Material.AIR) {
-            send(player, message("hold-item", "&cHold the item you want to order"));
-            SoundService.guiError(player, core);
-            return false;
-        }
-
         EconomyService economy = EconomyModule.economyService();
 
         if (economy == null) {
@@ -91,22 +100,44 @@ public final class OrderService {
             return false;
         }
 
-        long pricePerItem = parseAmountToCents(economy, rawPrice);
-        long minimumPrice = economy.amountToCents(BigDecimal.valueOf(core.getConfig().getDouble("orders.limits.minimum-price-per-item", 0.01D)));
+        /*
+         * rawTotalPay is the total amount the buyer wants to pay for the whole order.
+         * Example: 64 logs for 100k means total escrow is 100k, not 100k each.
+         */
+        long subtotal = economy.parseAmountToCents(rawTotalPay);
 
-        if (pricePerItem < minimumPrice) {
-            send(player, message("minimum-price", "&cPrice is too low").replace("%minimum%", economy.format(minimumPrice)));
+        if (subtotal <= 0L) {
+            send(player, "&cType a price like 100k, 11.5M, or 250000");
             SoundService.guiError(player, core);
             return false;
         }
 
-        long subtotal = pricePerItem * amount;
-        double taxPercent = Math.max(0.0D, core.getConfig().getDouble("orders.creation-tax-percent", 0.0D));
-        long tax = Math.round(subtotal * (taxPercent / 100.0D));
-        long total = subtotal + tax;
+        long minimumTotal = economy.amountToCents(BigDecimal.valueOf(core.getConfig().getDouble("orders.limits.minimum-price-per-item", 0.01D)))
+                * amount;
 
-        if (!economy.take(player.getUniqueId(), total)) {
-            send(player, message("not-enough-money", "&cYou do not have enough money"));
+        if (subtotal < minimumTotal) {
+            send(player, message("minimum-price", "&cPrice is too low").replace("%minimum%", economy.format(minimumTotal)));
+            SoundService.guiError(player, core);
+            return false;
+        }
+
+        long pricePerItem = Math.max(1L, subtotal / amount);
+        long escrow = pricePerItem * amount;
+
+        double taxPercent = Math.max(0.0D, core.getConfig().getDouble("orders.creation-tax-percent", 0.0D));
+        long tax = Math.round(escrow * (taxPercent / 100.0D));
+        long totalCost = escrow + tax;
+
+        if (!economy.has(player.getUniqueId(), totalCost)) {
+            send(player, "&cNot enough money");
+            send(player, "&#bbbbbbYou need &a" + economy.format(totalCost) + " &#bbbbbbto create this order");
+            send(player, "&#bbbbbbYour balance: &a" + economy.format(economy.getBalanceCents(player.getUniqueId())));
+            SoundService.guiError(player, core);
+            return false;
+        }
+
+        if (!economy.take(player.getUniqueId(), totalCost)) {
+            send(player, "&cNot enough money");
             SoundService.guiError(player, core);
             return false;
         }
@@ -115,25 +146,19 @@ public final class OrderService {
                 UUID.randomUUID(),
                 player.getUniqueId(),
                 DisplayNames.displayName(player),
-                hand.getType(),
+                material,
                 amount,
                 0,
-                0,
                 pricePerItem,
-                subtotal,
+                escrow,
                 System.currentTimeMillis(),
                 true
         );
 
         repository.put(order);
 
-        send(player, message("created", "&#ccccccCreated order for &#ff88ff%amount%x %item%")
-                .replace("%amount%", String.valueOf(amount))
-                .replace("%item%", pretty(order.material()))
-                .replace("%price%", economy.format(pricePerItem))
-                .replace("%total%", economy.format(subtotal))
-                .replace("%tax%", economy.format(tax)));
-
+        send(player, "&#bbbbbbOrder created: &#ff88ff" + amount + "x " + pretty(material));
+        send(player, "&#bbbbbbPlayers can earn &a" + economy.format(escrow) + " &#bbbbbbby delivering it");
         SoundService.guiConfirm(player, core);
         return true;
     }
@@ -185,11 +210,7 @@ public final class OrderService {
 
         String amount = economy == null ? "$" + payout : economy.format(payout);
 
-        send(seller, message("delivered", "&#ccccccDelivered &#ff88ff%amount%x %item% &#ccccccfor &#ff88ff+%money%")
-                .replace("%amount%", String.valueOf(deliverAmount))
-                .replace("%item%", pretty(order.material()))
-                .replace("%money%", amount));
-
+        send(seller, "&#bbbbbbDelivered &#ff88ff" + deliverAmount + "x " + pretty(order.material()) + " &#bbbbbbfor &a+" + amount);
         SoundService.economyReceive(seller, core);
     }
 
@@ -203,7 +224,7 @@ public final class OrderService {
             return;
         }
 
-        int amount = order.collectableAmount();
+        int amount = order.deliveredAmount();
 
         if (amount <= 0) {
             send(player, message("nothing-to-collect", "&cThere are no items to collect"));
@@ -229,13 +250,10 @@ public final class OrderService {
             return;
         }
 
-        order.addCollected(collected);
+        order.addDelivered(-collected);
         repository.put(order);
 
-        send(player, message("collected", "&#ccccccCollected &#ff88ff%amount%x %item%")
-                .replace("%amount%", String.valueOf(collected))
-                .replace("%item%", pretty(order.material())));
-
+        send(player, "&#bbbbbbCollected &#ff88ff" + collected + "x " + pretty(order.material()));
         SoundService.guiConfirm(player, core);
     }
 
@@ -266,10 +284,7 @@ public final class OrderService {
         repository.put(order);
 
         String refundText = economy == null ? "$" + refund : economy.format(refund);
-
-        send(player, message("cancelled", "&#ccccccCancelled order and refunded &#ff88ff%refund%")
-                .replace("%refund%", refundText));
-
+        send(player, "&#bbbbbbCancelled order and refunded &a" + refundText);
         SoundService.guiCancel(player, core);
     }
 
@@ -345,32 +360,6 @@ public final class OrderService {
             if (remaining <= 0) {
                 return;
             }
-        }
-    }
-
-    private long parseAmountToCents(EconomyService economy, String raw) {
-        if (raw == null || raw.isBlank()) {
-            return -1L;
-        }
-
-        String input = raw.trim().replace(",", "").replace("_", "").toLowerCase(Locale.ROOT);
-        BigDecimal multiplier = BigDecimal.ONE;
-
-        if (input.endsWith("k")) {
-            multiplier = BigDecimal.valueOf(1_000L);
-            input = input.substring(0, input.length() - 1);
-        } else if (input.endsWith("m")) {
-            multiplier = BigDecimal.valueOf(1_000_000L);
-            input = input.substring(0, input.length() - 1);
-        } else if (input.endsWith("b")) {
-            multiplier = BigDecimal.valueOf(1_000_000_000L);
-            input = input.substring(0, input.length() - 1);
-        }
-
-        try {
-            return economy.amountToCents(new BigDecimal(input).multiply(multiplier));
-        } catch (NumberFormatException exception) {
-            return -1L;
         }
     }
 
