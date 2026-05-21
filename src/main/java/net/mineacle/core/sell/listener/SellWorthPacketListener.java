@@ -1,16 +1,12 @@
 package net.mineacle.core.sell.listener;
 
 import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.events.ListenerPriority;
 import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.events.ListenerPriority;
 import com.comphenix.protocol.reflect.StructureModifier;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
-import net.mineacle.core.sell.gui.SellGui;
-import net.mineacle.core.sell.gui.SellHistoryGui;
-import net.mineacle.core.sell.gui.SellMultiGui;
-import net.mineacle.core.sell.gui.WorthGui;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
@@ -23,10 +19,10 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public final class SellWorthPacketListener extends PacketAdapter {
 
-    private final Core core;
     private final SellService sellService;
 
     public SellWorthPacketListener(Core core, SellService sellService) {
@@ -37,7 +33,6 @@ public final class SellWorthPacketListener extends PacketAdapter {
                 PacketType.Play.Server.WINDOW_ITEMS
         );
 
-        this.core = core;
         this.sellService = sellService;
     }
 
@@ -45,7 +40,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
     public void onPacketSending(PacketEvent event) {
         Player player = event.getPlayer();
 
-        if (player == null || isUnsafeInventoryMode(player) || shouldSkip(player)) {
+        if (player == null || isUnsafeInventoryMode(player)) {
             return;
         }
 
@@ -62,10 +57,17 @@ public final class SellWorthPacketListener extends PacketAdapter {
     private void handleSetSlot(PacketEvent event, Player player) {
         StructureModifier<ItemStack> modifier = event.getPacket().getItemModifier();
 
+        int packetSlot = packetSlot(event);
+
         for (int index = 0; index < modifier.size(); index++) {
             ItemStack item = modifier.readSafely(index);
 
             if (item == null || item.getType() == Material.AIR) {
+                continue;
+            }
+
+            if (shouldSkipWorthForSlot(player, packetSlot)) {
+                modifier.writeSafely(index, stripWorthLore(item));
                 continue;
             }
 
@@ -85,9 +87,16 @@ public final class SellWorthPacketListener extends PacketAdapter {
 
             List<ItemStack> updated = new ArrayList<>(original.size());
 
-            for (ItemStack item : original) {
+            for (int slot = 0; slot < original.size(); slot++) {
+                ItemStack item = original.get(slot);
+
                 if (item == null || item.getType() == Material.AIR) {
                     updated.add(item);
+                    continue;
+                }
+
+                if (shouldSkipWorthForSlot(player, slot)) {
+                    updated.add(stripWorthLore(item));
                     continue;
                 }
 
@@ -116,6 +125,11 @@ public final class SellWorthPacketListener extends PacketAdapter {
                     continue;
                 }
 
+                if (shouldSkipWorthForSlot(player, slot)) {
+                    updated[slot] = stripWorthLore(item);
+                    continue;
+                }
+
                 updated[slot] = withWorthLore(player, item);
             }
 
@@ -123,8 +137,75 @@ public final class SellWorthPacketListener extends PacketAdapter {
         }
     }
 
+    private boolean shouldSkipWorthForSlot(Player player, int rawSlot) {
+        if (!isMineacleCoreGui(player)) {
+            return false;
+        }
+
+        if (rawSlot < 0) {
+            return true;
+        }
+
+        InventoryView view = player.getOpenInventory();
+
+        if (view == null || view.getTopInventory() == null) {
+            return true;
+        }
+
+        /*
+         * Only block Worth lore on the custom Core GUI area.
+         * The player's own bottom inventory still gets Worth lore.
+         */
+        return rawSlot < view.getTopInventory().getSize();
+    }
+
+    private boolean isMineacleCoreGui(Player player) {
+        InventoryView view = player.getOpenInventory();
+
+        if (view == null) {
+            return false;
+        }
+
+        String title = ChatColor.stripColor(view.getTitle());
+
+        if (title == null || title.isBlank()) {
+            return false;
+        }
+
+        String lower = title.toLowerCase(Locale.ROOT);
+
+        return lower.equals("homes")
+                || lower.equals("team menu")
+                || lower.equals("team invites")
+                || lower.equals("team bans")
+                || lower.equals("team manage")
+                || lower.equals("member manager")
+                || lower.equals("banner color")
+                || lower.equals("name color")
+                || lower.equals("spawn")
+                || lower.equals("teleport request")
+                || lower.equals("confirm request")
+                || lower.equals("confirm action")
+                || lower.equals("sell")
+                || lower.equals("sell multipliers")
+                || lower.equals("my orders")
+                || lower.equals("create order")
+                || lower.equals("confirm delivery")
+                || lower.equals("confirm cancel")
+                || lower.startsWith("balance top")
+                || lower.startsWith("orders")
+                || lower.startsWith("bounties")
+                || lower.startsWith("sell history")
+                || lower.startsWith("item prices")
+                || lower.contains(" statistics")
+                || lower.endsWith(" stats")
+                || lower.contains(" statistics")
+                || lower.contains(" member")
+                || lower.contains(" (page ");
+    }
+
     private ItemStack withWorthLore(Player player, ItemStack original) {
-        ItemStack item = original.clone();
+        ItemStack item = stripWorthLore(original);
         ItemMeta meta = item.getItemMeta();
 
         if (meta == null) {
@@ -135,8 +216,6 @@ public final class SellWorthPacketListener extends PacketAdapter {
                 ? new ArrayList<>(meta.getLore())
                 : new ArrayList<>();
 
-        lore.removeIf(this::isWorthLine);
-
         long totalWorth = sellService.stackWorthCents(player, item);
 
         if (totalWorth <= 0L) {
@@ -144,11 +223,24 @@ public final class SellWorthPacketListener extends PacketAdapter {
         }
 
         lore.add(0, TextColor.color("&#bbbbbbWorth: &a" + sellService.format(totalWorth)));
-
         meta.setLore(lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
+        return item;
+    }
 
+    private ItemStack stripWorthLore(ItemStack original) {
+        ItemStack item = original.clone();
+        ItemMeta meta = item.getItemMeta();
+
+        if (meta == null || !meta.hasLore() || meta.getLore() == null) {
+            return item;
+        }
+
+        List<String> lore = new ArrayList<>(meta.getLore());
+        lore.removeIf(this::isWorthLine);
+        meta.setLore(lore);
+        item.setItemMeta(meta);
         return item;
     }
 
@@ -169,44 +261,22 @@ public final class SellWorthPacketListener extends PacketAdapter {
                 || stripped.startsWith("Demand:");
     }
 
+    private int packetSlot(PacketEvent event) {
+        StructureModifier<Integer> integers = event.getPacket().getIntegers();
+
+        for (int index = integers.size() - 1; index >= 0; index--) {
+            Integer value = integers.readSafely(index);
+
+            if (value != null) {
+                return value;
+            }
+        }
+
+        return -1;
+    }
+
     private boolean isUnsafeInventoryMode(Player player) {
         return player.getGameMode() == GameMode.CREATIVE
                 || player.getGameMode() == GameMode.SPECTATOR;
-    }
-
-    private boolean shouldSkip(Player player) {
-        InventoryView view = player.getOpenInventory();
-
-        if (view == null) {
-            return false;
-        }
-
-        String title = ChatColor.stripColor(view.getTitle());
-
-        if (title == null) {
-            return false;
-        }
-
-        String sellTitle = ChatColor.stripColor(SellGui.title(core));
-
-        if (sellTitle != null && title.equals(sellTitle)) {
-            return false;
-        }
-
-        return title.startsWith(WorthGui.TITLE_PREFIX)
-                || title.startsWith(SellHistoryGui.TITLE_PREFIX)
-                || title.equalsIgnoreCase(SellMultiGui.TITLE)
-                || title.equalsIgnoreCase("Teleport Request")
-                || title.equalsIgnoreCase("Confirm Request")
-                || title.equalsIgnoreCase("Confirm Action")
-                || title.equalsIgnoreCase("Team Invites")
-                || title.equalsIgnoreCase("Homes")
-                || title.startsWith("Balance Top")
-                || title.startsWith("Orders")
-                || title.startsWith("Item Prices")
-                || title.startsWith("Sell History")
-                || title.contains("Statistics")
-                || title.endsWith("Stats")
-                || (title.contains("(") && title.endsWith(")"));
     }
 }
