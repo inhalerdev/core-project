@@ -34,7 +34,7 @@ public final class EconomyService {
     }
 
     public long startingBalanceCents() {
-        return amountToCents(BigDecimal.valueOf(core.getConfig().getDouble("economy.starting-balance", 0.0)));
+        return amountToCents(BigDecimal.valueOf(core.getConfig().getDouble("economy.starting-balance", 0.0D)));
     }
 
     public long getBalanceCents(UUID playerId) {
@@ -116,7 +116,6 @@ public final class EconomyService {
         sender.sendMessage(message("economy.pay-sent")
                 .replace("%amount%", amount)
                 .replace("%player%", targetName));
-
         SoundService.economyPay(sender, core);
 
         Player onlineTarget = target.getPlayer();
@@ -196,17 +195,21 @@ public final class EconomyService {
             return -1L;
         }
 
-        String input = raw.trim().replace(",", "").replace("_", "").toLowerCase(Locale.ROOT);
+        String input = raw.trim().replace(",", "").replace("_", "");
+        String lower = input.toLowerCase(Locale.ROOT);
         BigDecimal multiplier = BigDecimal.ONE;
 
-        if (input.endsWith("k")) {
+        if (lower.endsWith("k")) {
             multiplier = BigDecimal.valueOf(1_000L);
             input = input.substring(0, input.length() - 1);
-        } else if (input.endsWith("m")) {
+        } else if (lower.endsWith("m")) {
             multiplier = BigDecimal.valueOf(1_000_000L);
             input = input.substring(0, input.length() - 1);
-        } else if (input.endsWith("b")) {
+        } else if (lower.endsWith("b")) {
             multiplier = BigDecimal.valueOf(1_000_000_000L);
+            input = input.substring(0, input.length() - 1);
+        } else if (lower.endsWith("t")) {
+            multiplier = BigDecimal.valueOf(1_000_000_000_000L);
             input = input.substring(0, input.length() - 1);
         }
 

@@ -1,35 +1,47 @@
-package net.mineacle.core.links;
+package net.mineacle.core.hide;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
+import net.mineacle.core.nametag.NametagModule;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.TabCompleter;
 
-public final class LinksModule extends Module {
+public final class HideModule extends Module {
 
-    private LinksService service;
+    private static HideService service;
 
     @Override
     public String name() {
-        return "Links";
+        return "Hide";
     }
 
     @Override
     public void enable(Core core) {
-        service = new LinksService(core);
-        LinksCommand command = new LinksCommand(core, service);
+        service = new HideService(core);
+        service.start();
 
-        register(core, "store", command);
-        register(core, "discord", command);
-        register(core, "x", command);
-        register(core, "appeal", command);
-        register(core, "links", command);
+        HideCommand command = new HideCommand(core, service);
+        register(core, "hide", command);
+
+        core.getServer().getPluginManager().registerEvents(new HideListener(core, service), core);
+
+        service.applyAll();
+        NametagModule.refreshAll();
     }
 
     @Override
     public void disable() {
+        if (service != null) {
+            service.showAll();
+            service.stop();
+        }
+
         service = null;
+    }
+
+    public static HideService service() {
+        return service;
     }
 
     private void register(Core core, String commandName, CommandExecutor executor) {

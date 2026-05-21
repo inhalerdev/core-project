@@ -124,6 +124,10 @@ public final class SpawnService {
         for (String id : section.getKeys(false)) {
             String path = "worlds." + id;
 
+            if (!spawnConfig.contains(path + ".world")) {
+                continue;
+            }
+
             boolean enabled = spawnConfig.getBoolean(path + ".enabled", true);
             int slot = spawnConfig.getInt(path + ".slot", 0);
             String displayName = spawnConfig.getString(path + ".display-name", id);
@@ -303,7 +307,7 @@ public final class SpawnService {
     }
 
     public String randomDisplayName() {
-        return spawnConfig.getString("random.display-name", "&#7d00ffRandom Spawn");
+        return spawnConfig.getString("random.display-name", "&aRandom Spawn");
     }
 
     public List<String> currentSpawnLore() {
@@ -313,11 +317,7 @@ public final class SpawnService {
             return lore;
         }
 
-        return List.of(
-                "&#bbbbbb%online%&#bbbbbb/&#bbbbbb%max%",
-                "",
-                "&a➥ You are currently here"
-        );
+        return List.of("&#bbbbbb%online%/%max%", "", "&aYou are currently here");
     }
 
     public List<String> availableSpawnLore() {
@@ -327,11 +327,7 @@ public final class SpawnService {
             return lore;
         }
 
-        return List.of(
-                "&#bbbbbb%online%&#bbbbbb/&#bbbbbb%max%",
-                "",
-                "&e➥ Return to Spawn"
-        );
+        return List.of("&#bbbbbb%online%/%max%", "", "&#ff88ffClick to return to Spawn");
     }
 
     public List<String> randomLore() {
@@ -342,7 +338,7 @@ public final class SpawnService {
         }
 
         return List.of(
-                "&#bbbbbbClick to teleport to a random &#b777f5Spawn",
+                "&#bbbbbbClick to teleport to a random &#ff88ffSpawn",
                 "",
                 "&#bbbbbbChooses the lowest-populated spawn"
         );
@@ -391,12 +387,10 @@ public final class SpawnService {
         }
 
         String path = "worlds." + id.toLowerCase(Locale.ROOT);
-
         spawnConfig.set(path + ".enabled", true);
         spawnConfig.set(path + ".slot", slot);
         spawnConfig.set(path + ".display-name", displayName);
         spawnConfig.set(path + ".world", worldName);
-
         save();
         load();
         return true;
@@ -410,7 +404,6 @@ public final class SpawnService {
         }
 
         spawnConfig.set("worlds." + point.id(), null);
-
         save();
         load();
         return true;

@@ -3,7 +3,7 @@ main: net.mineacle.core.Core
 version: 1.0.0
 api-version: "1.21"
 author: Mineacle
-softdepend: [Vault, PlaceholderAPI, ProtocolLib, NuVotifier, Votifier]
+softdepend: [Vault, PlaceholderAPI, ProtocolLib]
 loadbefore: [ajLeaderboards, DeluxeMenus, TAB]
 
 commands:
@@ -88,13 +88,16 @@ commands:
   spawn:
     description: Open the spawn menu
     usage: /spawn
-    aliases: [lobby]
+    permission: mineaclespawn.use
+  lobby:
+    description: Open the spawn menu
+    usage: /lobby
     permission: mineaclespawn.use
 
   originrtp:
     description: Queue for random teleport
     usage: /originrtp
-    aliases: [rtp, originsrtp, wild]
+    aliases: [rtp, originsrtp]
     permission: mineaclertp.use
 
   doublejump:
@@ -148,41 +151,22 @@ commands:
     permission: mineacle.gamemode
 
   links:
-    description: View Mineacle quick links
-    aliases: [link]
+    description: Open Mineacle links menu
+    aliases: [ link ]
     usage: /links
     permission: mineaclelinks.use
   discord:
-    description: View the Mineacle Discord link
-    aliases: [dc]
+    description: Open Mineacle links menu
     usage: /discord
     permission: mineaclelinks.use
   store:
-    description: View the Mineacle store link
-    aliases: [buy, shop]
+    description: Open Mineacle links menu
     usage: /store
     permission: mineaclelinks.use
-  x:
-    description: View the Mineacle X link
-    aliases: [twitter]
-    usage: /x
-    permission: mineaclelinks.use
   appeal:
-    description: View the Mineacle appeal link
-    aliases: [appeals, banappeal]
+    description: Open Mineacle links menu
     usage: /appeal
     permission: mineaclelinks.use
-
-  hide:
-    description: Toggle hidden mode
-    usage: /hide
-    permission: mineaclehide.use
-
-  mineaclenametags:
-    description: Reload Mineacle nametags
-    aliases: [nametags]
-    usage: /mineaclenametags reload
-    permission: mineaclenametags.admin
 
 permissions:
   mineacle.plus:
@@ -271,12 +255,4 @@ permissions:
   mineaclelinks.use:
     default: true
   mineaclelinks.admin:
-    default: op
-
-  mineaclehide.use:
-    default: false
-  mineaclehide.admin:
-    default: op
-
-  mineaclenametags.admin:
     default: op

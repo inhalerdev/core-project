@@ -47,7 +47,6 @@ public final class OrdersMainGui {
     public static void open(Player player, OrderService service) {
         int page = Math.max(1, PAGES.getOrDefault(player.getUniqueId(), 1));
         List<OrderRecord> orders = filteredOrders(player, service);
-
         int maxPage = Math.max(1, (int) Math.ceil(orders.size() / (double) ORDERS_PER_PAGE));
 
         if (page > maxPage) {
@@ -60,25 +59,67 @@ public final class OrdersMainGui {
         int start = (page - 1) * ORDERS_PER_PAGE;
         int end = Math.min(start + ORDERS_PER_PAGE, orders.size());
 
-        int slot = 0;
-
         for (int index = start; index < end; index++) {
-            inventory.setItem(slot, orderItem(service, orders.get(index)));
-            slot++;
+            inventory.setItem(index - start, orderItem(service, orders.get(index)));
+        }
+
+        if (orders.isEmpty()) {
+            inventory.setItem(22, item(
+                    Material.BARREL,
+                    "&dNo Orders",
+                    List.of(
+                            "&#bbbbbbNo player orders are open right now",
+                            "",
+                            "&#bbbbbbOrders are player requests",
+                            "&#bbbbbbthat usually pay more than /sell"
+                    )
+            ));
         }
 
         if (page > 1) {
-            inventory.setItem(PREV_SLOT, item(material("orders.gui.buttons.previous.material", Material.ARROW), cfg("orders.gui.buttons.previous.name", "&dBack"), lore("orders.gui.buttons.previous.lore", List.of("&#ccccccClick to go to the previous page"))));
+            inventory.setItem(PREV_SLOT, item(
+                    material("orders.gui.buttons.previous.material", Material.ARROW),
+                    cfg("orders.gui.buttons.previous.name", "&dBack"),
+                    lore("orders.gui.buttons.previous.lore", List.of("&#bbbbbbPrevious page"))
+            ));
         }
 
         inventory.setItem(SORT_SLOT, sortItem(player));
         inventory.setItem(FILTER_SLOT, filterItem(player));
-        inventory.setItem(REFRESH_SLOT, item(material("orders.gui.buttons.refresh.material", Material.PAPER), cfg("orders.gui.buttons.refresh.name", "&dOrders"), lore("orders.gui.buttons.refresh.lore", List.of("&#ccccccClick to refresh"))));
-        inventory.setItem(SEARCH_SLOT, item(material("orders.gui.buttons.search.material", Material.OAK_SIGN), cfg("orders.gui.buttons.search.name", "&dSearch"), lore("orders.gui.buttons.search.lore", List.of("&#ccccccClick to search"))));
-        inventory.setItem(MY_ORDERS_SLOT, item(material("orders.gui.buttons.my-orders.material", Material.PLAYER_HEAD), cfg("orders.gui.buttons.my-orders.name", "&dMy Orders"), lore("orders.gui.buttons.my-orders.lore", List.of("&#ccccccClick to view your orders"))));
+
+        inventory.setItem(REFRESH_SLOT, item(
+                material("orders.gui.buttons.refresh.material", Material.PAPER),
+                cfg("orders.gui.buttons.refresh.name", "&dOrders"),
+                lore("orders.gui.buttons.refresh.lore", List.of(
+                        "&#bbbbbbClick to refresh",
+                        "",
+                        "&#bbbbbbPlayers want items",
+                        "&#bbbbbbYou deliver and get paid"
+                ))
+        ));
+
+        inventory.setItem(SEARCH_SLOT, item(
+                material("orders.gui.buttons.search.material", Material.OAK_SIGN),
+                cfg("orders.gui.buttons.search.name", "&dSearch"),
+                lore("orders.gui.buttons.search.lore", List.of("&#bbbbbbClick to search orders"))
+        ));
+
+        inventory.setItem(MY_ORDERS_SLOT, item(
+                material("orders.gui.buttons.my-orders.material", Material.PLAYER_HEAD),
+                cfg("orders.gui.buttons.my-orders.name", "&dMy Orders"),
+                lore("orders.gui.buttons.my-orders.lore", List.of(
+                        "&#bbbbbbView orders you created",
+                        "&#bbbbbbCollect delivered items",
+                        "&#bbbbbbor cancel active orders"
+                ))
+        ));
 
         if (page < maxPage) {
-            inventory.setItem(NEXT_SLOT, item(material("orders.gui.buttons.next.material", Material.ARROW), cfg("orders.gui.buttons.next.name", "&dNext"), lore("orders.gui.buttons.next.lore", List.of("&#ccccccClick to go to the next page"))));
+            inventory.setItem(NEXT_SLOT, item(
+                    material("orders.gui.buttons.next.material", Material.ARROW),
+                    cfg("orders.gui.buttons.next.name", "&dNext"),
+                    lore("orders.gui.buttons.next.lore", List.of("&#bbbbbbNext page"))
+            ));
         }
 
         player.openInventory(inventory);
@@ -117,7 +158,7 @@ public final class OrdersMainGui {
     }
 
     public static void cycleSort(Player player) {
-        SortMode current = SORTS.getOrDefault(player.getUniqueId(), SortMode.MostPaid);
+        SortMode current = SORTS.getOrDefault(player.getUniqueId(), SortMode.BestPay);
         SORTS.put(player.getUniqueId(), current.next());
         PAGES.put(player.getUniqueId(), 1);
     }
@@ -129,7 +170,8 @@ public final class OrdersMainGui {
     }
 
     public static void setSearch(Player player, String query) {
-        if (query == null || query.isBlank() || query.equalsIgnoreCase("clear") || query.equalsIgnoreCase("cancel") || query.equalsIgnoreCase("cancelled")) {
+        if (query == null || query.isBlank() || query.equalsIgnoreCase("clear")
+                || query.equalsIgnoreCase("cancel") || query.equalsIgnoreCase("cancelled")) {
             SEARCHES.remove(player.getUniqueId());
         } else {
             SEARCHES.put(player.getUniqueId(), query.toLowerCase(Locale.ROOT));
@@ -141,7 +183,6 @@ public final class OrdersMainGui {
     public static List<OrderRecord> pageOrders(Player player, OrderService service) {
         int page = page(player);
         List<OrderRecord> orders = filteredOrders(player, service);
-
         int start = (page - 1) * ORDERS_PER_PAGE;
         int end = Math.min(start + ORDERS_PER_PAGE, orders.size());
 
@@ -153,7 +194,7 @@ public final class OrdersMainGui {
     }
 
     private static List<OrderRecord> filteredOrders(Player player, OrderService service) {
-        SortMode sort = SORTS.getOrDefault(player.getUniqueId(), SortMode.MostPaid);
+        SortMode sort = SORTS.getOrDefault(player.getUniqueId(), SortMode.BestPay);
         FilterMode filter = FILTERS.getOrDefault(player.getUniqueId(), FilterMode.All);
         String search = SEARCHES.get(player.getUniqueId());
 
@@ -165,49 +206,71 @@ public final class OrdersMainGui {
     }
 
     private static ItemStack sortItem(Player player) {
-        SortMode active = SORTS.getOrDefault(player.getUniqueId(), SortMode.MostPaid);
+        SortMode active = SORTS.getOrDefault(player.getUniqueId(), SortMode.BestPay);
 
-        return item(material("orders.gui.buttons.sort.material", Material.CAULDRON), cfg("orders.gui.buttons.sort.name", "&dSort"), List.of(
-                line(active, SortMode.MostPaid),
-                line(active, SortMode.MostDelivered),
-                line(active, SortMode.RecentlyListed),
-                line(active, SortMode.MostMoneyPerItem)
-        ));
+        return item(
+                material("orders.gui.buttons.sort.material", Material.CAULDRON),
+                cfg("orders.gui.buttons.sort.name", "&dSort"),
+                List.of(
+                        "&#bbbbbbClick to sort",
+                        "",
+                        line(active, SortMode.BestPay),
+                        line(active, SortMode.PayEach),
+                        line(active, SortMode.MostNeeded),
+                        line(active, SortMode.Newest)
+                )
+        );
     }
 
     private static ItemStack filterItem(Player player) {
         FilterMode active = FILTERS.getOrDefault(player.getUniqueId(), FilterMode.All);
 
-        return item(material("orders.gui.buttons.filter.material", Material.HOPPER), cfg("orders.gui.buttons.filter.name", "&dFilter"), List.of(
-                line(active, FilterMode.All),
-                line(active, FilterMode.Blocks),
-                line(active, FilterMode.Tools),
-                line(active, FilterMode.Food),
-                line(active, FilterMode.Combat),
-                line(active, FilterMode.Potions),
-                line(active, FilterMode.Books),
-                line(active, FilterMode.Ingredients),
-                line(active, FilterMode.Utilities)
-        ));
+        return item(
+                material("orders.gui.buttons.filter.material", Material.HOPPER),
+                cfg("orders.gui.buttons.filter.name", "&dFilter"),
+                List.of(
+                        "&#bbbbbbClick to filter",
+                        "",
+                        line(active, FilterMode.All),
+                        line(active, FilterMode.Blocks),
+                        line(active, FilterMode.Tools),
+                        line(active, FilterMode.Food),
+                        line(active, FilterMode.Combat),
+                        line(active, FilterMode.Potions),
+                        line(active, FilterMode.Books),
+                        line(active, FilterMode.Ingredients),
+                        line(active, FilterMode.Utilities)
+                )
+        );
     }
 
     private static String line(Enum<?> active, Enum<?> value) {
-        return (active == value ? "&#ff88ff• " : "&#cccccc• ") + display(value.name());
+        return (active == value ? "&#ff88ff" : "&#bbbbbb") + display(value.name());
     }
 
     public static ItemStack orderItem(OrderService service, OrderRecord order) {
         EconomyService economy = EconomyModule.economyService();
-        String price = economy == null ? "$" + order.pricePerItemCents() : economy.format(order.pricePerItemCents());
 
-        return item(order.material(), "&d" + service.pretty(order.material()), List.of(
-                cfg("orders.gui.order-lore.buyer", "&#ccccccBuyer: &#ff88ff%buyer%").replace("%buyer%", order.ownerName()),
-                cfg("orders.gui.order-lore.remaining", "&#ccccccRemaining: &#ff88ff%remaining%&#bbbbbb/&#ff88ff%requested%")
-                        .replace("%remaining%", String.valueOf(order.remainingAmount()))
-                        .replace("%requested%", String.valueOf(order.requestedAmount())),
-                cfg("orders.gui.order-lore.price", "&#ccccccMoney Per Item: &#ff88ff%price%").replace("%price%", price),
-                "",
-                cfg("orders.gui.order-lore.click", "&#ccccccClick to deliver")
-        ));
+        long remaining = Math.max(0L, order.remainingAmount());
+        long totalPayoutCents = remaining * order.pricePerItemCents();
+
+        String pay = economy == null ? "$" + totalPayoutCents : economy.format(totalPayoutCents);
+        String payEach = economy == null ? "$" + order.pricePerItemCents() : economy.format(order.pricePerItemCents());
+
+        return item(
+                order.material(),
+                "&d" + service.pretty(order.material()),
+                List.of(
+                        "&#bbbbbbNeed: &#ff88ff" + remaining + "x " + service.pretty(order.material()),
+                        "&#bbbbbbPay: &a" + pay,
+                        "&#bbbbbbPay Each: &a" + payEach,
+                        "&#bbbbbbBuyer: &#ff88ff" + order.ownerName(),
+                        "&#bbbbbbProgress: &#ff88ff" + order.deliveredAmount() + "&#bbbbbb/&#ff88ff" + order.requestedAmount(),
+                        "",
+                        "&#bbbbbbBring matching items",
+                        "&#ff88ffClick to deliver and get paid"
+                )
+        );
     }
 
     public static ItemStack item(Material material, String name, List<String> lore) {
@@ -282,10 +345,10 @@ public final class OrdersMainGui {
     }
 
     private enum SortMode {
-        MostPaid,
-        MostDelivered,
-        RecentlyListed,
-        MostMoneyPerItem;
+        BestPay,
+        PayEach,
+        MostNeeded,
+        Newest;
 
         private SortMode next() {
             SortMode[] values = values();
@@ -294,10 +357,11 @@ public final class OrdersMainGui {
 
         private Comparator<OrderRecord> comparator() {
             return switch (this) {
-                case MostDelivered -> Comparator.comparingInt(OrderRecord::deliveredAmount).reversed();
-                case RecentlyListed -> Comparator.comparingLong(OrderRecord::createdAtMillis).reversed();
-                case MostMoneyPerItem -> Comparator.comparingLong(OrderRecord::pricePerItemCents).reversed();
-                case MostPaid -> Comparator.comparingLong((OrderRecord order) -> order.deliveredAmount() * order.pricePerItemCents()).reversed();
+                case PayEach -> Comparator.comparingLong(OrderRecord::pricePerItemCents).reversed();
+                case MostNeeded -> Comparator.comparingInt(OrderRecord::remainingAmount).reversed();
+                case Newest -> Comparator.comparingLong(OrderRecord::createdAtMillis).reversed();
+                case BestPay -> Comparator.comparingLong((OrderRecord order) ->
+                        order.remainingAmount() * order.pricePerItemCents()).reversed();
             };
         }
     }
@@ -327,31 +391,21 @@ public final class OrdersMainGui {
 
             return switch (this) {
                 case Blocks -> material.isBlock();
-                case Tools -> name.endsWith("_PICKAXE")
-                        || name.endsWith("_AXE")
-                        || name.endsWith("_SHOVEL")
-                        || name.endsWith("_HOE")
-                        || name.equals("SHEARS")
-                        || name.equals("FISHING_ROD");
+                case Tools -> name.endsWith("_PICKAXE") || name.endsWith("_AXE")
+                        || name.endsWith("_SHOVEL") || name.endsWith("_HOE")
+                        || name.equals("SHEARS") || name.equals("FISHING_ROD");
                 case Food -> material.isEdible();
-                case Combat -> name.endsWith("_SWORD")
-                        || name.endsWith("_HELMET")
-                        || name.endsWith("_CHESTPLATE")
-                        || name.endsWith("_LEGGINGS")
-                        || name.endsWith("_BOOTS")
-                        || name.equals("BOW")
-                        || name.equals("CROSSBOW")
-                        || name.equals("SHIELD")
+                case Combat -> name.endsWith("_SWORD") || name.endsWith("_HELMET")
+                        || name.endsWith("_CHESTPLATE") || name.endsWith("_LEGGINGS")
+                        || name.endsWith("_BOOTS") || name.equals("BOW")
+                        || name.equals("CROSSBOW") || name.equals("SHIELD")
                         || name.equals("TRIDENT");
                 case Potions -> name.contains("POTION") || name.equals("DRAGON_BREATH");
                 case Books -> name.contains("BOOK") || name.equals("PAPER") || name.equals("MAP");
                 case Ingredients -> Tag.ITEMS_COALS.isTagged(material)
-                        || name.contains("INGOT")
-                        || name.contains("NUGGET")
-                        || name.contains("DUST")
-                        || name.contains("GEM")
-                        || name.contains("SHARD")
-                        || name.contains("SCRAP");
+                        || name.contains("INGOT") || name.contains("NUGGET")
+                        || name.contains("DUST") || name.contains("GEM")
+                        || name.contains("SHARD") || name.contains("SCRAP");
                 case Utilities -> !material.isBlock() && !material.isEdible();
                 case All -> true;
             };

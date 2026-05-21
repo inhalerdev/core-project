@@ -6,6 +6,7 @@ import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.orders.gui.OrderCreateGui;
 import net.mineacle.core.orders.gui.OrdersMainGui;
 import net.mineacle.core.orders.service.OrderService;
+import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -13,6 +14,7 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
 import java.util.List;
+import java.util.Locale;
 
 public final class OrderCommand implements CommandExecutor, TabCompleter {
 
@@ -61,12 +63,21 @@ public final class OrderCommand implements CommandExecutor, TabCompleter {
 
         if (args[0].equalsIgnoreCase("create")) {
             if (args.length == 1) {
-                OrderCreateGui.open(player);
+                OrderCreateGui.open(player, service);
                 return true;
             }
 
-            if (args.length < 3) {
-                player.sendMessage(TextColor.color("&d/order create <amount> <price_each>"));
+            if (args.length < 4) {
+                player.sendMessage(TextColor.color("&#bbbbbbUse: &#ff88ff/order create <item> <amount> <total-pay>"));
+                player.sendMessage(TextColor.color("&#bbbbbbExample: &#ff88ff/order create oak_log 64 100k"));
+                SoundService.guiError(player, core);
+                return true;
+            }
+
+            Material material = material(args[1]);
+
+            if (material == null || !material.isItem()) {
+                player.sendMessage(TextColor.color("&cUnknown item"));
                 SoundService.guiError(player, core);
                 return true;
             }
@@ -74,20 +85,20 @@ public final class OrderCommand implements CommandExecutor, TabCompleter {
             int amount;
 
             try {
-                amount = Integer.parseInt(args[1]);
+                amount = Integer.parseInt(args[2].replace(",", "").replace("_", ""));
             } catch (NumberFormatException exception) {
                 player.sendMessage(TextColor.color("&cInvalid amount"));
                 SoundService.guiError(player, core);
                 return true;
             }
 
-            service.create(player, amount, args[2]);
+            service.create(player, material, amount, args[3]);
             return true;
         }
 
         if (args[0].equalsIgnoreCase("reload") && player.hasPermission("mineacleorders.admin")) {
             core.reloadConfig();
-            player.sendMessage(TextColor.color("&aOrders reloaded"));
+            player.sendMessage(TextColor.color("&#bbbbbbOrders reloaded"));
             SoundService.guiConfirm(player, core);
             return true;
         }
@@ -96,10 +107,41 @@ public final class OrderCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    private Material material(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+
+        try {
+            return Material.valueOf(raw.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
             return List.of("create", "search", "clear");
+        }
+
+        if (args.length == 2 && args[0].equalsIgnoreCase("create")) {
+            String partial = args[1].toLowerCase(Locale.ROOT);
+
+            return java.util.Arrays.stream(Material.values())
+                    .filter(Material::isItem)
+                    .map(material -> material.name().toLowerCase(Locale.ROOT))
+                    .filter(name -> name.startsWith(partial))
+                    .limit(50)
+                    .toList();
+        }
+
+        if (args.length == 3 && args[0].equalsIgnoreCase("create")) {
+            return List.of("64", "128", "256", "512", "2304");
+        }
+
+        if (args.length == 4 && args[0].equalsIgnoreCase("create")) {
+            return List.of("10k", "100k", "1M", "10M");
         }
 
         return List.of();

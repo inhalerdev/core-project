@@ -1,4 +1,4 @@
-package net.mineacle.core.links;
+package net.mineacle.core.nametag;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
@@ -6,30 +6,42 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.TabCompleter;
 
-public final class LinksModule extends Module {
+public final class NametagModule extends Module {
 
-    private LinksService service;
+    private static NametagService service;
 
     @Override
     public String name() {
-        return "Links";
+        return "Nametags";
     }
 
     @Override
     public void enable(Core core) {
-        service = new LinksService(core);
-        LinksCommand command = new LinksCommand(core, service);
+        service = new NametagService(core);
 
-        register(core, "store", command);
-        register(core, "discord", command);
-        register(core, "x", command);
-        register(core, "appeal", command);
-        register(core, "links", command);
+        NametagCommand command = new NametagCommand(core, service);
+        register(core, "mineaclenametags", command);
+
+        core.getServer().getPluginManager().registerEvents(new NametagListener(core, service), core);
+
+        long interval = Math.max(20L, service.updateIntervalSeconds() * 20L);
+        core.getServer().getScheduler().runTaskTimer(core, service::refreshAll, 20L, interval);
+        service.refreshAll();
     }
 
     @Override
     public void disable() {
+        if (service != null) {
+            service.clear();
+        }
+
         service = null;
+    }
+
+    public static void refreshAll() {
+        if (service != null) {
+            service.refreshAll();
+        }
     }
 
     private void register(Core core, String commandName, CommandExecutor executor) {

@@ -5,6 +5,8 @@ max-players-display: 100
 
 teleport:
   delay-seconds: 5
+  plus-delay-seconds: 3
+  plus-permission: mineacle.plus
   cancel-on-move: true
   cancel-distance: 2.0
 
@@ -16,16 +18,24 @@ login-reroute:
 gui:
   spawn:
     current-lore:
-      - "&#bbbbbb%online%&#bbbbbb/&#bbbbbb%max%"
+      - "&#bbbbbb%online%/%max%"
       - ""
-      - "&aâž¥ You are currently here"
+      - "&aYou are currently here"
     available-lore:
-      - "&#bbbbbb%online%&#bbbbbb/&#bbbbbb%max%"
+      - "&#bbbbbb%online%/%max%"
       - ""
-      - "&#ff88ffâž¥ Return to Spawn"
+      - "&#ff88ffClick to return to Spawn"
   random:
     lore:
       - "&#bbbbbbClick to teleport to a random &#ff88ffSpawn"
+      - ""
+      - "&#bbbbbbChooses the lowest-populated spawn"
+
+random:
+  enabled: true
+  slot: 15
+  display-name: "&aRandom Spawn"
+  mode: "LOWEST_POPULATION"
 
 worlds:
   lobby1:
@@ -58,11 +68,6 @@ worlds:
     z: -0.5
     yaw: -180.0
     pitch: 0.0
-  random:
-    enabled: true
-    slot: 15
-    display-name: "&aRandom Spawn"
-    mode: "LOWEST_POPULATION"
 
 void:
   enabled: true
@@ -78,7 +83,7 @@ messages:
   already-here: "&#bbbbbbYou are already at &d%spawn%"
   teleport-start: "&#bbbbbbTeleporting to &d%spawn% &#bbbbbbin &d%seconds%s"
   teleport-countdown: "&#bbbbbbTeleporting to &d%spawn% &#bbbbbbin &d%seconds%s"
-  teleport-cancelled: "&cTeleport cancelled â€” you moved"
+  teleport-cancelled: "&cTeleport cancelled - you moved"
   teleported: "&#bbbbbbTeleported to &d%spawn%"
   world-missing: "&cThat spawn world is not loaded"
   random-missing: "&cNo spawn worlds are available"

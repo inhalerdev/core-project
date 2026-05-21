@@ -60,17 +60,6 @@ public final class SpawnGuiListener implements Listener {
     }
 
     private void handleSpawnClick(Player player, SpawnPoint point) {
-        if (spawnService.isCurrentWorld(player, point)) {
-            String message = spawnService.message("already-here")
-                    .replace("%spawn%", TextColor.color(point.displayName()));
-
-            player.sendActionBar(actionBar(message));
-            player.sendMessage(message);
-            SoundService.guiClick(player, spawnService.core());
-            player.closeInventory();
-            return;
-        }
-
         if (spawnService.location(point) == null) {
             String message = spawnService.message("world-missing")
                     .replace("%world%", point.worldName())
@@ -85,6 +74,32 @@ public final class SpawnGuiListener implements Listener {
 
         SoundService.guiClick(player, spawnService.core());
         player.closeInventory();
+
+        /*
+         * If the player clicks the spawn matching their current world,
+         * teleport instantly to that world's configured spawnpoint.
+         * No countdown, no "already here" block.
+         */
+        if (spawnService.isCurrentWorld(player, point)) {
+            if (!spawnService.teleport(player, point)) {
+                String message = spawnService.message("world-missing")
+                        .replace("%world%", point.worldName())
+                        .replace("%spawn%", TextColor.color(point.displayName()));
+
+                player.sendActionBar(actionBar(message));
+                player.sendMessage(message);
+                SoundService.guiError(player, spawnService.core());
+                return;
+            }
+
+            String message = spawnService.message("teleported")
+                    .replace("%spawn%", TextColor.color(point.displayName()));
+
+            player.sendActionBar(actionBar(message));
+            SoundService.teleportComplete(player, spawnService.core());
+            return;
+        }
+
         teleportService.begin(player, point);
     }
 

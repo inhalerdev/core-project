@@ -3,6 +3,7 @@ package net.mineacle.core.sell.listener;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
+import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.sell.gui.SellGui;
@@ -68,7 +69,6 @@ public final class SellGuiListener implements Listener {
         player.sendMessage(chat);
         player.sendActionBar(actionBar(actionbar));
         SoundService.economyReceive(player, core);
-
         processingSellClose.remove(player.getUniqueId());
     }
 
@@ -98,20 +98,20 @@ public final class SellGuiListener implements Listener {
 
         if (slot == SellHistoryGui.PREVIOUS_SLOT) {
             SoundService.guiClick(player, core);
-            SellHistoryGui.open(core, player, sellService, page - 1);
+            MenuHistory.openWithoutBackTrigger(core, player, () -> SellHistoryGui.open(core, player, sellService, page - 1));
             return;
         }
 
         if (slot == SellHistoryGui.SORT_SLOT) {
             SoundService.guiClick(player, core);
             SellHistoryGui.cycleSort(player);
-            SellHistoryGui.open(core, player, sellService, 0);
+            MenuHistory.openWithoutBackTrigger(core, player, () -> SellHistoryGui.open(core, player, sellService, 0));
             return;
         }
 
         if (slot == SellHistoryGui.NEXT_SLOT) {
             SoundService.guiClick(player, core);
-            SellHistoryGui.open(core, player, sellService, page + 1);
+            MenuHistory.openWithoutBackTrigger(core, player, () -> SellHistoryGui.open(core, player, sellService, page + 1));
         }
     }
 

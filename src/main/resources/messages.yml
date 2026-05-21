@@ -19,11 +19,11 @@ homes:
   already-exists: "&cYou already have a home named &d%home%&c."
 
   teleporting: "&#bbbbbbTeleporting to &d%target% &#bbbbbbin &d%seconds%s"
-  teleport-cancelled-move: "&cTeleport cancelled â€” you moved"
+  teleport-cancelled-move: "&cTeleport cancelled — you moved"
   teleported: "&#bbbbbbTeleported to &d%home%"
 
   upgrade-line-1: "&fElevate your gameplay experience with &dMineacle+"
-  upgrade-line-2: "&dâ™¦ &fhttps://store.mineacle.net"
+  upgrade-line-2: "&d➥ &fhttps://store.mineacle.net"
 
   gui:
     title: "Player Homes"
@@ -91,13 +91,13 @@ teams:
     promote-founder-only: "&cOnly the founder can promote members."
     demote-founder-only: "&cOnly the founder can demote members."
     promoted: "&aMember promoted to Admin."
-    demoted: "&6Admin demoted to Member."
+    demoted: "&aAdmin demoted to Member."
     cannot-kick-self: "&cYou cannot kick yourself."
     cannot-kick-target: "&cYou cannot kick that member."
     kicked: "&cMember kicked."
     transfer-founder-only: "&cOnly the founder can transfer ownership."
     already-founder: "&cThat player is already founder."
-    transfer-success: "&6Founder transferred."
+    transfer-success: "&aFounder transferred."
     banner-updated: "&aTeam banner color updated."
     name-color-updated: "&aTeam name color updated."
 
@@ -156,7 +156,7 @@ teams:
     leave-lore-1: "&#bbbbbbClick to continue"
     disband-title: "&cDisband Team"
     disband-lore-1: "&#bbbbbbClick to continue"
-    bans-button-title: "&6Team Bans"
+    bans-button-title: "&aTeam Bans"
     bans-button-lore-1: "&#bbbbbbClick to view active bans"
 
     manage-button-title: "&dTeam Manage"
