@@ -42,7 +42,6 @@ public final class BountyMainGui {
 
     public static void open(Core core, Player player, BountyService bountyService, int page) {
         List<BountyRecord> records = filteredRecords(player, bountyService);
-
         int totalPages = Math.max(1, (int) Math.ceil(records.size() / (double) ENTRIES_PER_PAGE));
         int safePage = Math.max(0, Math.min(page, totalPages - 1));
 
@@ -60,7 +59,12 @@ public final class BountyMainGui {
             inventory.setItem(22, item(
                     Material.SKELETON_SKULL,
                     "&dNo Bounties",
-                    List.of("&#bbbbbbNo active bounties right now")
+                    List.of(
+                            "&#bbbbbbNo one has a bounty right now",
+                            "",
+                            "&#bbbbbbPlace one with:",
+                            "&#ff88ff/bounty add <player> <amount>"
+                    )
             ));
         }
 
@@ -68,7 +72,7 @@ public final class BountyMainGui {
             inventory.setItem(PREVIOUS_SLOT, item(
                     Material.ARROW,
                     "&dBack",
-                    List.of("&#bbbbbbClick to go to the previous page")
+                    List.of("&#bbbbbbPrevious page")
             ));
         }
 
@@ -78,24 +82,24 @@ public final class BountyMainGui {
                 Material.EMERALD,
                 "&dBounties",
                 List.of(
-                        "&#bbbbbbClick to refresh",
+                        "&#bbbbbbDefeat bounty targets",
+                        "&#bbbbbbto claim their reward",
                         "",
-                        "&#bbbbbbSet a bounty using this:",
-                        "&#ff88ff/bounty add (player) (amount)"
+                        "&#ff88ffClick to refresh"
                 )
         ));
 
         inventory.setItem(SEARCH_SLOT, item(
                 Material.OAK_SIGN,
                 "&dSearch",
-                List.of("&#bbbbbbClick to search")
+                List.of("&#bbbbbbSearch for a bounty target")
         ));
 
         if (safePage < totalPages - 1) {
             inventory.setItem(NEXT_SLOT, item(
                     Material.ARROW,
                     "&dNext",
-                    List.of("&#bbbbbbClick to go to the next page")
+                    List.of("&#bbbbbbNext page")
             ));
         }
 
@@ -196,7 +200,10 @@ public final class BountyMainGui {
         meta.setOwningPlayer(target);
         meta.setDisplayName(TextColor.color("&d" + DisplayNames.displayName(target)));
         meta.setLore(List.of(
-                TextColor.color("&#bbbbbbBounty: &a" + bountyService.format(record.amountCents())),
+                TextColor.color("&#bbbbbbTarget: &#ff88ff" + DisplayNames.displayName(target)),
+                TextColor.color("&#bbbbbbReward: &a" + bountyService.format(record.amountCents())),
+                TextColor.color("&#bbbbbbClaim: &#ff88ffDefeat this player"),
+                "",
                 TextColor.color("&#bbbbbbClick to view stats")
         ));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
@@ -210,11 +217,7 @@ public final class BountyMainGui {
         lore.add("");
 
         for (BountySortMode mode : BountySortMode.values()) {
-            if (mode == current) {
-                lore.add("&#ff88ff" + mode.displayName());
-            } else {
-                lore.add("&#bbbbbb" + mode.displayName());
-            }
+            lore.add((mode == current ? "&#ff88ff" : "&#bbbbbb") + mode.displayName());
         }
 
         return item(Material.HOPPER, "&dSort", lore);

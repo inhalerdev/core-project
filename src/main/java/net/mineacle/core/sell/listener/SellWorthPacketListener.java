@@ -12,6 +12,8 @@ import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
@@ -56,8 +58,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
 
     private void handleSetSlot(PacketEvent event, Player player) {
         StructureModifier<ItemStack> modifier = event.getPacket().getItemModifier();
-
-        int packetSlot = packetSlot(event);
+        int rawSlot = setSlotRawSlot(event);
 
         for (int index = 0; index < modifier.size(); index++) {
             ItemStack item = modifier.readSafely(index);
@@ -66,7 +67,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
                 continue;
             }
 
-            if (shouldSkipWorthForSlot(player, packetSlot)) {
+            if (shouldStripForRawSlot(player, rawSlot)) {
                 modifier.writeSafely(index, stripWorthLore(item));
                 continue;
             }
@@ -87,15 +88,15 @@ public final class SellWorthPacketListener extends PacketAdapter {
 
             List<ItemStack> updated = new ArrayList<>(original.size());
 
-            for (int slot = 0; slot < original.size(); slot++) {
-                ItemStack item = original.get(slot);
+            for (int rawSlot = 0; rawSlot < original.size(); rawSlot++) {
+                ItemStack item = original.get(rawSlot);
 
                 if (item == null || item.getType() == Material.AIR) {
                     updated.add(item);
                     continue;
                 }
 
-                if (shouldSkipWorthForSlot(player, slot)) {
+                if (shouldStripForRawSlot(player, rawSlot)) {
                     updated.add(stripWorthLore(item));
                     continue;
                 }
@@ -117,95 +118,137 @@ public final class SellWorthPacketListener extends PacketAdapter {
 
             ItemStack[] updated = new ItemStack[original.length];
 
-            for (int slot = 0; slot < original.length; slot++) {
-                ItemStack item = original[slot];
+            for (int rawSlot = 0; rawSlot < original.length; rawSlot++) {
+                ItemStack item = original[rawSlot];
 
                 if (item == null || item.getType() == Material.AIR) {
-                    updated[slot] = item;
+                    updated[rawSlot] = item;
                     continue;
                 }
 
-                if (shouldSkipWorthForSlot(player, slot)) {
-                    updated[slot] = stripWorthLore(item);
+                if (shouldStripForRawSlot(player, rawSlot)) {
+                    updated[rawSlot] = stripWorthLore(item);
                     continue;
                 }
 
-                updated[slot] = withWorthLore(player, item);
+                updated[rawSlot] = withWorthLore(player, item);
             }
 
             arrayModifier.writeSafely(index, updated);
         }
     }
 
-    private boolean shouldSkipWorthForSlot(Player player, int rawSlot) {
-        if (!isMineacleCoreGui(player)) {
-            return false;
-        }
-
+    private boolean shouldStripForRawSlot(Player player, int rawSlot) {
         if (rawSlot < 0) {
-            return true;
+            return false;
         }
 
         InventoryView view = player.getOpenInventory();
 
         if (view == null || view.getTopInventory() == null) {
+            return false;
+        }
+
+        Inventory top = view.getTopInventory();
+        int topSize = top.getSize();
+
+        if (rawSlot >= topSize) {
+            return false;
+        }
+
+        /*
+         * Hard rule:
+         * Worth lore is never shown on the top inventory of Core/custom menus.
+         * This strips it from Homes beds/dyes, Team banners, Bounty/Orders entries,
+         * Stats icons, toolbar arrows, and every other menu item we control.
+         *
+         * Player inventory / chest / ender chest / shulker / furnace / crafting items
+         * still get worth lore normally.
+         */
+        return isCoreOrCustomTopInventory(view, top);
+    }
+
+    private boolean isCoreOrCustomTopInventory(InventoryView view, Inventory top) {
+        String title = ChatColor.stripColor(view.getTitle());
+
+        if (title == null) {
+            title = "";
+        }
+
+        String lowerTitle = title.toLowerCase(Locale.ROOT);
+
+        if (isKnownMineacleTitle(lowerTitle)) {
             return true;
         }
 
         /*
-         * Only block Worth lore on the custom Core GUI area.
-         * The player's own bottom inventory still gets Worth lore.
+         * Bukkit.createInventory(null, size, title) menus have no holder.
+         * Real containers like chests, shulkers, furnaces, crafting tables, and ender chests
+         * usually have a real holder/type and are allowed to show Worth lore.
          */
-        return rawSlot < view.getTopInventory().getSize();
+        boolean noHolder = top.getHolder(false) == null;
+        InventoryType type = top.getType();
+
+        if (!noHolder) {
+            return false;
+        }
+
+        return type == InventoryType.CHEST
+                || type == InventoryType.HOPPER
+                || type == InventoryType.DROPPER
+                || type == InventoryType.DISPENSER;
     }
 
-    private boolean isMineacleCoreGui(Player player) {
-        InventoryView view = player.getOpenInventory();
-
-        if (view == null) {
+    private boolean isKnownMineacleTitle(String lowerTitle) {
+        if (lowerTitle.isBlank()) {
             return false;
         }
 
-        String title = ChatColor.stripColor(view.getTitle());
-
-        if (title == null || title.isBlank()) {
-            return false;
-        }
-
-        String lower = title.toLowerCase(Locale.ROOT);
-
-        return lower.equals("homes")
-                || lower.equals("team menu")
-                || lower.equals("team invites")
-                || lower.equals("team bans")
-                || lower.equals("team manage")
-                || lower.equals("member manager")
-                || lower.equals("banner color")
-                || lower.equals("name color")
-                || lower.equals("spawn")
-                || lower.equals("teleport request")
-                || lower.equals("confirm request")
-                || lower.equals("confirm action")
-                || lower.equals("sell")
-                || lower.equals("sell multipliers")
-                || lower.equals("my orders")
-                || lower.equals("create order")
-                || lower.equals("confirm delivery")
-                || lower.equals("confirm cancel")
-                || lower.startsWith("balance top")
-                || lower.startsWith("orders")
-                || lower.startsWith("bounties")
-                || lower.startsWith("sell history")
-                || lower.startsWith("item prices")
-                || lower.contains(" statistics")
-                || lower.endsWith(" stats")
-                || lower.contains(" statistics")
-                || lower.contains(" member")
-                || lower.contains(" (page ");
+        return lowerTitle.equals("homes")
+                || lowerTitle.equals("spawn")
+                || lowerTitle.equals("sell")
+                || lowerTitle.equals("sell multipliers")
+                || lowerTitle.equals("my orders")
+                || lowerTitle.equals("create order")
+                || lowerTitle.equals("confirm delivery")
+                || lowerTitle.equals("confirm cancel")
+                || lowerTitle.equals("team menu")
+                || lowerTitle.equals("team invites")
+                || lowerTitle.equals("team bans")
+                || lowerTitle.equals("team manage")
+                || lowerTitle.equals("member manager")
+                || lowerTitle.equals("banner color")
+                || lowerTitle.equals("name color")
+                || lowerTitle.equals("teleport request")
+                || lowerTitle.equals("confirm request")
+                || lowerTitle.equals("confirm action")
+                || lowerTitle.startsWith("homes ")
+                || lowerTitle.startsWith("balance top")
+                || lowerTitle.startsWith("orders")
+                || lowerTitle.startsWith("bounties")
+                || lowerTitle.startsWith("sell history")
+                || lowerTitle.startsWith("item prices")
+                || lowerTitle.startsWith("delete ")
+                || lowerTitle.startsWith("confirm ")
+                || lowerTitle.contains(" statistics")
+                || lowerTitle.endsWith(" stats")
+                || lowerTitle.contains(" member")
+                || lowerTitle.contains("page ");
     }
 
     private ItemStack withWorthLore(Player player, ItemStack original) {
         ItemStack item = stripWorthLore(original);
+
+        if (item.getType() == Material.AIR) {
+            return item;
+        }
+
+        long totalWorth = sellService.stackWorthCents(player, item);
+
+        if (totalWorth <= 0L) {
+            return item;
+        }
+
         ItemMeta meta = item.getItemMeta();
 
         if (meta == null) {
@@ -216,13 +259,8 @@ public final class SellWorthPacketListener extends PacketAdapter {
                 ? new ArrayList<>(meta.getLore())
                 : new ArrayList<>();
 
-        long totalWorth = sellService.stackWorthCents(player, item);
-
-        if (totalWorth <= 0L) {
-            return item;
-        }
-
         lore.add(0, TextColor.color("&#bbbbbbWorth: &a" + sellService.format(totalWorth)));
+
         meta.setLore(lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
@@ -239,7 +277,13 @@ public final class SellWorthPacketListener extends PacketAdapter {
 
         List<String> lore = new ArrayList<>(meta.getLore());
         lore.removeIf(this::isWorthLine);
-        meta.setLore(lore);
+
+        if (lore.isEmpty()) {
+            meta.setLore(null);
+        } else {
+            meta.setLore(lore);
+        }
+
         item.setItemMeta(meta);
         return item;
     }
@@ -256,14 +300,19 @@ public final class SellWorthPacketListener extends PacketAdapter {
         }
 
         return stripped.startsWith("Worth:")
-                || stripped.startsWith("Enchant Value:")
                 || stripped.startsWith("Stack Worth:")
+                || stripped.startsWith("Enchant Value:")
                 || stripped.startsWith("Demand:");
     }
 
-    private int packetSlot(PacketEvent event) {
+    private int setSlotRawSlot(PacketEvent event) {
         StructureModifier<Integer> integers = event.getPacket().getIntegers();
 
+        /*
+         * PacketPlayOutSetSlot normally has:
+         * containerId, stateId, slot
+         * ProtocolLib exposes these as integers, so the last int is the raw slot.
+         */
         for (int index = integers.size() - 1; index >= 0; index--) {
             Integer value = integers.readSafely(index);
 

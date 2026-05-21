@@ -33,6 +33,19 @@ public final class YourOrdersGui {
             slot++;
         }
 
+        if (orders.isEmpty()) {
+            inventory.setItem(22, OrdersMainGui.item(
+                    org.bukkit.Material.BOOK,
+                    "&dNo Orders",
+                    List.of(
+                            "&#bbbbbbYou have not created any orders",
+                            "",
+                            "&#bbbbbbCreate orders when you want",
+                            "&#bbbbbbplayers to bring you items"
+                    )
+            ));
+        }
+
         player.openInventory(inventory);
     }
 
@@ -46,21 +59,28 @@ public final class YourOrdersGui {
 
     private static org.bukkit.inventory.ItemStack orderItem(OrderService service, OrderRecord order) {
         EconomyService economy = EconomyModule.economyService();
-        String escrow = economy == null ? "$" + order.escrowRemainingCents() : economy.format(order.escrowRemainingCents());
 
-        return OrdersMainGui.item(order.material(), "&d" + service.pretty(order.material()), List.of(
-                cfg("orders.gui.my-order-lore.status", "&#bbbbbbStatus: %status%")
-                        .replace("%status%", order.active() ? "&#ff88ffActive" : "&cClosed"),
-                cfg("orders.gui.my-order-lore.delivered", "&#bbbbbbDelivered: &#ff88ff%delivered%&#bbbbbb/&#ff88ff%requested%")
-                        .replace("%delivered%", String.valueOf(order.deliveredAmount()))
-                        .replace("%requested%", String.valueOf(order.requestedAmount())),
-                cfg("orders.gui.my-order-lore.escrow", "&#bbbbbbRefundable Escrow: &#ff88ff%escrow%")
-                        .replace("%escrow%", escrow),
-                "",
-                order.active()
-                        ? cfg("orders.gui.my-order-lore.click", "&#bbbbbbClick to collect, cancel, or refund")
-                        : cfg("orders.gui.my-order-lore.closed", "&#bbbbbbClosed")
-        ));
+        long totalPayCents = order.requestedAmount() * order.pricePerItemCents();
+        long remainingPayCents = order.remainingAmount() * order.pricePerItemCents();
+
+        String totalPay = economy == null ? "$" + totalPayCents : economy.format(totalPayCents);
+        String remainingPay = economy == null ? "$" + remainingPayCents : economy.format(remainingPayCents);
+
+        return OrdersMainGui.item(
+                order.material(),
+                "&d" + service.pretty(order.material()),
+                List.of(
+                        "&#bbbbbbYou Ordered: &#ff88ff" + order.requestedAmount() + "x " + service.pretty(order.material()),
+                        "&#bbbbbbYou Are Paying: &a" + totalPay,
+                        "&#bbbbbbStill Available: &a" + remainingPay,
+                        "&#bbbbbbDelivered: &#ff88ff" + order.deliveredAmount() + "&#bbbbbb/&#ff88ff" + order.requestedAmount(),
+                        "&#bbbbbbStatus: " + (order.active() ? "&#ff88ffActive" : "&cClosed"),
+                        "",
+                        order.active()
+                                ? "&#ff88ffClick to collect items or cancel"
+                                : "&#bbbbbbClosed order"
+                )
+        );
     }
 
     private static String cfg(String path, String fallback) {
