@@ -35,18 +35,13 @@ public final class OriginRtpCommand implements CommandExecutor, TabCompleter {
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         String used = label.toLowerCase(Locale.ROOT);
 
-        if (sender instanceof Player player && (used.equals("rtp") || used.equals("wild"))) {
+        if (sender instanceof Player player && (used.equals("rtp") || used.equals("wild") || used.equals("originrtp") || used.equals("originsrtp"))) {
             if (!player.hasPermission("mineaclertp.use")) {
                 send(player, "§cYou do not have permission");
                 return true;
             }
 
             if (args.length == 0) {
-                MenuHistory.openRoot(core, player, () -> RtpMenuGui.open(player, menuService, RtpMenuGui.MAIN));
-                return true;
-            }
-
-            if (args[0].equalsIgnoreCase("origins") || args[0].equalsIgnoreCase("origin")) {
                 MenuHistory.openRoot(core, player, () -> RtpMenuGui.open(player, menuService, RtpMenuGui.ORIGINS));
                 return true;
             }
@@ -66,7 +61,7 @@ public final class OriginRtpCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            queueService.request(player);
+            MenuHistory.openRoot(core, player, () -> RtpMenuGui.open(player, menuService, RtpMenuGui.ORIGINS));
             return true;
         }
 
@@ -101,7 +96,7 @@ public final class OriginRtpCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
         String used = alias.toLowerCase(Locale.ROOT);
 
-        if (sender instanceof Player player && (used.equals("rtp") || used.equals("wild"))) {
+        if (sender instanceof Player player && (used.equals("rtp") || used.equals("wild") || used.equals("originrtp") || used.equals("originsrtp"))) {
             if (!player.hasPermission("mineaclertp.use")) {
                 return completions;
             }

@@ -89,8 +89,7 @@ public final class MenuCloseListener implements Listener {
     }
 
     private boolean isRtpMenu(String title) {
-        return title.equalsIgnoreCase("Random Teleport")
-                || title.equalsIgnoreCase("Origins RTP");
+        return title.equalsIgnoreCase("Random Teleport");
     }
 
     private boolean isPlusMenu(String title) {

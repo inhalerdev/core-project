@@ -1,41 +1,8 @@
 enabled: true
 
 menus:
-  main:
-    title: "Random Teleport"
-    size: 27
-    items:
-      origins:
-        enabled: true
-        slot: 11
-        material: GRASS_BLOCK
-        name: "&#55ff55Origins"
-        lore:
-          - "&#bbbbbbMain survival world"
-          - ""
-          - "&#bbbbbbChoose where you want to explore:"
-          - "&#55ff55Overworld&#bbbbbb, &cNether&#bbbbbb, or &#ff88ffEnd"
-          - ""
-          - "&#55ff55Click to choose a world"
-      trials:
-        enabled: true
-        slot: 15
-        material: SKELETON_SKULL
-        name: "&cTrials"
-        lore:
-          - "&#bbbbbbHardcore survival server"
-          - ""
-          - "&#bbbbbbOne world, higher risk,"
-          - "&#bbbbbband a more serious challenge"
-          - ""
-          - "&cClick to join Trials"
-        action:
-          type: BUNGEE_SERVER
-          server: "trials"
-          fallback-command: "server %player% trials"
-
   origins:
-    title: "Origins RTP"
+    title: "Random Teleport"
     size: 27
     items:
       origins:
@@ -80,6 +47,4 @@ menus:
 
 messages:
   no-permission: "&cYou do not have permission"
-  trials-connecting: "&#bbbbbbSending you to &cTrials"
-  trials-failed: "&cCould not send you to Trials"
   rtp-started: "&#bbbbbbFinding a safe spot in &#ff88ff%world%"
