@@ -37,6 +37,7 @@ public final class MenuCloseListener implements Listener {
                 || isStatsMenu(title)
                 || isBalTopMenu(title)
                 || isSpawnMenu(title)
+                || isRtpMenu(title)
                 || isPlusMenu(title)
                 || isAdminMenu(title)
                 || isSellMenu(title)
@@ -85,6 +86,11 @@ public final class MenuCloseListener implements Listener {
 
     private boolean isSpawnMenu(String title) {
         return title.equalsIgnoreCase("Spawn");
+    }
+
+    private boolean isRtpMenu(String title) {
+        return title.equalsIgnoreCase("Random Teleport")
+                || title.equalsIgnoreCase("Origins RTP");
     }
 
     private boolean isPlusMenu(String title) {
