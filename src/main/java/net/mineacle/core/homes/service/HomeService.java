@@ -183,7 +183,7 @@ public final class HomeService {
     }
 
     public String getDefaultDisplayName(int id) {
-        return core.getConfig().getString("homes.default-name-format", "Home%id%")
+        return core.getConfig().getString("homes.default-name-format", "Home %id%")
                 .replace("%id%", String.valueOf(id));
     }
 
