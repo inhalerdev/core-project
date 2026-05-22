@@ -1,54 +1,42 @@
 enabled: true
 
-messages:
-  no-permission: "&cYou do not have permission"
-  unknown-link: "&cThat link is not configured"
-  reloaded: "&#bbbbbbQuick links reloaded"
-  blank-lines: true
-  fallback-url: true
-
 links:
   store:
-    aliases: [buy, shop]
-    url: "https://store.mineacle.net/"
-    header: "&#ff88ff&lMineacle Store"
+    url: "https://store.mineacle.net"
+    label: "Mineacle Store"
+    command-line: "&#ff88ff/store"
     lines:
-      - "&#bbbbbbPick up crate keys, ranks, and cosmetics"
-      - "&#bbbbbbCrate rewards can help your survival journey against mobs and in-game bosses"
-      - "&#bbbbbbEvery player can still earn strong gear through normal gameplay"
-    button: "&#ff88ff➜ Visit Store"
-    hover: "&#ff88ffOpen Mineacle Store"
-    fallback-color: "&#bbbbbb"
+      - "&#bbbbbbUpgrade to &#ff88ffMineacle+ &#bbbbbband support the server"
+      - "&#bbbbbbGet perks, cosmetics, and crate keys for PvE progression"
+    action: "&#ff88ffClick here to visit the store"
+    hover: "&#bbbbbbOpen &#ff88ffstore.mineacle.net"
 
   discord:
-    aliases: [dc]
-    url: "https://www.mineacle.net/discord/"
-    header: "&#5865F2&lMineacle Discord"
+    url: "https://discord.gg/mineacle"
+    label: "Mineacle Discord"
+    command-line: "&#5865F2/discord"
     lines:
-      - "&#bbbbbbJoin the community for updates, events, support, and giveaways"
-      - "&#99AAB5Chat with other players and stay connected outside the server"
-    button: "&#99AAB5➜ Join Discord"
-    hover: "&#5865F2Open Discord"
-    fallback-color: "&#99AAB5"
+      - "&#B9BBBEJoin the community, ask questions, and get updates"
+      - "&#B9BBBEUse Discord for tickets, support, and events"
+    action: "&#5865F2Click here to join Discord"
+    hover: "&#B9BBBEOpen the Mineacle Discord"
 
   x:
-    aliases: [twitter]
     url: "https://x.com/mineaclenetwork"
-    header: "&#ffffff&lMineacle on X"
+    label: "Mineacle on X"
+    command-line: "&#ffffff/x"
     lines:
-      - "&#bbbbbbFollow us for announcements, updates, previews, and server news"
-      - "&#8b98a5Stay in the loop with quick posts from the network"
-    button: "&#8b98a5➜ Visit X"
-    hover: "&#ffffffOpen X"
-    fallback-color: "&#8b98a5"
+      - "&#bbbbbbFollow Mineacle for news and network updates"
+      - "&#bbbbbbSee announcements, clips, and server highlights"
+    action: "&#ffffffClick here to open X"
+    hover: "&#bbbbbbOpen x.com/mineaclenetwork"
 
   appeal:
-    aliases: [appeals, banappeal]
-    url: "https://www.mineacle.net/appeal/"
-    header: "&c&lPunishment Appeals"
+    url: "https://discord.gg/mineacle"
+    label: "Appeals"
+    command-line: "&c/appeal"
     lines:
-      - "&#bbbbbbNeed staff to review a punishment?"
-      - "&#bbbbbbSubmit an appeal and include as much detail as possible"
-    button: "&c➜ Submit Appeal"
-    hover: "&cOpen Appeals"
-    fallback-color: "&#bbbbbb"
+      - "&#bbbbbbNeed staff help or a punishment review?"
+      - "&#bbbbbbJoin Discord and open the correct ticket"
+    action: "&cClick here to get help"
+    hover: "&#bbbbbbOpen the Mineacle Discord"

@@ -2,13 +2,12 @@ package net.mineacle.core.links;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
-import org.bukkit.command.CommandExecutor;
+import net.mineacle.core.links.command.LinksCommand;
 import org.bukkit.command.PluginCommand;
-import org.bukkit.command.TabCompleter;
 
 public final class LinksModule extends Module {
 
-    private LinksService service;
+    private LinksCommand command;
 
     @Override
     public String name() {
@@ -17,33 +16,29 @@ public final class LinksModule extends Module {
 
     @Override
     public void enable(Core core) {
-        service = new LinksService(core);
-        LinksCommand command = new LinksCommand(core, service);
+        command = new LinksCommand(core);
 
-        register(core, "store", command);
-        register(core, "discord", command);
-        register(core, "x", command);
-        register(core, "appeal", command);
-        register(core, "links", command);
+        register(core, "links");
+        register(core, "discord");
+        register(core, "store");
+        register(core, "x");
+        register(core, "appeal");
     }
 
     @Override
     public void disable() {
-        service = null;
+        command = null;
     }
 
-    private void register(Core core, String commandName, CommandExecutor executor) {
-        PluginCommand command = core.getCommand(commandName);
+    private void register(Core core, String commandName) {
+        PluginCommand pluginCommand = core.getCommand(commandName);
 
-        if (command == null) {
+        if (pluginCommand == null) {
             core.getLogger().warning("Missing command in plugin.yml: " + commandName);
             return;
         }
 
-        command.setExecutor(executor);
-
-        if (executor instanceof TabCompleter completer) {
-            command.setTabCompleter(completer);
-        }
+        pluginCommand.setExecutor(command);
+        pluginCommand.setTabCompleter(command);
     }
 }
