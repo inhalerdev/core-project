@@ -15,7 +15,7 @@ menus:
 
         lore:
           - "&#bbbbbbExplore the main survival world"
-          - "&#bbbbbbPlayers Online: &f%online%"
+          - "&#bbbbbbPlayers Online: &f%server_online_origins%"
           - ""
           - "&a► Click to teleport"
 
@@ -28,7 +28,7 @@ menus:
 
         lore:
           - "&#bbbbbbExplore the Nether dimension"
-          - "&#bbbbbbPlayers Online: &f%online%"
+          - "&#bbbbbbPlayers Online: &f%server_online_origins_nether%"
           - ""
           - "&c► Click to teleport"
 
@@ -41,10 +41,10 @@ menus:
 
         lore:
           - "&#bbbbbbExplore the outer End islands"
-          - "&#bbbbbbPlayers Online: &f%online%"
+          - "&#bbbbbbPlayers Online: &f%server_online_origins_the_end%"
           - ""
           - "&#ff88ff► Click to teleport"
 
 messages:
-  no-permission: "&cYou do not have permission"
+  no-permission: "&cThis command does not exist."
   rtp-started: "&#bbbbbbFinding a safe spot in &d%world%"
