@@ -15,7 +15,7 @@ menus:
 
         lore:
           - "&#bbbbbbExplore the main survival world"
-          - "&#bbbbbbPlayers Online: &f%server_online_origins%"
+          - "&#bbbbbbPlayers Online: &#88ff88%server_online_origins%"
           - ""
           - "&a► Click to teleport"
 
@@ -28,7 +28,7 @@ menus:
 
         lore:
           - "&#bbbbbbExplore the Nether dimension"
-          - "&#bbbbbbPlayers Online: &f%server_online_origins_nether%"
+          - "&#bbbbbbPlayers Online: &#ff8888%server_online_origins_nether%"
           - ""
           - "&c► Click to teleport"
 
@@ -37,11 +37,11 @@ menus:
         slot: 15
         material: END_STONE
         destination: "end"
-        name: "&#ff88ffThe End"
+        name: "&dThe End"
 
         lore:
           - "&#bbbbbbExplore the outer End islands"
-          - "&#bbbbbbPlayers Online: &f%server_online_origins_the_end%"
+          - "&#bbbbbbPlayers Online: &#ff88ff%server_online_origins_the_end%"
           - ""
           - "&#ff88ff► Click to teleport"
 
