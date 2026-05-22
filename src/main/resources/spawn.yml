@@ -10,6 +10,12 @@ teleport:
   cancel-on-move: true
   cancel-distance: 2.0
 
+first-join:
+  enabled: true
+  delay-ticks: 10
+  target: "random"
+  send-message: false
+
 login-reroute:
   enabled: true
   delay-ticks: 5
@@ -89,5 +95,7 @@ messages:
   random-missing: "&cNo spawn worlds are available"
   void-teleported: "&#bbbbbbSaved from the void and sent to &d%spawn%"
   void-missing: "&cNo safe spawn is available"
+  first-join-rerouted: "&#bbbbbbWelcome to &d%spawn%"
+  first-join-missing: "&cNo spawn worlds are available"
   login-rerouted: "&#bbbbbbSent to &d%spawn%"
   login-reroute-missing: "&cNo spawn worlds are available"

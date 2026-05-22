@@ -243,24 +243,26 @@ public final class SpawnService {
         return tied.get(random.nextInt(tied.size()));
     }
 
-    public SpawnPoint selectVoidTarget() {
-        String target = spawnConfig.getString("void.target", "random");
-
-        if (target == null || target.equalsIgnoreCase("random")) {
+    public SpawnPoint selectNamedOrRandom(String target) {
+        if (target == null || target.isBlank() || target.equalsIgnoreCase("random")) {
             return selectRandomPoint();
         }
 
         SpawnPoint point = spawnPointById(target);
 
-        if (point == null || !point.enabled()) {
-            return selectRandomPoint();
-        }
-
-        if (Bukkit.getWorld(point.worldName()) == null) {
+        if (point == null || !point.enabled() || Bukkit.getWorld(point.worldName()) == null) {
             return selectRandomPoint();
         }
 
         return point;
+    }
+
+    public SpawnPoint selectFirstJoinTarget() {
+        return selectNamedOrRandom(spawnConfig.getString("first-join.target", "random"));
+    }
+
+    public SpawnPoint selectVoidTarget() {
+        return selectNamedOrRandom(spawnConfig.getString("void.target", "random"));
     }
 
     public boolean teleport(Player player, SpawnPoint point) {
@@ -449,6 +451,18 @@ public final class SpawnService {
         }
 
         return false;
+    }
+
+    public boolean firstJoinEnabled() {
+        return spawnConfig.getBoolean("first-join.enabled", true);
+    }
+
+    public long firstJoinDelayTicks() {
+        return Math.max(1L, spawnConfig.getLong("first-join.delay-ticks", 10L));
+    }
+
+    public boolean firstJoinSendMessage() {
+        return spawnConfig.getBoolean("first-join.send-message", false);
     }
 
     public boolean loginRerouteEnabled() {

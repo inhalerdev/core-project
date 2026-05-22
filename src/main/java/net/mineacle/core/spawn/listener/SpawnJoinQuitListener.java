@@ -22,6 +22,15 @@ public final class SpawnJoinQuitListener implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
 
+        if (!player.hasPlayedBefore() && spawnService.firstJoinEnabled()) {
+            spawnService.core().getServer().getScheduler().runTaskLater(
+                    spawnService.core(),
+                    () -> forceFirstJoinSpawn(player),
+                    spawnService.firstJoinDelayTicks()
+            );
+            return;
+        }
+
         if (!spawnService.loginRerouteEnabled()) {
             return;
         }
@@ -31,6 +40,37 @@ public final class SpawnJoinQuitListener implements Listener {
                 () -> rerouteIfNeeded(player),
                 spawnService.loginRerouteDelayTicks()
         );
+    }
+
+    private void forceFirstJoinSpawn(Player player) {
+        if (!player.isOnline()) {
+            return;
+        }
+
+        SpawnPoint point = spawnService.selectFirstJoinTarget();
+
+        if (point == null) {
+            if (spawnService.firstJoinSendMessage()) {
+                sendBoth(player, spawnService.message("first-join-missing"));
+            }
+            return;
+        }
+
+        if (!spawnService.teleport(player, point)) {
+            if (spawnService.firstJoinSendMessage()) {
+                String message = spawnService.message("world-missing")
+                        .replace("%world%", point.worldName())
+                        .replace("%spawn%", TextColor.color(point.displayName()));
+                sendBoth(player, message);
+            }
+            return;
+        }
+
+        if (spawnService.firstJoinSendMessage()) {
+            String message = spawnService.message("first-join-rerouted")
+                    .replace("%spawn%", TextColor.color(point.displayName()));
+            sendBoth(player, message);
+        }
     }
 
     private void rerouteIfNeeded(Player player) {
