@@ -4,47 +4,47 @@ menus:
   origins:
     title: "Random Teleport"
     size: 27
+
     items:
       origins:
         enabled: true
         slot: 11
         material: GRASS_BLOCK
         destination: "origins"
-        name: "&#55ff55Overworld"
+        name: "&aOverworld"
+
         lore:
-          - "&#bbbbbbStart somewhere new in Origins"
+          - "&#bbbbbbExplore the main survival world"
+          - "&#bbbbbbPlayers Online: &f%online%"
           - ""
-          - "&#bbbbbbBest for building, exploring,"
-          - "&#bbbbbband gathering basic resources"
-          - ""
-          - "&#55ff55Click to random teleport"
+          - "&a► Click to teleport"
+
       nether:
         enabled: true
         slot: 13
         material: NETHERRACK
         destination: "nether"
         name: "&cNether"
+
         lore:
-          - "&#bbbbbbTravel deep into the Nether"
+          - "&#bbbbbbExplore the Nether dimension"
+          - "&#bbbbbbPlayers Online: &f%online%"
           - ""
-          - "&#bbbbbbUseful for rare resources,"
-          - "&#bbbbbbdangerous mobs, and fast travel"
-          - ""
-          - "&cClick to random teleport"
+          - "&c► Click to teleport"
+
       end:
         enabled: true
         slot: 15
         material: END_STONE
         destination: "end"
         name: "&#ff88ffThe End"
+
         lore:
-          - "&#bbbbbbExplore the outer End"
+          - "&#bbbbbbExplore the outer End islands"
+          - "&#bbbbbbPlayers Online: &f%online%"
           - ""
-          - "&#bbbbbbFind islands, loot, and"
-          - "&#bbbbbbend-game resources"
-          - ""
-          - "&#ff88ffClick to random teleport"
+          - "&#ff88ff► Click to teleport"
 
 messages:
   no-permission: "&cYou do not have permission"
-  rtp-started: "&#bbbbbbFinding a safe spot in &#ff88ff%world%"
+  rtp-started: "&#bbbbbbFinding a safe spot in &d%world%"
