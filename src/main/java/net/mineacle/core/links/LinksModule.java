@@ -3,6 +3,7 @@ package net.mineacle.core.links;
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.links.command.LinksCommand;
+import net.mineacle.core.links.listener.LinksCommandListener;
 import org.bukkit.command.PluginCommand;
 
 public final class LinksModule extends Module {
@@ -22,7 +23,8 @@ public final class LinksModule extends Module {
         register(core, "discord");
         register(core, "store");
         register(core, "x");
-        register(core, "appeal");
+
+        core.getServer().getPluginManager().registerEvents(new LinksCommandListener(command), core);
     }
 
     @Override

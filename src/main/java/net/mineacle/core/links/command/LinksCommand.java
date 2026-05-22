@@ -64,7 +64,7 @@ public final class LinksCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            sendAll(player);
+            sendAllLinks(player);
             return true;
         }
 
@@ -73,16 +73,53 @@ public final class LinksCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        sendLink(player, used);
+        sendConfiguredLink(player, used);
         return true;
     }
 
-    private void sendAll(Player player) {
+    public void sendAllLinks(Player player) {
         player.sendMessage(Component.empty());
         player.sendMessage(legacy("&#ff88ffMineacle Links"));
         sendCompactLine(player, "store");
         sendCompactLine(player, "discord");
         sendCompactLine(player, "x");
+        SoundService.guiClick(player, core);
+    }
+
+    public void sendConfiguredLink(Player player, String key) {
+        key = normalize(key);
+
+        if (!config.getBoolean("enabled", true)) {
+            return;
+        }
+
+        if (!config.contains("links." + key)) {
+            player.sendMessage(TextColor.color("&cThat link is not configured"));
+            SoundService.guiError(player, core);
+            return;
+        }
+
+        String label = config.getString("links." + key + ".label", key);
+        String url = config.getString("links." + key + ".url", "");
+        String action = config.getString("links." + key + ".action", "&dClick here");
+        String hover = config.getString("links." + key + ".hover", "Open link");
+        String commandLine = config.getString("links." + key + ".command-line", "&d/" + key);
+        List<String> lines = config.getStringList("links." + key + ".lines");
+
+        player.sendMessage(Component.empty());
+        player.sendMessage(legacy(commandLine + " &#bbbbbb" + label));
+
+        for (String line : lines) {
+            player.sendMessage(legacy(line));
+        }
+
+        player.sendMessage(Component.empty());
+
+        Component clickLine = legacy(action)
+                .clickEvent(ClickEvent.openUrl(url))
+                .hoverEvent(HoverEvent.showText(legacy(hover)));
+
+        player.sendMessage(clickLine);
         SoundService.guiClick(player, core);
     }
 
@@ -99,38 +136,14 @@ public final class LinksCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(line);
     }
 
-    private void sendLink(Player player, String key) {
-        if (!config.getBoolean("enabled", true)) {
-            return;
-        }
-
-        if (!config.contains("links." + key)) {
-            player.sendMessage(TextColor.color("&cThat link is not configured"));
-            SoundService.guiError(player, core);
-            return;
-        }
-
-        String label = config.getString("links." + key + ".label", key);
-        String url = config.getString("links." + key + ".url", "");
-        String action = config.getString("links." + key + ".action", "&dClick here");
-        String hover = config.getString("links." + key + ".hover", "Open link");
-        List<String> lines = config.getStringList("links." + key + ".lines");
-
-        player.sendMessage(Component.empty());
-        player.sendMessage(legacy(config.getString("links." + key + ".command-line", "&d/" + key) + " &#bbbbbb" + label));
-
-        for (String line : lines) {
-            player.sendMessage(legacy(line));
-        }
-
-        player.sendMessage(Component.empty());
-
-        Component clickLine = legacy(action)
-                .clickEvent(ClickEvent.openUrl(url))
-                .hoverEvent(HoverEvent.showText(legacy(hover)));
-
-        player.sendMessage(clickLine);
-        SoundService.guiClick(player, core);
+    private String normalize(String key) {
+        return switch (key.toLowerCase(Locale.ROOT)) {
+            case "buy", "shop" -> "store";
+            case "dc" -> "discord";
+            case "twitter" -> "x";
+            case "link", "social", "socials" -> "links";
+            default -> key.toLowerCase(Locale.ROOT);
+        };
     }
 
     private Component legacy(String text) {

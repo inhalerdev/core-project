@@ -7,7 +7,7 @@ links:
     command-line: "&#ff88ff/store"
     lines:
       - "&#bbbbbbUpgrade to &#ff88ffMineacle+ &#bbbbbband support the server"
-      - "&#bbbbbbGet perks, cosmetics, and crate keys for PvE progression"
+      - "&#bbbbbbUnlock perks and crate keys for survival progression"
     action: "&#ff88ffClick here to visit the store"
     hover: "&#bbbbbbOpen &#ff88ffstore.mineacle.net"
 
@@ -16,8 +16,8 @@ links:
     label: "Mineacle Discord"
     command-line: "&#5865F2/discord"
     lines:
-      - "&#B9BBBEJoin the community, ask questions, and get updates"
-      - "&#B9BBBEUse Discord for tickets, support, and events"
+      - "&#B9BBBEJoin the community and get server updates"
+      - "&#B9BBBEAsk questions, make tickets, and follow events"
     action: "&#5865F2Click here to join Discord"
     hover: "&#B9BBBEOpen the Mineacle Discord"
 
@@ -26,17 +26,7 @@ links:
     label: "Mineacle on X"
     command-line: "&#ffffff/x"
     lines:
-      - "&#bbbbbbFollow Mineacle for news and network updates"
-      - "&#bbbbbbSee announcements, clips, and server highlights"
+      - "&#bbbbbbFollow Mineacle for news and announcements"
+      - "&#bbbbbbSee updates, clips, and network highlights"
     action: "&#ffffffClick here to open X"
     hover: "&#bbbbbbOpen x.com/mineaclenetwork"
-
-  appeal:
-    url: "https://discord.gg/mineacle"
-    label: "Appeals"
-    command-line: "&c/appeal"
-    lines:
-      - "&#bbbbbbNeed staff help or a punishment review?"
-      - "&#bbbbbbJoin Discord and open the correct ticket"
-    action: "&cClick here to get help"
-    hover: "&#bbbbbbOpen the Mineacle Discord"
