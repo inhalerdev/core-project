@@ -99,15 +99,14 @@ public final class LinksCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        String label = config.getString("links." + key + ".label", key);
+        String title = config.getString("links." + key + ".title", "&dMineacle Link");
         String url = config.getString("links." + key + ".url", "");
-        String action = config.getString("links." + key + ".action", "&dClick here");
+        String buttonLine = config.getString("links." + key + ".button-line", "&dClick here");
         String hover = config.getString("links." + key + ".hover", "Open link");
-        String commandLine = config.getString("links." + key + ".command-line", "&d/" + key);
         List<String> lines = config.getStringList("links." + key + ".lines");
 
         player.sendMessage(Component.empty());
-        player.sendMessage(legacy(commandLine + " &#bbbbbb" + label));
+        player.sendMessage(legacy(title));
 
         for (String line : lines) {
             player.sendMessage(legacy(line));
@@ -115,7 +114,7 @@ public final class LinksCommand implements CommandExecutor, TabCompleter {
 
         player.sendMessage(Component.empty());
 
-        Component clickLine = legacy(action)
+        Component clickLine = legacy(buttonLine)
                 .clickEvent(ClickEvent.openUrl(url))
                 .hoverEvent(HoverEvent.showText(legacy(hover)));
 
@@ -124,14 +123,15 @@ public final class LinksCommand implements CommandExecutor, TabCompleter {
     }
 
     private void sendCompactLine(Player player, String key) {
-        String label = config.getString("links." + key + ".label", key);
-        String commandLine = config.getString("links." + key + ".command-line", "&d/" + key);
+        String title = config.getString("links." + key + ".title", key);
+        String button = config.getString("links." + key + ".button", "&d[OPEN]");
         String url = config.getString("links." + key + ".url", "");
         String hover = config.getString("links." + key + ".hover", "Open link");
 
-        Component line = legacy("&#bbbbbb- " + commandLine + " &#bbbbbb" + label)
-                .clickEvent(ClickEvent.openUrl(url))
-                .hoverEvent(HoverEvent.showText(legacy(hover)));
+        Component line = legacy("&#bbbbbb- " + title + " ")
+                .append(legacy(button)
+                        .clickEvent(ClickEvent.openUrl(url))
+                        .hoverEvent(HoverEvent.showText(legacy(hover))));
 
         player.sendMessage(line);
     }

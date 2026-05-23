@@ -3,30 +3,30 @@ enabled: true
 links:
   store:
     url: "https://store.mineacle.net"
-    label: "Mineacle Store"
-    command-line: "&#ff88ff/store"
+    title: "&#ff88ffMineacle Store"
     lines:
-      - "&#bbbbbbUpgrade to &#ff88ffMineacle+ &#bbbbbband support the server"
-      - "&#bbbbbbUnlock perks and crate keys for survival progression"
-    action: "&#ff88ffClick here to visit the store"
-    hover: "&#bbbbbbOpen &#ff88ffstore.mineacle.net"
+      - "&#bbbbbbSupport the server and unlock &#ff88ffMineacle+"
+      - "&#bbbbbbGet perks, cosmetics, and crate keys for progression"
+    button: "&#ff88ff› &#bbbbbbstore.mineacle.net"
+    button-line: "&#ff88ff› &#bbbbbbstore.mineacle.net"
+    hover: "&#bbbbbbClick to open &#ff88ffstore.mineacle.net"
 
   discord:
-    url: "https://discord.gg/mineacle"
-    label: "Mineacle Discord"
-    command-line: "&#5865F2/discord"
+    url: "https://discord.gg/qmpJ4xMguT"
+    title: "&#7289daMineacle Discord"
     lines:
-      - "&#B9BBBEJoin the community and get server updates"
-      - "&#B9BBBEAsk questions, make tickets, and follow events"
-    action: "&#5865F2Click here to join Discord"
-    hover: "&#B9BBBEOpen the Mineacle Discord"
+      - "&#bbbbbbJoin the community and stay updated"
+      - "&#bbbbbbGet support, announcements, events, and tickets"
+    button: "&#9aabe5› &#bbbbbbdiscord.gg/mineacle"
+    button-line: "&#9aabe5› &#bbbbbbdiscord.gg/mineacle"
+    hover: "&#bbbbbbClick to open the &#7289daMineacle Discord"
 
   x:
     url: "https://x.com/mineaclenetwork"
-    label: "Mineacle on X"
-    command-line: "&#ffffff/x"
+    title: "&#ffffffMineacle on X"
     lines:
-      - "&#bbbbbbFollow Mineacle for news and announcements"
-      - "&#bbbbbbSee updates, clips, and network highlights"
-    action: "&#ffffffClick here to open X"
-    hover: "&#bbbbbbOpen x.com/mineaclenetwork"
+      - "&#bbbbbbFollow server news, clips, and updates"
+      - "&#bbbbbbSee announcements from the Mineacle network"
+    button: "&#ffffff› &#bbbbbbx.com/mineaclenetwork"
+    button-line: "&#ffffff› &#bbbbbbx.com/mineaclenetwork"
+    hover: "&#bbbbbbClick to open &#ffffffx.com/mineaclenetwork"
