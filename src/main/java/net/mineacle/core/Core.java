@@ -24,6 +24,7 @@ import net.mineacle.core.tpa.TpaModule;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
+import net.mineacle.core.links.LinksModule;
 
 import java.io.File;
 import java.io.IOException;
@@ -73,6 +74,8 @@ public final class Core extends JavaPlugin {
             registerModule(new EconomyModule());
             registerModule(new BalTopModule());
             registerModule(new ChatModule());
+            registerModule(new LinksModule());
+            registerModule(new NametagModule());
             registerModule(new NametagModule());
             registerModule(new HideModule());
             registerModule(new PlaceholdersModule());
