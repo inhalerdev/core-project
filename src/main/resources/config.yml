@@ -381,27 +381,23 @@ spawn-restrictions:
     - spawn2
     - spawn3
   prevent-wither-rose-effects: true
+
+  # Deep Dark blocks may be placed in spawn worlds, but they should not activate, listen, pulse, or make noise.
+  # Use this list for right-click/activation blocking only.
   blocked-interactions:
-    - CRAFTING_TABLE
-    - ENDER_CHEST
-    - ANVIL
-    - CHIPPED_ANVIL
-    - DAMAGED_ANVIL
-    - SMITHING_TABLE
-    - GRINDSTONE
-    - STONECUTTER
     - SCULK_SHRIEKER
     - SCULK_SENSOR
     - CALIBRATED_SCULK_SENSOR
     - SCULK_CATALYST
-  blocked-placement:
-    - WITHER_ROSE
-    - SCULK_SHRIEKER
-    - SCULK_SENSOR
-    - CALIBRATED_SCULK_SENSOR
-    - SCULK_CATALYST
-  blocked-breaking:
-    - WITHER_ROSE
+
+  # Placement is allowed. Do not list Deep Dark blocks here.
+  blocked-placement: []
+
+  # Breaking is allowed. Protection/claims should handle spawn build rules elsewhere if needed.
+  blocked-breaking: []
+
+  # These blocks should also have vibration/game-event activation cancelled in spawn worlds.
+  blocked-game-events:
     - SCULK_SHRIEKER
     - SCULK_SENSOR
     - CALIBRATED_SCULK_SENSOR

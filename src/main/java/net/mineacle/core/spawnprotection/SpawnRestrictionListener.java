@@ -1,24 +1,22 @@
 package net.mineacle.core.spawnprotection.listener;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.block.Block;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
-import org.bukkit.event.entity.EntityPotionEffectEvent;
-import org.bukkit.event.inventory.InventoryOpenEvent;
-import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.block.BlockReceiveGameEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public final class SpawnRestrictionListener implements Listener {
 
@@ -28,116 +26,69 @@ public final class SpawnRestrictionListener implements Listener {
         this.core = core;
     }
 
-    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
-    public void onInteract(PlayerInteractEvent event) {
-        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) {
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onGameEvent(BlockReceiveGameEvent event) {
+        Block block = event.getBlock();
+
+        if (block == null || !isRestrictedWorld(block.getWorld())) {
             return;
         }
 
-        Player player = event.getPlayer();
+        if (blockedGameEvents().contains(block.getType()) || isDeepDarkBlock(block.getType())) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onInteract(PlayerInteractEvent event) {
         Block block = event.getClickedBlock();
 
-        if (block == null) {
+        if (block == null || !isRestrictedWorld(block.getWorld())) {
             return;
         }
 
-        if (!enabled() || !isWorldProtected(player.getWorld().getName())) {
-            return;
+        if (blockedInteractions().contains(block.getType()) || isDeepDarkBlock(block.getType())) {
+            event.setCancelled(true);
         }
-
-        if (!isBlockedInteraction(block.getType())) {
-            return;
-        }
-
-        event.setCancelled(true);
-        event.setUseInteractedBlock(org.bukkit.event.Event.Result.DENY);
-        event.setUseItemInHand(org.bukkit.event.Event.Result.DENY);
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
-    public void onInventoryOpen(InventoryOpenEvent event) {
-        if (!(event.getPlayer() instanceof Player player)) {
-            return;
-        }
-
-        if (!enabled() || !isWorldProtected(player.getWorld().getName())) {
-            return;
-        }
-
-        if (!isBlockedInventory(event.getInventory().getType())) {
-            return;
-        }
-
-        event.setCancelled(true);
-        core.getServer().getScheduler().runTask(core, (Runnable) player::closeInventory);
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent event) {
-        Player player = event.getPlayer();
-
-        if (!enabled() || !isWorldProtected(player.getWorld().getName())) {
+        if (!isRestrictedWorld(event.getBlockPlaced().getWorld())) {
             return;
         }
 
-        if (!isConfiguredMaterial("spawn-restrictions.blocked-placement", event.getBlockPlaced().getType())) {
-            return;
+        if (blockedPlacement().contains(event.getBlockPlaced().getType())) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage(TextColor.color("&cYou cannot place that here"));
         }
-
-        event.setCancelled(true);
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
-        Player player = event.getPlayer();
-
-        if (!enabled() || !isWorldProtected(player.getWorld().getName())) {
+        if (!isRestrictedWorld(event.getBlock().getWorld())) {
             return;
         }
 
-        if (!isConfiguredMaterial("spawn-restrictions.blocked-breaking", event.getBlock().getType())) {
-            return;
+        if (blockedBreaking().contains(event.getBlock().getType())) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage(TextColor.color("&cYou cannot break that here"));
         }
-
-        event.setCancelled(true);
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
-    public void onPotionEffect(EntityPotionEffectEvent event) {
-        Entity entity = event.getEntity();
-
-        if (!(entity instanceof Player player)) {
-            return;
-        }
-
-        if (!enabled() || !isWorldProtected(player.getWorld().getName())) {
-            return;
-        }
-
-        PotionEffect newEffect = event.getNewEffect();
-
-        if (newEffect == null || newEffect.getType() != PotionEffectType.WITHER) {
-            return;
-        }
-
-        if (!core.getConfig().getBoolean("spawn-restrictions.prevent-wither-rose-effects", true)) {
-            return;
-        }
-
-        event.setCancelled(true);
-    }
-
-    private boolean enabled() {
-        return core.getConfig().getBoolean("spawn-restrictions.enabled", true);
-    }
-
-    private boolean isWorldProtected(String worldName) {
-        if (worldName == null || worldName.isBlank()) {
+    private boolean isRestrictedWorld(World world) {
+        if (world == null) {
             return false;
         }
 
-        for (String world : core.getConfig().getStringList("spawn-restrictions.worlds")) {
-            if (world.equalsIgnoreCase(worldName)) {
+        List<String> worlds = core.getConfig().getStringList("spawn-restrictions.worlds");
+
+        if (worlds.isEmpty()) {
+            worlds = List.of("spawn1", "spawn2", "spawn3");
+        }
+
+        for (String name : worlds) {
+            if (world.getName().equalsIgnoreCase(name)) {
                 return true;
             }
         }
@@ -145,53 +96,43 @@ public final class SpawnRestrictionListener implements Listener {
         return false;
     }
 
-    private boolean isBlockedInteraction(Material material) {
-        return isBuiltInBlockedInteraction(material)
-                || isConfiguredMaterial("spawn-restrictions.blocked-interactions", material);
+    private Set<Material> blockedInteractions() {
+        return materials("spawn-restrictions.blocked-interactions");
     }
 
-    private boolean isBuiltInBlockedInteraction(Material material) {
-        return material == Material.CRAFTING_TABLE
-                || material == Material.ENDER_CHEST
-                || material == Material.ANVIL
-                || material == Material.CHIPPED_ANVIL
-                || material == Material.DAMAGED_ANVIL
-                || material == Material.SMITHING_TABLE
-                || material == Material.GRINDSTONE
-                || material == Material.STONECUTTER
-                || material == Material.SCULK_SHRIEKER
-                || material == Material.SCULK_SENSOR
-                || material == Material.CALIBRATED_SCULK_SENSOR
-                || material == Material.SCULK_CATALYST;
+    private Set<Material> blockedPlacement() {
+        return materials("spawn-restrictions.blocked-placement");
     }
 
-    private boolean isBlockedInventory(InventoryType type) {
-        return type == InventoryType.WORKBENCH
-                || type == InventoryType.CRAFTING
-                || type == InventoryType.ENDER_CHEST
-                || type == InventoryType.ANVIL
-                || type == InventoryType.SMITHING
-                || type == InventoryType.GRINDSTONE
-                || type == InventoryType.STONECUTTER;
+    private Set<Material> blockedBreaking() {
+        return materials("spawn-restrictions.blocked-breaking");
     }
 
-    private boolean isConfiguredMaterial(String path, Material material) {
+    private Set<Material> blockedGameEvents() {
+        return materials("spawn-restrictions.blocked-game-events");
+    }
+
+    private Set<Material> materials(String path) {
+        Set<Material> materials = new HashSet<>();
+
         for (String raw : core.getConfig().getStringList(path)) {
             if (raw == null || raw.isBlank()) {
                 continue;
             }
 
             try {
-                Material configured = Material.valueOf(raw.trim().toUpperCase(Locale.ROOT));
-
-                if (configured == material) {
-                    return true;
-                }
+                materials.add(Material.valueOf(raw.toUpperCase(Locale.ROOT)));
             } catch (IllegalArgumentException ignored) {
-                core.getLogger().warning("Invalid material in " + path + ": " + raw);
             }
         }
 
-        return false;
+        return materials;
+    }
+
+    private boolean isDeepDarkBlock(Material material) {
+        return material == Material.SCULK_SHRIEKER
+                || material == Material.SCULK_SENSOR
+                || material == Material.CALIBRATED_SCULK_SENSOR
+                || material == Material.SCULK_CATALYST;
     }
 }
