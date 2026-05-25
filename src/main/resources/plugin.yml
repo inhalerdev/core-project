@@ -190,6 +190,11 @@ commands:
     usage: /mineaclesecurity reload
     permission: mineaclesecurity.bypass
 
+  banmenu:
+    description: Open the Mineacle ban menu
+    usage: /banmenu <player>
+    permission: mineaclepunish.admin
+
 permissions:
   mineacleguide.use:
     default: true
@@ -293,4 +298,7 @@ permissions:
   mineaclesecurity.bypass:
     default: op
   mineaclesecurity.group.admin:
+    default: op
+
+  mineaclepunish.admin:
     default: op
