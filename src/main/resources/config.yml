@@ -61,6 +61,28 @@ tpa:
   cancel-on-move: true
   cancel-distance: 2.0
 
+punish:
+  appeal-url: "https://mineacle.net/appeal"
+  case-prefix: "MCL"
+
+  commands:
+    tempban: "tempban %player% %duration% %reason% Appeal ID: %case_id%"
+    permaban: "ban %player% %reason% Appeal ID: %case_id%"
+
+  reasons:
+    cheating:
+      name: "&cCheating"
+      material: DIAMOND_SWORD
+      reason: "Cheating"
+    xray:
+      name: "&cX-Ray"
+      material: DIAMOND_ORE
+      reason: "X-Ray"
+    duping:
+      name: "&cDuping"
+      material: CHEST
+      reason: "Duping"
+
 economy:
   enabled: true
   starting-balance: 0
