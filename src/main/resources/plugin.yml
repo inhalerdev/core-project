@@ -7,6 +7,12 @@ softdepend: [Vault, PlaceholderAPI, ProtocolLib, NuVotifier, Votifier]
 loadbefore: [ajLeaderboards, DeluxeMenus, TAB]
 
 commands:
+  guide:
+    description: Open the Mineacle guide
+    aliases: [help, mineacle]
+    usage: /guide
+    permission: mineacleguide.use
+
   home:
     description: Open your homes menu
     aliases: [homes]
@@ -148,8 +154,8 @@ commands:
     permission: mineacle.gamemode
 
   links:
-    description: View Mineacle quick links
-    aliases: [link]
+    description: View Mineacle links
+    aliases: [link, socials, social]
     usage: /links
     permission: mineaclelinks.use
   discord:
@@ -167,11 +173,6 @@ commands:
     aliases: [twitter]
     usage: /x
     permission: mineaclelinks.use
-  appeal:
-    description: View the Mineacle appeal link
-    aliases: [appeals, banappeal]
-    usage: /appeal
-    permission: mineaclelinks.use
 
   hide:
     description: Toggle hidden mode
@@ -184,7 +185,15 @@ commands:
     usage: /mineaclenametags reload
     permission: mineaclenametags.admin
 
+  mineaclesecurity:
+    description: Reload Mineacle security
+    usage: /mineaclesecurity reload
+    permission: mineaclesecurity.bypass
+
 permissions:
+  mineacleguide.use:
+    default: true
+
   mineacle.plus:
     default: false
   mineacle.gamemode:
@@ -279,4 +288,9 @@ permissions:
     default: op
 
   mineaclenametags.admin:
+    default: op
+
+  mineaclesecurity.bypass:
+    default: op
+  mineaclesecurity.group.admin:
     default: op
