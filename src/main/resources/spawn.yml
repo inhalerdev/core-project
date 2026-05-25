@@ -34,6 +34,7 @@ gui:
   random:
     lore:
       - "&#bbbbbbClick to teleport to a random &#ff88ffSpawn"
+      - ""
       - "&#ff88ff> Click to return to Spawn"
 
 random:
