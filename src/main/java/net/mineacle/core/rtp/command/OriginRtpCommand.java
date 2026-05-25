@@ -21,6 +21,8 @@ import java.util.Locale;
 
 public final class OriginRtpCommand implements CommandExecutor, TabCompleter {
 
+    private static final List<String> DESTINATIONS = List.of("origins", "nether", "end");
+
     private final Core core;
     private final OriginRtpQueueService queueService;
     private final RtpMenuService menuService;
@@ -33,39 +35,48 @@ public final class OriginRtpCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        String used = label.toLowerCase(Locale.ROOT);
-
-        if (sender instanceof Player player && (used.equals("rtp") || used.equals("wild") || used.equals("originrtp") || used.equals("originsrtp"))) {
-            if (!player.hasPermission("mineaclertp.use")) {
-                send(player, "§cYou do not have permission");
-                return true;
-            }
-
-            if (args.length == 0) {
-                MenuHistory.openRoot(core, player, () -> RtpMenuGui.open(player, menuService, RtpMenuGui.ORIGINS));
-                return true;
-            }
-
-            queueService.request(player, args[0]);
-            return true;
-        }
-
-        if (args.length == 0) {
-            if (!(sender instanceof Player player)) {
+        if (!(sender instanceof Player player)) {
+            if (args.length < 1) {
                 sender.sendMessage("Usage: /originrtp <player> [origins|nether|end]");
                 return true;
             }
 
-            if (!player.hasPermission("mineaclertp.use")) {
-                send(player, "§cYou do not have permission");
+            Player target = Bukkit.getPlayerExact(args[0]);
+
+            if (target == null) {
+                sender.sendMessage(TextColor.color("&cThat player is not online"));
                 return true;
             }
 
+            String destination = args.length >= 2 ? normalizeDestination(args[1]) : "origins";
+
+            if (destination == null) {
+                sender.sendMessage(TextColor.color("&cUsage: /originrtp <player> [origins|nether|end]"));
+                return true;
+            }
+
+            queueService.request(target, destination);
+            return true;
+        }
+
+        if (!player.hasPermission("mineaclertp.use")) {
+            send(player, "§cYou do not have permission");
+            return true;
+        }
+
+        if (args.length == 0) {
             MenuHistory.openRoot(core, player, () -> RtpMenuGui.open(player, menuService, RtpMenuGui.ORIGINS));
             return true;
         }
 
-        if (sender instanceof Player player && !player.hasPermission("mineaclertp.admin")) {
+        String destination = normalizeDestination(args[0]);
+
+        if (destination != null) {
+            queueService.request(player, destination);
+            return true;
+        }
+
+        if (!player.hasPermission("mineaclertp.admin")) {
             send(player, "§cYou do not have permission");
             return true;
         }
@@ -73,13 +84,45 @@ public final class OriginRtpCommand implements CommandExecutor, TabCompleter {
         Player target = Bukkit.getPlayerExact(args[0]);
 
         if (target == null) {
-            sender.sendMessage(TextColor.color("&cThat player is not online"));
+            player.sendMessage(TextColor.color("&cThat player is not online"));
             return true;
         }
 
-        String destination = args.length >= 2 ? args[1] : "origins";
+        destination = args.length >= 2 ? normalizeDestination(args[1]) : "origins";
+
+        if (destination == null) {
+            player.sendMessage(TextColor.color("&cUsage: /originrtp <player> [origins|nether|end]"));
+            return true;
+        }
+
         queueService.request(target, destination);
         return true;
+    }
+
+    private String normalizeDestination(String input) {
+        if (input == null || input.isBlank()) {
+            return null;
+        }
+
+        String value = input.toLowerCase(Locale.ROOT);
+
+        if (value.equals("origin") || value.equals("overworld") || value.equals("world")) {
+            return "origins";
+        }
+
+        if (value.equals("the_nether")) {
+            return "nether";
+        }
+
+        if (value.equals("the_end")) {
+            return "end";
+        }
+
+        if (DESTINATIONS.contains(value)) {
+            return value;
+        }
+
+        return null;
     }
 
     private void send(Player player, String message) {
@@ -94,19 +137,22 @@ public final class OriginRtpCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> completions = new ArrayList<>();
-        String used = alias.toLowerCase(Locale.ROOT);
 
-        if (sender instanceof Player player && (used.equals("rtp") || used.equals("wild") || used.equals("originrtp") || used.equals("originsrtp"))) {
-            if (!player.hasPermission("mineaclertp.use")) {
-                return completions;
+        if (args.length == 1) {
+            String partial = args[0].toLowerCase(Locale.ROOT);
+
+            if (sender instanceof Player player && player.hasPermission("mineaclertp.use")) {
+                for (String destination : DESTINATIONS) {
+                    if (destination.startsWith(partial)) {
+                        completions.add(destination);
+                    }
+                }
             }
 
-            if (args.length == 1) {
-                String partial = args[0].toLowerCase(Locale.ROOT);
-
-                for (String option : List.of("origins", "nether", "end")) {
-                    if (option.startsWith(partial)) {
-                        completions.add(option);
+            if (!(sender instanceof Player) || sender.hasPermission("mineaclertp.admin")) {
+                for (Player online : Bukkit.getOnlinePlayers()) {
+                    if (online.getName().toLowerCase(Locale.ROOT).startsWith(partial)) {
+                        completions.add(online.getName());
                     }
                 }
             }
@@ -114,28 +160,12 @@ public final class OriginRtpCommand implements CommandExecutor, TabCompleter {
             return completions;
         }
 
-        if (args.length == 1) {
-            if (sender instanceof Player player && !player.hasPermission("mineaclertp.admin")) {
-                return completions;
-            }
-
-            String partial = args[0].toLowerCase(Locale.ROOT);
-
-            for (Player online : Bukkit.getOnlinePlayers()) {
-                if (online.getName().toLowerCase(Locale.ROOT).startsWith(partial)) {
-                    completions.add(online.getName());
-                }
-            }
-
-            return completions;
-        }
-
-        if (args.length == 2) {
+        if (args.length == 2 && (!(sender instanceof Player) || sender.hasPermission("mineaclertp.admin"))) {
             String partial = args[1].toLowerCase(Locale.ROOT);
 
-            for (String option : List.of("origins", "nether", "end")) {
-                if (option.startsWith(partial)) {
-                    completions.add(option);
+            for (String destination : DESTINATIONS) {
+                if (destination.startsWith(partial)) {
+                    completions.add(destination);
                 }
             }
         }

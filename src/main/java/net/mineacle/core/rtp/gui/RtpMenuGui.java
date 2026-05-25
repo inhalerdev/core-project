@@ -12,7 +12,6 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 public final class RtpMenuGui {
 
-    public static final String MAIN = "main";
     public static final String ORIGINS = "origins";
 
     private RtpMenuGui() {
@@ -32,20 +31,12 @@ public final class RtpMenuGui {
         player.openInventory(inventory);
     }
 
-    public static boolean isMain(String title, RtpMenuService service) {
-        return sameTitle(title, service.rawTitle(MAIN));
-    }
-
     public static boolean isOrigins(String title, RtpMenuService service) {
-        return sameTitle(title, service.rawTitle(ORIGINS));
-    }
-
-    private static boolean sameTitle(String title, String expected) {
-        if (title == null || expected == null) {
+        if (title == null) {
             return false;
         }
 
-        return ChatColor.stripColor(title).equals(ChatColor.stripColor(expected));
+        return ChatColor.stripColor(title).equals(service.rawTitle(ORIGINS));
     }
 
     private static ItemStack build(Player player, RtpMenuService menuService, RtpMenuItem item) {
@@ -57,7 +48,7 @@ public final class RtpMenuGui {
         }
 
         meta.setDisplayName(menuService.parse(player, item.name()));
-        meta.setLore(menuService.parseLore(player, item.lore()));
+        meta.setLore(menuService.parseLore(player, item));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         stack.setItemMeta(meta);
         return stack;

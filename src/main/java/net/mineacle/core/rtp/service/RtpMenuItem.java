@@ -10,9 +10,6 @@ public record RtpMenuItem(
         Material material,
         String name,
         List<String> lore,
-        String destination,
-        String actionType,
-        String actionServer,
-        String fallbackCommand
+        String destination
 ) {
 }

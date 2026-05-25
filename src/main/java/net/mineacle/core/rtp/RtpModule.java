@@ -25,8 +25,6 @@ public final class RtpModule extends Module {
         this.menuService = new RtpMenuService(core);
         this.queueService.start();
 
-        core.getServer().getMessenger().registerOutgoingPluginChannel(core, "BungeeCord");
-
         OriginRtpCommand command = new OriginRtpCommand(core, queueService, menuService);
 
         PluginCommand originRtp = core.getCommand("originrtp");

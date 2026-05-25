@@ -40,9 +40,8 @@ public final class RtpMenuListener implements Listener {
         event.setCancelled(true);
 
         int slot = event.getRawSlot();
-        int topSize = event.getView().getTopInventory().getSize();
 
-        if (slot < 0 || slot >= topSize) {
+        if (slot < 0 || slot >= event.getView().getTopInventory().getSize()) {
             return;
         }
 

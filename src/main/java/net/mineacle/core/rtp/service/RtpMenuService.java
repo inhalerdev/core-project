@@ -5,6 +5,7 @@ import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -39,12 +40,8 @@ public final class RtpMenuService {
         config = YamlConfiguration.loadConfiguration(file);
     }
 
-    public boolean enabled() {
-        return config.getBoolean("enabled", true);
-    }
-
     public String title(String menu) {
-        return TextColor.color(config.getString("menus." + menu + ".title", menu));
+        return TextColor.color(config.getString("menus." + menu + ".title", "Random Teleport"));
     }
 
     public String rawTitle(String menu) {
@@ -86,10 +83,7 @@ public final class RtpMenuService {
                     material(config.getString(base + ".material", "STONE")),
                     config.getString(base + ".name", "&d" + key),
                     config.getStringList(base + ".lore"),
-                    config.getString(base + ".destination", ""),
-                    config.getString(base + ".action.type", ""),
-                    config.getString(base + ".action.server", ""),
-                    config.getString(base + ".action.fallback-command", "")
+                    config.getString(base + ".destination", "")
             ));
         }
 
@@ -106,10 +100,6 @@ public final class RtpMenuService {
         return null;
     }
 
-    public String message(String path, String fallback) {
-        return TextColor.color(config.getString("messages." + path, fallback));
-    }
-
     public String parse(Player player, String text) {
         String parsed = TextColor.color(text == null ? "" : text);
 
@@ -123,14 +113,20 @@ public final class RtpMenuService {
         return parsed;
     }
 
-    public List<String> parseLore(Player player, List<String> lore) {
+    public List<String> parseLore(Player player, RtpMenuItem item) {
         List<String> parsed = new ArrayList<>();
 
-        for (String line : lore) {
-            parsed.add(parse(player, line));
+        for (String line : item.lore()) {
+            parsed.add(parse(player, line).replace("%online%", String.valueOf(online(item.destination()))));
         }
 
         return parsed;
+    }
+
+    private int online(String destination) {
+        String worldName = core.getConfig().getString("origin-rtp.destinations." + destination + ".world", destination);
+        World world = Bukkit.getWorld(worldName);
+        return world == null ? 0 : world.getPlayers().size();
     }
 
     private Material material(String raw) {
