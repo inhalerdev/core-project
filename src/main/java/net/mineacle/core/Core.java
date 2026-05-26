@@ -15,6 +15,7 @@ import net.mineacle.core.links.LinksModule;
 import net.mineacle.core.nametag.NametagModule;
 import net.mineacle.core.orders.OrdersModule;
 import net.mineacle.core.placeholders.PlaceholdersModule;
+import net.mineacle.core.punish.PunishModule;
 import net.mineacle.core.rtp.RtpModule;
 import net.mineacle.core.sell.SellModule;
 import net.mineacle.core.security.SecurityModule;
@@ -77,6 +78,7 @@ public final class Core extends JavaPlugin {
             registerModule(new ChatModule());
             registerModule(new LinksModule());
             registerModule(new SecurityModule());
+            registerModule(new PunishModule());
             registerModule(new NametagModule());
             registerModule(new HideModule());
             registerModule(new PlaceholdersModule());

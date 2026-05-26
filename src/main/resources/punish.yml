@@ -1,99 +1,141 @@
-appeal-url: "https://mineacle.net/appeal"
+appeal-url: "https://bans.mineacle.net"
 case-prefix: "MCL"
 case-length: 6
-
-commands:
-  tempban: "tempban %player% %duration% %reason% Appeal ID: %case_id% Appeal: %appeal_url%"
-  permaban: "ban %player% %reason% Appeal ID: %case_id% Appeal: %appeal_url%"
+confirm-timeout-seconds: 5
 
 gui:
-  title: "&8Ban Player"
+  title: "Punish Player"
+  confirm-title: "Confirm Punishment"
 
 messages:
-  banned: "&#bbbbbbBanned &#ff88ff%player% &#bbbbbbwith case &#ff88ff%case_id%"
+  confirm-again: "&#bbbbbbClick confirm again to continue"
+  timeout: "&cAction timed out"
+  cancelled: "&cPunishment cancelled"
+  success: "&#bbbbbbPunished &#ff88ff%player% &#bbbbbbwith case &#ff88ff%case_id%"
+
+# These run from console. Keep no leading slash.
+# LiteBans should remain the storage/history/enforcement layer.
+commands:
+  warn: "warn %player% %reason% | Appeal ID: %case_id% | Appeal: %appeal_url%"
+  kick: "kick %player% %reason% | Appeal ID: %case_id% | Appeal: %appeal_url%"
+  mute: "mute %player% %reason% | Appeal ID: %case_id% | Appeal: %appeal_url%"
+  tempmute: "tempmute %player% %duration% %reason% | Appeal ID: %case_id% | Appeal: %appeal_url%"
+  tempban: "tempban %player% %duration% %reason% | Appeal ID: %case_id% | Appeal: %appeal_url%"
+  ban: "ban %player% %reason% | Appeal ID: %case_id% | Appeal: %appeal_url%"
 
 reasons:
   cheating:
-    slot: 10
+    slot: 28
     material: DIAMOND_SWORD
-    name: "&cCheating"
-    lore:
-      - "&#bbbbbbUnfair combat or movement"
+    name: "&#ff88ffCheating"
     reason: "Cheating"
-
+    lore:
+      - "&#bbbbbbCombat cheats, movement cheats"
+      - "&#bbbbbbor unfair gameplay modifications"
   xray:
-    slot: 11
+    slot: 29
     material: DIAMOND_ORE
-    name: "&cX-Ray"
-    lore:
-      - "&#bbbbbbIllegal mining advantage"
+    name: "&#ff88ffX-Ray"
     reason: "X-Ray"
-
+    lore:
+      - "&#bbbbbbIllegal resource tracking"
+      - "&#bbbbbbor cave/ore visibility abuse"
   duping:
-    slot: 12
-    material: CHEST
-    name: "&cDuping"
-    lore:
-      - "&#bbbbbbDuplicating items or currency"
+    slot: 30
+    material: CHEST_MINECART
+    name: "&#ff88ffDuping"
     reason: "Duping"
-
+    lore:
+      - "&#bbbbbbDuplicating items or abusing"
+      - "&#bbbbbbeconomy-breaking exploits"
   exploiting:
-    slot: 13
-    material: REDSTONE
-    name: "&cExploiting"
-    lore:
-      - "&#bbbbbbAbusing bugs or mechanics"
+    slot: 31
+    material: REDSTONE_TORCH
+    name: "&#ff88ffExploiting"
     reason: "Exploiting"
-
+    lore:
+      - "&#bbbbbbBug abuse or unintended"
+      - "&#bbbbbbmechanic exploitation"
   harassment:
-    slot: 14
-    material: PLAYER_HEAD
-    name: "&cHarassment"
-    lore:
-      - "&#bbbbbbTargeted toxic behavior"
+    slot: 32
+    material: WITHER_SKELETON_SKULL
+    name: "&#ff88ffHarassment"
     reason: "Harassment"
-
-  advertising:
-    slot: 15
-    material: PAPER
-    name: "&cAdvertising"
     lore:
-      - "&#bbbbbbAdvertising another server"
+      - "&#bbbbbbTargeted abuse, threats"
+      - "&#bbbbbbor severe player harassment"
+  advertising:
+    slot: 33
+    material: OAK_SIGN
+    name: "&#ff88ffAdvertising"
     reason: "Advertising"
+    lore:
+      - "&#bbbbbbAdvertising servers, links"
+      - "&#bbbbbbmarkets, or outside services"
+  chat_abuse:
+    slot: 34
+    material: WRITABLE_BOOK
+    name: "&#ff88ffChat Abuse"
+    reason: "Chat Abuse"
+    lore:
+      - "&#bbbbbbSpam, slurs, excessive toxicity"
+      - "&#bbbbbbor disruptive chat behavior"
+  other:
+    slot: 35
+    material: NAME_TAG
+    name: "&#ff88ffOther"
+    reason: "Other"
+    lore:
+      - "&#bbbbbbGeneral staff-selected reason"
+      - "&#bbbbbbfor edge-case punishments"
 
 durations:
-  one-day:
-    slot: 21
+  fifteen_minutes:
+    slot: 37
     material: CLOCK
-    name: "&d1 Day"
+    name: "&#ff88ff15 Minutes"
+    duration: "15m"
     lore:
-      - "&#bbbbbbTemporary ban"
+      - "&#bbbbbbShort low-severity duration"
+  one_hour:
+    slot: 38
+    material: CLOCK
+    name: "&#ff88ff1 Hour"
+    duration: "1h"
+    lore:
+      - "&#bbbbbbMinor temporary punishment"
+  twelve_hours:
+    slot: 39
+    material: CLOCK
+    name: "&#ff88ff12 Hours"
+    duration: "12h"
+    lore:
+      - "&#bbbbbbMedium temporary punishment"
+  one_day:
+    slot: 40
+    material: CLOCK
+    name: "&#ff88ff1 Day"
     duration: "1d"
-    permanent: false
-
-  seven-days:
-    slot: 22
-    material: CLOCK
-    name: "&d7 Days"
     lore:
-      - "&#bbbbbbTemporary ban"
+      - "&#bbbbbbStandard temporary punishment"
+  seven_days:
+    slot: 41
+    material: CLOCK
+    name: "&#ff88ff7 Days"
     duration: "7d"
-    permanent: false
-
-  thirty-days:
-    slot: 23
+    lore:
+      - "&#bbbbbbSerious temporary punishment"
+  thirty_days:
+    slot: 42
     material: CLOCK
-    name: "&d30 Days"
-    lore:
-      - "&#bbbbbbTemporary ban"
+    name: "&#ff88ff30 Days"
     duration: "30d"
-    permanent: false
-
-  permanent:
-    slot: 24
-    material: BARRIER
-    name: "&cPermanent"
     lore:
-      - "&#bbbbbbPermanent ban"
-    duration: "perm"
-    permanent: true
+      - "&#bbbbbbSevere temporary punishment"
+  ninety_days:
+    slot: 43
+    material: CLOCK
+    name: "&#ff88ff90 Days"
+    duration: "90d"
+    lore:
+      - "&#bbbbbbHighest temporary punishment"

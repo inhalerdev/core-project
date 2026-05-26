@@ -191,7 +191,7 @@ commands:
     permission: mineaclesecurity.bypass
 
   banmenu:
-    description: Open the Mineacle ban menu
+    description: Open punishment menu for a player
     usage: /banmenu <player>
     permission: mineaclepunish.admin
 
