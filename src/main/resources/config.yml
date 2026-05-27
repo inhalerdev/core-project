@@ -390,8 +390,8 @@ fly:
     - spawn2
     - spawn3
   messages:
-    enabled: "&dMineacle+ &aFlight Enabled"
-    disabled: "&dMineacle+ &cFlight disabled"
+    enabled: "&aFlight Enabled"
+    disabled: "&cFlight disabled"
     blocked-world: "&cFlight is only available in spawn"
     upgrade-line-1: "&fElevate your gameplay experience with &dMineacle+"
     upgrade-line-2: "&dâ™¦ &fhttps://store.mineacle.net"
