@@ -185,7 +185,7 @@ commands:
   hide:
     description: Toggle hidden mode
     usage: /hide
-    permission: mineaclehide.command
+    permission: mineaclehide.use
 
   mineaclenametags:
     description: Reload Mineacle nametags
@@ -291,8 +291,6 @@ permissions:
   mineaclelinks.admin:
     default: op
 
-  mineaclehide.command:
-    default: true
   mineaclehide.use:
     default: false
   mineaclehide.admin:
