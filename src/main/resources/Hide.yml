@@ -16,19 +16,15 @@ hidden-name-colors:
   admin: "#ff88ff"
   plus: "#ffffff"
 
-hidden-prefix-colors:
-  admin: "#ff88ff"
-  plus: "#ff55ff"
-
 obfuscated-nametag:
   enabled: true
-  y-offset: 1.15
-  format: "%hideprefixcolor%+ %hidecolor%&k%displayname%"
+  y-offset: 1.65
+  format: "%hidecolor%+ &k%displayname%"
   admin-format: "&#ff88ff[Hidden] &#bbbbbb%displayname%"
 
 tab:
   obfuscate-name: true
-  format: "%hideprefixcolor%+ %hidecolor%&k%displayname%"
+  format: "%hidecolor%+ &k%displayname%"
   admin-format: "&#ff88ff[Hidden] &#bbbbbb%displayname%"
 
 messages:
