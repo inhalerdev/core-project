@@ -1,8 +1,6 @@
 package net.mineacle.core.warps.command;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.common.sound.SoundService;
+import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.warps.gui.WarpGui;
 import net.mineacle.core.warps.model.WarpPoint;
@@ -16,14 +14,15 @@ import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 public final class WarpCommand implements CommandExecutor, TabCompleter {
 
+    private final Core core;
     private final WarpService warpService;
     private final WarpTeleportService teleportService;
 
-    public WarpCommand(WarpService warpService, WarpTeleportService teleportService) {
+    public WarpCommand(Core core, WarpService warpService, WarpTeleportService teleportService) {
+        this.core = core;
         this.warpService = warpService;
         this.teleportService = teleportService;
     }
@@ -35,77 +34,45 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (!warpService.enabled()) {
-            sendError(player, warpService.message("disabled"));
+        if (!player.hasPermission("mineaclewarps.use")) {
+            player.sendMessage(warpService.noPermissionMessage());
             return true;
         }
 
         if (args.length == 0) {
-            WarpGui.open(player, warpService);
+            WarpGui.open(core, player, warpService);
             return true;
         }
 
-        if (args[0].equalsIgnoreCase("reload")) {
-            if (!player.hasPermission("mineaclewarps.admin")) {
-                sendError(player, "&cYou do not have permission");
-                return true;
-            }
-
-            warpService.load();
-            send(player, "&#bbbbbbWarps reloaded");
-            SoundService.guiConfirm(player, warpService.core());
+        if (args[0].equalsIgnoreCase("reload") && player.hasPermission("mineaclewarps.admin")) {
+            warpService.reload();
+            player.sendMessage(TextColor.color("&#bbbbbbWarps reloaded"));
             return true;
         }
 
-        WarpPoint point = warpService.warpById(args[0]);
+        WarpPoint point = warpService.warp(args[0]);
 
-        if (point == null || !point.enabled()) {
-            sendError(player, warpService.message("not-found"));
+        if (point == null) {
+            player.sendMessage(warpService.notFoundMessage(args[0]));
             return true;
         }
 
-        teleportService.begin(player, point);
+        teleportService.teleport(player, point);
         return true;
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> completions = new ArrayList<>();
-
-        if (!(sender instanceof Player player)) {
-            return completions;
-        }
-
         if (args.length != 1) {
-            return completions;
+            return List.of();
         }
 
-        String partial = args[0].toLowerCase(Locale.ROOT);
+        List<String> completions = new ArrayList<>(warpService.warpKeys(args[0]));
 
-        if (player.hasPermission("mineaclewarps.admin") && "reload".startsWith(partial)) {
+        if (sender.hasPermission("mineaclewarps.admin") && "reload".startsWith(args[0].toLowerCase())) {
             completions.add("reload");
         }
 
-        for (String id : warpService.warpIds()) {
-            if (id.toLowerCase(Locale.ROOT).startsWith(partial)) {
-                completions.add(id);
-            }
-        }
-
         return completions;
-    }
-
-    private void send(Player player, String message) {
-        player.sendMessage(TextColor.color(message));
-        player.sendActionBar(actionBar(message));
-    }
-
-    private void sendError(Player player, String message) {
-        send(player, message);
-        SoundService.guiError(player, warpService.core());
-    }
-
-    private Component actionBar(String message) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
     }
 }

@@ -7,10 +7,9 @@ import net.mineacle.core.guide.listener.GuideMenuListener;
 import net.mineacle.core.guide.service.GuideMenuService;
 import org.bukkit.command.PluginCommand;
 
-public final class GuideModule implements Module {
+public final class GuideModule extends Module {
 
     private GuideMenuService service;
-    private GuideMenuListener listener;
 
     @Override
     public String name() {
@@ -19,35 +18,30 @@ public final class GuideModule implements Module {
 
     @Override
     public void enable(Core core) {
-        this.service = new GuideMenuService(core);
-        this.listener = new GuideMenuListener(core, service);
+        service = new GuideMenuService(core);
+        service.reload();
 
-        GuideCommand guideCommand = new GuideCommand(core, service, "guide");
-        GuideCommand rulesCommand = new GuideCommand(core, service, "rules");
+        GuideCommand command = new GuideCommand(core, service);
+        register(core, "guide", command);
+        register(core, "rules", command);
 
-        PluginCommand guide = core.getCommand("guide");
-        if (guide != null) {
-            guide.setExecutor(guideCommand);
-            guide.setTabCompleter(guideCommand);
-        } else {
-            core.getLogger().warning("Missing command in plugin.yml: guide");
-        }
-
-        PluginCommand rules = core.getCommand("rules");
-        if (rules != null) {
-            rules.setExecutor(rulesCommand);
-            rules.setTabCompleter(rulesCommand);
-        } else {
-            core.getLogger().warning("Missing command in plugin.yml: rules");
-        }
-
-        core.getServer().getPluginManager().registerEvents(listener, core);
+        core.getServer().getPluginManager().registerEvents(new GuideMenuListener(core, service), core);
     }
 
     @Override
     public void disable() {
-        if (service != null) {
-            service.clearSessions();
+        service = null;
+    }
+
+    private void register(Core core, String name, GuideCommand executor) {
+        PluginCommand command = core.getCommand(name);
+
+        if (command == null) {
+            core.getLogger().warning("Missing command in plugin.yml: " + name);
+            return;
         }
+
+        command.setExecutor(executor);
+        command.setTabCompleter(executor);
     }
 }
