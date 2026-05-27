@@ -28,8 +28,10 @@ public final class HideService {
     private final Core core;
     private final File file;
     private FileConfiguration config;
+
     private final Set<UUID> hidden = new HashSet<>();
     private final Map<UUID, ArmorStand> nameTags = new HashMap<>();
+
     private BukkitTask task;
     private int actionbarTicks;
 
@@ -53,6 +55,7 @@ public final class HideService {
 
     public void start() {
         stop();
+
         task = core.getServer().getScheduler().runTaskTimer(core, () -> {
             updateNameTags();
             actionbarTicks += 2;
@@ -78,7 +81,7 @@ public final class HideService {
     }
 
     public boolean canUse(Player player) {
-        return player.hasPermission(permission()) || player.hasPermission(adminPermission()) || player.isOp();
+        return player.hasPermission(permission()) || player.hasPermission(adminPermission());
     }
 
     public String permission() {
@@ -224,7 +227,10 @@ public final class HideService {
     }
 
     public boolean shouldHideRealNametag(Player player) {
-        return player != null && isHidden(player.getUniqueId()) && visibleObfuscated() && obfuscatedNametagEnabled();
+        return player != null
+                && isHidden(player.getUniqueId())
+                && visibleObfuscated()
+                && obfuscatedNametagEnabled();
     }
 
     private void updateNameTags() {
@@ -287,12 +293,12 @@ public final class HideService {
     }
 
     private Location nameTagLocation(Player player) {
-        double yOffset = config.getDouble("obfuscated-nametag.y-offset", 2.25D);
+        double yOffset = config.getDouble("obfuscated-nametag.y-offset", 1.65D);
         return player.getLocation().clone().add(0.0D, yOffset, 0.0D);
     }
 
     private Component nameTagComponent(Player player) {
-        return component(format("obfuscated-nametag.format", "%hidecolor%+ &k%displayname%", player));
+        return component(format("obfuscated-nametag.format", "%hideprefixcolor%+ %hidecolor%&k%displayname%", player));
     }
 
     private void removeNameTag(UUID uuid) {
@@ -338,7 +344,7 @@ public final class HideService {
             return;
         }
 
-        player.playerListName(component(format("tab.format", "%hidecolor%+ &k%displayname%", player)));
+        player.playerListName(component(format("tab.format", "%hideprefixcolor%+ %hidecolor%&k%displayname%", player)));
     }
 
     private void restoreTabName(Player player) {
@@ -358,19 +364,28 @@ public final class HideService {
     private String format(String path, String fallback, Player player) {
         String value = config.getString(path, fallback);
         return value
-                .replace("%hidecolor%", hideColor(player))
+                .replace("%hideprefixcolor%", hiddenPrefixColor(player))
+                .replace("%hidecolor%", hiddenNameColor(player))
                 .replace("%player%", DisplayNames.username(player))
                 .replace("%displayname%", DisplayNames.displayName(player))
                 .replace("%nickname%", DisplayNames.nickname(player))
                 .replace("%rank%", DisplayNames.luckPermsPrefix(player));
     }
 
-    private String hideColor(Player player) {
+    private String hiddenNameColor(Player player) {
         if (player.isOp() || player.hasPermission(adminPermission())) {
-            return config.getString("colors.admin", "#ff88ff");
+            return config.getString("hidden-name-colors.admin", "#ff88ff");
         }
 
-        return config.getString("colors.plus", "#ffffff");
+        return config.getString("hidden-name-colors.plus", "#ffffff");
+    }
+
+    private String hiddenPrefixColor(Player player) {
+        if (player.isOp() || player.hasPermission(adminPermission())) {
+            return config.getString("hidden-prefix-colors.admin", "#ff88ff");
+        }
+
+        return config.getString("hidden-prefix-colors.plus", "#ff55ff");
     }
 
     private Component component(String message) {

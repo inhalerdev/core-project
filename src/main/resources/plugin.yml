@@ -132,6 +132,7 @@ commands:
     permission: mineaclesell.use
   worth:
     description: Open item prices menu
+    aliases: [prices, itemprices]
     usage: /worth
     permission: mineaclesell.use
   sellmulti:
@@ -185,7 +186,7 @@ commands:
   hide:
     description: Toggle hidden mode
     usage: /hide
-    permission: mineaclehide.use
+    permission: mineaclehide.command
 
   mineaclenametags:
     description: Reload Mineacle nametags
@@ -291,6 +292,8 @@ permissions:
   mineaclelinks.admin:
     default: op
 
+  mineaclehide.command:
+    default: true
   mineaclehide.use:
     default: false
   mineaclehide.admin:
