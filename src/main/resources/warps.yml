@@ -1,0 +1,56 @@
+enabled: true
+title: "Warps"
+size: 54
+
+teleport:
+  # Players in these worlds teleport instantly to any warp.
+  instant-worlds:
+    - spawn1
+    - spawn2
+    - spawn3
+
+  # Players outside the instant worlds use this delay.
+  delay-seconds: 5
+
+  # Mineacle+ and admins use this delay outside spawn worlds.
+  plus-delay-seconds: 3
+  fast-permissions:
+    - mineacle.plus
+    - mineaclewarps.admin
+
+  cancel-on-move: true
+  cancel-distance: 2.0
+
+messages:
+  disabled: "&cWarps are disabled"
+  not-found: "&cThat warp does not exist"
+  world-missing: "&cWarp world is not loaded"
+  teleport-start: "&#bbbbbbTeleporting to &d%warp% &#bbbbbbin &d%seconds%s"
+  teleport-countdown: "&#bbbbbbTeleporting to &d%warp% &#bbbbbbin &d%seconds%s"
+  teleported: "&#bbbbbbTeleported to &d%warp%"
+
+# Default lore used when a warp does not define custom lore.
+gui:
+  default-lore:
+    - "&#bbbbbbWorld: &d%world%"
+    - "&#bbbbbbTeleport: &d%mode%"
+    - ""
+    - "&#ff88ffClick to warp"
+
+warps:
+  spawn:
+    enabled: true
+    slot: 22
+    display-name: "&dSpawn"
+    material: NETHER_STAR
+    world: spawn1
+    x: 0.5
+    y: 65.0
+    z: 0.5
+    yaw: 0.0
+    pitch: 0.0
+    lore:
+      - "&#bbbbbbReturn to the main spawn area"
+      - "&#bbbbbbTeleport: &d%mode%"
+      - ""
+      - "&#ff88ffClick to warp"

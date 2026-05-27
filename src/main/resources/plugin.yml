@@ -97,6 +97,23 @@ commands:
     aliases: [lobby]
     permission: mineaclespawn.use
 
+
+  warp:
+    description: Open the warp menu
+    usage: /warp [name]
+    aliases: [warps]
+    permission: mineaclewarps.use
+
+  setwarp:
+    description: Set a warp
+    usage: /setwarp <name> [slot] [display name]
+    permission: mineaclewarps.admin
+
+  delwarp:
+    description: Delete a warp
+    usage: /delwarp <name>
+    permission: mineaclewarps.admin
+
   originrtp:
     description: Queue for random teleport
     usage: /originrtp
@@ -250,6 +267,12 @@ permissions:
   mineaclespawn.use:
     default: true
   mineaclespawn.admin:
+    default: op
+
+
+  mineaclewarps.use:
+    default: true
+  mineaclewarps.admin:
     default: op
 
   mineaclertp.use:
