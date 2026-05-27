@@ -22,7 +22,6 @@ public final class SecurityModule extends Module {
 
         SecurityCommand command = new SecurityCommand(service);
         PluginCommand pluginCommand = core.getCommand("mineaclesecurity");
-
         if (pluginCommand != null) {
             pluginCommand.setExecutor(command);
             pluginCommand.setTabCompleter(command);

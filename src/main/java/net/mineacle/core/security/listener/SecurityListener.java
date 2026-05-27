@@ -31,6 +31,6 @@ public final class SecurityListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onCommandSend(PlayerCommandSendEvent event) {
         Player player = event.getPlayer();
-        event.getCommands().removeIf(command -> service.shouldHideFromTab(player, command));
+        event.getCommands().removeIf(command -> service.shouldHideFromRootTab(player, command));
     }
 }

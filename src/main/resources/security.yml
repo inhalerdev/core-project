@@ -1,13 +1,20 @@
+# MineacleCore command security
+# This file controls which root slash commands are visible in / tab completion
+# and which player commands are allowed to run.
+
 enabled: true
 
+# Players with this permission bypass command blocking and tab filtering.
 bypass-permission: mineaclesecurity.bypass
-admin-group-permission: mineaclesecurity.group.admin
-plus-group-permission: mineacle.plus
 
 unknown-command-message: "&cThis command does not exist"
 reload-message: "&#bbbbbbSecurity reloaded"
 
+# If true, players may only run commands listed in one of their active groups.
+# Console is not affected.
 block-unlisted-player-commands: true
+
+# If true, namespaced backend commands like /bukkit:plugins and /minecraft:me are hidden/blocked.
 block-namespaced-commands: true
 
 blocked-prefixes:
@@ -120,6 +127,7 @@ blocked-commands:
   - "worldedit"
   - "worldguard"
 
+# Always blocked for players unless they have the bypass permission.
 console-only-commands:
   - "ban-ip"
   - "deop"
@@ -134,76 +142,105 @@ console-only-commands:
   - "stop"
   - "whitelist"
 
-visible-commands:
+# Edit tab/command visibility here.
+# A group is active when permission is blank, or the player has the permission.
+# Groups can inherit another group's command list.
+# priority only controls load/order display; all active groups combine together.
+groups:
   default:
-    - "bal"
-    - "balance"
-    - "balancetop"
-    - "baltop"
-    - "bounty"
-    - "buy"
-    - "delhome"
-    - "discord"
-    - "guide"
-    - "home"
-    - "ignore"
-    - "ignorelist"
-    - "link"
-    - "links"
-    - "msg"
-    - "order"
-    - "orders"
-    - "pay"
-    - "renamehome"
-    - "reply"
-    - "rtp"
-    - "rules"
-    - "sell"
-    - "sellmulti"
-    - "sethome"
-    - "shop"
-    - "spawn"
-    - "stats"
-    - "store"
-    - "team"
-    - "tell"
-    - "tpa"
-    - "tpaccept"
-    - "tpahere"
-    - "tpdeny"
-    - "whisper"
-    - "wild"
-    - "x"
+    permission: ""
+    priority: 0
+    inherits: []
+    visible-commands:
+      - "bal"
+      - "baltop"
+      - "bounty"
+      - "discord"
+      - "guide"
+      - "home"
+      - "ignore"
+      - "ignorelist"
+      - "msg"
+      - "order"
+      - "pay"
+      - "r"
+      - "rtp"
+      - "sell"
+      - "sellmulti"
+      - "sethome"
+      - "spawn"
+      - "stats"
+      - "store"
+      - "team"
+      - "tpa"
+      - "tpaccept"
+      - "tpahere"
+      - "tpdeny"
+      - "worth"
+      - "x"
+    hidden-commands:
+      - "balance"
+      - "balancetop"
+      - "buy"
+      - "delhome"
+      - "dc"
+      - "h"
+      - "help"
+      - "homes"
+      - "link"
+      - "links"
+      - "lobby"
+      - "m"
+      - "money"
+      - "orders"
+      - "originsrtp"
+      - "originrtp"
+      - "renamehome"
+      - "reply"
+      - "rules"
+      - "shop"
+      - "social"
+      - "socials"
+      - "teams"
+      - "tell"
+      - "twitter"
+      - "w"
+      - "whisper"
+      - "wild"
+    allowed-commands: []
 
   plus:
-    - "fly"
-    - "hide"
-    - "nick"
+    permission: "mineacle.plus"
+    priority: 10
+    inherits:
+      - "default"
+    visible-commands:
+      - "fly"
+      - "hide"
+      - "nick"
+    hidden-commands: []
+    allowed-commands: []
 
   admin:
-    - "ban"
-    - "baltop"
-    - "eco"
-    - "enchant"
-    - "gamemode"
-    - "gma"
-    - "gmc"
-    - "gmsp"
-    - "gms"
-    - "guide"
-    - "help"
-    - "home"
-    - "homes"
-    - "links"
-    - "mineaclecore"
-    - "mineaclehomes"
-    - "mineaclenametags"
-    - "mineaclesecurity"
-    - "money"
-    - "nametags"
-    - "realname"
-    - "rules"
-    - "social"
-    - "socials"
-    - "twitter"
-    - "w"
+    permission: "mineaclesecurity.group.admin"
+    priority: 100
+    inherits:
+      - "plus"
+    visible-commands:
+      - "banmenu"
+      - "eco"
+      - "gamemode"
+      - "gma"
+      - "gmc"
+      - "gmsp"
+      - "gms"
+      - "mineaclesecurity"
+    hidden-commands:
+      - "doublejump"
+      - "enchant"
+      - "mineaclecore"
+      - "mineaclehomes"
+      - "mineaclenametags"
+      - "nametags"
+      - "realname"
+    allowed-commands: []

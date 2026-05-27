@@ -7,7 +7,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 
 import java.util.List;
-import java.util.Locale;
 
 public final class SecurityCommand implements CommandExecutor, TabCompleter {
 
@@ -24,24 +23,30 @@ public final class SecurityCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
+        if (args.length == 0) {
+            sender.sendMessage(service.usageMessage());
+            return true;
+        }
+
+        if (args[0].equalsIgnoreCase("reload")) {
             service.reload();
             sender.sendMessage(service.reloadMessage());
             return true;
         }
 
-        sender.sendMessage("Usage: /mineaclesecurity reload");
+        if (args[0].equalsIgnoreCase("groups")) {
+            sender.sendMessage(service.groupsMessage(sender));
+            return true;
+        }
+
+        sender.sendMessage(service.usageMessage());
         return true;
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!service.bypass(sender)) {
-            return List.of();
-        }
-
-        if (args.length == 1 && "reload".startsWith(args[0].toLowerCase(Locale.ROOT))) {
-            return List.of("reload");
+        if (args.length == 1) {
+            return service.commandTabs(sender, args[0]);
         }
 
         return List.of();
