@@ -20,7 +20,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
 
 public final class WarpService {
 
@@ -83,53 +82,18 @@ public final class WarpService {
         return ((size + 8) / 9) * 9;
     }
 
-    public List<String> spawnWorlds() {
-        List<String> worlds = config.getStringList("teleport.spawn-worlds");
-
-        if (worlds.isEmpty()) {
-            worlds = config.getStringList("teleport.instant-worlds");
-        }
-
-        if (worlds.isEmpty()) {
-            worlds = List.of("spawn1", "spawn2", "spawn3");
-        }
-
-        return worlds;
-    }
-
-    public boolean isSpawnWorld(String worldName) {
+    public boolean instantFromWorld(String worldName) {
         if (worldName == null) {
             return false;
         }
 
-        for (String world : spawnWorlds()) {
+        for (String world : config.getStringList("teleport.instant-worlds")) {
             if (world.equalsIgnoreCase(worldName)) {
                 return true;
             }
         }
 
         return false;
-    }
-
-    public boolean instantFromWorld(String worldName) {
-        return isSpawnWorld(worldName);
-    }
-
-    public World randomLoadedSpawnWorld() {
-        List<World> loaded = new ArrayList<>();
-
-        for (String worldName : spawnWorlds()) {
-            World world = Bukkit.getWorld(worldName);
-            if (world != null) {
-                loaded.add(world);
-            }
-        }
-
-        if (loaded.isEmpty()) {
-            return null;
-        }
-
-        return loaded.get(ThreadLocalRandom.current().nextInt(loaded.size()));
     }
 
     public int delaySeconds(Player player) {
@@ -170,18 +134,19 @@ public final class WarpService {
         for (String id : section.getKeys(false)) {
             String path = "warps." + id;
 
-            String worldName = config.getString(path + ".world", "spawn1");
+            String worldName = config.getString(path + ".world", "");
+            World world = Bukkit.getWorld(worldName);
 
             if (worldName.isBlank()) {
-                worldName = "spawn1";
+                continue;
             }
 
             boolean enabled = config.getBoolean(path + ".enabled", true);
             int slot = config.getInt(path + ".slot", 0);
             String displayName = config.getString(path + ".display-name", "&d" + prettyName(id));
-            double x = config.getDouble(path + ".x", 0.0D);
-            double y = config.getDouble(path + ".y", 64.0D);
-            double z = config.getDouble(path + ".z", 0.0D);
+            double x = config.getDouble(path + ".x", world == null ? 0.0D : world.getSpawnLocation().getX());
+            double y = config.getDouble(path + ".y", world == null ? 64.0D : world.getSpawnLocation().getY());
+            double z = config.getDouble(path + ".z", world == null ? 0.0D : world.getSpawnLocation().getZ());
             float yaw = (float) config.getDouble(path + ".yaw", 0.0D);
             float pitch = (float) config.getDouble(path + ".pitch", 0.0D);
             Material material = material(config.getString(path + ".material", "ENDER_PEARL"));
@@ -214,7 +179,7 @@ public final class WarpService {
             if (!point.enabled()) {
                 continue;
             }
-            if (!hasAnyLoadedSpawnWorld() && Bukkit.getWorld(point.worldName()) == null) {
+            if (Bukkit.getWorld(point.worldName()) == null) {
                 continue;
             }
             points.add(point);
@@ -261,28 +226,8 @@ public final class WarpService {
         return new Location(world, point.x(), point.y(), point.z(), point.yaw(), point.pitch());
     }
 
-    public Location targetLocation(Player player, WarpPoint point) {
-        if (player == null || point == null) {
-            return null;
-        }
-
-        World targetWorld;
-
-        if (isSpawnWorld(player.getWorld().getName())) {
-            targetWorld = player.getWorld();
-        } else {
-            targetWorld = randomLoadedSpawnWorld();
-        }
-
-        if (targetWorld == null) {
-            return location(point);
-        }
-
-        return new Location(targetWorld, point.x(), point.y(), point.z(), point.yaw(), point.pitch());
-    }
-
     public boolean teleport(Player player, WarpPoint point) {
-        Location location = targetLocation(player, point);
+        Location location = location(point);
 
         if (location == null) {
             return false;
@@ -356,32 +301,11 @@ public final class WarpService {
                     .replace("%warp%", point.displayName())
                     .replace("%id%", point.id())
                     .replace("%world%", point.worldName())
-                    .replace("%target_world%", targetWorldName(player, point))
                     .replace("%mode%", mode)
             );
         }
 
         return output;
-    }
-
-    private String targetWorldName(Player player, WarpPoint point) {
-        Location location = targetLocation(player, point);
-
-        if (location == null || location.getWorld() == null) {
-            return point.worldName();
-        }
-
-        return location.getWorld().getName();
-    }
-
-    private boolean hasAnyLoadedSpawnWorld() {
-        for (String worldName : spawnWorlds()) {
-            if (Bukkit.getWorld(worldName) != null) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private boolean hasAnyPermission(Player player, List<String> permissions) {

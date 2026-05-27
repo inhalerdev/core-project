@@ -293,7 +293,7 @@ public final class HideService {
     }
 
     private Location nameTagLocation(Player player) {
-        double yOffset = config.getDouble("obfuscated-nametag.y-offset", 1.65D);
+        double yOffset = config.getDouble("obfuscated-nametag.y-offset", 1.15D);
         return player.getLocation().clone().add(0.0D, yOffset, 0.0D);
     }
 

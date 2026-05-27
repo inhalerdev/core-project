@@ -1,63 +1,104 @@
 enabled: true
-title: "Warps"
+title: Warps
 size: 54
 
 teleport:
-  # Spawn worlds are mirrored spawn shards.
-  # If a player is already in one of these worlds, warps are instant in their current spawn world.
-  # If a player is outside these worlds, a random loaded spawn world is selected after the countdown.
-  spawn-worlds:
-    - spawn1
-    - spawn2
-    - spawn3
-
-  # Backward-compatible alias used by older generated warp code.
+  # Players in these worlds teleport instantly to any warp.
   instant-worlds:
-    - spawn1
-    - spawn2
-    - spawn3
-
-  # Players outside spawn worlds use this delay.
+  - spawn1
+  - spawn2
+  - spawn3
+  
+  # Players outside the instant worlds use this delay.
   delay-seconds: 5
-
+  
   # Mineacle+ and admins use this delay outside spawn worlds.
   plus-delay-seconds: 3
   fast-permissions:
-    - mineacle.plus
-    - mineaclewarps.admin
-
+  - mineacle.plus
+  - mineaclewarps.admin
+  
   cancel-on-move: true
   cancel-distance: 2.0
 
 messages:
-  disabled: "&cWarps are disabled"
-  not-found: "&cThat warp does not exist"
-  world-missing: "&cNo spawn world is currently loaded"
-  teleport-start: "&#bbbbbbTeleporting to &d%warp% &#bbbbbbin &d%seconds%s"
-  teleport-countdown: "&#bbbbbbTeleporting to &d%warp% &#bbbbbbin &d%seconds%s"
-  teleported: "&#bbbbbbTeleported to &d%warp%"
+  disabled: '&cWarps are disabled'
+  not-found: '&cThat warp does not exist'
+  world-missing: '&cWarp world is not loaded'
+  teleport-start: '&#bbbbbbTeleporting to &d%warp% &#bbbbbbin &d%seconds%s'
+  teleport-countdown: '&#bbbbbbTeleporting to &d%warp% &#bbbbbbin &d%seconds%s'
+  teleported: '&#bbbbbbTeleported to &d%warp%'
 
 # Default lore used when a warp does not define custom lore.
 gui:
   default-lore:
-    - "&#bbbbbbTeleport: &d%mode%"
-    - ""
-    - "&#ff88ffClick to warp"
+  - '&#bbbbbbWorld: &d%world%'
+  - '&#bbbbbbTeleport: &d%mode%'
+  - ''
+  - '&#ff88ffClick to warp'
 
 warps:
-  spawn:
-      enabled: true
-      slot: 22
-      display-name: "&dSpawn"
-      material: NETHER_STAR
-      world: spawn1
-      x: 0.5
-      y: 65.0
-      z: 0.5
-      yaw: 0.0
-      pitch: 0.0
-      lore:
-        - "&#bbbbbbReturn to the main spawn area"
-        - "&#bbbbbbTeleport: &d%mode%"
-        - ""
-        - "&#ff88ffClick to warp"
+  crates:
+    enabled: true
+    slot: 0
+    display-name: '&dCrates'
+    material: ENDER_PEARL
+    world: spawn1
+    x: -15.5
+    y: 67.0
+    z: -36.5
+    yaw: 90.0
+    pitch: 0.0
+    lore:
+    - '&#bbbbbbWorld: &d%world%'
+    - '&#bbbbbbTeleport: &d%mode%'
+    - ''
+    - '&#ff88ffClick to warp'
+  stats:
+    enabled: true
+    slot: 1
+    display-name: '&dStats'
+    material: ENDER_PEARL
+    world: spawn1
+    x: 16.5
+    y: 67.0
+    z: -36.5
+    yaw: -90.0
+    pitch: 0.0
+    lore:
+    - '&#bbbbbbWorld: &d%world%'
+    - '&#bbbbbbTeleport: &d%mode%'
+    - ''
+    - '&#ff88ffClick to warp'
+  market:
+    enabled: true
+    slot: 2
+    display-name: '&dMarket'
+    material: ENDER_PEARL
+    world: spawn1
+    x: 35.5
+    y: 76.0
+    z: -95.5
+    yaw: -90.0
+    pitch: 0.0
+    lore:
+    - '&#bbbbbbWorld: &d%world%'
+    - '&#bbbbbbTeleport: &d%mode%'
+    - ''
+    - '&#ff88ffClick to warp'
+  duels:
+    enabled: true
+    slot: 3
+    display-name: '&dDuels'
+    material: ENDER_PEARL
+    world: spawn1
+    x: -34.5
+    y: 76.0
+    z: -95.5
+    yaw: 90.0
+    pitch: 0.0
+    lore:
+    - '&#bbbbbbWorld: &d%world%'
+    - '&#bbbbbbTeleport: &d%mode%'
+    - ''
+    - '&#ff88ffClick to warp'

@@ -1,20 +1,15 @@
 # MineacleCore command security
-# This file controls which root slash commands are visible in / tab completion
-# and which player commands are allowed to run.
+# Controls root / tab visibility and which player commands may run.
+# Command matching is case-insensitive; keep command names lowercase here.
 
 enabled: true
-
-# Players with this permission bypass command blocking and tab filtering.
 bypass-permission: mineaclesecurity.bypass
-
 unknown-command-message: "&cThis command does not exist"
 reload-message: "&#bbbbbbSecurity reloaded"
+usage-message: "&#bbbbbbUsage: &d/mineaclesecurity reload"
+groups-message: "&#bbbbbbActive command groups: &d%groups%"
 
-# If true, players may only run commands listed in one of their active groups.
-# Console is not affected.
 block-unlisted-player-commands: true
-
-# If true, namespaced backend commands like /bukkit:plugins and /minecraft:me are hidden/blocked.
 block-namespaced-commands: true
 
 blocked-prefixes:
@@ -85,7 +80,7 @@ blocked-commands:
   - "mvinv"
   - "noplugins"
   - "noplm"
-  - "nuVotifier"
+  - "nuvotifier"
   - "papi"
   - "paper"
   - "paper:paper"
@@ -127,7 +122,6 @@ blocked-commands:
   - "worldedit"
   - "worldguard"
 
-# Always blocked for players unless they have the bypass permission.
 console-only-commands:
   - "ban-ip"
   - "deop"
@@ -142,10 +136,6 @@ console-only-commands:
   - "stop"
   - "whitelist"
 
-# Edit tab/command visibility here.
-# A group is active when permission is blank, or the player has the permission.
-# Groups can inherit another group's command list.
-# priority only controls load/order display; all active groups combine together.
 groups:
   default:
     permission: ""
@@ -180,24 +170,26 @@ groups:
       - "worth"
       - "x"
     hidden-commands:
+      - "accepttp"
       - "balance"
       - "balancetop"
       - "buy"
       - "delhome"
       - "dc"
+      - "denytp"
       - "h"
       - "help"
       - "homes"
+      - "itemprices"
       - "link"
       - "links"
       - "lobby"
       - "m"
       - "money"
       - "orders"
-      - "prices"
-      - "itemprices"
-      - "originsrtp"
       - "originrtp"
+      - "originsrtp"
+      - "prices"
       - "renamehome"
       - "reply"
       - "rules"
@@ -206,19 +198,18 @@ groups:
       - "socials"
       - "teams"
       - "tell"
+      - "tpah"
+      - "tphere"
+      - "tpask"
+      - "tpno"
+      - "tpyes"
       - "twitter"
       - "w"
+      - "warps"
       - "whisper"
       - "wild"
-      - "tpask"
-      - "tphere"
-      - "tpah"
-      - "tpyes"
-      - "accepttp"
-      - "tpno"
-      - "denytp"
+    allowed-commands:
       - "tpamenu"
-    allowed-commands: []
 
   plus:
     permission: "mineacle.plus"
@@ -238,20 +229,40 @@ groups:
     inherits:
       - "plus"
     visible-commands:
+      - "ban"
+      - "baltop"
+      - "delwarp"
       - "eco"
+      - "enchant"
+      - "enchantinfo"
       - "gamemode"
       - "gma"
       - "gmc"
       - "gmsp"
       - "gms"
+      - "history"
+      - "kick"
       - "mineaclesecurity"
+      - "mute"
+      - "setwarp"
+      - "tempban"
+      - "tempmute"
+      - "unban"
+      - "unmute"
+      - "warn"
     hidden-commands:
       - "doublejump"
-      - "enchant"
-      - "enchantinfo"
+      - "enchantments"
       - "mineaclecore"
       - "mineaclehomes"
       - "mineaclenametags"
       - "nametags"
       - "realname"
-    allowed-commands: []
+    allowed-commands:
+      - "banlist"
+      - "checkban"
+      - "checkmute"
+      - "dupeip"
+      - "ipban"
+      - "ipmute"
+      - "staffhistory"

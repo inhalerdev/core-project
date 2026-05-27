@@ -22,7 +22,7 @@ hidden-prefix-colors:
 
 obfuscated-nametag:
   enabled: true
-  y-offset: 1.65
+  y-offset: 1.15
   format: "%hideprefixcolor%+ %hidecolor%&k%displayname%"
   admin-format: "&#ff88ff[Hidden] &#bbbbbb%displayname%"
 
