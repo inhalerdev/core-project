@@ -20,7 +20,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -44,28 +43,39 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
         }
 
         if (!player.hasPermission("mineacletpa.use")) {
-            sendBoth(player, "§cYou do not have permission");
+            sendBoth(player, "&cYou do not have permission");
             SoundService.guiError(player, core);
             return true;
         }
 
-        String commandName = label.toLowerCase(Locale.ROOT);
+        String commandName = command.getName().toLowerCase(Locale.ROOT);
+        String usedLabel = label == null ? commandName : label.toLowerCase(Locale.ROOT);
 
-        return switch (commandName) {
-            case "tpa", "tpask" -> handleTpa(player, args, TpaRequestType.TO_TARGET);
-            case "tpahere", "tphere", "tpah" -> handleTpa(player, args, TpaRequestType.HERE);
-            case "tpaccept", "tpyes", "accepttp" -> handleAccept(player);
-            case "tpdeny", "tpno", "denytp" -> handleDeny(player);
-            default -> true;
-        };
+        if (commandName.equals("tpa") || usedLabel.equals("tpa") || usedLabel.equals("tpask")) {
+            return handleTpa(player, args, TpaRequestType.TO_TARGET);
+        }
+
+        if (commandName.equals("tpahere")
+                || usedLabel.equals("tpahere")
+                || usedLabel.equals("tphere")
+                || usedLabel.equals("tpah")) {
+            return handleTpa(player, args, TpaRequestType.HERE);
+        }
+
+        if (commandName.equals("tpaccept") || usedLabel.equals("tpaccept") || usedLabel.equals("tpyes") || usedLabel.equals("accepttp")) {
+            return handleAccept(player);
+        }
+
+        if (commandName.equals("tpdeny") || usedLabel.equals("tpdeny") || usedLabel.equals("tpno") || usedLabel.equals("denytp")) {
+            return handleDeny(player);
+        }
+
+        return true;
     }
 
     private boolean handleTpa(Player requester, String[] args, TpaRequestType type) {
         if (args.length < 1) {
-            sendBoth(
-                    requester,
-                    type == TpaRequestType.TO_TARGET ? "§cUsage: /tpa <player>" : "§cUsage: /tpahere <player>"
-            );
+            sendBoth(requester, type == TpaRequestType.TO_TARGET ? "&cUsage: /tpa <player>" : "&cUsage: /tpahere <player>");
             SoundService.guiError(requester, core);
             return true;
         }
@@ -73,19 +83,19 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
         Player target = DisplayNames.resolveOnline(args[0]);
 
         if (target == null) {
-            sendBoth(requester, "§cThat player is not online");
+            sendBoth(requester, "&cThat player is not online");
             SoundService.guiError(requester, core);
             return true;
         }
 
         if (target.getUniqueId().equals(requester.getUniqueId())) {
-            sendBoth(requester, "§cYou cannot send a teleport request to yourself");
+            sendBoth(requester, "&cYou cannot send a teleport request to yourself");
             SoundService.guiError(requester, core);
             return true;
         }
 
         if (!tpaService.createRequest(requester, target, type)) {
-            sendBoth(requester, "§cCould not send teleport request");
+            sendBoth(requester, "&cCould not send teleport request");
             SoundService.guiError(requester, core);
             return true;
         }
@@ -93,11 +103,12 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
         String requesterName = DisplayNames.prefixedDisplayName(requester);
         String targetName = DisplayNames.prefixedDisplayName(target);
 
-        sendBoth(requester, "§aTeleport request sent to " + TextColor.color(targetName));
+        sendBoth(requester, "&aTeleport request sent to " + targetName);
         SoundService.teleportRequest(requester, core);
 
         sendRequestMessage(requester, target, requesterName, type);
         SoundService.teleportReceived(target, core);
+
         scheduleExpiration(requester, target, targetName);
         return true;
     }
@@ -108,16 +119,18 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
                 : requesterName + " &#bbbbbbwants you to teleport to them";
 
         target.sendActionBar(actionBar(mainLine));
-        target.sendMessage(actionBar(mainLine));
+        target.sendMessage(legacy(mainLine));
 
-        Component accept = actionBar("&d[Accept]")
+        Component accept = legacy("&d[Accept]")
                 .clickEvent(ClickEvent.runCommand("/tpaccept"));
-        Component deny = actionBar("&d[Deny]")
+
+        Component deny = legacy("&d[Deny]")
                 .clickEvent(ClickEvent.runCommand("/tpdeny"));
-        Component view = actionBar("&d[View]")
+
+        Component view = legacy("&d[View]")
                 .clickEvent(ClickEvent.runCommand("/tpaccept"));
 
-        Component buttons = actionBar("&#bbbbbbRespond ")
+        Component buttons = legacy("&#bbbbbbRespond ")
                 .append(accept)
                 .append(Component.space())
                 .append(deny)
@@ -142,12 +155,12 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
             tpaService.removeRequest(target.getUniqueId());
 
             if (requester.isOnline()) {
-                sendBoth(requester, "§cTeleport request to " + TextColor.color(targetName) + " §cexpired");
+                sendBoth(requester, "&cTeleport request to " + targetName + " &cexpired");
                 SoundService.guiError(requester, core);
             }
 
             if (target.isOnline()) {
-                sendBoth(target, "§cTeleport request expired");
+                sendBoth(target, "&cTeleport request expired");
                 SoundService.guiError(target, core);
             }
         }, tpaService.timeoutSeconds() * 20L);
@@ -157,7 +170,7 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
         TpaRequest request = tpaService.getRequest(player.getUniqueId());
 
         if (request == null) {
-            sendBoth(player, "§cYou have no pending teleport requests");
+            sendBoth(player, "&cYou have no pending teleport requests");
             SoundService.guiError(player, core);
             return true;
         }
@@ -171,17 +184,18 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
         TpaRequest request = tpaService.removeRequest(player.getUniqueId());
 
         if (request == null) {
-            sendBoth(player, "§cYou have no pending teleport requests");
+            sendBoth(player, "&cYou have no pending teleport requests");
             SoundService.guiError(player, core);
             return true;
         }
 
         Player requester = tpaService.requester(request);
-        sendBoth(player, "§cTeleport request denied");
+
+        sendBoth(player, "&cTeleport request denied");
         SoundService.guiCancel(player, core);
 
         if (requester != null && requester.isOnline()) {
-            sendBoth(requester, "§c" + DisplayNames.prefixedDisplayName(player) + " denied your teleport request");
+            sendBoth(requester, "&c" + DisplayNames.prefixedDisplayName(player) + " denied your teleport request");
             SoundService.guiCancel(requester, core);
         }
 
@@ -190,24 +204,26 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> completions = new ArrayList<>();
-
         if (!(sender instanceof Player player)) {
-            return completions;
+            return List.of();
         }
 
-        String commandName = alias.toLowerCase(Locale.ROOT);
+        String commandName = command.getName().toLowerCase(Locale.ROOT);
+        String usedAlias = alias == null ? commandName : alias.toLowerCase(Locale.ROOT);
 
-        if ((commandName.equals("tpa")
-                || commandName.equals("tpask")
+        boolean isRequestCommand = commandName.equals("tpa")
                 || commandName.equals("tpahere")
-                || commandName.equals("tphere")
-                || commandName.equals("tpah"))
-                && args.length == 1) {
+                || usedAlias.equals("tpa")
+                || usedAlias.equals("tpask")
+                || usedAlias.equals("tpahere")
+                || usedAlias.equals("tphere")
+                || usedAlias.equals("tpah");
+
+        if (isRequestCommand && args.length == 1) {
             return PlayerTabComplete.onlinePlayers(player, args[0]);
         }
 
-        return completions;
+        return List.of();
     }
 
     private void sendBoth(Player player, String message) {
@@ -216,6 +232,10 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
     }
 
     private Component actionBar(String message) {
+        return legacy(message);
+    }
+
+    private Component legacy(String message) {
         return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
     }
 }
