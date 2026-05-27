@@ -1,9 +1,10 @@
 package net.mineacle.core.economy.command;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.player.DisplayNames;
+import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.economy.service.EconomyService;
-import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -13,7 +14,6 @@ import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 public final class PayCommand implements CommandExecutor, TabCompleter {
 
@@ -44,7 +44,7 @@ public final class PayCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[0]);
+        OfflinePlayer target = DisplayNames.resolveOffline(args[0]);
 
         if (target.getName() == null && !target.hasPlayedBefore()) {
             player.sendMessage(core.getMessage("economy.player-not-found"));
@@ -68,16 +68,12 @@ public final class PayCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> completions = new ArrayList<>();
 
-        if (args.length != 1) {
+        if (!(sender instanceof Player player)) {
             return completions;
         }
 
-        String partial = args[0].toLowerCase(Locale.ROOT);
-
-        for (Player online : Bukkit.getOnlinePlayers()) {
-            if (online.getName().toLowerCase(Locale.ROOT).startsWith(partial)) {
-                completions.add(online.getName());
-            }
+        if (args.length == 1) {
+            return PlayerTabComplete.onlinePlayers(player, args[0]);
         }
 
         return completions;
