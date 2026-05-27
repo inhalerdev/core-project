@@ -5,8 +5,11 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public final class SecurityCommand implements CommandExecutor, TabCompleter {
 
@@ -23,30 +26,37 @@ public final class SecurityCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (args.length == 0) {
-            sender.sendMessage(service.usageMessage());
-            return true;
-        }
-
-        if (args[0].equalsIgnoreCase("reload")) {
+        if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
             service.reload();
             sender.sendMessage(service.reloadMessage());
             return true;
         }
 
-        if (args[0].equalsIgnoreCase("groups")) {
-            sender.sendMessage(service.groupsMessage(sender));
+        if (args.length > 0 && args[0].equalsIgnoreCase("groups") && sender instanceof Player player) {
+            sender.sendMessage("§7Active security groups: §d" + String.join("§7, §d", service.activeGroupNames(player)));
             return true;
         }
 
-        sender.sendMessage(service.usageMessage());
+        sender.sendMessage("§7Usage: §d/mineaclesecurity reload");
         return true;
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (!service.bypass(sender)) {
+            return List.of();
+        }
+
         if (args.length == 1) {
-            return service.commandTabs(sender, args[0]);
+            String input = args[0].toLowerCase(Locale.ROOT);
+            List<String> options = new ArrayList<>();
+            if ("reload".startsWith(input)) {
+                options.add("reload");
+            }
+            if (sender instanceof Player && "groups".startsWith(input)) {
+                options.add("groups");
+            }
+            return options;
         }
 
         return List.of();
