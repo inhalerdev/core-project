@@ -2,14 +2,17 @@ package net.mineacle.core.chat.command;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.chat.service.ChatService;
+import net.mineacle.core.common.player.PlayerTabComplete;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
-import org.bukkit.command.*;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 public final class IgnoreCommand implements CommandExecutor, TabCompleter {
 
@@ -55,7 +58,6 @@ public final class IgnoreCommand implements CommandExecutor, TabCompleter {
 
         player.sendMessage(core.getMessage(nowIgnoring ? "chat.now-ignoring" : "chat.no-longer-ignoring")
                 .replace("%player%", targetName));
-
         return true;
     }
 
@@ -63,16 +65,12 @@ public final class IgnoreCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> completions = new ArrayList<>();
 
-        if (args.length != 1) {
+        if (!(sender instanceof Player player)) {
             return completions;
         }
 
-        String partial = args[0].toLowerCase(Locale.ROOT);
-
-        for (Player online : Bukkit.getOnlinePlayers()) {
-            if (online.getName().toLowerCase(Locale.ROOT).startsWith(partial)) {
-                completions.add(online.getName());
-            }
+        if (args.length == 1) {
+            return PlayerTabComplete.onlinePlayers(player, args[0]);
         }
 
         return completions;

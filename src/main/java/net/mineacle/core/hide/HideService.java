@@ -58,7 +58,6 @@ public final class HideService {
 
         task = core.getServer().getScheduler().runTaskTimer(core, () -> {
             updateNameTags();
-
             actionbarTicks += 2;
 
             if (actionbarTicks >= 40) {
@@ -82,7 +81,7 @@ public final class HideService {
     }
 
     public boolean canUse(Player player) {
-        return player.hasPermission(permission()) || player.hasPermission("mineaclehide.admin");
+        return player.hasPermission(permission()) || player.hasPermission(adminPermission());
     }
 
     public String permission() {
@@ -224,8 +223,7 @@ public final class HideService {
     }
 
     public String parsedMessage(String path, String fallback, Player player) {
-        return TextColor.color(message(path, fallback)
-                .replace("%player%", DisplayNames.displayName(player)));
+        return TextColor.color(message(path, fallback).replace("%player%", DisplayNames.displayName(player)));
     }
 
     public boolean shouldHideRealNametag(Player player) {
@@ -278,7 +276,6 @@ public final class HideService {
 
     private ArmorStand spawnNameTag(Player player) {
         ArmorStand stand = (ArmorStand) player.getWorld().spawnEntity(nameTagLocation(player), EntityType.ARMOR_STAND);
-
         stand.setInvisible(true);
         stand.setMarker(true);
         stand.setSmall(true);
@@ -292,17 +289,16 @@ public final class HideService {
         stand.setCustomNameVisible(true);
         stand.addScoreboardTag("mineacle_hidden_nametag");
         stand.addScoreboardTag("mineacle_hidden_" + player.getUniqueId());
-
         return stand;
     }
 
     private Location nameTagLocation(Player player) {
-        double yOffset = config.getDouble("obfuscated-nametag.y-offset", 2.25D);
+        double yOffset = config.getDouble("obfuscated-nametag.y-offset", 1.15D);
         return player.getLocation().clone().add(0.0D, yOffset, 0.0D);
     }
 
     private Component nameTagComponent(Player player) {
-        return component(format("obfuscated-nametag.format", "&#ff88ff+ &k%displayname%", player));
+        return component(format("obfuscated-nametag.format", "%hideprefixcolor%+ %hidecolor%&k%displayname%", player));
     }
 
     private void removeNameTag(UUID uuid) {
@@ -341,7 +337,6 @@ public final class HideService {
                     viewer.hidePlayer(core, player);
                 }
             }
-
             return;
         }
 
@@ -349,7 +344,7 @@ public final class HideService {
             return;
         }
 
-        player.playerListName(component(format("tab.format", "&#ff88ff+ &k%displayname%", player)));
+        player.playerListName(component(format("tab.format", "%hideprefixcolor%+ %hidecolor%&k%displayname%", player)));
     }
 
     private void restoreTabName(Player player) {
@@ -368,12 +363,29 @@ public final class HideService {
 
     private String format(String path, String fallback, Player player) {
         String value = config.getString(path, fallback);
-
         return value
+                .replace("%hideprefixcolor%", hiddenPrefixColor(player))
+                .replace("%hidecolor%", hiddenNameColor(player))
                 .replace("%player%", DisplayNames.username(player))
                 .replace("%displayname%", DisplayNames.displayName(player))
                 .replace("%nickname%", DisplayNames.nickname(player))
                 .replace("%rank%", DisplayNames.luckPermsPrefix(player));
+    }
+
+    private String hiddenNameColor(Player player) {
+        if (player.isOp() || player.hasPermission(adminPermission())) {
+            return config.getString("hidden-name-colors.admin", "#ff88ff");
+        }
+
+        return config.getString("hidden-name-colors.plus", "#ffffff");
+    }
+
+    private String hiddenPrefixColor(Player player) {
+        if (player.isOp() || player.hasPermission(adminPermission())) {
+            return config.getString("hidden-prefix-colors.admin", "#ff88ff");
+        }
+
+        return config.getString("hidden-prefix-colors.plus", "#ff55ff");
     }
 
     private Component component(String message) {

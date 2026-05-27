@@ -33,20 +33,24 @@ public final class FlyCommand implements CommandExecutor, TabCompleter {
         }
 
         if (!core.getConfig().getBoolean("fly.enabled", true)) {
+            listener.dropOutOfFly(player);
             send(player, "&cFlight is disabled");
             SoundService.guiError(player, core);
             return true;
         }
 
         String permission = core.getConfig().getString("fly.permission", "mineacle.plus");
+        boolean bypass = player.hasPermission("mineaclefly.admin");
 
-        if (!player.hasPermission(permission) && !player.hasPermission("mineaclefly.admin")) {
+        if (!player.hasPermission(permission) && !bypass) {
+            listener.dropOutOfFly(player);
             sendUpgrade(player);
             SoundService.guiError(player, core);
             return true;
         }
 
         if (!listener.isFlyWorld(player.getWorld().getName())) {
+            listener.dropOutOfFly(player);
             send(player, core.getConfig().getString("fly.messages.blocked-world", "&cFlight is only available in spawn"));
             SoundService.guiError(player, core);
             return true;
@@ -54,8 +58,8 @@ public final class FlyCommand implements CommandExecutor, TabCompleter {
 
         boolean enabled = listener.toggleFly(player);
         String message = enabled
-                ? core.getConfig().getString("fly.messages.enabled", "&aFlight enabled")
-                : core.getConfig().getString("fly.messages.disabled", "&cFlight disabled");
+                ? core.getConfig().getString("fly.messages.enabled", "&dMineacle+ &#bbbbbbFlight enabled")
+                : core.getConfig().getString("fly.messages.disabled", "&dMineacle+ &#bbbbbbFlight disabled");
 
         send(player, message);
 
@@ -71,12 +75,11 @@ public final class FlyCommand implements CommandExecutor, TabCompleter {
     private void sendUpgrade(Player player) {
         String lineOne = core.getConfig().getString(
                 "fly.messages.upgrade-line-1",
-                "&fElevate your gameplay experience with &dMineacle+"
+                "&#bbbbbbUnlock flight in spawn with &dMineacle+"
         );
-
         String lineTwo = core.getConfig().getString(
                 "fly.messages.upgrade-line-2",
-                "&d♦ &fhttps://store.mineacle.net"
+                "&d♦ &#bbbbbbhttps://store.mineacle.net"
         );
 
         player.sendMessage(" ");
@@ -84,8 +87,8 @@ public final class FlyCommand implements CommandExecutor, TabCompleter {
 
         Component store = legacy(lineTwo)
                 .clickEvent(ClickEvent.openUrl("https://store.mineacle.net"));
-
         player.sendMessage(store);
+
         player.sendMessage(" ");
         player.sendActionBar(actionBar(lineOne));
     }
@@ -96,7 +99,7 @@ public final class FlyCommand implements CommandExecutor, TabCompleter {
     }
 
     private Component actionBar(String message) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
+        return legacy(message);
     }
 
     private Component legacy(String message) {

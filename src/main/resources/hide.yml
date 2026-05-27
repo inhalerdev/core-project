@@ -9,15 +9,26 @@ hide-from-tab: false
 disable-pickup: true
 disable-entity-target: true
 
+# Hidden display colors:
+# Admin/OP hidden players use Mineacle purple.
+# Mineacle+ hidden players use plain white.
+hidden-name-colors:
+  admin: "#ff88ff"
+  plus: "#ffffff"
+
+hidden-prefix-colors:
+  admin: "#ff88ff"
+  plus: "#ff55ff"
+
 obfuscated-nametag:
   enabled: true
-  y-offset: 2.25
-  format: "&#ff88ff+ &k%displayname%"
+  y-offset: 1.15
+  format: "%hideprefixcolor%+ %hidecolor%&k%displayname%"
   admin-format: "&#ff88ff[Hidden] &#bbbbbb%displayname%"
 
 tab:
   obfuscate-name: true
-  format: "&#ff88ff+ &k%displayname%"
+  format: "%hideprefixcolor%+ %hidecolor%&k%displayname%"
   admin-format: "&#ff88ff[Hidden] &#bbbbbb%displayname%"
 
 messages:

@@ -3,7 +3,7 @@ package net.mineacle.core.chat.command;
 import net.mineacle.core.Core;
 import net.mineacle.core.chat.service.ChatService;
 import net.mineacle.core.common.player.DisplayNames;
-import org.bukkit.Bukkit;
+import net.mineacle.core.common.player.PlayerTabComplete;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -55,7 +55,7 @@ public final class MessageCommand implements CommandExecutor, TabCompleter {
         StringBuilder builder = new StringBuilder();
 
         for (int index = start; index < args.length; index++) {
-            if (!builder.isEmpty()) {
+            if (builder.length() > 0) {
                 builder.append(' ');
             }
 
@@ -69,16 +69,12 @@ public final class MessageCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> completions = new ArrayList<>();
 
-        if (args.length != 1) {
+        if (!(sender instanceof Player player)) {
             return completions;
         }
 
-        String partial = args[0];
-
-        for (Player online : Bukkit.getOnlinePlayers()) {
-            if (DisplayNames.startsWithDisplay(online, partial)) {
-                completions.add(DisplayNames.commandDisplayName(online));
-            }
+        if (args.length == 1) {
+            return PlayerTabComplete.onlinePlayers(player, args[0]);
         }
 
         return completions;

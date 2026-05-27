@@ -136,11 +136,11 @@ public final class TeamsGuiListener implements Listener {
             SoundService.guiClick(player, core);
             player.closeInventory();
 
-            Component prompt = Component.text(TextColor.color("&#bbbbbbType &d/team create &#bbbbbbto create a team"))
+            Component prompt = Component.text(TextColor.color("&#bbbbbbType &#ff88ff/team create &#bbbbbbto create a team"))
                     .clickEvent(ClickEvent.suggestCommand("/team create "));
 
             player.sendMessage(prompt);
-            player.sendActionBar(actionBar("&#bbbbbbType &d/team create &#bbbbbbto create a team"));
+            player.sendActionBar(actionBar("&#bbbbbbType &#ff88ff/team create &#bbbbbbto create a team"));
             return;
         }
 

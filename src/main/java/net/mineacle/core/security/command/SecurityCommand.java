@@ -5,7 +5,9 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -30,7 +32,12 @@ public final class SecurityCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        sender.sendMessage("Usage: /mineaclesecurity reload");
+        if (args.length > 0 && args[0].equalsIgnoreCase("groups") && sender instanceof Player player) {
+            sender.sendMessage("§7Active security groups: §d" + String.join("§7, §d", service.activeGroupNames(player)));
+            return true;
+        }
+
+        sender.sendMessage("§7Usage: §d/mineaclesecurity reload");
         return true;
     }
 
@@ -40,8 +47,16 @@ public final class SecurityCommand implements CommandExecutor, TabCompleter {
             return List.of();
         }
 
-        if (args.length == 1 && "reload".startsWith(args[0].toLowerCase(Locale.ROOT))) {
-            return List.of("reload");
+        if (args.length == 1) {
+            String input = args[0].toLowerCase(Locale.ROOT);
+            List<String> options = new ArrayList<>();
+            if ("reload".startsWith(input)) {
+                options.add("reload");
+            }
+            if (sender instanceof Player && "groups".startsWith(input)) {
+                options.add("groups");
+            }
+            return options;
         }
 
         return List.of();

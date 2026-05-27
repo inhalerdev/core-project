@@ -13,8 +13,8 @@ worlds:
 
 colors:
   op: "#ff88ff"
-  default: "#bbbbbb"
-  hidden: "#ff88ff"
+  default: "#ffffff"
+  hidden: "#ffffff"
 
 rank:
   use-placeholderapi: true

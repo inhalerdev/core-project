@@ -2,6 +2,7 @@ package net.mineacle.core.stats.command;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
+import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.stats.PlayerStatisticsGui;
 import org.bukkit.OfflinePlayer;
@@ -38,6 +39,7 @@ public final class StatsCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length < 1) {
+            SoundService.guiClick(viewer, core);
             playerStatisticsGui.open(viewer, viewer.getUniqueId());
             return true;
         }
@@ -50,6 +52,7 @@ public final class StatsCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        SoundService.guiClick(viewer, core);
         playerStatisticsGui.open(viewer, target.getUniqueId());
         return true;
     }
@@ -58,20 +61,12 @@ public final class StatsCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> completions = new ArrayList<>();
 
-        if (!(sender instanceof Player)) {
+        if (!(sender instanceof Player player)) {
             return completions;
         }
 
-        if (args.length != 1) {
-            return completions;
-        }
-
-        String partial = args[0];
-
-        for (Player online : org.bukkit.Bukkit.getOnlinePlayers()) {
-            if (DisplayNames.startsWithDisplay(online, partial)) {
-                completions.add(DisplayNames.commandDisplayName(online));
-            }
+        if (args.length == 1) {
+            return PlayerTabComplete.onlinePlayers(player, args[0], true);
         }
 
         return completions;

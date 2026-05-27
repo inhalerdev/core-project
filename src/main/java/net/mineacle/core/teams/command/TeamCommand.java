@@ -77,7 +77,6 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
             } else {
                 MenuHistory.openRoot(core, player, () -> TeamStartGui.open(core, player, inviteService));
             }
-
             return true;
         }
 
@@ -160,11 +159,11 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length < 2) {
-            Component prompt = Component.text(TextColor.color("&#bbbbbbType &d/team create  &#bbbbbbto create a team"))
+            Component prompt = legacy("&#bbbbbbType &d/team create &#bbbbbbto create a team")
                     .clickEvent(ClickEvent.suggestCommand("/team create "));
 
             player.sendMessage(prompt);
-            player.sendActionBar(actionBar("&#bbbbbbType &d/team create  &#bbbbbbto create a team"));
+            player.sendActionBar(actionBar("&#bbbbbbType &d/team create &#bbbbbbto create a team"));
             return true;
         }
 
@@ -263,26 +262,29 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
         String senderName = DisplayNames.prefixedDisplayName(player);
         String targetName = DisplayNames.prefixedDisplayName(target);
 
-        sendBoth(player, "&aInvite sent to " + TextColor.color(targetName));
+        sendBoth(player, "&aInvite sent to " + targetName);
         SoundService.teamInvite(player, core);
 
-        Component accept = Component.text(TextColor.color("&d[Accept]"))
+        Component accept = legacy("&d[Accept]")
                 .clickEvent(ClickEvent.runCommand("/team accept"));
-        Component deny = Component.text(TextColor.color("&d[Deny]"))
+
+        Component deny = legacy("&d[Deny]")
                 .clickEvent(ClickEvent.runCommand("/team deny"));
-        Component view = Component.text(TextColor.color("&d[View]"))
+
+        Component view = legacy("&d[View]")
                 .clickEvent(ClickEvent.runCommand("/team invites"));
 
-        Component inviteMessage = Component.text(TextColor.color("&#bbbbbbYou received a team invite to &d" + team.name() + " &#bbbbbb"))
+        Component inviteMessage = legacy("&#bbbbbbYou received a team invite to &d" + team.name() + " &#bbbbbb")
                 .append(accept)
-                .append(Component.text(" "))
+                .append(Component.space())
                 .append(deny)
-                .append(Component.text(" "))
+                .append(Component.space())
                 .append(view);
 
-        target.sendActionBar(actionBar("&dTeam invite from " + TextColor.color(senderName)));
+        target.sendActionBar(actionBar("&dTeam invite from " + senderName));
         target.sendMessage(inviteMessage);
         SoundService.teamInvite(target, core);
+
         return true;
     }
 
@@ -441,7 +443,6 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
         teamService.setFriendlyFire(team.teamId(), enabled);
 
         String message = enabled ? "&aTeam PvP enabled" : "&cTeam PvP disabled";
-
         sendBoth(player, message);
         SoundService.guiConfirm(player, core);
         return true;
@@ -468,8 +469,19 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
                 options = List.of("create", "join", "invites", "accept", "deny");
             } else if (teamService.isAdmin(player.getUniqueId())) {
                 options = List.of(
-                        "invite", "chat", "home", "sethome", "delhome", "pvp",
-                        "promote", "demote", "kick", "ban", "transfer", "leave", "disband"
+                        "invite",
+                        "chat",
+                        "home",
+                        "sethome",
+                        "delhome",
+                        "pvp",
+                        "promote",
+                        "demote",
+                        "kick",
+                        "ban",
+                        "transfer",
+                        "leave",
+                        "disband"
                 );
             } else {
                 options = List.of("chat", "home", "leave");
@@ -516,6 +528,10 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
     }
 
     private Component actionBar(String message) {
+        return legacy(message);
+    }
+
+    private Component legacy(String message) {
         return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
     }
 }

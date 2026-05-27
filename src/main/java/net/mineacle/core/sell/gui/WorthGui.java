@@ -25,13 +25,11 @@ public final class WorthGui {
     public static final String TITLE_PREFIX = "Item Prices (Page ";
     public static final int SIZE = 54;
     public static final int ENTRIES_PER_PAGE = 45;
-
     public static final int PREVIOUS_SLOT = 45;
     public static final int SORT_SLOT = 48;
     public static final int FILTER_SLOT = 49;
     public static final int REFRESH_SLOT = 50;
     public static final int NEXT_SLOT = 53;
-
     public static final String META_PAGE = "mineacle_worth_page";
 
     private static final Map<UUID, SortMode> SORTS = new HashMap<>();
@@ -66,11 +64,13 @@ public final class WorthGui {
 
         inventory.setItem(SORT_SLOT, sortItem(currentSort(player)));
         inventory.setItem(FILTER_SLOT, filterItem(currentFilter(player)));
-
         inventory.setItem(REFRESH_SLOT, item(
                 Material.PAPER,
                 "&dItem Prices",
-                List.of("&#bbbbbbClick to refresh")
+                List.of(
+                        "&#bbbbbbThis menu intentionally shows item worths",
+                        "&#bbbbbbClick to refresh prices"
+                )
         ));
 
         if (safePage < totalPages - 1) {
@@ -118,11 +118,7 @@ public final class WorthGui {
         List<Material> materials = new ArrayList<>();
 
         for (Material material : Material.values()) {
-            if (!material.isItem()) {
-                continue;
-            }
-
-            if (material == Material.AIR) {
+            if (!material.isItem() || material == Material.AIR) {
                 continue;
             }
 
@@ -152,13 +148,24 @@ public final class WorthGui {
     }
 
     private static ItemStack priceItem(Player player, SellService sellService, Material material) {
-        long worth = sellService.unitWorthCents(player, material);
+        long unitWorth = sellService.unitWorthCents(player, material);
+        long stackWorth = unitWorth * Math.max(1, material.getMaxStackSize());
+        double demand = sellService.demandMultiplier(material);
+        String category = categoryDisplay(material);
 
-        return item(
-                material,
-                "&d" + sellService.pretty(material),
-                List.of("&#bbbbbbWorth: &a" + sellService.format(worth))
-        );
+        List<String> lore = new ArrayList<>();
+        lore.add("&#bbbbbbPrice: &a" + sellService.format(unitWorth));
+        lore.add("&#bbbbbbStack: &a" + sellService.format(stackWorth));
+        lore.add("&#bbbbbbCategory: &#ff88ff" + category);
+
+        if (Math.abs(demand - 1.0D) >= 0.01D) {
+            lore.add("&#bbbbbbDemand: &#ff88ff" + SellService.formatMultiplier(demand) + "x");
+        }
+
+        lore.add("");
+        lore.add("&#bbbbbbThis value is shown only in Item Prices");
+
+        return item(material, "&d" + sellService.pretty(material), lore);
     }
 
     private static ItemStack sortItem(SortMode current) {
@@ -339,7 +346,6 @@ public final class WorthGui {
                         || name.equals("SADDLE")
                         || name.equals("TOTEM_OF_UNDYING")
                         || name.equals("ELYTRA");
-                default -> true;
             };
         }
     }

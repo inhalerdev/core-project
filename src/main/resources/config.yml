@@ -23,7 +23,7 @@ homes:
     delay-seconds: 5
     plus-delay-seconds: 3
     cancel-on-move: true
-    cancel-distance: 2.0
+    cancel-distance: 1.0
   delete-confirm:
     timeout-seconds: 5
   team-home:
@@ -33,7 +33,7 @@ homes:
     teleport-delay-seconds: 5
     plus-teleport-delay-seconds: 3
     cancel-on-move: true
-    cancel-distance: 2.0
+    cancel-distance: 1.0
     delete-confirm-timeout-seconds: 5
     allowed-worlds:
       enabled: true
@@ -163,7 +163,7 @@ origin-rtp:
     priority: true
   teleport:
     cancel-on-move: true
-    cancel-distance: 2.0
+    cancel-distance: 1.0
   search:
     use-world-border: false
     center-x: 0
@@ -390,8 +390,8 @@ fly:
     - spawn2
     - spawn3
   messages:
-    enabled: "&dMineacle+ &aFlight Enabled"
-    disabled: "&dMineacle+ &cFlight disabled"
+    enabled: "&aFlight Enabled"
+    disabled: "&cFlight disabled"
     blocked-world: "&cFlight is only available in spawn"
     upgrade-line-1: "&fElevate your gameplay experience with &dMineacle+"
     upgrade-line-2: "&dâ™¦ &fhttps://store.mineacle.net"

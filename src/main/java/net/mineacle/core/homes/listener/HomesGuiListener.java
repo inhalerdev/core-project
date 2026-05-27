@@ -51,9 +51,9 @@ public final class HomesGuiListener implements Listener {
             return;
         }
 
-        String homesTitle = org.bukkit.ChatColor.translateAlternateColorCodes('&', core.getMessage("homes.gui.title"));
-        String deleteTitle = org.bukkit.ChatColor.translateAlternateColorCodes('&', core.getMessage("homes.gui.delete-title"));
-        String teamDeleteTitle = org.bukkit.ChatColor.translateAlternateColorCodes('&', core.getMessage("homes.gui.team-delete-title"));
+        String homesTitle = plainTitle("homes.gui.title");
+        String deleteTitle = plainTitle("homes.gui.delete-title");
+        String teamDeleteTitle = plainTitle("homes.gui.team-delete-title");
         int slot = event.getRawSlot();
 
         if (event.getView().getTitle().equals(homesTitle)) {
@@ -100,28 +100,19 @@ public final class HomesGuiListener implements Listener {
             Location target = homeService.get(uuid, id);
 
             if (target == null) {
-                String message = stripTrailingPeriod(core.getMessage("homes.not-set")
+                sendPopup(player, core.getMessage("homes.not-set")
                         .replace("%home%", homeService.getDisplayName(uuid, id)));
-
-                player.sendActionBar(actionBar(message));
-                player.sendMessage(message);
                 SoundService.guiError(player, core);
                 return;
             }
 
             SoundService.guiClick(player, core);
             player.closeInventory();
-
             teleportService.begin(player, homeService.getDisplayName(uuid, id), () -> {
                 player.teleport(target);
-
-                String message = stripTrailingPeriod(core.getMessage("homes.teleported")
+                sendPopup(player, core.getMessage("homes.teleported")
                         .replace("%home%", homeService.getDisplayName(uuid, id)));
-
-                player.sendActionBar(actionBar(message));
-                player.sendMessage(message);
             });
-
             return;
         }
 
@@ -136,12 +127,8 @@ public final class HomesGuiListener implements Listener {
         }
 
         homeService.set(uuid, id, player.getLocation(), homeService.getDefaultDisplayName(id));
-
-        String message = stripTrailingPeriod(core.getMessage("homes.set")
+        sendPopup(player, core.getMessage("homes.set")
                 .replace("%home%", homeService.getDisplayName(uuid, id)));
-
-        player.sendActionBar(actionBar(message));
-        player.sendMessage(message);
         SoundService.homeSet(player, core);
         HomesMainGui.open(core, player, homeService);
     }
@@ -161,12 +148,8 @@ public final class HomesGuiListener implements Listener {
             }
 
             homeService.set(uuid, id, player.getLocation(), homeService.getDefaultDisplayName(id));
-
-            String message = stripTrailingPeriod(core.getMessage("homes.set")
+            sendPopup(player, core.getMessage("homes.set")
                     .replace("%home%", homeService.getDisplayName(uuid, id)));
-
-            player.sendActionBar(actionBar(message));
-            player.sendMessage(message);
             SoundService.homeSet(player, core);
             HomesMainGui.open(core, player, homeService);
             return;
@@ -213,11 +196,7 @@ public final class HomesGuiListener implements Listener {
             }
 
             teamHomeService.setTeamHome(team.teamId(), player.getLocation());
-
-            String message = "&#bbbbbbTeam Home set to your current location";
-
-            player.sendActionBar(actionBar(message));
-            player.sendMessage(message);
+            sendPopup(player, "&#bbbbbbTeam Home set to your current location");
             SoundService.homeSet(player, core);
             HomesMainGui.open(core, player, homeService);
             return;
@@ -233,16 +212,10 @@ public final class HomesGuiListener implements Listener {
 
             SoundService.guiClick(player, core);
             player.closeInventory();
-
             teleportService.begin(player, "Team Home", () -> {
                 player.teleport(home);
-
-                String message = "&#bbbbbbTeleported to &dTeam Home";
-
-                player.sendActionBar(actionBar(message));
-                player.sendMessage(message);
+                sendPopup(player, "&#bbbbbbTeleported to &dTeam Home");
             });
-
             return;
         }
 
@@ -255,10 +228,7 @@ public final class HomesGuiListener implements Listener {
         }
 
         if (slot == dyeSlot) {
-            String message = "&cOnly the founder can delete Team Home";
-
-            player.sendActionBar(actionBar(message));
-            player.sendMessage(message);
+            sendPopup(player, "&cOnly the founder can delete Team Home");
             SoundService.guiError(player, core);
         }
     }
@@ -278,11 +248,7 @@ public final class HomesGuiListener implements Listener {
             clearTeamHomeDeleteMeta(player);
             player.closeInventory();
             HomesMainGui.open(core, player, homeService);
-
-            String message = "&cTeam home delete cancelled";
-
-            player.sendActionBar(actionBar(message));
-            player.sendMessage(message);
+            sendPopup(player, "&cTeam home delete cancelled");
             SoundService.guiCancel(player, core);
             return;
         }
@@ -297,15 +263,10 @@ public final class HomesGuiListener implements Listener {
 
         if (!confirmed) {
             player.setMetadata(META_TEAM_HOME_CONFIRM, new FixedMetadataValue(core, true));
-
-            String message = "&#bbbbbbClick confirm again to continue";
-
-            player.sendActionBar(actionBar(message));
-            player.sendMessage(message);
+            sendPopup(player, "&#bbbbbbClick confirm again to continue");
             SoundService.guiConfirm(player, core);
 
             int timeout = core.getConfig().getInt("homes.delete-confirm.timeout-seconds", 5);
-
             core.getServer().getScheduler().runTaskLater(core, () -> {
                 if (!player.isOnline()) {
                     return;
@@ -320,15 +281,10 @@ public final class HomesGuiListener implements Listener {
 
                 if (currentTeamId.equals(teamId) && currentConfirmed) {
                     player.setMetadata(META_TEAM_HOME_CONFIRM, new FixedMetadataValue(core, false));
-
-                    String timeoutMessage = "&cAction timed out";
-
-                    player.sendActionBar(actionBar(timeoutMessage));
-                    player.sendMessage(timeoutMessage);
+                    sendPopup(player, "&cAction timed out");
                     SoundService.guiError(player, core);
                 }
             }, 20L * Math.max(1, timeout));
-
             return;
         }
 
@@ -338,11 +294,7 @@ public final class HomesGuiListener implements Listener {
         if (!teamHomeService.deleteTeamHome(teamId)) {
             clearTeamHomeDeleteMeta(player);
             player.closeInventory();
-
-            String message = "&cYour team does not have a home set";
-
-            player.sendActionBar(actionBar(message));
-            player.sendMessage(message);
+            sendPopup(player, "&cYour team does not have a home set");
             SoundService.guiError(player, core);
             HomesMainGui.open(core, player, homeService);
             return;
@@ -350,11 +302,7 @@ public final class HomesGuiListener implements Listener {
 
         clearTeamHomeDeleteMeta(player);
         player.closeInventory();
-
-        String message = "&cTeam Home deleted";
-
-        player.sendActionBar(actionBar(message));
-        player.sendMessage(message);
+        sendPopup(player, "&cTeam Home deleted");
         SoundService.homeDelete(player, core);
         HomesMainGui.open(core, player, homeService);
     }
@@ -373,11 +321,7 @@ public final class HomesGuiListener implements Listener {
             clearPlayerDeleteMeta(player);
             player.closeInventory();
             HomesMainGui.open(core, player, homeService);
-
-            String message = stripTrailingPeriod(core.getMessage("homes.delete-cancelled"));
-
-            player.sendActionBar(actionBar(message));
-            player.sendMessage(message);
+            sendPopup(player, core.getMessage("homes.delete-cancelled"));
             SoundService.guiCancel(player, core);
             return;
         }
@@ -396,26 +340,16 @@ public final class HomesGuiListener implements Listener {
             homeService.delete(player.getUniqueId(), id);
             clearPlayerDeleteMeta(player);
             player.closeInventory();
-
-            String message = stripTrailingPeriod(core.getMessage("homes.deleted")
-                    .replace("%home%", displayName));
-
-            player.sendActionBar(actionBar(message));
-            player.sendMessage(message);
+            sendPopup(player, core.getMessage("homes.deleted").replace("%home%", displayName));
             SoundService.homeDelete(player, core);
             return;
         }
 
         player.setMetadata(META_HOME_CONFIRM, new FixedMetadataValue(core, id));
-
-        String message = "&#bbbbbbClick confirm again to continue";
-
-        player.sendActionBar(actionBar(message));
-        player.sendMessage(message);
+        sendPopup(player, "&#bbbbbbClick confirm again to continue");
         SoundService.guiConfirm(player, core);
 
         int timeout = core.getConfig().getInt("homes.delete-confirm.timeout-seconds", 5);
-
         core.getServer().getScheduler().runTaskLater(core, () -> {
             if (!player.isOnline()) {
                 return;
@@ -430,29 +364,19 @@ public final class HomesGuiListener implements Listener {
 
             if (pendingId == id && currentConfirmValue == id) {
                 player.setMetadata(META_HOME_CONFIRM, new FixedMetadataValue(core, 0));
-
-                String timeoutMessage = "&cAction timed out";
-
-                player.sendActionBar(actionBar(timeoutMessage));
-                player.sendMessage(timeoutMessage);
+                sendPopup(player, "&cAction timed out");
                 SoundService.guiError(player, core);
             }
         }, 20L * Math.max(1, timeout));
     }
 
     private void sendBlockedHomeWorld(Player player) {
-        String message = stripTrailingPeriod(core.getMessage("homes.blocked-world"));
-
-        player.sendActionBar(actionBar(message));
-        player.sendMessage(message);
+        sendPopup(player, core.getMessage("homes.blocked-world"));
         SoundService.guiError(player, core);
     }
 
     private void sendBlockedTeamHomeWorld(Player player) {
-        String message = stripTrailingPeriod(core.getMessage("homes.blocked-team-home-world"));
-
-        player.sendActionBar(actionBar(message));
-        player.sendMessage(message);
+        sendPopup(player, core.getMessage("homes.blocked-team-home-world"));
         SoundService.guiError(player, core);
     }
 
@@ -469,20 +393,32 @@ public final class HomesGuiListener implements Listener {
     private void sendUpgradeMessage(Player player) {
         player.closeInventory();
         player.sendMessage(" ");
-        player.sendMessage(stripTrailingPeriod(core.getMessage("homes.upgrade-line-1")));
+        player.sendMessage(format(core.getMessage("homes.upgrade-line-1")));
         player.sendMessage(" ");
-        player.sendMessage(stripTrailingPeriod(core.getMessage("homes.upgrade-line-2")));
+        player.sendMessage(format(core.getMessage("homes.upgrade-line-2")));
         player.sendMessage(" ");
         SoundService.guiError(player, core);
     }
 
     private void sendCreateTeamPrompt(Player player) {
-        player.sendMessage("&cYou are not in a team");
-
-        Component clickable = Component.text("&#bbbbbbType &d/team create  &#bbbbbbto create a team")
+        player.sendMessage(format("&cYou are not in a team"));
+        Component clickable = component("&#bbbbbbType &d/team create &#bbbbbbto create a team")
                 .clickEvent(ClickEvent.suggestCommand("/team create "));
-
         player.sendMessage(clickable);
+    }
+
+    private void sendPopup(Player player, String message) {
+        String formatted = format(message);
+        player.sendActionBar(component(formatted));
+        player.sendMessage(formatted);
+    }
+
+    private String format(String message) {
+        return TextColor.color(stripTrailingPeriod(message));
+    }
+
+    private String plainTitle(String path) {
+        return TextColor.strip(core.getMessage(path));
     }
 
     private String stripTrailingPeriod(String message) {
@@ -491,15 +427,13 @@ public final class HomesGuiListener implements Listener {
         }
 
         String output = message;
-
         while (output.endsWith(".")) {
             output = output.substring(0, output.length() - 1);
         }
-
         return output;
     }
 
-    private Component actionBar(String message) {
+    private Component component(String message) {
         return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
     }
 }
