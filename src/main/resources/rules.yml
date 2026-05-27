@@ -1,0 +1,68 @@
+menu_title: 'Server Rules'
+size: 27
+open_command: rules
+register_command: true
+
+items:
+  header:
+    material: BOOK
+    slot: 4
+    display_name: '&d&lMineacle Rules'
+    lore:
+      - '&#ccccccMineacle has two realm styles'
+      - '&#ccccccwith different gameplay expectations'
+      - ''
+      - '&d◆ &#ccccccRead before playing'
+
+  origins_rules:
+    material: GRASS_BLOCK
+    slot: 11
+    display_name: '&d&lOrigins Rules'
+    lore:
+      - '&#ccccccA structured survival realm'
+      - '&#ccccccbuilt around fairness'
+      - ''
+      - '&d◆ &#ccccccNo griefing or stealing'
+      - '&d◆ &#ccccccNo hacks, dupes, macros, or exploits'
+      - '&d◆ &#ccccccNo harassment, hate, or toxicity'
+      - '&d◆ &#ccccccRespect claims and player builds'
+      - '&d◆ &#ccccccNo scamming or deceptive trades'
+      - '&d◆ &#ccccccNo IRL trading'
+      - ''
+      - '&d➥ &#ccccccMechanics do not override rules'
+
+  global_rules:
+    material: NETHER_STAR
+    slot: 13
+    display_name: '&d&lGlobal Rules'
+    lore:
+      - '&#ccccccThese apply everywhere'
+      - ''
+      - '&d◆ &#ccccccNo cheats or hacked clients'
+      - '&d◆ &#ccccccNo dupes, macros, or exploits'
+      - '&d◆ &#ccccccNo hate speech or harassment'
+      - '&d◆ &#ccccccNo IRL threats'
+      - '&d◆ &#ccccccNo IRL trading'
+      - '&d◆ &#ccccccStaff decisions are final'
+      - ''
+      - '&d➥ &#ccccccNot knowing rules is not an excuse'
+
+  trials_rules:
+    material: NETHERITE_SWORD
+    slot: 15
+    display_name: '&c&lTrials Rules'
+    item_flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_UNBREAKABLE
+    lore:
+      - '&#ccccccA ruthless high-risk realm'
+      - '&#ccccccwhere danger defines the world'
+      - ''
+      - '&c◆ &#ccccccPvP allowed everywhere'
+      - '&c◆ &#ccccccRaiding and griefing allowed'
+      - '&c◆ &#ccccccStealing and ambushes allowed'
+      - '&c◆ &#ccccccBase destruction allowed'
+      - ''
+      - '&c◆ &#ccccccGlobal rules still apply'
+      - ''
+      - '&c➥ &#ccccccChaos is allowed, cheating is not'

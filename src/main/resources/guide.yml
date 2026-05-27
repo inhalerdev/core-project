@@ -1,0 +1,184 @@
+menu_title: 'Mineacle Guide'
+open_command:
+  - guide
+  - help
+  - menu
+  - mineacle
+register_command: true
+size: 27
+update_interval: 1
+
+items:
+  filler:
+    material: BLACK_STAINED_GLASS_PANE
+    display_name: ' '
+    slots:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 5
+      - 6
+      - 7
+      - 8
+      - 18
+      - 19
+      - 20
+      - 21
+      - 23
+      - 24
+      - 25
+      - 26
+
+  profile:
+    material: PLAYER_HEAD
+    slot: 4
+    display_name: '&d%player_name%'
+    lore:
+      - '&#bbbbbbNeed help? Pick a topic below'
+
+  start:
+    material: COMPASS
+    slot: 10
+    display_name: '&dStart Here'
+    lore:
+      - '&#bbbbbbNew or lost?'
+      - ''
+      - '&#bbbbbbUse spawn, RTP, and homes'
+      - '&#bbbbbbto begin safely'
+      - ''
+      - '&#ff88ffClick to open Spawn'
+    left_click_commands:
+      - '[player] spawn'
+
+  travel:
+    material: ENDER_PEARL
+    slot: 11
+    display_name: '&dTravel'
+    lore:
+      - '&#bbbbbbMove around the server'
+      - ''
+      - '&#bbbbbb/spawn'
+      - '&#bbbbbb/rtp'
+      - '&#bbbbbb/tpa <player>'
+      - ''
+      - '&#ff88ffClick to open Spawn'
+    left_click_commands:
+      - '[player] spawn'
+
+  homes:
+    material: RED_BED
+    slot: 12
+    display_name: '&dHomes'
+    lore:
+      - '&#bbbbbbSave important locations'
+      - ''
+      - '&#bbbbbb/home'
+      - '&#bbbbbb/sethome <name>'
+      - ''
+      - '&#ff88ffClick to open Homes'
+    left_click_commands:
+      - '[player] home'
+
+  teams:
+    material: PURPLE_BANNER
+    slot: 13
+    display_name: '&dTeams'
+    lore:
+      - '&#bbbbbbPlay with friends'
+      - ''
+      - '&#bbbbbb/team'
+      - '&#bbbbbb/team create <name>'
+      - '&#bbbbbb/team invite <player>'
+      - ''
+      - '&#ff88ffClick to open Teams'
+    left_click_commands:
+      - '[player] team'
+
+  money:
+    material: EMERALD
+    slot: 14
+    display_name: '&dMoney'
+    lore:
+      - '&#bbbbbbEarn and use money'
+      - ''
+      - '&#bbbbbb/sell'
+      - '&#bbbbbb/worth'
+      - '&#bbbbbb/bal'
+      - ''
+      - '&#ff88ffClick to open Sell'
+    left_click_commands:
+      - '[player] sell'
+
+  market:
+    material: CHEST
+    slot: 15
+    display_name: '&dPlayer Market'
+    lore:
+      - '&#bbbbbbPlayer-to-player systems'
+      - ''
+      - '&#bbbbbb/order'
+      - '&#bbbbbb/bounty'
+      - '&#bbbbbb/pay <player> <amount>'
+      - ''
+      - '&#ff88ffClick to open Orders'
+    left_click_commands:
+      - '[player] order'
+
+  account:
+    material: NETHER_STAR
+    slot: 16
+    display_name: '&dYour Player'
+    lore:
+      - '&#bbbbbbStats and personal tools'
+      - ''
+      - '&#bbbbbb/stats <player>'
+      - '&#bbbbbb/msg <player>'
+      - '&#bbbbbb/ignore <player>'
+      - ''
+      - '&#ff88ffClick to view Stats'
+    left_click_commands:
+      - '[player] stats %player_name%'
+
+  plus:
+    material: AMETHYST_SHARD
+    slot: 22
+    display_name: '&#ff88ffMineacle+'
+    lore:
+      - '&#bbbbbbOptional perks and support'
+      - ''
+      - '&#bbbbbbExtra homes'
+      - '&#bbbbbbNicknames'
+      - '&#bbbbbbSpawn flight'
+      - '&#bbbbbbHidden mode'
+      - ''
+      - '&#bbbbbbCrate keys help with mobs,'
+      - '&#bbbbbbbosses, and progression'
+      - ''
+      - '&#ff88ffClick to visit Store'
+    left_click_commands:
+      - '[player] store'
+
+  support:
+    material: PAPER
+    slot: 17
+    display_name: '&dSupport'
+    lore:
+      - '&#bbbbbbNeed staff or links?'
+      - ''
+      - '&#bbbbbb/discord'
+      - '&#bbbbbb/x'
+      - '&#bbbbbb/appeal'
+      - ''
+      - '&#ff88ffClick to open Discord'
+    left_click_commands:
+      - '[player] discord'
+
+  close:
+    material: BARRIER
+    slot: 26
+    display_name: '&cClose'
+    lore:
+      - '&#bbbbbbClose this menu'
+    left_click_commands:
+      - '[close]'

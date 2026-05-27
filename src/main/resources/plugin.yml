@@ -13,38 +13,58 @@ commands:
     usage: /guide
     permission: mineacleguide.use
 
+  rules:
+    description: Open the Mineacle rules menu
+    usage: /rules
+    permission: mineacleguide.use
+
   home:
     description: Open your homes menu
-    aliases: [homes]
+    aliases: [homes, h]
+    usage: /home
     permission: mineaclehomes.use
   sethome:
     description: Set a named home
+    usage: /sethome <name>
     permission: mineaclehomes.use
   delhome:
     description: Delete a named home
+    usage: /delhome <name>
     permission: mineaclehomes.use
   renamehome:
     description: Rename a saved home
+    usage: /renamehome <old> <new>
     permission: mineaclehomes.use
   mineaclehomes:
     description: Reload homes config
+    usage: /mineaclehomes reload
     permission: mineaclehomes.admin
 
   team:
     description: Create, join, and manage your team
+    aliases: [teams]
+    usage: /team
     permission: mineacleteams.use
 
   tpa:
     description: Request to teleport to a player
+    aliases: [tpask]
+    usage: /tpa <player>
     permission: mineacletpa.use
   tpahere:
     description: Request a player teleport to you
+    aliases: [tphere, tpah]
+    usage: /tpahere <player>
     permission: mineacletpa.use
   tpaccept:
     description: Accept a teleport request
+    aliases: [tpyes, accepttp]
+    usage: /tpaccept
     permission: mineacletpa.use
   tpdeny:
     description: Deny a teleport request
+    aliases: [tpno, denytp]
+    usage: /tpdeny
     permission: mineacletpa.use
   tpamenu:
     description: Open teleport request menu for a player
@@ -53,54 +73,79 @@ commands:
 
   stats:
     description: View player stats
+    usage: /stats [player]
     permission: mineaclestats.use
 
   bal:
     description: View your balance
     aliases: [balance, money]
+    usage: /bal [player]
     permission: mineacleeconomy.use
   pay:
     description: Pay another player
+    usage: /pay <player> <amount>
     permission: mineacleeconomy.pay
   eco:
     description: Manage balances
+    usage: /eco <give|take|set|reset> <player> <amount>
     permission: mineacleeconomy.admin
   baltop:
     description: View balance top
     aliases: [balancetop]
+    usage: /baltop
     permission: mineaclebaltop.use
 
   msg:
     description: Send a private message
     aliases: [tell, w, whisper, m]
+    usage: /msg <player> <message>
     permission: mineaclechat.message
   r:
     description: Reply to your last private message
     aliases: [reply]
+    usage: /r <message>
     permission: mineaclechat.message
   ignore:
     description: Ignore a player
+    usage: /ignore <player>
     permission: mineaclechat.ignore
   ignorelist:
     description: View ignored players
+    usage: /ignorelist
     permission: mineaclechat.ignore
   nick:
     description: Set your nickname
+    usage: /nick <name|reset>
     permission: mineaclechat.nick
   realname:
     description: Check a player's real name from nickname
+    usage: /realname <player>
     permission: mineaclechat.realname
 
   spawn:
     description: Open the spawn menu
-    usage: /spawn
     aliases: [lobby]
+    usage: /spawn
     permission: mineaclespawn.use
+
+  warp:
+    description: Open the warp menu
+    aliases: [warps]
+    usage: /warp [name]
+    permission: mineaclewarps.use
+  setwarp:
+    description: Set a warp
+    usage: /setwarp <name> [slot] [display name]
+    permission: mineaclewarps.admin
+  delwarp:
+    description: Delete a warp
+    usage: /delwarp <name>
+    permission: mineaclewarps.admin
 
   originrtp:
     description: Queue for random teleport
-    usage: /originrtp
     aliases: [rtp, originsrtp, wild]
+    usage: /originrtp
     permission: mineaclertp.use
 
   doublejump:
@@ -124,6 +169,7 @@ commands:
     permission: mineaclesell.use
   worth:
     description: Open item prices menu
+    aliases: [prices, itemprices]
     usage: /worth
     permission: mineaclesell.use
   sellmulti:
@@ -177,7 +223,7 @@ commands:
   hide:
     description: Toggle hidden mode
     usage: /hide
-    permission: mineaclehide.use
+    permission: mineaclehide.command
 
   mineaclenametags:
     description: Reload Mineacle nametags
@@ -190,14 +236,21 @@ commands:
     usage: /mineaclesecurity reload
     permission: mineaclesecurity.bypass
 
-  banmenu:
-    description: Open the Mineacle ban menu
-    usage: /banmenu <player>
-    permission: mineaclepunish.admin
+  enchant:
+    description: Enchant the item in your hand
+    usage: /enchant <enchantment> [level] [unsafe]
+    permission: mineacleenchant.admin
+  enchantinfo:
+    description: View enchantment information
+    aliases: [enchantments]
+    usage: /enchantinfo <enchantment>
+    permission: mineacleenchant.admin
 
 permissions:
   mineacleguide.use:
     default: true
+  mineacleguide.admin:
+    default: op
 
   mineacle.plus:
     default: false
@@ -252,6 +305,11 @@ permissions:
   mineaclespawn.admin:
     default: op
 
+  mineaclewarps.use:
+    default: true
+  mineaclewarps.admin:
+    default: op
+
   mineaclertp.use:
     default: true
   mineaclertp.admin:
@@ -287,6 +345,8 @@ permissions:
   mineaclelinks.admin:
     default: op
 
+  mineaclehide.command:
+    default: true
   mineaclehide.use:
     default: false
   mineaclehide.admin:
@@ -300,5 +360,5 @@ permissions:
   mineaclesecurity.group.admin:
     default: op
 
-  mineaclepunish.admin:
+  mineacleenchant.admin:
     default: op

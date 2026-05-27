@@ -8,7 +8,9 @@ import net.mineacle.core.common.gui.MenuCloseListener;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.doublejump.DoubleJumpModule;
 import net.mineacle.core.economy.EconomyModule;
+import net.mineacle.core.enchant.EnchantModule;
 import net.mineacle.core.gamemode.GamemodeModule;
+import net.mineacle.core.guide.GuideModule;
 import net.mineacle.core.homes.HomesModule;
 import net.mineacle.core.hide.HideModule;
 import net.mineacle.core.links.LinksModule;
@@ -23,6 +25,7 @@ import net.mineacle.core.spawnprotection.SpawnProtectionModule;
 import net.mineacle.core.stats.StatsModule;
 import net.mineacle.core.teams.TeamsModule;
 import net.mineacle.core.tpa.TpaModule;
+import net.mineacle.core.warps.WarpModule;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -76,11 +79,13 @@ public final class Core extends JavaPlugin {
             registerModule(new BalTopModule());
             registerModule(new ChatModule());
             registerModule(new LinksModule());
+            registerModule(new GuideModule());
             registerModule(new SecurityModule());
             registerModule(new NametagModule());
             registerModule(new HideModule());
             registerModule(new PlaceholdersModule());
             registerModule(new SpawnModule());
+            registerModule(new WarpModule());
             registerModule(new SpawnProtectionModule());
             registerModule(new DoubleJumpModule());
             registerModule(new RtpModule());
@@ -88,6 +93,7 @@ public final class Core extends JavaPlugin {
             registerModule(new SellModule());
             registerModule(new BountyModule());
             registerModule(new GamemodeModule());
+            registerModule(new EnchantModule());
 
             getLogger().info("MineacleCore enabled successfully");
         } catch (Exception exception) {
