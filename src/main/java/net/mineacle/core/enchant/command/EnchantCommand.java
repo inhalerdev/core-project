@@ -1,11 +1,12 @@
 package net.mineacle.core.enchant.command;
 
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -14,8 +15,6 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.NamespacedKey;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -62,6 +61,17 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        if (sub.equals("list")) {
+            list(player, item);
+            return true;
+        }
+
+        if (sub.equals("max")) {
+            boolean unsafe = args.length >= 2 && args[1].equalsIgnoreCase("unsafe");
+            max(player, item, unsafe);
+            return true;
+        }
+
         if (sub.equals("remove")) {
             if (args.length < 2) {
                 error(player, "&cUsage: /enchant remove <enchant>");
@@ -75,19 +85,13 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
+            if (!item.containsEnchantment(enchantment)) {
+                error(player, "&cHeld item does not have that enchantment");
+                return true;
+            }
+
             item.removeEnchantment(enchantment);
             success(player, "&#bbbbbbRemoved &#ff88ff" + pretty(enchantment) + " &#bbbbbbfrom held item");
-            return true;
-        }
-
-        if (sub.equals("max")) {
-            boolean unsafe = args.length >= 2 && args[1].equalsIgnoreCase("unsafe");
-            max(player, item, unsafe);
-            return true;
-        }
-
-        if (sub.equals("list")) {
-            list(player, item);
             return true;
         }
 
@@ -119,13 +123,13 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
 
         if (!unsafe && !enchantment.canEnchantItem(item)) {
             error(player, "&cThat enchantment cannot be applied to this item");
-            player.sendMessage(TextColor.color("&#bbbbbbUse &#ff88ff/enchant " + key(enchantment) + " " + level + " unsafe &#bbbbbbto force it"));
+            player.sendMessage(color("&#bbbbbbUse &#ff88ff/enchant " + key(enchantment) + " " + level + " unsafe &#bbbbbbto force it"));
             return true;
         }
 
         if (!unsafe && level > enchantment.getMaxLevel()) {
             error(player, "&cThat level is too high");
-            player.sendMessage(TextColor.color("&#bbbbbbUse &#ff88ff/enchant " + key(enchantment) + " " + level + " unsafe &#bbbbbbto force it"));
+            player.sendMessage(color("&#bbbbbbUse &#ff88ff/enchant " + key(enchantment) + " " + level + " unsafe &#bbbbbbto force it"));
             return true;
         }
 
@@ -160,13 +164,17 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
                 continue;
             }
 
-            if (unsafe) {
-                item.addUnsafeEnchantment(enchantment, Math.max(1, enchantment.getMaxLevel()));
-            } else {
-                item.addEnchantment(enchantment, Math.max(1, enchantment.getMaxLevel()));
-            }
+            try {
+                if (unsafe) {
+                    item.addUnsafeEnchantment(enchantment, Math.max(1, enchantment.getMaxLevel()));
+                } else {
+                    item.addEnchantment(enchantment, Math.max(1, enchantment.getMaxLevel()));
+                }
 
-            applied++;
+                applied++;
+            } catch (IllegalArgumentException ignored) {
+                // Some enchantments conflict even when the item type is valid.
+            }
         }
 
         if (applied <= 0) {
@@ -185,11 +193,11 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        player.sendMessage(TextColor.color("&#ff88ffHeld Item Enchants"));
+        player.sendMessage(color("&#ff88ffHeld Item Enchants"));
 
         enchantments.entrySet().stream()
                 .sorted(Comparator.comparing(entry -> pretty(entry.getKey())))
-                .forEach(entry -> player.sendMessage(TextColor.color(
+                .forEach(entry -> player.sendMessage(color(
                         "&#bbbbbb- &#ff88ff" + pretty(entry.getKey()) + " &#bbbbbb" + entry.getValue()
                 )));
 
@@ -197,14 +205,15 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
     }
 
     private void help(Player player) {
-        player.sendMessage(TextColor.color("&#ff88ffEnchant Commands"));
-        player.sendMessage(TextColor.color("&#bbbbbb/enchant <enchant> [level]"));
-        player.sendMessage(TextColor.color("&#bbbbbb/enchant <enchant> <level> unsafe"));
-        player.sendMessage(TextColor.color("&#bbbbbb/enchant remove <enchant>"));
-        player.sendMessage(TextColor.color("&#bbbbbb/enchant clear"));
-        player.sendMessage(TextColor.color("&#bbbbbb/enchant max"));
-        player.sendMessage(TextColor.color("&#bbbbbb/enchant max unsafe"));
-        player.sendMessage(TextColor.color("&#bbbbbb/enchant list"));
+        player.sendMessage(color("&#ff88ffEnchant Commands"));
+        player.sendMessage(color("&#bbbbbb/enchant <enchant> [level]"));
+        player.sendMessage(color("&#bbbbbb/enchant <enchant> <level> unsafe"));
+        player.sendMessage(color("&#bbbbbb/enchant remove <enchant>"));
+        player.sendMessage(color("&#bbbbbb/enchant clear"));
+        player.sendMessage(color("&#bbbbbb/enchant max"));
+        player.sendMessage(color("&#bbbbbb/enchant max unsafe"));
+        player.sendMessage(color("&#bbbbbb/enchant list"));
+        player.sendMessage(color("&#bbbbbb/enchantinfo <enchant>"));
         SoundService.economyBalance(player, core);
     }
 
@@ -239,7 +248,6 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
 
     private List<Enchantment> enchantments() {
         List<Enchantment> list = new ArrayList<>();
-
         Registry.ENCHANTMENT.forEach(list::add);
         list.sort(Comparator.comparing(this::key));
         return list;
@@ -247,7 +255,7 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
 
     private String key(Enchantment enchantment) {
         NamespacedKey key = enchantment.getKey();
-        return key == null ? enchantment.getName().toLowerCase(Locale.ROOT) : key.getKey();
+        return key == null ? pretty(enchantment).toLowerCase(Locale.ROOT).replace(" ", "_") : key.getKey();
     }
 
     private String pretty(Enchantment enchantment) {
@@ -270,15 +278,23 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
     }
 
     private void success(Player player, String message) {
-        player.sendMessage(TextColor.color(message));
-        player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message)));
+        player.sendMessage(color(message));
+        player.sendActionBar(actionBar(message));
         SoundService.guiConfirm(player, core);
     }
 
     private void error(Player player, String message) {
-        player.sendMessage(TextColor.color(message));
-        player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message)));
+        player.sendMessage(color(message));
+        player.sendActionBar(actionBar(message));
         SoundService.guiError(player, core);
+    }
+
+    private String color(String message) {
+        return TextColor.color(message);
+    }
+
+    private Component actionBar(String message) {
+        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
     }
 
     @Override
@@ -323,25 +339,35 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
             return completions;
         }
 
-        if (args.length == 2 && !args[0].equalsIgnoreCase("clear") && !args[0].equalsIgnoreCase("list")) {
-            Enchantment enchantment = enchantment(args[0]);
-
-            if (enchantment != null) {
-                completions.add(String.valueOf(Math.max(1, enchantment.getMaxLevel())));
-
-                for (String level : List.of("1", "2", "3", "4", "5", "10", "100", "255")) {
-                    if (!completions.contains(level)) {
-                        completions.add(level);
-                    }
-                }
+        if (args.length == 2 && args[0].equalsIgnoreCase("max")) {
+            if ("unsafe".startsWith(args[1].toLowerCase(Locale.ROOT))) {
+                completions.add("unsafe");
             }
 
             return completions;
         }
 
-        if (args.length == 2 && args[0].equalsIgnoreCase("max")) {
-            if ("unsafe".startsWith(args[1].toLowerCase(Locale.ROOT))) {
-                completions.add("unsafe");
+        if (args.length == 2 && !args[0].equalsIgnoreCase("clear") && !args[0].equalsIgnoreCase("list")) {
+            Enchantment enchantment = enchantment(args[0]);
+
+            if (enchantment != null) {
+                int max = Math.max(1, enchantment.getMaxLevel());
+
+                for (int level = 1; level <= Math.min(max, 10); level++) {
+                    completions.add(String.valueOf(level));
+                }
+
+                if (max > 10) {
+                    completions.add(String.valueOf(max));
+                }
+
+                if (!completions.contains("100")) {
+                    completions.add("100");
+                }
+
+                if (!completions.contains("255")) {
+                    completions.add("255");
+                }
             }
 
             return completions;
