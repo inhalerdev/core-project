@@ -51,7 +51,7 @@ public final class WarpGuiListener implements Listener {
             return;
         }
 
-        if (warpService.location(point) == null) {
+        if (warpService.targetLocation(player, point) == null) {
             String message = warpService.message("world-missing")
                     .replace("%warp%", TextColor.color(point.displayName()))
                     .replace("%world%", point.worldName());

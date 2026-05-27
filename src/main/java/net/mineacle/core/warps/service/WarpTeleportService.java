@@ -35,7 +35,7 @@ public final class WarpTeleportService {
 
         cancel(player, false);
 
-        if (warpService.location(point) == null) {
+        if (warpService.targetLocation(player, point) == null) {
             sendBoth(player, warpService.message("world-missing")
                     .replace("%warp%", TextColor.color(point.displayName()))
                     .replace("%world%", point.worldName()));
