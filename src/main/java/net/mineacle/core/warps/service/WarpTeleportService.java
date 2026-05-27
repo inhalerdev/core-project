@@ -1,7 +1,10 @@
 package net.mineacle.core.warps.service;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
+import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.warps.model.WarpPoint;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -33,8 +36,8 @@ public final class WarpTeleportService {
         }
 
         Location start = player.getLocation().clone();
-        player.sendMessage(warpService.startingMessage(point.key(), delay));
-        player.sendActionBar(net.kyori.adventure.text.Component.text(warpService.startingMessage(point.key(), delay)));
+        sendBoth(player, warpService.startingMessage(point.key(), delay));
+        SoundService.teleportStart(player, core);
 
         BukkitRunnable task = new BukkitRunnable() {
             private int secondsLeft = delay;
@@ -42,12 +45,14 @@ public final class WarpTeleportService {
             @Override
             public void run() {
                 if (!player.isOnline()) {
-                    cancel(player, false);
+                    WarpTeleportService.this.cancel(player, false);
+                    cancel();
                     return;
                 }
 
                 if (moved(start, player.getLocation())) {
-                    cancel(player, true);
+                    WarpTeleportService.this.cancel(player, true);
+                    cancel();
                     return;
                 }
 
@@ -58,8 +63,8 @@ public final class WarpTeleportService {
                     return;
                 }
 
-                player.sendActionBar(net.kyori.adventure.text.Component.text(warpService.startingMessage(point.key(), secondsLeft)));
-                SoundService.teleportTick(player, core);
+                sendBoth(player, warpService.startingMessage(point.key(), secondsLeft));
+                SoundService.teleportCountdown(player, core);
                 secondsLeft--;
             }
         };
@@ -76,9 +81,8 @@ public final class WarpTeleportService {
         }
 
         if (message) {
-            player.sendMessage(warpService.cancelledMessage());
-            player.sendActionBar(net.kyori.adventure.text.Component.text(warpService.cancelledMessage()));
-            SoundService.teleportCancel(player, core);
+            sendBoth(player, warpService.cancelledMessage());
+            SoundService.teleportCancelled(player, core);
         }
     }
 
@@ -93,8 +97,7 @@ public final class WarpTeleportService {
     private void complete(Player player, WarpPoint point) {
         Location target = warpService.targetLocation(player, point);
         player.teleport(target);
-        player.sendMessage(warpService.teleportMessage(point.key()));
-        player.sendActionBar(net.kyori.adventure.text.Component.text(warpService.teleportMessage(point.key())));
+        sendBoth(player, warpService.teleportMessage(point.key()));
         SoundService.teleportComplete(player, core);
     }
 
@@ -106,5 +109,14 @@ public final class WarpTeleportService {
         return Math.abs(start.getX() - now.getX()) > 0.15D
                 || Math.abs(start.getY() - now.getY()) > 0.15D
                 || Math.abs(start.getZ() - now.getZ()) > 0.15D;
+    }
+
+    private void sendBoth(Player player, String message) {
+        player.sendMessage(message);
+        player.sendActionBar(legacy(message));
+    }
+
+    private Component legacy(String value) {
+        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(value));
     }
 }

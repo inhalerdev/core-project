@@ -21,15 +21,21 @@ public final class GuideModule extends Module {
         service = new GuideMenuService(core);
         service.reload();
 
-        GuideCommand command = new GuideCommand(core, service);
-        register(core, "guide", command);
-        register(core, "rules", command);
+        GuideCommand guideCommand = new GuideCommand(core, service, "guide");
+        GuideCommand rulesCommand = new GuideCommand(core, service, "rules");
+
+        register(core, "guide", guideCommand);
+        register(core, "rules", rulesCommand);
 
         core.getServer().getPluginManager().registerEvents(new GuideMenuListener(core, service), core);
     }
 
     @Override
     public void disable() {
+        if (service != null) {
+            service.clearSessions();
+        }
+
         service = null;
     }
 
