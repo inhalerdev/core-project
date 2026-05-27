@@ -112,36 +112,26 @@ public final class NametagService {
         if (hideService != null && hideService.shouldHideRealNametag(player)) {
             team.prefix(Component.empty());
             team.suffix(Component.empty());
-            team.setColor(ChatColor.GRAY);
+            team.setColor(player.isOp() || player.hasPermission(hideService.adminPermission()) ? ChatColor.LIGHT_PURPLE : ChatColor.WHITE);
             team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
             return;
         }
 
         team.prefix(prefix(player));
         team.suffix(Component.empty());
-
-        /*
-         * This is the important fix.
-         * The visible vanilla nametag name color comes from the scoreboard team color,
-         * not only from the prefix component.
-         */
-        team.setColor(player.isOp() ? ChatColor.LIGHT_PURPLE : ChatColor.GRAY);
-
+        team.setColor(player.isOp() ? ChatColor.LIGHT_PURPLE : ChatColor.WHITE);
         team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
     }
 
     private Component prefix(Player player) {
         StringBuilder builder = new StringBuilder();
-
         String rank = rankPrefix(player);
 
         if (!rank.isBlank()) {
             builder.append(rank);
         }
 
-        builder.append(player.isOp()
-                ? config.getString("colors.op", "&#ff88ff")
-                : config.getString("colors.default", "&#bbbbbb"));
+        builder.append(player.isOp() ? config.getString("colors.op", "#ff88ff") : config.getString("colors.default", "#ffffff"));
 
         return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(builder.toString()));
     }

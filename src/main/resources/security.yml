@@ -208,6 +208,14 @@ groups:
       - "w"
       - "whisper"
       - "wild"
+      - "tpask"
+      - "tphere"
+      - "tpah"
+      - "tpyes"
+      - "accepttp"
+      - "tpno"
+      - "denytp"
+      - "tpamenu"
     allowed-commands: []
 
   plus:
@@ -238,7 +246,6 @@ groups:
     hidden-commands:
       - "doublejump"
       - "enchant"
-      - "enchantinfo"
       - "mineaclecore"
       - "mineaclehomes"
       - "mineaclenametags"

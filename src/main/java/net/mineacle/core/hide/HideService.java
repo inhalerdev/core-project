@@ -28,10 +28,8 @@ public final class HideService {
     private final Core core;
     private final File file;
     private FileConfiguration config;
-
     private final Set<UUID> hidden = new HashSet<>();
     private final Map<UUID, ArmorStand> nameTags = new HashMap<>();
-
     private BukkitTask task;
     private int actionbarTicks;
 
@@ -55,10 +53,8 @@ public final class HideService {
 
     public void start() {
         stop();
-
         task = core.getServer().getScheduler().runTaskTimer(core, () -> {
             updateNameTags();
-
             actionbarTicks += 2;
 
             if (actionbarTicks >= 40) {
@@ -82,7 +78,7 @@ public final class HideService {
     }
 
     public boolean canUse(Player player) {
-        return player.hasPermission(permission()) || player.hasPermission("mineaclehide.admin");
+        return player.hasPermission(permission()) || player.hasPermission(adminPermission()) || player.isOp();
     }
 
     public String permission() {
@@ -224,15 +220,11 @@ public final class HideService {
     }
 
     public String parsedMessage(String path, String fallback, Player player) {
-        return TextColor.color(message(path, fallback)
-                .replace("%player%", DisplayNames.displayName(player)));
+        return TextColor.color(message(path, fallback).replace("%player%", DisplayNames.displayName(player)));
     }
 
     public boolean shouldHideRealNametag(Player player) {
-        return player != null
-                && isHidden(player.getUniqueId())
-                && visibleObfuscated()
-                && obfuscatedNametagEnabled();
+        return player != null && isHidden(player.getUniqueId()) && visibleObfuscated() && obfuscatedNametagEnabled();
     }
 
     private void updateNameTags() {
@@ -278,7 +270,6 @@ public final class HideService {
 
     private ArmorStand spawnNameTag(Player player) {
         ArmorStand stand = (ArmorStand) player.getWorld().spawnEntity(nameTagLocation(player), EntityType.ARMOR_STAND);
-
         stand.setInvisible(true);
         stand.setMarker(true);
         stand.setSmall(true);
@@ -292,7 +283,6 @@ public final class HideService {
         stand.setCustomNameVisible(true);
         stand.addScoreboardTag("mineacle_hidden_nametag");
         stand.addScoreboardTag("mineacle_hidden_" + player.getUniqueId());
-
         return stand;
     }
 
@@ -302,7 +292,7 @@ public final class HideService {
     }
 
     private Component nameTagComponent(Player player) {
-        return component(format("obfuscated-nametag.format", "&#ff88ff+ &k%displayname%", player));
+        return component(format("obfuscated-nametag.format", "%hidecolor%+ &k%displayname%", player));
     }
 
     private void removeNameTag(UUID uuid) {
@@ -341,7 +331,6 @@ public final class HideService {
                     viewer.hidePlayer(core, player);
                 }
             }
-
             return;
         }
 
@@ -349,7 +338,7 @@ public final class HideService {
             return;
         }
 
-        player.playerListName(component(format("tab.format", "&#ff88ff+ &k%displayname%", player)));
+        player.playerListName(component(format("tab.format", "%hidecolor%+ &k%displayname%", player)));
     }
 
     private void restoreTabName(Player player) {
@@ -368,12 +357,20 @@ public final class HideService {
 
     private String format(String path, String fallback, Player player) {
         String value = config.getString(path, fallback);
-
         return value
+                .replace("%hidecolor%", hideColor(player))
                 .replace("%player%", DisplayNames.username(player))
                 .replace("%displayname%", DisplayNames.displayName(player))
                 .replace("%nickname%", DisplayNames.nickname(player))
                 .replace("%rank%", DisplayNames.luckPermsPrefix(player));
+    }
+
+    private String hideColor(Player player) {
+        if (player.isOp() || player.hasPermission(adminPermission())) {
+            return config.getString("colors.admin", "#ff88ff");
+        }
+
+        return config.getString("colors.plus", "#ffffff");
     }
 
     private Component component(String message) {

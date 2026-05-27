@@ -2,23 +2,26 @@ enabled: true
 permission: mineacle.plus
 admin-see-permission: mineaclehide.admin
 
-# Hide mode should not make players immune or exempt from systems.
-# Bounties still work because the real player UUID/entity is unchanged.
+# Hide mode masks identity only. It does not make players immune or exempt from bounties, combat, or staff tools.
 visible-obfuscated: true
 hide-from-tab: false
 disable-pickup: true
 disable-entity-target: true
 
+colors:
+  admin: "#ff88ff"
+  plus: "#ffffff"
+
 obfuscated-nametag:
   enabled: true
   y-offset: 2.25
-  format: "&#ff88ff+ &k%displayname%"
-  admin-format: "&#ff88ff[Hidden] &#bbbbbb%displayname%"
+  format: "%hidecolor%+ &k%displayname%"
+  admin-format: "&#ff88ff[Hidden] &#ffffff%displayname%"
 
 tab:
   obfuscate-name: true
-  format: "&#ff88ff+ &k%displayname%"
-  admin-format: "&#ff88ff[Hidden] &#bbbbbb%displayname%"
+  format: "%hidecolor%+ &k%displayname%"
+  admin-format: "&#ff88ff[Hidden] &#ffffff%displayname%"
 
 messages:
   enabled: "&#bbbbbbHidden mode &#ff88ffenabled"

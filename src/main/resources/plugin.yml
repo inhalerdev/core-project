@@ -36,15 +36,23 @@ commands:
 
   tpa:
     description: Request to teleport to a player
+    aliases: [tpask]
+    usage: /tpa <player>
     permission: mineacletpa.use
   tpahere:
     description: Request a player teleport to you
+    aliases: [tphere, tpah]
+    usage: /tpahere <player>
     permission: mineacletpa.use
   tpaccept:
     description: Accept a teleport request
+    aliases: [tpyes, accepttp]
+    usage: /tpaccept
     permission: mineacletpa.use
   tpdeny:
     description: Deny a teleport request
+    aliases: [tpno, denytp]
+    usage: /tpdeny
     permission: mineacletpa.use
   tpamenu:
     description: Open teleport request menu for a player
@@ -177,7 +185,7 @@ commands:
   hide:
     description: Toggle hidden mode
     usage: /hide
-    permission: mineaclehide.use
+    permission: mineaclehide.command
 
   mineaclenametags:
     description: Reload Mineacle nametags
@@ -190,17 +198,6 @@ commands:
     usage: /mineaclesecurity reload
     permission: mineaclesecurity.bypass
 
-
-  enchant:
-    description: Enchant the item in your hand
-    usage: /enchant <enchantment> [level] [unsafe]
-    permission: mineacleenchant.admin
-
-  enchantinfo:
-    description: View enchantment information
-    usage: /enchantinfo <enchantment>
-    aliases: [enchantments]
-    permission: mineacleenchant.admin
 
 permissions:
   mineacleguide.use:
@@ -294,6 +291,8 @@ permissions:
   mineaclelinks.admin:
     default: op
 
+  mineaclehide.command:
+    default: true
   mineaclehide.use:
     default: false
   mineaclehide.admin:
@@ -307,6 +306,3 @@ permissions:
   mineaclesecurity.group.admin:
     default: op
 
-
-  mineacleenchant.admin:
-    default: op
