@@ -276,6 +276,7 @@ public final class WorthGui {
             String name = material.name().toUpperCase(Locale.ROOT);
 
             return switch (this) {
+                case ALL -> true;
                 case BLOCKS -> material.isBlock();
                 case TOOLS -> name.endsWith("_PICKAXE")
                         || name.endsWith("_AXE")
