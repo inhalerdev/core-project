@@ -2,29 +2,22 @@ enabled: true
 permission: mineacle.plus
 admin-see-permission: mineaclehide.admin
 
-# Hide mode should not make players immune or exempt from systems.
-# Bounties still work because the real player UUID/entity is unchanged.
+# Hide mode masks identity only. It does not spawn fake floating nametag entities.
+# The real vanilla nametag is hidden through the Nametag module while hidden.
 visible-obfuscated: true
 hide-from-tab: false
+
 disable-pickup: true
 disable-entity-target: true
 
-# Hidden display colors:
-# Admin/OP hidden players use Mineacle purple.
-# Mineacle+ hidden players use plain white.
 hidden-name-colors:
   admin: "#ff88ff"
   plus: "#ffffff"
 
-obfuscated-nametag:
-  enabled: true
-  y-offset: 1.65
-  format: "%hidecolor%+ &k%displayname%"
-  admin-format: "&#ff88ff[Hidden] &#bbbbbb%displayname%"
-
 tab:
   obfuscate-name: true
-  format: "%hidecolor%+ &k%displayname%"
+  # Keeps LuckPerms prefix colors intact, then obfuscates only the display name.
+  format: "%rank%%hidecolor%&k%displayname%"
   admin-format: "&#ff88ff[Hidden] &#bbbbbb%displayname%"
 
 messages:

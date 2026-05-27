@@ -112,7 +112,7 @@ public final class NametagService {
         if (hideService != null && hideService.shouldHideRealNametag(player)) {
             team.prefix(Component.empty());
             team.suffix(Component.empty());
-            team.setColor(player.isOp() || player.hasPermission(hideService.adminPermission()) ? ChatColor.LIGHT_PURPLE : ChatColor.WHITE);
+            team.setColor(hiddenColor(player, hideService));
             team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
             return;
         }
@@ -134,6 +134,14 @@ public final class NametagService {
         builder.append(player.isOp() ? config.getString("colors.op", "#ff88ff") : config.getString("colors.default", "#ffffff"));
 
         return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(builder.toString()));
+    }
+
+    private ChatColor hiddenColor(Player player, HideService hideService) {
+        if (player.isOp() || player.hasPermission(hideService.adminPermission())) {
+            return ChatColor.LIGHT_PURPLE;
+        }
+
+        return ChatColor.WHITE;
     }
 
     private String rankPrefix(Player player) {
