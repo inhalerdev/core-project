@@ -7,19 +7,14 @@ import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.nametag.NametagModule;
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.entity.ArmorStand;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -28,10 +23,7 @@ public final class HideService {
     private final Core core;
     private final File file;
     private FileConfiguration config;
-
     private final Set<UUID> hidden = new HashSet<>();
-    private final Map<UUID, ArmorStand> nameTags = new HashMap<>();
-
     private BukkitTask task;
     private int actionbarTicks;
 
@@ -55,9 +47,7 @@ public final class HideService {
 
     public void start() {
         stop();
-
         task = core.getServer().getScheduler().runTaskTimer(core, () -> {
-            updateNameTags();
             actionbarTicks += 2;
 
             if (actionbarTicks >= 40) {
@@ -72,8 +62,6 @@ public final class HideService {
             task.cancel();
             task = null;
         }
-
-        removeAllNameTags();
     }
 
     public boolean enabled() {
@@ -98,10 +86,6 @@ public final class HideService {
 
     public boolean hideFromTab() {
         return config.getBoolean("hide-from-tab", false);
-    }
-
-    public boolean obfuscatedNametagEnabled() {
-        return config.getBoolean("obfuscated-nametag.enabled", true);
     }
 
     public boolean tabObfuscateName() {
@@ -143,7 +127,6 @@ public final class HideService {
 
     public void show(Player player) {
         hidden.remove(player.getUniqueId());
-        removeNameTag(player.getUniqueId());
 
         for (Player viewer : Bukkit.getOnlinePlayers()) {
             viewer.showPlayer(core, player);
@@ -163,7 +146,7 @@ public final class HideService {
         }
 
         updateTabName(hiddenPlayer);
-        updateNameTag(hiddenPlayer);
+        NametagModule.refreshAll();
     }
 
     public void applyAll() {
@@ -214,7 +197,6 @@ public final class HideService {
         }
 
         hidden.clear();
-        removeAllNameTags();
         NametagModule.refreshAll();
     }
 
@@ -227,102 +209,7 @@ public final class HideService {
     }
 
     public boolean shouldHideRealNametag(Player player) {
-        return player != null
-                && isHidden(player.getUniqueId())
-                && visibleObfuscated()
-                && obfuscatedNametagEnabled();
-    }
-
-    private void updateNameTags() {
-        Set<UUID> remove = new HashSet<>(nameTags.keySet());
-
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (!isHidden(player.getUniqueId())) {
-                continue;
-            }
-
-            remove.remove(player.getUniqueId());
-            updateNameTag(player);
-        }
-
-        for (UUID uuid : remove) {
-            removeNameTag(uuid);
-        }
-    }
-
-    private void updateNameTag(Player player) {
-        if (!visibleObfuscated() || !obfuscatedNametagEnabled()) {
-            removeNameTag(player.getUniqueId());
-            return;
-        }
-
-        ArmorStand stand = nameTags.get(player.getUniqueId());
-
-        if (stand == null || stand.isDead() || !stand.isValid()) {
-            stand = spawnNameTag(player);
-            nameTags.put(player.getUniqueId(), stand);
-        }
-
-        if (!stand.getWorld().equals(player.getWorld())) {
-            removeNameTag(player.getUniqueId());
-            stand = spawnNameTag(player);
-            nameTags.put(player.getUniqueId(), stand);
-        }
-
-        stand.teleport(nameTagLocation(player));
-        stand.customName(nameTagComponent(player));
-        stand.setCustomNameVisible(true);
-    }
-
-    private ArmorStand spawnNameTag(Player player) {
-        ArmorStand stand = (ArmorStand) player.getWorld().spawnEntity(nameTagLocation(player), EntityType.ARMOR_STAND);
-        stand.setInvisible(true);
-        stand.setMarker(true);
-        stand.setSmall(true);
-        stand.setGravity(false);
-        stand.setInvulnerable(true);
-        stand.setSilent(true);
-        stand.setCollidable(false);
-        stand.setPersistent(false);
-        stand.setRemoveWhenFarAway(false);
-        stand.customName(nameTagComponent(player));
-        stand.setCustomNameVisible(true);
-        stand.addScoreboardTag("mineacle_hidden_nametag");
-        stand.addScoreboardTag("mineacle_hidden_" + player.getUniqueId());
-        return stand;
-    }
-
-    private Location nameTagLocation(Player player) {
-        double yOffset = config.getDouble("obfuscated-nametag.y-offset", 1.15D);
-        return player.getLocation().clone().add(0.0D, yOffset, 0.0D);
-    }
-
-    private Component nameTagComponent(Player player) {
-        return component(format("obfuscated-nametag.format", "%hideprefixcolor%+ %hidecolor%&k%displayname%", player));
-    }
-
-    private void removeNameTag(UUID uuid) {
-        ArmorStand stand = nameTags.remove(uuid);
-
-        if (stand != null && stand.isValid()) {
-            stand.remove();
-        }
-    }
-
-    private void removeAllNameTags() {
-        for (ArmorStand stand : nameTags.values()) {
-            if (stand != null && stand.isValid()) {
-                stand.remove();
-            }
-        }
-
-        nameTags.clear();
-
-        for (org.bukkit.World world : Bukkit.getWorlds()) {
-            world.getEntitiesByClass(ArmorStand.class).stream()
-                    .filter(stand -> stand.getScoreboardTags().contains("mineacle_hidden_nametag"))
-                    .forEach(ArmorStand::remove);
-        }
+        return player != null && isHidden(player.getUniqueId()) && visibleObfuscated();
     }
 
     private void updateTabName(Player player) {
@@ -344,7 +231,7 @@ public final class HideService {
             return;
         }
 
-        player.playerListName(component(format("tab.format", "%hideprefixcolor%+ %hidecolor%&k%displayname%", player)));
+        player.playerListName(component(format("tab.format", "%rank%%hidecolor%&k%displayname%", player)));
     }
 
     private void restoreTabName(Player player) {
@@ -363,8 +250,8 @@ public final class HideService {
 
     private String format(String path, String fallback, Player player) {
         String value = config.getString(path, fallback);
+
         return value
-                .replace("%hideprefixcolor%", hiddenPrefixColor(player))
                 .replace("%hidecolor%", hiddenNameColor(player))
                 .replace("%player%", DisplayNames.username(player))
                 .replace("%displayname%", DisplayNames.displayName(player))
@@ -378,14 +265,6 @@ public final class HideService {
         }
 
         return config.getString("hidden-name-colors.plus", "#ffffff");
-    }
-
-    private String hiddenPrefixColor(Player player) {
-        if (player.isOp() || player.hasPermission(adminPermission())) {
-            return config.getString("hidden-prefix-colors.admin", "#ff88ff");
-        }
-
-        return config.getString("hidden-prefix-colors.plus", "#ff55ff");
     }
 
     private Component component(String message) {

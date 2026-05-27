@@ -2,6 +2,7 @@ package net.mineacle.core.guide.service;
 
 import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
@@ -10,7 +11,6 @@ import net.mineacle.core.guide.gui.GuideMenuHolder;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -27,7 +27,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.UUID;
 
 public final class GuideMenuService {
 
@@ -66,9 +65,11 @@ public final class GuideMenuService {
         Inventory inventory = Bukkit.createInventory(holder, size, title);
 
         ConfigurationSection items = config.getConfigurationSection("items");
+
         if (items != null) {
             for (String key : items.getKeys(false)) {
                 ConfigurationSection section = items.getConfigurationSection(key);
+
                 if (section == null) {
                     continue;
                 }
@@ -79,6 +80,7 @@ public final class GuideMenuService {
 
                 for (int slot : slots) {
                     inventory.setItem(slot, item.clone());
+
                     if (!commands.isEmpty()) {
                         commandMap.put(slot, commands);
                     }
@@ -90,7 +92,7 @@ public final class GuideMenuService {
     }
 
     public void clearSessions() {
-        // No persistent sessions are stored. Inventory holders carry click state.
+        // Inventory holders carry click state.
     }
 
     public void execute(Player player, List<String> commands) {
@@ -100,32 +102,37 @@ public final class GuideMenuService {
             }
 
             String command = replace(player, rawCommand.trim());
+            String lower = command.toLowerCase(Locale.ROOT);
 
             if (command.equalsIgnoreCase("[close]")) {
                 player.closeInventory();
                 continue;
             }
 
-            if (command.toLowerCase(Locale.ROOT).startsWith("[player]")) {
+            if (lower.startsWith("[player]")) {
                 String playerCommand = command.substring("[player]".length()).trim();
+
                 if (playerCommand.startsWith("/")) {
                     playerCommand = playerCommand.substring(1);
                 }
+
                 player.closeInventory();
                 player.performCommand(playerCommand);
                 continue;
             }
 
-            if (command.toLowerCase(Locale.ROOT).startsWith("[console]")) {
+            if (lower.startsWith("[console]")) {
                 String consoleCommand = command.substring("[console]".length()).trim();
+
                 if (consoleCommand.startsWith("/")) {
                     consoleCommand = consoleCommand.substring(1);
                 }
+
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), consoleCommand);
                 continue;
             }
 
-            if (command.toLowerCase(Locale.ROOT).startsWith("[message]")) {
+            if (lower.startsWith("[message]")) {
                 String message = command.substring("[message]".length()).trim();
                 player.sendMessage(TextColor.color(message));
             }
@@ -160,16 +167,20 @@ public final class GuideMenuService {
         }
 
         String displayName = section.getString("display_name", "");
+
         if (!displayName.isBlank()) {
             meta.displayName(component(replace(player, displayName)));
         }
 
         List<String> lore = section.getStringList("lore");
+
         if (!lore.isEmpty()) {
             List<Component> components = new ArrayList<>();
+
             for (String line : lore) {
                 components.add(component(replace(player, line)));
             }
+
             meta.lore(components);
         }
 
@@ -181,6 +192,16 @@ public final class GuideMenuService {
             }
         }
 
+        // Guide and Rules are informational menus. Do not show vanilla tooltip noise.
+        meta.addItemFlags(
+                ItemFlag.HIDE_ATTRIBUTES,
+                ItemFlag.HIDE_ENCHANTS,
+                ItemFlag.HIDE_UNBREAKABLE,
+                ItemFlag.HIDE_DESTROYS,
+                ItemFlag.HIDE_PLACED_ON,
+                ItemFlag.HIDE_ADDITIONAL_TOOLTIP
+        );
+
         item.setItemMeta(meta);
         return item;
     }
@@ -190,6 +211,7 @@ public final class GuideMenuService {
 
         if (section.isInt("slot")) {
             int slot = section.getInt("slot");
+
             if (slot >= 0 && slot < size) {
                 slots.add(slot);
             }
@@ -233,7 +255,9 @@ public final class GuideMenuService {
     }
 
     private Component component(String input) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(input));
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(TextColor.color(input == null ? "" : input))
+                .decoration(TextDecoration.ITALIC, false);
     }
 
     private String replace(Player player, String input) {

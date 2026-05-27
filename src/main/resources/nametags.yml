@@ -1,6 +1,8 @@
 enabled: true
 update-interval-seconds: 5
 
+# This system only controls vanilla scoreboard-team nametags.
+# It does not create floating text or custom display entities.
 worlds:
   enabled: true
   list:
@@ -14,12 +16,8 @@ worlds:
 colors:
   op: "#ff88ff"
   default: "#ffffff"
-  hidden: "#ffffff"
 
 rank:
   use-placeholderapi: true
   placeholder: "%luckperms_prefix%"
   fallback: ""
-
-hidden:
-  admin-prefix: "&#ff88ff[Hidden] "

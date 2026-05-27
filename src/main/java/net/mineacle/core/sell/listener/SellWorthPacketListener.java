@@ -7,6 +7,7 @@ import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.reflect.StructureModifier;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.guide.gui.GuideMenuHolder;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
@@ -159,16 +160,17 @@ public final class SellWorthPacketListener extends PacketAdapter {
         /*
          * Hard rule:
          * Worth lore is never shown on the top inventory of Core/custom menus.
-         * This strips it from Homes beds/dyes, Team banners, Bounty/Orders entries,
-         * Stats icons, toolbar arrows, and every other menu item we control.
-         *
-         * Player inventory / chest / ender chest / shulker / furnace / crafting items
-         * still get worth lore normally.
+         * The only intentional exception is the dedicated Item Prices/Worth GUI,
+         * where WorthGui creates its own price encyclopedia lore.
          */
         return isCoreOrCustomTopInventory(view, top);
     }
 
     private boolean isCoreOrCustomTopInventory(InventoryView view, Inventory top) {
+        if (top.getHolder(false) instanceof GuideMenuHolder) {
+            return true;
+        }
+
         String title = ChatColor.stripColor(view.getTitle());
 
         if (title == null) {
@@ -183,8 +185,9 @@ public final class SellWorthPacketListener extends PacketAdapter {
 
         /*
          * Bukkit.createInventory(null, size, title) menus have no holder.
-         * Real containers like chests, shulkers, furnaces, crafting tables, and ender chests
-         * usually have a real holder/type and are allowed to show Worth lore.
+         * Real containers like chests, shulkers, furnaces, crafting tables,
+         * and ender chests usually have a real holder/type and are allowed
+         * to show Worth lore.
          */
         boolean noHolder = top.getHolder(false) == null;
         InventoryType type = top.getType();
@@ -222,6 +225,9 @@ public final class SellWorthPacketListener extends PacketAdapter {
                 || lowerTitle.equals("teleport request")
                 || lowerTitle.equals("confirm request")
                 || lowerTitle.equals("confirm action")
+                || lowerTitle.equals("mineacle guide")
+                || lowerTitle.equals("server rules")
+                || lowerTitle.equals("rules")
                 || lowerTitle.startsWith("homes ")
                 || lowerTitle.startsWith("balance top")
                 || lowerTitle.startsWith("orders")
@@ -260,7 +266,6 @@ public final class SellWorthPacketListener extends PacketAdapter {
                 : new ArrayList<>();
 
         lore.add(0, TextColor.color("&#bbbbbbWorth: &a" + sellService.format(totalWorth)));
-
         meta.setLore(lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
@@ -300,9 +305,12 @@ public final class SellWorthPacketListener extends PacketAdapter {
         }
 
         return stripped.startsWith("Worth:")
+                || stripped.startsWith("Price:")
+                || stripped.startsWith("Stack:")
                 || stripped.startsWith("Stack Worth:")
                 || stripped.startsWith("Enchant Value:")
-                || stripped.startsWith("Demand:");
+                || stripped.startsWith("Demand:")
+                || stripped.startsWith("Category:");
     }
 
     private int setSlotRawSlot(PacketEvent event) {
