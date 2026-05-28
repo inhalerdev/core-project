@@ -31,6 +31,11 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        if (!player.hasPermission("mineaclewarps.use")) {
+            player.sendMessage(warpService.noPermissionMessage());
+            return true;
+        }
+
         if (args.length == 0) {
             sendUsage(player);
             return true;
@@ -38,7 +43,7 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
 
         if (args[0].equalsIgnoreCase("reload")) {
             if (!player.hasPermission("mineaclewarps.admin")) {
-                player.sendMessage(TextColor.color("&cYou do not have permission"));
+                player.sendMessage(warpService.noPermissionMessage());
                 return true;
             }
 
@@ -51,7 +56,7 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
         WarpPoint warp = warpService.warp(warpId);
 
         if (warp == null) {
-            player.sendMessage(TextColor.color("&cUnknown warp"));
+            player.sendMessage(warpService.notFoundMessage(warpId));
             sendAvailable(player);
             return true;
         }

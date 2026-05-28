@@ -1,59 +1,56 @@
-menu:
-  title: "Warps"
-  size: 27
-
-spawn-worlds:
-  - spawn1
-  - spawn2
-  - spawn3
+enabled: true
+title: "Warps"
+size: 54
 
 teleport:
-  default-delay-seconds: 5
+  # Players in these worlds teleport instantly to any warp.
+  instant-worlds:
+    - spawn1
+    - spawn2
+    - spawn3
+
+  # Players outside the instant worlds use this delay.
+  delay-seconds: 5
+
+  # Mineacle+ and admins use this delay outside spawn worlds.
   plus-delay-seconds: 3
+  fast-permissions:
+    - mineacle.plus
+    - mineaclewarps.admin
+
+  cancel-on-move: true
+  cancel-distance: 2.0
 
 messages:
-  no-permission: "&cYou do not have permission"
-  not-found: "&cWarp not found"
-  set: "&#bbbbbbWarp &d%warp% &#bbbbbbset"
-  deleted: "&#bbbbbbWarp &d%warp% &#bbbbbbdeleted"
-  teleported: "&#bbbbbbWarped to &d%warp%"
-  starting: "&#bbbbbbWarping to &d%warp% &#bbbbbbin &d%seconds%s"
-  cancelled: "&cTeleport cancelled — you moved"
+  disabled: "&cWarps are disabled"
+  not-found: "&cThat warp does not exist"
+  world-missing: "&cWarp world is not loaded"
+  teleport-start: "&#bbbbbbTeleporting to &d%warp% &#bbbbbbin &d%seconds%s"
+  teleport-countdown: "&#bbbbbbTeleporting to &d%warp% &#bbbbbbin &d%seconds%s"
+  teleported: "&#bbbbbbTeleported to &d%warp%"
+
+# Default lore used when a warp does not define custom lore.
+gui:
+  default-lore:
+    - "&#bbbbbbWorld: &d%world%"
+    - "&#bbbbbbTeleport: &d%mode%"
+    - ""
+    - "&#ff88ffClick to warp"
 
 warps:
-  crates:
-    display-name: crates
-    material: ENDER_PEARL
-    slot: 13
-    x: -15.704009628228908
-    y: 67.0
-    z: -36.47093722693274
-    yaw: 115.05046
-    pitch: -1.1533499E-5
-  stats:
-    display-name: stats
-    material: ENDER_PEARL
-    slot: 13
-    x: 16.59010788720482
-    y: 67.0
-    z: -36.60541724247407
-    yaw: -115.04956
-    pitch: -4.7832727E-5
-  market:
-    display-name: market
-    material: ENDER_PEARL
-    slot: 13
-    x: 36.620157730516226
-    y: 76.0
-    z: -95.48015104715984
-    yaw: -115.049355
-    pitch: -2.6077032E-5
-  duels:
-    display-name: duels
-    material: ENDER_PEARL
-    slot: 13
-    x: -35.616630778779154
-    y: 76.0
-    z: -95.50583657091839
-    yaw: 115.0506
-    pitch: -3.066659E-5
+  spawn:
+    enabled: true
+    slot: 22
+    display-name: "&dSpawn"
+    material: NETHER_STAR
+    world: spawn1
+    x: 0.5
+    y: 65.0
+    z: 0.5
+    yaw: 0.0
+    pitch: 0.0
+    lore:
+      - "&#bbbbbbReturn to the main spawn area"
+      - "&#bbbbbbTeleport: &d%mode%"
+      - ""
+      - "&#ff88ffClick to warp"

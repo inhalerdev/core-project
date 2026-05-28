@@ -10,7 +10,6 @@ import org.bukkit.entity.Player;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public final class SetWarpCommand implements CommandExecutor, TabCompleter {
 
@@ -66,8 +65,8 @@ public final class SetWarpCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 1) {
-            return warpService.warps().stream().map(point -> point.key()).filter(key -> key.startsWith(args[0].toLowerCase())).collect(Collectors.toList());
+        if (args.length == 2) {
+            return List.of("10", "11", "12", "13", "14", "15", "16");
         }
 
         return List.of();

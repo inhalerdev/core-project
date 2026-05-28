@@ -12,10 +12,14 @@ commands:
     aliases: [help, mineacle]
     usage: /guide
     permission: mineacleguide.use
+  rules:
+    description: Open the Mineacle rules
+    usage: /rules
+    permission: mineacleguide.use
 
   home:
     description: Open your homes menu
-    aliases: [homes]
+    aliases: [homes, h]
     permission: mineaclehomes.use
   sethome:
     description: Set a named home
@@ -32,6 +36,7 @@ commands:
 
   team:
     description: Create, join, and manage your team
+    aliases: [teams]
     permission: mineacleteams.use
 
   tpa:
@@ -49,14 +54,18 @@ commands:
     aliases: [tpyes, accepttp]
     usage: /tpaccept
     permission: mineacletpa.use
-  tpdeny:
+  tpadeny:
     description: Deny a teleport request
-    aliases: [tpno, denytp]
-    usage: /tpdeny
+    aliases: [tpdeny, tpno, denytp]
+    usage: /tpadeny
     permission: mineacletpa.use
-  tpamenu:
-    description: Open teleport request menu for a player
-    usage: /tpamenu <player>
+  tpacancel:
+    description: Cancel your outgoing teleport request
+    usage: /tpacancel
+    permission: mineacletpa.use
+  tpauto:
+    description: Toggle automatic TPA acceptance
+    usage: /tpauto
     permission: mineacletpa.use
 
   stats:
@@ -104,7 +113,6 @@ commands:
     usage: /spawn
     aliases: [lobby]
     permission: mineaclespawn.use
-
   originrtp:
     description: Queue for random teleport
     usage: /originrtp
@@ -120,18 +128,32 @@ commands:
     usage: /fly
     permission: mineaclefly.command
 
+  warp:
+    description: Warp to a spawn location
+    usage: /warp <location>
+    aliases: [warps]
+    permission: mineaclewarps.use
+  setwarp:
+    description: Set a warp
+    usage: /setwarp <name> [slot] [display name]
+    permission: mineaclewarps.admin
+  delwarp:
+    description: Delete a warp
+    usage: /delwarp <name>
+    permission: mineaclewarps.admin
+
   order:
     description: Open player orders
     aliases: [orders]
     usage: /order
     permission: mineacleorders.use
-
   sell:
     description: Open sell menu
     usage: /sell
     permission: mineaclesell.use
   worth:
     description: Open item prices menu
+    aliases: [prices, itemprices]
     usage: /worth
     permission: mineaclesell.use
   sellmulti:
@@ -186,23 +208,30 @@ commands:
     description: Toggle hidden mode
     usage: /hide
     permission: mineaclehide.use
-
   mineaclenametags:
     description: Reload Mineacle nametags
     aliases: [nametags]
     usage: /mineaclenametags reload
     permission: mineaclenametags.admin
-
   mineaclesecurity:
     description: Reload Mineacle security
     usage: /mineaclesecurity reload
     permission: mineaclesecurity.bypass
 
+  enchant:
+    description: Enchant the item in your hand
+    usage: /enchant <enchant> [level]
+    permission: mineacleenchant.admin
+  enchantinfo:
+    description: View enchantment information
+    usage: /enchantinfo <enchant>
+    permission: mineacleenchant.admin
 
 permissions:
   mineacleguide.use:
     default: true
-
+  mineacleguide.admin:
+    default: op
   mineacle.plus:
     default: false
   mineacle.gamemode:
@@ -263,12 +292,16 @@ permissions:
 
   mineacledoublejump.admin:
     default: op
-
   mineaclefly.command:
     default: true
   mineaclefly.use:
     default: false
   mineaclefly.admin:
+    default: op
+
+  mineaclewarps.use:
+    default: true
+  mineaclewarps.admin:
     default: op
 
   mineacleorders.use:
@@ -304,3 +337,5 @@ permissions:
   mineaclesecurity.group.admin:
     default: op
 
+  mineacleenchant.admin:
+    default: op

@@ -27,6 +27,7 @@ public final class WarpService {
     private final Core core;
     private final File file;
     private final Random random = new Random();
+
     private FileConfiguration config;
 
     public WarpService(Core core) {
@@ -229,6 +230,7 @@ public final class WarpService {
         config().set(path + ".z", location.getZ());
         config().set(path + ".yaw", location.getYaw());
         config().set(path + ".pitch", location.getPitch());
+
         save();
     }
 

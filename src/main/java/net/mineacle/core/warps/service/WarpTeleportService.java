@@ -36,6 +36,7 @@ public final class WarpTeleportService {
         }
 
         Location start = player.getLocation().clone();
+
         sendBoth(player, warpService.startingMessage(point.key(), delay));
         SoundService.teleportStart(player, core);
 
@@ -106,9 +107,7 @@ public final class WarpTeleportService {
             return true;
         }
 
-        return Math.abs(start.getX() - now.getX()) > 0.15D
-                || Math.abs(start.getY() - now.getY()) > 0.15D
-                || Math.abs(start.getZ() - now.getZ()) > 0.15D;
+        return start.distanceSquared(now) > 1.0D;
     }
 
     private void sendBoth(Player player, String message) {

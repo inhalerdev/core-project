@@ -31,6 +31,9 @@ public final class WarpModule extends Module {
 
     @Override
     public void disable() {
+        if (teleportService != null) {
+            teleportService.cancelAll();
+        }
     }
 
     private void registerCommand(Core core, String name, Object executor) {
