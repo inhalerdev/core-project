@@ -79,6 +79,6 @@ public final class BalanceCommand implements CommandExecutor, TabCompleter {
             return List.of();
         }
 
-        return PlayerTabComplete.onlinePlayers(player, args[0]);
+        return PlayerTabComplete.onlinePlayers(player, args[0], true);
     }
 }

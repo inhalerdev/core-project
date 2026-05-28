@@ -2,11 +2,11 @@ package net.mineacle.core.bounty;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
+import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
-import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -161,80 +161,38 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> completions = new ArrayList<>();
-
         if (!(sender instanceof Player player)) {
-            return completions;
+            return List.of();
         }
 
         if (!player.hasPermission("mineaclebounty.use")) {
-            return completions;
+            return List.of();
         }
 
         if (args.length == 1) {
-            String partial = args[0] == null ? "" : args[0].toLowerCase(Locale.ROOT);
+            List<String> options = new ArrayList<>(List.of("add", "list"));
 
-            for (String option : visibleRootOptions(player)) {
-                if (option.startsWith(partial)) {
-                    completions.add(option);
-                }
+            if (player.hasPermission("mineaclebounty.admin")) {
+                options.add("remove");
+                options.add("reload");
             }
 
-            return completions;
+            return PlayerTabComplete.options(args[0], options);
         }
 
         if (args.length == 2 && isPlaceSubcommand(args[0])) {
-            String partial = args[1] == null ? "" : args[1];
-
-            for (Player target : Bukkit.getOnlinePlayers()) {
-                if (target.getUniqueId().equals(player.getUniqueId())) {
-                    continue;
-                }
-
-                if (partial.isBlank() || DisplayNames.startsWithDisplay(target, partial)) {
-                    completions.add(DisplayNames.commandDisplayName(target));
-                }
-            }
-
-            return completions;
+            return PlayerTabComplete.onlinePlayers(player, args[1]);
         }
 
         if (args.length == 2 && args[0].equalsIgnoreCase("remove") && player.hasPermission("mineaclebounty.admin")) {
-            String partial = args[1] == null ? "" : args[1];
-
-            for (Player target : Bukkit.getOnlinePlayers()) {
-                if (partial.isBlank() || DisplayNames.startsWithDisplay(target, partial)) {
-                    completions.add(DisplayNames.commandDisplayName(target));
-                }
-            }
-
-            return completions;
+            return PlayerTabComplete.onlinePlayers(player, args[1], true);
         }
 
         if (args.length == 3 && isPlaceSubcommand(args[0])) {
-            String partial = args[2] == null ? "" : args[2].toLowerCase(Locale.ROOT);
-
-            for (String option : List.of("1k", "10k", "100k", "1M", "10M", "100M", "1B")) {
-                if (partial.isEmpty() || option.toLowerCase(Locale.ROOT).startsWith(partial)) {
-                    completions.add(option);
-                }
-            }
+            return PlayerTabComplete.options(args[2], List.of("1k", "10k", "100k", "1M", "10M", "100M", "1B"));
         }
 
-        return completions;
-    }
-
-    private List<String> visibleRootOptions(Player player) {
-        List<String> options = new ArrayList<>();
-        options.add("add");
-        options.add("list");
-
-        if (player.hasPermission("mineaclebounty.admin")) {
-            options.add("remove");
-            options.add("reload");
-        }
-
-        return options;
+        return List.of();
     }
 
     private boolean isPlaceSubcommand(String input) {

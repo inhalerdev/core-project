@@ -31,23 +31,37 @@ public final class PlayerTabComplete {
             String displayName = DisplayNames.displayName(online);
             String username = online.getName();
 
-            if (partial.isEmpty() || commandName.toLowerCase(Locale.ROOT).startsWith(partial)) {
+            if (partial.isEmpty()
+                    || commandName.toLowerCase(Locale.ROOT).startsWith(partial)
+                    || displayName.toLowerCase(Locale.ROOT).startsWith(partial)
+                    || username.toLowerCase(Locale.ROOT).startsWith(partial)) {
                 completions.add(commandName);
-            }
-
-            if (partial.isEmpty() || displayName.toLowerCase(Locale.ROOT).startsWith(partial)) {
-                completions.add(commandName);
-            }
-
-            if (partial.isEmpty() || username.toLowerCase(Locale.ROOT).startsWith(partial)) {
-                completions.add(username);
             }
         }
 
         return new ArrayList<>(completions);
     }
 
+    /*
+     * Mineacle tab standard:
+     * follow-up command options must show every valid option immediately, even
+     * after the player typed part of one option. This matches the Donut-style UX.
+     */
     public static List<String> options(String input, Iterable<String> options) {
+        List<String> completions = new ArrayList<>();
+
+        for (String option : options) {
+            if (option == null || option.isBlank()) {
+                continue;
+            }
+
+            completions.add(option);
+        }
+
+        return completions;
+    }
+
+    public static List<String> optionsFiltered(String input, Iterable<String> options) {
         String partial = input == null ? "" : input.trim().toLowerCase(Locale.ROOT);
         List<String> completions = new ArrayList<>();
 

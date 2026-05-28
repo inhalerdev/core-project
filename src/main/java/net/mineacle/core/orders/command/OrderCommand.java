@@ -69,8 +69,17 @@ public final class OrderCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            if (args.length < 3) {
-                player.sendMessage(TextColor.color("&d/order create <amount> <item>"));
+            if (args.length < 4) {
+                player.sendMessage(TextColor.color("&#bbbbbbUse: &#ff88ff/order create <item> <amount> <price>"));
+                player.sendMessage(TextColor.color("&#bbbbbbExample: &#ff88ff/order create oak_log 64 100k"));
+                SoundService.guiError(player, core);
+                return true;
+            }
+
+            Material material = material(args[1]);
+
+            if (material == null || !material.isItem()) {
+                player.sendMessage(TextColor.color("&cUnknown item"));
                 SoundService.guiError(player, core);
                 return true;
             }
@@ -78,26 +87,38 @@ public final class OrderCommand implements CommandExecutor, TabCompleter {
             int amount;
 
             try {
-                amount = Integer.parseInt(args[1]);
+                amount = Integer.parseInt(args[2].replace(",", "").replace("_", ""));
             } catch (NumberFormatException exception) {
                 player.sendMessage(TextColor.color("&cInvalid amount"));
                 SoundService.guiError(player, core);
                 return true;
             }
 
-            service.create(player, amount, args[2]);
+            service.create(player, material, amount, args[3]);
             return true;
         }
 
         if (args[0].equalsIgnoreCase("reload") && player.hasPermission("mineacleorders.admin")) {
             core.reloadConfig();
-            player.sendMessage(TextColor.color("&aOrders reloaded"));
+            player.sendMessage(TextColor.color("&#bbbbbbOrders reloaded"));
             SoundService.guiConfirm(player, core);
             return true;
         }
 
         OrdersMainGui.open(player, service);
         return true;
+    }
+
+    private Material material(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+
+        try {
+            return Material.valueOf(raw.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     @Override
@@ -113,11 +134,7 @@ public final class OrderCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 2 && args[0].equalsIgnoreCase("create")) {
-            return PlayerTabComplete.options(args[1], List.of("1", "8", "16", "32", "64"));
-        }
-
-        if (args.length == 3 && args[0].equalsIgnoreCase("create")) {
-            String partial = args[2] == null ? "" : args[2].toLowerCase(Locale.ROOT);
+            String partial = args[1] == null ? "" : args[1].toLowerCase(Locale.ROOT);
             List<String> completions = new ArrayList<>();
 
             for (Material material : Material.values()) {
@@ -133,6 +150,14 @@ public final class OrderCommand implements CommandExecutor, TabCompleter {
             }
 
             return completions;
+        }
+
+        if (args.length == 3 && args[0].equalsIgnoreCase("create")) {
+            return PlayerTabComplete.options(args[2], List.of("64", "128", "256", "512", "2304"));
+        }
+
+        if (args.length == 4 && args[0].equalsIgnoreCase("create")) {
+            return PlayerTabComplete.options(args[3], List.of("10k", "100k", "1M", "10M"));
         }
 
         return List.of();

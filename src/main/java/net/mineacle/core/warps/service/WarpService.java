@@ -204,22 +204,18 @@ public final class WarpService {
         );
     }
 
+    /*
+     * Donut-style follow-up tab:
+     * always show every warp option after /warp, regardless of partial typed.
+     */
     public List<String> warpKeys(String partial) {
-        String normalized = partial == null ? "" : partial.trim().toLowerCase(Locale.ROOT);
         ConfigurationSection section = config().getConfigurationSection("warps");
 
         if (section == null) {
             return Collections.emptyList();
         }
 
-        List<String> keys = new ArrayList<>();
-
-        for (String key : section.getKeys(false)) {
-            if (normalized.isEmpty() || key.toLowerCase(Locale.ROOT).startsWith(normalized)) {
-                keys.add(key);
-            }
-        }
-
+        List<String> keys = new ArrayList<>(section.getKeys(false));
         keys.sort(String.CASE_INSENSITIVE_ORDER);
         return keys;
     }

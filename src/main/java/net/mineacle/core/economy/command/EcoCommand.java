@@ -15,8 +15,8 @@ import org.bukkit.entity.Player;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
+import java.util.Locale;
 import java.util.UUID;
 
 public final class EcoCommand implements CommandExecutor, TabCompleter {
@@ -196,24 +196,13 @@ public final class EcoCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 2) {
-            List<String> completions = new ArrayList<>();
-            String partial = args[1] == null ? "" : args[1].toLowerCase(Locale.ROOT);
-
-            if ("*".startsWith(partial)) {
-                completions.add("*");
-            }
-
-            if ("**".startsWith(partial)) {
-                completions.add("**");
-            }
+            List<String> completions = new ArrayList<>(List.of("*", "**"));
 
             if (sender instanceof Player player) {
-                completions.addAll(PlayerTabComplete.onlinePlayers(player, args[1]));
+                completions.addAll(PlayerTabComplete.onlinePlayers(player, args[1], true));
             } else {
                 for (Player online : Bukkit.getOnlinePlayers()) {
-                    if (partial.isEmpty() || online.getName().toLowerCase(Locale.ROOT).startsWith(partial)) {
-                        completions.add(online.getName());
-                    }
+                    completions.add(online.getName());
                 }
             }
 

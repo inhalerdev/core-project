@@ -1,6 +1,7 @@
 package net.mineacle.core.sell.command;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.sell.gui.SellGui;
@@ -190,32 +191,23 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> completions = new ArrayList<>();
-
         if (!command.getName().equalsIgnoreCase("sell")) {
-            return completions;
+            return List.of();
         }
 
         if (args.length == 1) {
-            String partial = args[0] == null ? "" : args[0].toLowerCase(Locale.ROOT);
+            List<String> options = new ArrayList<>(List.of("demand", "hand", "history", "multi", "worth"));
 
-            for (String option : List.of("demand", "hand", "history", "multi", "reload", "worth")) {
-                if (option.startsWith(partial)) {
-                    completions.add(option);
-                }
+            if (sender.hasPermission("mineaclesell.admin")) {
+                options.add("reload");
             }
 
-            return completions;
+            return PlayerTabComplete.options(args[0], options);
         }
 
         if (args.length == 2 && args[0].equalsIgnoreCase("demand") && sender.hasPermission("mineaclesell.admin")) {
+            List<String> completions = new ArrayList<>(List.of("recalc", "reset"));
             String partial = args[1] == null ? "" : args[1].toLowerCase(Locale.ROOT);
-
-            for (String option : List.of("recalc", "reset")) {
-                if (option.startsWith(partial)) {
-                    completions.add(option);
-                }
-            }
 
             for (Material material : Material.values()) {
                 if (!material.isItem()) {
@@ -228,8 +220,10 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
                     completions.add(name);
                 }
             }
+
+            return completions;
         }
 
-        return completions;
+        return List.of();
     }
 }
