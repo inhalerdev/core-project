@@ -6,6 +6,7 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.DisplayNames;
+import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.homes.service.TeleportService;
@@ -20,11 +21,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 public final class TpaCommand implements CommandExecutor, TabCompleter {
 
@@ -71,31 +69,36 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        Player target = DisplayNames.resolveOnline(args[0]);
+        Player resolvedTarget = DisplayNames.resolveOnline(args[0]);
 
-        if (target == null) {
-            target = Bukkit.getPlayerExact(args[0]);
+        if (resolvedTarget == null) {
+            resolvedTarget = Bukkit.getPlayerExact(args[0]);
         }
 
-        if (target == null) {
+        if (resolvedTarget == null) {
             sendBoth(requester, "&cThat player is not online");
             SoundService.guiError(requester, core);
             return true;
         }
 
-        if (target.getUniqueId().equals(requester.getUniqueId())) {
+        if (resolvedTarget.getUniqueId().equals(requester.getUniqueId())) {
             sendBoth(requester, "&cYou cannot send a teleport request to yourself");
             SoundService.guiError(requester, core);
             return true;
         }
 
+        final Player target = resolvedTarget;
+
         if (tpaService.isAutoAccepting(target.getUniqueId()) && type == TpaRequestType.TO_TARGET) {
             sendBoth(requester, "&#bbbbbbTeleport request auto accepted");
             SoundService.teleportRequest(requester, core);
+
             teleportService.begin(requester, "TPA", () -> {
                 requester.teleport(target.getLocation());
                 sendBoth(requester, "&#bbbbbbTeleported to &#ff88ff" + DisplayNames.displayName(target));
+                SoundService.teleportComplete(requester, core);
             });
+
             return true;
         }
 
@@ -121,7 +124,7 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
                 ? requesterName + " &#bbbbbbwants to teleport to you"
                 : requesterName + " &#bbbbbbwants you to teleport to them";
 
-        target.sendActionBar(actionBar(mainLine));
+        target.sendActionBar(legacy(mainLine));
         target.sendMessage(legacy(mainLine));
 
         Component accept = legacy("&d[Accept]").clickEvent(ClickEvent.runCommand("/tpaccept"));
@@ -249,48 +252,16 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
                 || commandName.equals("tphere")
                 || commandName.equals("tpah"))
                 && args.length == 1) {
-            return onlinePlayerCompletions(player, args[0]);
+            return PlayerTabComplete.onlinePlayers(player, args[0]);
         }
 
         return List.of();
     }
 
-    private List<String> onlinePlayerCompletions(Player player, String input) {
-        String partial = input == null ? "" : input.toLowerCase(Locale.ROOT);
-        Set<String> completions = new LinkedHashSet<>();
-
-        for (Player online : Bukkit.getOnlinePlayers()) {
-            if (online.getUniqueId().equals(player.getUniqueId())) {
-                continue;
-            }
-
-            String commandName = DisplayNames.commandDisplayName(online);
-            String displayName = DisplayNames.displayName(online);
-            String username = online.getName();
-
-            if (partial.isEmpty() || commandName.toLowerCase(Locale.ROOT).startsWith(partial)) {
-                completions.add(commandName);
-            }
-
-            if (partial.isEmpty() || displayName.toLowerCase(Locale.ROOT).startsWith(partial)) {
-                completions.add(commandName);
-            }
-
-            if (partial.isEmpty() || username.toLowerCase(Locale.ROOT).startsWith(partial)) {
-                completions.add(username);
-            }
-        }
-
-        return new ArrayList<>(completions);
-    }
-
     private void sendBoth(Player player, String message) {
-        player.sendMessage(legacy(message));
-        player.sendActionBar(actionBar(message));
-    }
-
-    private Component actionBar(String message) {
-        return legacy(message);
+        Component component = legacy(message);
+        player.sendMessage(component);
+        player.sendActionBar(component);
     }
 
     private Component legacy(String message) {
