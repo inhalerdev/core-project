@@ -2,6 +2,7 @@ package net.mineacle.core.chat.command;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.chat.service.ChatService;
+import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.player.PlayerTabComplete;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -11,7 +12,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public final class IgnoreCommand implements CommandExecutor, TabCompleter {
@@ -41,7 +41,7 @@ public final class IgnoreCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[0]);
+        OfflinePlayer target = DisplayNames.resolveOffline(args[0]);
 
         if (target.getName() == null && !target.hasPlayedBefore()) {
             player.sendMessage(core.getMessage("chat.player-not-found"));
@@ -63,16 +63,10 @@ public final class IgnoreCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> completions = new ArrayList<>();
-
-        if (!(sender instanceof Player player)) {
-            return completions;
+        if (!(sender instanceof Player player) || args.length != 1) {
+            return List.of();
         }
 
-        if (args.length == 1) {
-            return PlayerTabComplete.onlinePlayers(player, args[0]);
-        }
-
-        return completions;
+        return PlayerTabComplete.onlinePlayers(player, args[0]);
     }
 }

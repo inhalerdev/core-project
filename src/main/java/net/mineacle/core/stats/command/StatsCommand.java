@@ -12,7 +12,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public final class StatsCommand implements CommandExecutor, TabCompleter {
@@ -39,7 +38,6 @@ public final class StatsCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length < 1) {
-            SoundService.guiClick(viewer, core);
             playerStatisticsGui.open(viewer, viewer.getUniqueId());
             return true;
         }
@@ -52,23 +50,16 @@ public final class StatsCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        SoundService.guiClick(viewer, core);
         playerStatisticsGui.open(viewer, target.getUniqueId());
         return true;
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> completions = new ArrayList<>();
-
-        if (!(sender instanceof Player player)) {
-            return completions;
+        if (!(sender instanceof Player player) || args.length != 1) {
+            return List.of();
         }
 
-        if (args.length == 1) {
-            return PlayerTabComplete.onlinePlayers(player, args[0], true);
-        }
-
-        return completions;
+        return PlayerTabComplete.onlinePlayers(player, args[0]);
     }
 }

@@ -1,20 +1,10 @@
 # MineacleCore command security
-# This file controls which root slash commands are visible in / tab completion
-# and which player commands are allowed to run.
-
 enabled: true
-
-# Players with this permission bypass command blocking and tab filtering.
 bypass-permission: mineaclesecurity.bypass
-
 unknown-command-message: "&cThis command does not exist"
 reload-message: "&#bbbbbbSecurity reloaded"
 
-# If true, players may only run commands listed in one of their active groups.
-# Console is not affected.
 block-unlisted-player-commands: true
-
-# If true, namespaced backend commands like /bukkit:plugins and /minecraft:me are hidden/blocked.
 block-namespaced-commands: true
 
 blocked-prefixes:
@@ -127,7 +117,6 @@ blocked-commands:
   - "worldedit"
   - "worldguard"
 
-# Always blocked for players unless they have the bypass permission.
 console-only-commands:
   - "ban-ip"
   - "deop"
@@ -142,10 +131,6 @@ console-only-commands:
   - "stop"
   - "whitelist"
 
-# Edit tab/command visibility here.
-# A group is active when permission is blank, or the player has the permission.
-# Groups can inherit another group's command list.
-# priority only controls load/order display; all active groups combine together.
 groups:
   default:
     permission: ""
@@ -162,16 +147,21 @@ groups:
       - "discord"
       - "guide"
       - "home"
+      - "homes"
+      - "h"
       - "ignore"
       - "ignorelist"
+      - "itemprices"
       - "link"
       - "links"
       - "msg"
       - "order"
       - "orders"
       - "pay"
+      - "prices"
       - "renamehome"
       - "reply"
+      - "r"
       - "rtp"
       - "rules"
       - "sell"
@@ -182,14 +172,21 @@ groups:
       - "stats"
       - "store"
       - "team"
+      - "teams"
       - "tell"
       - "tpa"
       - "tpaccept"
+      - "tpacancel"
+      - "tpadeny"
       - "tpahere"
+      - "tpauto"
       - "tpdeny"
+      - "tphere"
+      - "warps"
       - "warp"
       - "whisper"
       - "wild"
+      - "worth"
       - "x"
 
   plus:
@@ -209,10 +206,11 @@ groups:
       - "plus"
     commands:
       - "ban"
-      - "banmenu"
       - "baltop"
+      - "delwarp"
       - "eco"
       - "enchant"
+      - "enchantinfo"
       - "gamemode"
       - "gma"
       - "gmc"
@@ -223,6 +221,7 @@ groups:
       - "home"
       - "homes"
       - "kick"
+      - "links"
       - "mineaclecore"
       - "mineaclehomes"
       - "mineaclenametags"
@@ -230,12 +229,16 @@ groups:
       - "money"
       - "mute"
       - "nametags"
-      - "punish"
       - "realname"
       - "rules"
+      - "setwarp"
+      - "social"
+      - "socials"
       - "tempban"
       - "tempmute"
+      - "twitter"
       - "unban"
       - "unmute"
       - "warn"
       - "w"
+      - "warp"

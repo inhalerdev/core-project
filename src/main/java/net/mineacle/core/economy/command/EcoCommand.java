@@ -1,6 +1,7 @@
 package net.mineacle.core.economy.command;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.economy.service.EconomyService;
 import org.bukkit.Bukkit;
@@ -14,8 +15,8 @@ import org.bukkit.entity.Player;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 public final class EcoCommand implements CommandExecutor, TabCompleter {
@@ -113,8 +114,8 @@ public final class EcoCommand implements CommandExecutor, TabCompleter {
             switch (action) {
                 case GIVE -> {
                     economyService.give(uuid, cents);
-
                     Player online = offlinePlayer.getPlayer();
+
                     if (online != null && online.isOnline()) {
                         economyService.sendOnlinePaidMessage(online, cents);
                         SoundService.economyReceive(online, core);
@@ -123,9 +124,7 @@ public final class EcoCommand implements CommandExecutor, TabCompleter {
                         economyService.addOfflinePayment(uuid, cents, "Console");
                     }
                 }
-
                 case TAKE -> economyService.take(uuid, cents);
-
                 case SET -> economyService.setBalance(uuid, cents);
             }
         }
@@ -192,23 +191,13 @@ public final class EcoCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> completions = new ArrayList<>();
-
         if (args.length == 1) {
-            List<String> options = List.of("give", "take", "set", "reset");
-            String partial = args[0].toLowerCase(Locale.ROOT);
-
-            for (String option : options) {
-                if (option.startsWith(partial)) {
-                    completions.add(option);
-                }
-            }
-
-            return completions;
+            return PlayerTabComplete.options(args[0], List.of("give", "take", "set", "reset"));
         }
 
         if (args.length == 2) {
-            String partial = args[1].toLowerCase(Locale.ROOT);
+            List<String> completions = new ArrayList<>();
+            String partial = args[1] == null ? "" : args[1].toLowerCase(Locale.ROOT);
 
             if ("*".startsWith(partial)) {
                 completions.add("*");
@@ -218,14 +207,24 @@ public final class EcoCommand implements CommandExecutor, TabCompleter {
                 completions.add("**");
             }
 
-            for (Player online : Bukkit.getOnlinePlayers()) {
-                if (online.getName().toLowerCase(Locale.ROOT).startsWith(partial)) {
-                    completions.add(online.getName());
+            if (sender instanceof Player player) {
+                completions.addAll(PlayerTabComplete.onlinePlayers(player, args[1]));
+            } else {
+                for (Player online : Bukkit.getOnlinePlayers()) {
+                    if (partial.isEmpty() || online.getName().toLowerCase(Locale.ROOT).startsWith(partial)) {
+                        completions.add(online.getName());
+                    }
                 }
             }
+
+            return completions;
         }
 
-        return completions;
+        if (args.length == 3 && !args[0].equalsIgnoreCase("reset")) {
+            return PlayerTabComplete.options(args[2], List.of("1", "10", "100", "1000", "10k", "100k", "1M"));
+        }
+
+        return List.of();
     }
 
     private enum EcoAction {

@@ -1,6 +1,7 @@
 package net.mineacle.core.orders.command;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.orders.gui.OrderCreateGui;
@@ -13,6 +14,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -63,21 +65,12 @@ public final class OrderCommand implements CommandExecutor, TabCompleter {
 
         if (args[0].equalsIgnoreCase("create")) {
             if (args.length == 1) {
-                OrderCreateGui.open(player, service);
+                OrderCreateGui.open(player);
                 return true;
             }
 
-            if (args.length < 4) {
-                player.sendMessage(TextColor.color("&#bbbbbbUse: &#ff88ff/order create <item> <amount> <total-pay>"));
-                player.sendMessage(TextColor.color("&#bbbbbbExample: &#ff88ff/order create oak_log 64 100k"));
-                SoundService.guiError(player, core);
-                return true;
-            }
-
-            Material material = material(args[1]);
-
-            if (material == null || !material.isItem()) {
-                player.sendMessage(TextColor.color("&cUnknown item"));
+            if (args.length < 3) {
+                player.sendMessage(TextColor.color("&d/order create <amount> <item>"));
                 SoundService.guiError(player, core);
                 return true;
             }
@@ -85,20 +78,20 @@ public final class OrderCommand implements CommandExecutor, TabCompleter {
             int amount;
 
             try {
-                amount = Integer.parseInt(args[2].replace(",", "").replace("_", ""));
+                amount = Integer.parseInt(args[1]);
             } catch (NumberFormatException exception) {
                 player.sendMessage(TextColor.color("&cInvalid amount"));
                 SoundService.guiError(player, core);
                 return true;
             }
 
-            service.create(player, material, amount, args[3]);
+            service.create(player, amount, args[2]);
             return true;
         }
 
         if (args[0].equalsIgnoreCase("reload") && player.hasPermission("mineacleorders.admin")) {
             core.reloadConfig();
-            player.sendMessage(TextColor.color("&#bbbbbbOrders reloaded"));
+            player.sendMessage(TextColor.color("&aOrders reloaded"));
             SoundService.guiConfirm(player, core);
             return true;
         }
@@ -107,41 +100,39 @@ public final class OrderCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
-    private Material material(String raw) {
-        if (raw == null || raw.isBlank()) {
-            return null;
-        }
-
-        try {
-            return Material.valueOf(raw.toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException ignored) {
-            return null;
-        }
-    }
-
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return List.of("create", "search", "clear");
+            List<String> options = new ArrayList<>(List.of("clear", "create", "search"));
+
+            if (sender.hasPermission("mineacleorders.admin")) {
+                options.add("reload");
+            }
+
+            return PlayerTabComplete.options(args[0], options);
         }
 
         if (args.length == 2 && args[0].equalsIgnoreCase("create")) {
-            String partial = args[1].toLowerCase(Locale.ROOT);
-
-            return java.util.Arrays.stream(Material.values())
-                    .filter(Material::isItem)
-                    .map(material -> material.name().toLowerCase(Locale.ROOT))
-                    .filter(name -> name.startsWith(partial))
-                    .limit(50)
-                    .toList();
+            return PlayerTabComplete.options(args[1], List.of("1", "8", "16", "32", "64"));
         }
 
         if (args.length == 3 && args[0].equalsIgnoreCase("create")) {
-            return List.of("64", "128", "256", "512", "2304");
-        }
+            String partial = args[2] == null ? "" : args[2].toLowerCase(Locale.ROOT);
+            List<String> completions = new ArrayList<>();
 
-        if (args.length == 4 && args[0].equalsIgnoreCase("create")) {
-            return List.of("10k", "100k", "1M", "10M");
+            for (Material material : Material.values()) {
+                if (!material.isItem()) {
+                    continue;
+                }
+
+                String name = material.name().toLowerCase(Locale.ROOT);
+
+                if (partial.isEmpty() || name.startsWith(partial)) {
+                    completions.add(name);
+                }
+            }
+
+            return completions;
         }
 
         return List.of();
