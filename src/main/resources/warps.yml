@@ -38,19 +38,39 @@ gui:
     - "&#ff88ffClick to warp"
 
 warps:
-  spawn:
-    enabled: true
-    slot: 22
-    display-name: "&dSpawn"
-    material: NETHER_STAR
-    world: spawn1
-    x: 0.5
-    y: 65.0
-    z: 0.5
-    yaw: 0.0
-    pitch: 0.0
-    lore:
-      - "&#bbbbbbReturn to the main spawn area"
-      - "&#bbbbbbTeleport: &d%mode%"
-      - ""
-      - "&#ff88ffClick to warp"
+  crates:
+    display-name: crates
+    material: ENDER_PEARL
+    slot: 13
+    x: -15.704009628228908
+    y: 67.0
+    z: -36.47093722693274
+    yaw: 115.05046
+    pitch: -1.1533499E-5
+  stats:
+    display-name: stats
+    material: ENDER_PEARL
+    slot: 13
+    x: 16.59010788720482
+    y: 67.0
+    z: -36.60541724247407
+    yaw: -115.04956
+    pitch: -4.7832727E-5
+  market:
+    display-name: market
+    material: ENDER_PEARL
+    slot: 13
+    x: 36.620157730516226
+    y: 76.0
+    z: -95.48015104715984
+    yaw: -115.049355
+    pitch: -2.6077032E-5
+  duels:
+    display-name: duels
+    material: ENDER_PEARL
+    slot: 13
+    x: -35.616630778779154
+    y: 76.0
+    z: -95.50583657091839
+    yaw: 115.0506
+    pitch: -3.066659E-5
