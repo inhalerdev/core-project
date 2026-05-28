@@ -1,12 +1,12 @@
-package net.mineacle.core.warps;
+package net.mineacle.core.warp;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
-import net.mineacle.core.warps.command.DelWarpCommand;
-import net.mineacle.core.warps.command.SetWarpCommand;
-import net.mineacle.core.warps.command.WarpCommand;
-import net.mineacle.core.warps.service.WarpService;
-import net.mineacle.core.warps.service.WarpTeleportService;
+import net.mineacle.core.warp.command.DelWarpCommand;
+import net.mineacle.core.warp.command.SetWarpCommand;
+import net.mineacle.core.warp.command.WarpCommand;
+import net.mineacle.core.warp.service.WarpService;
+import net.mineacle.core.warp.service.WarpTeleportService;
 import org.bukkit.command.PluginCommand;
 
 public final class WarpModule extends Module {
@@ -16,7 +16,7 @@ public final class WarpModule extends Module {
 
     @Override
     public String name() {
-        return "Warps";
+        return "Warp";
     }
 
     @Override

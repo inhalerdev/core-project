@@ -1,9 +1,9 @@
-package net.mineacle.core.warps.command;
+package net.mineacle.core.warp.command;
 
 import net.mineacle.core.common.text.TextColor;
-import net.mineacle.core.warps.model.WarpPoint;
-import net.mineacle.core.warps.service.WarpService;
-import net.mineacle.core.warps.service.WarpTeleportService;
+import net.mineacle.core.warp.model.WarpPoint;
+import net.mineacle.core.warp.service.WarpService;
+import net.mineacle.core.warp.service.WarpTeleportService;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -37,13 +37,13 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args[0].equalsIgnoreCase("reload")) {
-            if (!player.hasPermission("mineaclewarps.admin")) {
+            if (!player.hasPermission("mineaclewarp.admin")) {
                 player.sendMessage(TextColor.color("&cYou do not have permission"));
                 return true;
             }
 
             warpService.reload();
-            player.sendMessage(TextColor.color("&#bbbbbbWarps reloaded"));
+            player.sendMessage(TextColor.color("&#bbbbbbWarp reloaded"));
             return true;
         }
 
@@ -78,13 +78,24 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (!(sender instanceof Player player)) {
+            return List.of();
+        }
+
         if (args.length != 1) {
             return List.of();
         }
 
-        List<String> completions = new ArrayList<>(warpService.warpKeys(""));
+        String partial = args[0].toLowerCase(Locale.ROOT);
+        List<String> completions = new ArrayList<>();
 
-        if (sender.hasPermission("mineaclewarps.admin")) {
+        for (String key : warpService.warpKeys("")) {
+            if (key.toLowerCase(Locale.ROOT).startsWith(partial)) {
+                completions.add(key);
+            }
+        }
+
+        if (player.hasPermission("mineaclewarp.admin") && "reload".startsWith(partial)) {
             completions.add("reload");
         }
 
