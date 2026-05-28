@@ -105,7 +105,7 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length < 2) {
-            player.sendMessage(TextColor.color("&cUsage: /sell demand <recalc|reset|item>"));
+            player.sendMessage(TextColor.color("&cUsage: /sell demand <item|recalc|reset>"));
             SoundService.guiError(player, core);
             return;
         }
@@ -197,9 +197,9 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 1) {
-            String partial = args[0].toLowerCase(Locale.ROOT);
+            String partial = args[0] == null ? "" : args[0].toLowerCase(Locale.ROOT);
 
-            for (String option : List.of("history", "worth", "multi", "hand", "reload", "demand")) {
+            for (String option : List.of("demand", "hand", "history", "multi", "reload", "worth")) {
                 if (option.startsWith(partial)) {
                     completions.add(option);
                 }
@@ -209,7 +209,7 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 2 && args[0].equalsIgnoreCase("demand") && sender.hasPermission("mineaclesell.admin")) {
-            String partial = args[1].toLowerCase(Locale.ROOT);
+            String partial = args[1] == null ? "" : args[1].toLowerCase(Locale.ROOT);
 
             for (String option : List.of("recalc", "reset")) {
                 if (option.startsWith(partial)) {
@@ -224,7 +224,7 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
 
                 String name = material.name().toLowerCase(Locale.ROOT);
 
-                if (name.startsWith(partial)) {
+                if (partial.isEmpty() || name.startsWith(partial)) {
                     completions.add(name);
                 }
             }

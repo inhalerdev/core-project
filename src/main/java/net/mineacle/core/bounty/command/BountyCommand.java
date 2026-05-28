@@ -119,7 +119,6 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
 
         player.setMetadata(META_TARGET, new FixedMetadataValue(core, target.getUniqueId().toString()));
         player.setMetadata(META_AMOUNT, new FixedMetadataValue(core, amount));
-
         BountyConfirmGui.open(core, player, target, amount, bountyService);
         return true;
     }
@@ -173,7 +172,7 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 1) {
-            String partial = args[0].toLowerCase(Locale.ROOT);
+            String partial = args[0] == null ? "" : args[0].toLowerCase(Locale.ROOT);
 
             for (String option : visibleRootOptions(player)) {
                 if (option.startsWith(partial)) {
@@ -185,14 +184,14 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 2 && isPlaceSubcommand(args[0])) {
-            String partial = args[1];
+            String partial = args[1] == null ? "" : args[1];
 
             for (Player target : Bukkit.getOnlinePlayers()) {
                 if (target.getUniqueId().equals(player.getUniqueId())) {
                     continue;
                 }
 
-                if (DisplayNames.startsWithDisplay(target, partial)) {
+                if (partial.isBlank() || DisplayNames.startsWithDisplay(target, partial)) {
                     completions.add(DisplayNames.commandDisplayName(target));
                 }
             }
@@ -201,10 +200,10 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 2 && args[0].equalsIgnoreCase("remove") && player.hasPermission("mineaclebounty.admin")) {
-            String partial = args[1];
+            String partial = args[1] == null ? "" : args[1];
 
             for (Player target : Bukkit.getOnlinePlayers()) {
-                if (DisplayNames.startsWithDisplay(target, partial)) {
+                if (partial.isBlank() || DisplayNames.startsWithDisplay(target, partial)) {
                     completions.add(DisplayNames.commandDisplayName(target));
                 }
             }
@@ -213,10 +212,10 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 3 && isPlaceSubcommand(args[0])) {
-            String partial = args[2].toLowerCase(Locale.ROOT);
+            String partial = args[2] == null ? "" : args[2].toLowerCase(Locale.ROOT);
 
             for (String option : List.of("1k", "10k", "100k", "1M", "10M", "100M", "1B")) {
-                if (option.toLowerCase(Locale.ROOT).startsWith(partial)) {
+                if (partial.isEmpty() || option.toLowerCase(Locale.ROOT).startsWith(partial)) {
                     completions.add(option);
                 }
             }
@@ -239,8 +238,6 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean isPlaceSubcommand(String input) {
-        return input.equalsIgnoreCase("add")
-                || input.equalsIgnoreCase("set")
-                || input.equalsIgnoreCase("place");
+        return input.equalsIgnoreCase("add") || input.equalsIgnoreCase("set") || input.equalsIgnoreCase("place");
     }
 }

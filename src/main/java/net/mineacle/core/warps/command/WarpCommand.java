@@ -82,7 +82,7 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
             return List.of();
         }
 
-        String partial = args[0] == null ? "" : args[0].toLowerCase(Locale.ROOT);
+        String partial = args[0] == null ? "" : args[0].trim().toLowerCase(Locale.ROOT);
         List<String> completions = new ArrayList<>(warpService.warpKeys(partial));
 
         if (sender.hasPermission("mineaclewarps.admin") && "reload".startsWith(partial)) {

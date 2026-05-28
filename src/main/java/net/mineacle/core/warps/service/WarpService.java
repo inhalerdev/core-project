@@ -207,16 +207,15 @@ public final class WarpService {
     public List<String> warpKeys(String partial) {
         String normalized = partial == null ? "" : partial.trim().toLowerCase(Locale.ROOT);
         ConfigurationSection section = config().getConfigurationSection("warps");
-        List<String> keys = new ArrayList<>();
 
         if (section == null) {
-            return keys;
+            return Collections.emptyList();
         }
 
-        for (String key : section.getKeys(false)) {
-            String normalizedKey = key.toLowerCase(Locale.ROOT);
+        List<String> keys = new ArrayList<>();
 
-            if (normalized.isEmpty() || normalizedKey.startsWith(normalized)) {
+        for (String key : section.getKeys(false)) {
+            if (normalized.isEmpty() || key.toLowerCase(Locale.ROOT).startsWith(normalized)) {
                 keys.add(key);
             }
         }

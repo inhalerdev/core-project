@@ -57,7 +57,9 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
             case "tpa", "tpask" -> handleTpa(player, args, TpaRequestType.TO_TARGET);
             case "tpahere", "tphere", "tpah" -> handleTpa(player, args, TpaRequestType.HERE);
             case "tpaccept", "tpyes", "accepttp" -> handleAccept(player);
-            case "tpdeny", "tpno", "denytp" -> handleDeny(player);
+            case "tpadeny", "tpdeny", "tpno", "denytp" -> handleDeny(player);
+            case "tpacancel" -> handleCancel(player);
+            case "tpauto" -> handleAuto(player);
             default -> true;
         };
     }
@@ -87,6 +89,16 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        if (tpaService.isAutoAccepting(target.getUniqueId()) && type == TpaRequestType.TO_TARGET) {
+            sendBoth(requester, "&#bbbbbbTeleport request auto accepted");
+            SoundService.teleportRequest(requester, core);
+            teleportService.begin(requester, "TPA", () -> {
+                requester.teleport(target.getLocation());
+                sendBoth(requester, "&#bbbbbbTeleported to &#ff88ff" + DisplayNames.displayName(target));
+            });
+            return true;
+        }
+
         if (!tpaService.createRequest(requester, target, type)) {
             sendBoth(requester, "&cCould not send teleport request");
             SoundService.guiError(requester, core);
@@ -98,7 +110,6 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
 
         sendBoth(requester, "&aTeleport request sent to " + targetName);
         SoundService.teleportRequest(requester, core);
-
         sendRequestMessage(requester, target, requesterName, type);
         SoundService.teleportReceived(target, core);
         scheduleExpiration(requester, target, targetName);
@@ -114,15 +125,11 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
         target.sendMessage(legacy(mainLine));
 
         Component accept = legacy("&d[Accept]").clickEvent(ClickEvent.runCommand("/tpaccept"));
-        Component deny = legacy("&d[Deny]").clickEvent(ClickEvent.runCommand("/tpdeny"));
-        Component view = legacy("&d[View]").clickEvent(ClickEvent.runCommand("/tpaccept"));
-
+        Component deny = legacy("&d[Deny]").clickEvent(ClickEvent.runCommand("/tpadeny"));
         Component buttons = legacy("&#bbbbbbRespond ")
                 .append(accept)
                 .append(Component.space())
-                .append(deny)
-                .append(Component.space())
-                .append(view);
+                .append(deny);
 
         target.sendMessage(buttons);
     }
@@ -189,29 +196,67 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    private boolean handleCancel(Player player) {
+        TpaRequest request = tpaService.removeOutgoing(player.getUniqueId());
+
+        if (request == null) {
+            sendBoth(player, "&cYou have no outgoing teleport request");
+            SoundService.guiError(player, core);
+            return true;
+        }
+
+        Player target = tpaService.target(request);
+
+        sendBoth(player, "&cTeleport request cancelled");
+        SoundService.guiCancel(player, core);
+
+        if (target != null && target.isOnline()) {
+            sendBoth(target, "&cTeleport request cancelled");
+            SoundService.guiCancel(target, core);
+        }
+
+        return true;
+    }
+
+    private boolean handleAuto(Player player) {
+        boolean enabled = tpaService.toggleAutoAccept(player.getUniqueId());
+        sendBoth(player, enabled ? "&#bbbbbbTPA auto accept enabled" : "&#bbbbbbTPA auto accept disabled");
+
+        if (enabled) {
+            SoundService.featureEnable(player, core);
+        } else {
+            SoundService.featureDisable(player, core);
+        }
+
+        return true;
+    }
+
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> completions = new ArrayList<>();
-
         if (!(sender instanceof Player player)) {
-            return completions;
+            return List.of();
         }
 
         if (!player.hasPermission("mineacletpa.use")) {
-            return completions;
+            return List.of();
         }
 
         String commandName = alias.toLowerCase(Locale.ROOT);
 
-        if ((commandName.equals("tpa") || commandName.equals("tpask") || commandName.equals("tpahere") || commandName.equals("tphere") || commandName.equals("tpah")) && args.length == 1) {
+        if ((commandName.equals("tpa")
+                || commandName.equals("tpask")
+                || commandName.equals("tpahere")
+                || commandName.equals("tphere")
+                || commandName.equals("tpah"))
+                && args.length == 1) {
             return onlinePlayerCompletions(player, args[0]);
         }
 
-        return completions;
+        return List.of();
     }
 
     private List<String> onlinePlayerCompletions(Player player, String input) {
-        String partial = input.toLowerCase(Locale.ROOT);
+        String partial = input == null ? "" : input.toLowerCase(Locale.ROOT);
         Set<String> completions = new LinkedHashSet<>();
 
         for (Player online : Bukkit.getOnlinePlayers()) {
@@ -223,15 +268,15 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
             String displayName = DisplayNames.displayName(online);
             String username = online.getName();
 
-            if (commandName.toLowerCase(Locale.ROOT).startsWith(partial)) {
+            if (partial.isEmpty() || commandName.toLowerCase(Locale.ROOT).startsWith(partial)) {
                 completions.add(commandName);
             }
 
-            if (displayName.toLowerCase(Locale.ROOT).startsWith(partial)) {
+            if (partial.isEmpty() || displayName.toLowerCase(Locale.ROOT).startsWith(partial)) {
                 completions.add(commandName);
             }
 
-            if (username.toLowerCase(Locale.ROOT).startsWith(partial)) {
+            if (partial.isEmpty() || username.toLowerCase(Locale.ROOT).startsWith(partial)) {
                 completions.add(username);
             }
         }

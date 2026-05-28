@@ -1,13 +1,12 @@
 package net.mineacle.core.common.sound;
 
 import net.mineacle.core.Core;
-import org.bukkit.NamespacedKey;
-import org.bukkit.Registry;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 
 import java.util.Locale;
 
+@SuppressWarnings({"deprecation", "removal"})
 public final class SoundService {
 
     private SoundService() {
@@ -51,30 +50,13 @@ public final class SoundService {
     }
 
     private static Sound resolveSound(String input) {
-        String normalized = input.trim().toLowerCase(Locale.ROOT);
-        NamespacedKey key;
+        String normalized = input.trim();
 
-        if (normalized.contains(":")) {
-            key = NamespacedKey.fromString(normalized);
-        } else {
-            key = NamespacedKey.minecraft(toSoundKey(normalized));
-        }
-
-        if (key == null) {
+        try {
+            return Sound.valueOf(normalized.toUpperCase(Locale.ROOT).replace(':', '_').replace('.', '_'));
+        } catch (IllegalArgumentException ignored) {
             return null;
         }
-
-        return Registry.SOUNDS.get(key);
-    }
-
-    private static String toSoundKey(String input) {
-        String cleaned = input.trim().toLowerCase(Locale.ROOT);
-
-        if (cleaned.indexOf('.') >= 0) {
-            return cleaned;
-        }
-
-        return cleaned.replace('_', '.');
     }
 
     public static void guiClick(Player player, Core core) {
@@ -113,8 +95,16 @@ public final class SoundService {
         play(player, core, "teleport.countdown");
     }
 
+    public static void teleportTick(Player player, Core core) {
+        teleportCountdown(player, core);
+    }
+
     public static void teleportCancelled(Player player, Core core) {
         play(player, core, "teleport.cancelled");
+    }
+
+    public static void teleportCancel(Player player, Core core) {
+        teleportCancelled(player, core);
     }
 
     public static void teleportComplete(Player player, Core core) {

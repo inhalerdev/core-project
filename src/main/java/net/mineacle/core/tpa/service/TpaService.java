@@ -6,7 +6,6 @@ import org.bukkit.entity.Player;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -70,31 +69,29 @@ public final class TpaService {
         return requestsByTarget.remove(targetId);
     }
 
-    public TpaRequest cancelOutgoing(UUID requesterId) {
-        if (requesterId == null) {
-            return null;
-        }
-
-        Iterator<Map.Entry<UUID, TpaRequest>> iterator = requestsByTarget.entrySet().iterator();
-
-        while (iterator.hasNext()) {
-            Map.Entry<UUID, TpaRequest> entry = iterator.next();
-            TpaRequest request = entry.getValue();
-
-            if (!request.requesterId().equals(requesterId)) {
-                continue;
+    public TpaRequest removeOutgoing(UUID requesterId) {
+        for (Map.Entry<UUID, TpaRequest> entry : new HashMap<>(requestsByTarget).entrySet()) {
+            if (entry.getValue().requesterId().equals(requesterId)) {
+                requestsByTarget.remove(entry.getKey());
+                return entry.getValue();
             }
-
-            iterator.remove();
-            return request;
         }
 
         return null;
     }
 
+    public boolean hasOutgoing(UUID requesterId) {
+        for (TpaRequest request : requestsByTarget.values()) {
+            if (request.requesterId().equals(requesterId) && !isExpired(request)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public boolean toggleAutoAccept(UUID playerId) {
-        if (autoAccept.contains(playerId)) {
-            autoAccept.remove(playerId);
+        if (autoAccept.remove(playerId)) {
             return false;
         }
 
@@ -102,14 +99,16 @@ public final class TpaService {
         return true;
     }
 
-    public boolean autoAccepts(UUID playerId) {
+    public boolean isAutoAccepting(UUID playerId) {
         return autoAccept.contains(playerId);
     }
 
     public void clear(UUID playerId) {
         requestsByTarget.remove(playerId);
-        requestsByTarget.entrySet().removeIf(entry -> entry.getValue().requesterId().equals(playerId)
-                || entry.getValue().targetId().equals(playerId));
+        requestsByTarget.entrySet().removeIf(entry ->
+                entry.getValue().requesterId().equals(playerId)
+                        || entry.getValue().targetId().equals(playerId)
+        );
         autoAccept.remove(playerId);
     }
 
