@@ -1,6 +1,7 @@
 package net.mineacle.core.guide.command;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.guide.service.GuideMenuService;
 import org.bukkit.command.Command;
@@ -43,7 +44,7 @@ public final class GuideCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        service.open(player, menuKey);
+        MenuHistory.openRoot(core, player, () -> service.open(player, menuKey));
         return true;
     }
 

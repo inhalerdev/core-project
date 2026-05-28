@@ -16,8 +16,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Random;
 
 public final class WarpService {
@@ -25,17 +27,12 @@ public final class WarpService {
     private final Core core;
     private final File file;
     private final Random random = new Random();
-
     private FileConfiguration config;
 
     public WarpService(Core core) {
         this.core = core;
         this.file = new File(core.getDataFolder(), "warps.yml");
         reload();
-    }
-
-    public Core core() {
-        return core;
     }
 
     public void reload() {
@@ -50,18 +47,115 @@ public final class WarpService {
         config = YamlConfiguration.loadConfiguration(file);
     }
 
-    private void ensureLoaded() {
+    private FileConfiguration config() {
         if (config == null) {
             reload();
         }
+
+        return config;
+    }
+
+    public String noPermissionMessage() {
+        return TextColor.color(config().getString("messages.no-permission", "&cYou do not have permission"));
+    }
+
+    public String notFoundMessage(String name) {
+        return TextColor.color(config().getString("messages.not-found", "&cWarp not found").replace("%warp%", name));
+    }
+
+    public String setMessage(String name) {
+        return TextColor.color(config().getString("messages.set", "&#bbbbbbWarp &d%warp% &#bbbbbbset").replace("%warp%", name));
+    }
+
+    public String deletedMessage(String name) {
+        return TextColor.color(config().getString("messages.deleted", "&#bbbbbbWarp &d%warp% &#bbbbbbdeleted").replace("%warp%", name));
+    }
+
+    public String teleportMessage(String name) {
+        return TextColor.color(config().getString("messages.teleported", "&#bbbbbbWarped to &d%warp%").replace("%warp%", name));
+    }
+
+    public String startingMessage(String name, int seconds) {
+        return TextColor.color(config().getString("messages.starting", "&#bbbbbbWarping to &d%warp% &#bbbbbbin &d%seconds%s")
+                .replace("%warp%", name)
+                .replace("%seconds%", String.valueOf(seconds)));
+    }
+
+    public String cancelledMessage() {
+        return TextColor.color(config().getString("messages.cancelled", "&cTeleport cancelled — you moved"));
+    }
+
+    public List<String> spawnWorlds() {
+        List<String> worlds = config().getStringList("spawn-worlds");
+
+        if (worlds.isEmpty()) {
+            return List.of("spawn1", "spawn2", "spawn3");
+        }
+
+        return worlds;
+    }
+
+    public boolean isSpawnWorld(String worldName) {
+        if (worldName == null) {
+            return false;
+        }
+
+        for (String world : spawnWorlds()) {
+            if (world.equalsIgnoreCase(worldName)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public int countdownSeconds(Player player) {
+        if (isSpawnWorld(player.getWorld().getName())) {
+            return 0;
+        }
+
+        if (player.isOp() || player.hasPermission("mineacle.plus") || player.hasPermission("mineaclewarps.admin")) {
+            return config().getInt("teleport.plus-delay-seconds", 3);
+        }
+
+        return config().getInt("teleport.default-delay-seconds", 5);
+    }
+
+    public Location targetLocation(Player player, WarpPoint point) {
+        World world;
+
+        if (isSpawnWorld(player.getWorld().getName())) {
+            world = player.getWorld();
+        } else {
+            world = randomLoadedSpawnWorld().orElse(player.getWorld());
+        }
+
+        return new Location(world, point.x(), point.y(), point.z(), point.yaw(), point.pitch());
+    }
+
+    public Optional<World> randomLoadedSpawnWorld() {
+        List<World> loaded = new ArrayList<>();
+
+        for (String worldName : spawnWorlds()) {
+            World world = Bukkit.getWorld(worldName);
+
+            if (world != null) {
+                loaded.add(world);
+            }
+        }
+
+        if (loaded.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(loaded.get(random.nextInt(loaded.size())));
     }
 
     public List<WarpPoint> warps() {
-        ensureLoaded();
+        ConfigurationSection section = config().getConfigurationSection("warps");
 
-        ConfigurationSection section = config.getConfigurationSection("warps");
         if (section == null) {
-            return List.of();
+            return Collections.emptyList();
         }
 
         List<WarpPoint> points = new ArrayList<>();
@@ -74,16 +168,39 @@ public final class WarpService {
             }
         }
 
-        points.sort((first, second) -> {
-            int slotCompare = Integer.compare(first.slot(), second.slot());
-            if (slotCompare != 0) {
-                return slotCompare;
-            }
-
-            return first.key().compareToIgnoreCase(second.key());
-        });
-
+        points.sort(Comparator.comparingInt(WarpPoint::slot).thenComparing(WarpPoint::key));
         return points;
+    }
+
+    public WarpPoint warp(String input) {
+        if (input == null || input.isBlank()) {
+            return null;
+        }
+
+        String key = input.toLowerCase(Locale.ROOT);
+        ConfigurationSection section = config().getConfigurationSection("warps." + key);
+
+        if (section == null) {
+            return null;
+        }
+
+        Material material = Material.matchMaterial(section.getString("material", "ENDER_PEARL"));
+
+        if (material == null) {
+            material = Material.ENDER_PEARL;
+        }
+
+        return new WarpPoint(
+                key,
+                section.getString("display-name", "&d" + key),
+                material,
+                section.getInt("slot", 13),
+                section.getDouble("x", 0.5D),
+                section.getDouble("y", 65.0D),
+                section.getDouble("z", 0.5D),
+                (float) section.getDouble("yaw", 0.0D),
+                (float) section.getDouble("pitch", 0.0D)
+        );
     }
 
     public List<String> warpKeys(String partial) {
@@ -99,199 +216,35 @@ public final class WarpService {
         return keys;
     }
 
-    public WarpPoint warp(String input) {
-        ensureLoaded();
+    public void setWarp(String key, Player player, int slot, String displayName) throws IOException {
+        String normalized = key.toLowerCase(Locale.ROOT);
+        Location location = player.getLocation();
+        String path = "warps." + normalized;
 
-        if (input == null || input.isBlank()) {
-            return null;
-        }
-
-        String key = normalizeKey(input);
-        String path = "warps." + key;
-
-        if (!config.isConfigurationSection(path)) {
-            return null;
-        }
-
-        String displayName = config.getString(path + ".display-name", "&d" + key);
-        Material material = parseMaterial(config.getString(path + ".material", "ENDER_PEARL"));
-        int slot = config.getInt(path + ".slot", 13);
-
-        double x = config.getDouble(path + ".x", 0.5D);
-        double y = config.getDouble(path + ".y", 65.0D);
-        double z = config.getDouble(path + ".z", 0.5D);
-        float yaw = (float) config.getDouble(path + ".yaw", 0.0D);
-        float pitch = (float) config.getDouble(path + ".pitch", 0.0D);
-
-        return new WarpPoint(key, displayName, material, slot, x, y, z, yaw, pitch);
+        config().set(path + ".display-name", displayName == null || displayName.isBlank() ? "&d" + normalized : displayName);
+        config().set(path + ".material", "ENDER_PEARL");
+        config().set(path + ".slot", slot);
+        config().set(path + ".x", location.getX());
+        config().set(path + ".y", location.getY());
+        config().set(path + ".z", location.getZ());
+        config().set(path + ".yaw", location.getYaw());
+        config().set(path + ".pitch", location.getPitch());
+        save();
     }
 
-    public void setWarp(String keyInput, Player player, int slot, String displayName) throws IOException {
-        ensureLoaded();
+    public boolean deleteWarp(String key) throws IOException {
+        String normalized = key.toLowerCase(Locale.ROOT);
 
-        String key = normalizeKey(keyInput);
-        String path = "warps." + key;
-
-        config.set(path + ".display-name", displayName == null || displayName.isBlank() ? "&d" + key : displayName);
-        config.set(path + ".material", player.getInventory().getItemInMainHand().getType().isAir()
-                ? "ENDER_PEARL"
-                : player.getInventory().getItemInMainHand().getType().name());
-        config.set(path + ".slot", slot);
-        config.set(path + ".x", player.getLocation().getX());
-        config.set(path + ".y", player.getLocation().getY());
-        config.set(path + ".z", player.getLocation().getZ());
-        config.set(path + ".yaw", player.getLocation().getYaw());
-        config.set(path + ".pitch", player.getLocation().getPitch());
-
-        config.save(file);
-    }
-
-    public boolean deleteWarp(String keyInput) throws IOException {
-        ensureLoaded();
-
-        String key = normalizeKey(keyInput);
-        String path = "warps." + key;
-
-        if (!config.isConfigurationSection(path)) {
+        if (!config().contains("warps." + normalized)) {
             return false;
         }
 
-        config.set(path, null);
-        config.save(file);
+        config().set("warps." + normalized, null);
+        save();
         return true;
     }
 
-    public int countdownSeconds(Player player) {
-        ensureLoaded();
-
-        if (player == null || isSpawnWorld(player.getWorld().getName())) {
-            return 0;
-        }
-
-        if (player.hasPermission("mineacle.plus") || player.hasPermission("mineaclewarps.admin")) {
-            return Math.max(0, config.getInt("teleport.plus-delay-seconds", 3));
-        }
-
-        return Math.max(0, config.getInt("teleport.default-delay-seconds", 5));
-    }
-
-    public Location targetLocation(Player player, WarpPoint point) {
-        World world;
-
-        if (player != null && isSpawnWorld(player.getWorld().getName())) {
-            world = player.getWorld();
-        } else {
-            world = randomSpawnWorld();
-
-            if (world == null && player != null) {
-                world = player.getWorld();
-            }
-        }
-
-        if (world == null) {
-            world = Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().get(0);
-        }
-
-        if (world == null) {
-            throw new IllegalStateException("No loaded world is available for warp " + point.key());
-        }
-
-        return new Location(world, point.x(), point.y(), point.z(), point.yaw(), point.pitch());
-    }
-
-    public boolean isSpawnWorld(String worldName) {
-        if (worldName == null) {
-            return false;
-        }
-
-        for (String spawnWorld : spawnWorlds()) {
-            if (spawnWorld.equalsIgnoreCase(worldName)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private World randomSpawnWorld() {
-        List<World> loaded = new ArrayList<>();
-
-        for (String name : spawnWorlds()) {
-            World world = Bukkit.getWorld(name);
-
-            if (world != null) {
-                loaded.add(world);
-            }
-        }
-
-        if (loaded.isEmpty()) {
-            return null;
-        }
-
-        return loaded.get(random.nextInt(loaded.size()));
-    }
-
-    private List<String> spawnWorlds() {
-        ensureLoaded();
-
-        List<String> worlds = config.getStringList("spawn-worlds");
-
-        if (worlds.isEmpty()) {
-            return List.of("spawn1", "spawn2", "spawn3");
-        }
-
-        return Collections.unmodifiableList(worlds);
-    }
-
-    public String noPermissionMessage() {
-        return message("messages.no-permission", "&cYou do not have permission");
-    }
-
-    public String notFoundMessage(String warp) {
-        return message("messages.not-found", "&cWarp not found").replace("%warp%", warp);
-    }
-
-    public String setMessage(String warp) {
-        return message("messages.set", "&#bbbbbbWarp &d%warp% &#bbbbbbset").replace("%warp%", warp);
-    }
-
-    public String deletedMessage(String warp) {
-        return message("messages.deleted", "&#bbbbbbWarp &d%warp% &#bbbbbbdeleted").replace("%warp%", warp);
-    }
-
-    public String teleportMessage(String warp) {
-        return message("messages.teleported", "&#bbbbbbWarped to &d%warp%").replace("%warp%", warp);
-    }
-
-    public String startingMessage(String warp, int seconds) {
-        return message("messages.starting", "&#bbbbbbWarping to &d%warp% &#bbbbbbin &d%seconds%s")
-                .replace("%warp%", warp)
-                .replace("%seconds%", String.valueOf(seconds));
-    }
-
-    public String cancelledMessage() {
-        return message("messages.cancelled", "&cTeleport cancelled — you moved");
-    }
-
-    private String message(String path, String fallback) {
-        ensureLoaded();
-        return TextColor.color(config.getString(path, fallback));
-    }
-
-    private Material parseMaterial(String value) {
-        if (value == null || value.isBlank()) {
-            return Material.ENDER_PEARL;
-        }
-
-        try {
-            Material material = Material.valueOf(value.toUpperCase(Locale.ROOT));
-            return material.isAir() ? Material.ENDER_PEARL : material;
-        } catch (IllegalArgumentException ignored) {
-            return Material.ENDER_PEARL;
-        }
-    }
-
-    private String normalizeKey(String input) {
-        return input.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "");
+    private void save() throws IOException {
+        config().save(file);
     }
 }

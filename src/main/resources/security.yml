@@ -1,15 +1,20 @@
 # MineacleCore command security
-# Controls root / tab visibility and which player commands may run.
-# Command matching is case-insensitive; keep command names lowercase here.
+# This file controls which root slash commands are visible in / tab completion
+# and which player commands are allowed to run.
 
 enabled: true
+
+# Players with this permission bypass command blocking and tab filtering.
 bypass-permission: mineaclesecurity.bypass
+
 unknown-command-message: "&cThis command does not exist"
 reload-message: "&#bbbbbbSecurity reloaded"
-usage-message: "&#bbbbbbUsage: &d/mineaclesecurity reload"
-groups-message: "&#bbbbbbActive command groups: &d%groups%"
 
+# If true, players may only run commands listed in one of their active groups.
+# Console is not affected.
 block-unlisted-player-commands: true
+
+# If true, namespaced backend commands like /bukkit:plugins and /minecraft:me are hidden/blocked.
 block-namespaced-commands: true
 
 blocked-prefixes:
@@ -80,7 +85,7 @@ blocked-commands:
   - "mvinv"
   - "noplugins"
   - "noplm"
-  - "nuvotifier"
+  - "nuVotifier"
   - "papi"
   - "paper"
   - "paper:paper"
@@ -122,6 +127,7 @@ blocked-commands:
   - "worldedit"
   - "worldguard"
 
+# Always blocked for players unless they have the bypass permission.
 console-only-commands:
   - "ban-ip"
   - "deop"
@@ -136,133 +142,103 @@ console-only-commands:
   - "stop"
   - "whitelist"
 
+# Edit tab/command visibility here.
+# A group is active when permission is blank, or the player has the permission.
+# Groups can inherit another group's command list.
+# priority only controls load/order display; all active groups combine together.
 groups:
   default:
     permission: ""
     priority: 0
     inherits: []
-    visible-commands:
+    commands:
       - "bal"
+      - "balance"
+      - "balancetop"
       - "baltop"
       - "bounty"
+      - "buy"
+      - "delhome"
       - "discord"
       - "guide"
       - "home"
       - "ignore"
       - "ignorelist"
+      - "link"
+      - "links"
       - "msg"
       - "order"
+      - "orders"
       - "pay"
-      - "r"
-      - "rules"
+      - "renamehome"
+      - "reply"
       - "rtp"
+      - "rules"
       - "sell"
       - "sellmulti"
       - "sethome"
+      - "shop"
       - "spawn"
       - "stats"
       - "store"
       - "team"
+      - "tell"
       - "tpa"
       - "tpaccept"
       - "tpahere"
       - "tpdeny"
-      - "warp"
-      - "worth"
-      - "x"
-    hidden-commands:
-      - "accepttp"
-      - "balance"
-      - "balancetop"
-      - "buy"
-      - "delhome"
-      - "dc"
-      - "denytp"
-      - "h"
-      - "help"
-      - "homes"
-      - "itemprices"
-      - "link"
-      - "links"
-      - "lobby"
-      - "m"
-      - "money"
-      - "orders"
-      - "originrtp"
-      - "originsrtp"
-      - "prices"
-      - "renamehome"
-      - "reply"
-      - "shop"
-      - "social"
-      - "socials"
-      - "teams"
-      - "tell"
-      - "tpah"
-      - "tphere"
-      - "tpask"
-      - "tpno"
-      - "tpyes"
-      - "twitter"
-      - "w"
-      - "warps"
       - "whisper"
       - "wild"
-    allowed-commands:
-      - "tpamenu"
+      - "x"
 
   plus:
     permission: "mineacle.plus"
     priority: 10
     inherits:
       - "default"
-    visible-commands:
+    commands:
       - "fly"
       - "hide"
       - "nick"
-    hidden-commands: []
-    allowed-commands: []
 
   admin:
     permission: "mineaclesecurity.group.admin"
     priority: 100
     inherits:
       - "plus"
-    visible-commands:
+    commands:
       - "ban"
-      - "delwarp"
+      - "banmenu"
+      - "baltop"
       - "eco"
       - "enchant"
-      - "enchantinfo"
       - "gamemode"
       - "gma"
       - "gmc"
       - "gmsp"
       - "gms"
-      - "history"
+      - "guide"
+      - "help"
+      - "home"
+      - "homes"
       - "kick"
-      - "mineaclesecurity"
-      - "mute"
-      - "setwarp"
-      - "tempban"
-      - "tempmute"
-      - "tp"
-      - "unban"
-      - "unmute"
-      - "warn"
-    hidden-commands:
-      - "doublejump"
-      - "enchantments"
+      - "links"
       - "mineaclecore"
       - "mineaclehomes"
       - "mineaclenametags"
+      - "mineaclesecurity"
+      - "money"
+      - "mute"
       - "nametags"
+      - "punish"
       - "realname"
-    allowed-commands:
-      - "banlist"
-      - "checkban"
-      - "checkmute"
-      - "dupeip"
-      - "ipban"
-      - "ipmute"
-      - "staffhistory"
+      - "rules"
+      - "social"
+      - "socials"
+      - "tempban"
+      - "tempmute"
+      - "twitter"
+      - "unban"
+      - "unmute"
+      - "warn"
+      - "w"

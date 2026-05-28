@@ -43,7 +43,7 @@ public final class GuideMenuListener implements Listener {
             return;
         }
 
-        service.execute(player, commands);
+        service.execute(player, holder.menuKey(), commands);
     }
 
     @EventHandler

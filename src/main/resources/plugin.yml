@@ -12,36 +12,28 @@ commands:
     aliases: [help, mineacle]
     usage: /guide
     permission: mineacleguide.use
-  rules:
-    description: Open the Mineacle rules menu
-    usage: /rules
-    permission: mineacleguide.use
+
   home:
     description: Open your homes menu
-    aliases: [homes, h]
-    usage: /home
+    aliases: [homes]
     permission: mineaclehomes.use
   sethome:
     description: Set a named home
-    usage: /sethome <name>
     permission: mineaclehomes.use
   delhome:
     description: Delete a named home
-    usage: /delhome <name>
     permission: mineaclehomes.use
   renamehome:
     description: Rename a saved home
-    usage: /renamehome <name> <new name>
     permission: mineaclehomes.use
   mineaclehomes:
     description: Reload homes config
-    usage: /mineaclehomes reload
     permission: mineaclehomes.admin
+
   team:
     description: Create, join, and manage your team
-    aliases: [teams]
-    usage: /team
     permission: mineacleteams.use
+
   tpa:
     description: Request to teleport to a player
     aliases: [tpask]
@@ -62,85 +54,63 @@ commands:
     aliases: [tpno, denytp]
     usage: /tpdeny
     permission: mineacletpa.use
-  tp:
-    description: Admin teleport command
-    usage: /tp <player> [target]
-    permission: mineacletpa.admin
   tpamenu:
     description: Open teleport request menu for a player
     usage: /tpamenu <player>
     permission: mineacletpa.use
+
   stats:
     description: View player stats
-    usage: /stats [player]
     permission: mineaclestats.use
+
   bal:
     description: View your balance
     aliases: [balance, money]
-    usage: /bal [player]
     permission: mineacleeconomy.use
   pay:
     description: Pay another player
-    usage: /pay <player> <amount>
     permission: mineacleeconomy.pay
   eco:
     description: Manage balances
-    usage: /eco <give|take|set|reset> <player|*|**> [amount]
     permission: mineacleeconomy.admin
   baltop:
     description: View balance top
     aliases: [balancetop]
-    usage: /baltop
     permission: mineaclebaltop.use
+
   msg:
     description: Send a private message
     aliases: [tell, w, whisper, m]
-    usage: /msg <player> <message>
     permission: mineaclechat.message
   r:
     description: Reply to your last private message
     aliases: [reply]
-    usage: /r <message>
     permission: mineaclechat.message
   ignore:
     description: Ignore a player
-    usage: /ignore <player>
     permission: mineaclechat.ignore
   ignorelist:
     description: View ignored players
-    usage: /ignorelist
     permission: mineaclechat.ignore
   nick:
     description: Set your nickname
-    usage: /nick <name|reset>
     permission: mineaclechat.nick
   realname:
     description: Check a player's real name from nickname
-    usage: /realname <name>
     permission: mineaclechat.realname
+
   spawn:
     description: Open the spawn menu
-    aliases: [lobby]
     usage: /spawn
+    aliases: [lobby]
     permission: mineaclespawn.use
-  warp:
-    description: Warp to a public spawn location
-    aliases: [warps]
-    usage: /warp <location>
-    permission: mineaclewarps.use
-  setwarp:
-    description: Set a warp
-    usage: /setwarp <name> [slot] [display name]
-    permission: mineaclewarps.admin
-  delwarp:
-    description: Delete a warp
-    usage: /delwarp <name>
-    permission: mineaclewarps.admin
+
   originrtp:
     description: Queue for random teleport
-    aliases: [rtp, originsrtp, wild]
     usage: /originrtp
+    aliases: [rtp, originsrtp, wild]
     permission: mineaclertp.use
+
   doublejump:
     description: Reload double jump config
     usage: /doublejump reload
@@ -149,28 +119,31 @@ commands:
     description: Toggle flight in spawn worlds
     usage: /fly
     permission: mineaclefly.command
+
   order:
     description: Open player orders
     aliases: [orders]
     usage: /order
     permission: mineacleorders.use
+
   sell:
     description: Open sell menu
     usage: /sell
     permission: mineaclesell.use
   worth:
     description: Open item prices menu
-    aliases: [prices, itemprices]
     usage: /worth
     permission: mineaclesell.use
   sellmulti:
     description: View sell multiplier progress
     usage: /sellmulti
     permission: mineaclesell.use
+
   bounty:
     description: View or place bounties
     usage: /bounty
     permission: mineaclebounty.use
+
   gmc:
     description: Set gamemode creative
     usage: /gmc
@@ -187,6 +160,7 @@ commands:
     description: Set gamemode adventure
     usage: /gma
     permission: mineacle.gamemode
+
   links:
     description: View Mineacle links
     aliases: [link, socials, social]
@@ -207,64 +181,65 @@ commands:
     aliases: [twitter]
     usage: /x
     permission: mineaclelinks.use
+
   hide:
     description: Toggle hidden mode
     usage: /hide
-    permission: mineaclehide.command
+    permission: mineaclehide.use
+
   mineaclenametags:
     description: Reload Mineacle nametags
     aliases: [nametags]
     usage: /mineaclenametags reload
     permission: mineaclenametags.admin
+
   mineaclesecurity:
     description: Reload Mineacle security
     usage: /mineaclesecurity reload
     permission: mineaclesecurity.bypass
-  enchant:
-    description: Enchant the item in your hand
-    usage: /enchant <enchantment> [level] [unsafe]
-    permission: mineacleenchant.admin
-  enchantinfo:
-    description: View enchantment information
-    aliases: [enchantments]
-    usage: /enchantinfo <enchantment>
-    permission: mineacleenchant.admin
+
 
 permissions:
   mineacleguide.use:
     default: true
-  mineacleguide.admin:
-    default: op
+
   mineacle.plus:
     default: false
   mineacle.gamemode:
     default: op
+
   mineaclehomes.use:
     default: true
   mineaclehomes.admin:
     default: op
+
   mineacleteams.use:
     default: true
   mineacleteams.admin:
     default: op
+
   mineacletpa.use:
     default: true
   mineacletpa.admin:
     default: op
+
   mineaclestats.use:
     default: true
   mineaclestats.admin:
     default: op
+
   mineacleeconomy.use:
     default: true
   mineacleeconomy.pay:
     default: true
   mineacleeconomy.admin:
     default: op
+
   mineaclebaltop.use:
     default: true
   mineaclebaltop.admin:
     default: op
+
   mineaclechat.message:
     default: true
   mineaclechat.ignore:
@@ -275,53 +250,57 @@ permissions:
     default: true
   mineaclechat.admin:
     default: op
+
   mineaclespawn.use:
     default: true
   mineaclespawn.admin:
     default: op
-  mineaclewarps.use:
-    default: true
-  mineaclewarps.admin:
-    default: op
+
   mineaclertp.use:
     default: true
   mineaclertp.admin:
     default: op
+
   mineacledoublejump.admin:
     default: op
+
   mineaclefly.command:
     default: true
   mineaclefly.use:
     default: false
   mineaclefly.admin:
     default: op
+
   mineacleorders.use:
     default: true
   mineacleorders.admin:
     default: op
+
   mineaclesell.use:
     default: true
   mineaclesell.admin:
     default: op
+
   mineaclebounty.use:
     default: true
   mineaclebounty.admin:
     default: op
+
   mineaclelinks.use:
     default: true
   mineaclelinks.admin:
     default: op
-  mineaclehide.command:
-    default: true
+
   mineaclehide.use:
     default: false
   mineaclehide.admin:
     default: op
+
   mineaclenametags.admin:
     default: op
+
   mineaclesecurity.bypass:
     default: op
   mineaclesecurity.group.admin:
     default: op
-  mineacleenchant.admin:
-    default: op
+

@@ -3,11 +3,7 @@ package net.mineacle.core.tpa;
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.homes.service.TeleportService;
-import net.mineacle.core.tpa.command.TpCommand;
 import net.mineacle.core.tpa.command.TpaCommand;
-import net.mineacle.core.tpa.command.TpaMenuCommand;
-import net.mineacle.core.tpa.listener.TpaGuiListener;
-import net.mineacle.core.tpa.listener.TpaTargetMenuListener;
 import net.mineacle.core.tpa.service.TpaService;
 import org.bukkit.command.PluginCommand;
 
@@ -27,25 +23,13 @@ public final class TpaModule extends Module {
         this.teleportService = new TeleportService(core);
 
         TpaCommand command = new TpaCommand(core, tpaService, teleportService);
-        TpCommand tpCommand = new TpCommand(core);
-        TpaMenuCommand menuCommand = new TpaMenuCommand(core);
 
         registerCommand(core, "tpa", command);
         registerCommand(core, "tpahere", command);
         registerCommand(core, "tpaccept", command);
-        registerCommand(core, "tpdeny", command);
-        registerCommand(core, "tp", tpCommand);
-        registerCommand(core, "tpamenu", menuCommand);
-
-        core.getServer().getPluginManager().registerEvents(
-                new TpaGuiListener(core, tpaService, teleportService),
-                core
-        );
-
-        core.getServer().getPluginManager().registerEvents(
-                new TpaTargetMenuListener(core, tpaService),
-                core
-        );
+        registerCommand(core, "tpadeny", command);
+        registerCommand(core, "tpacancel", command);
+        registerCommand(core, "tpauto", command);
     }
 
     @Override

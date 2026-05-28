@@ -4,8 +4,8 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
+import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.DisplayNames;
-import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.homes.service.TeleportService;
@@ -13,6 +13,7 @@ import net.mineacle.core.tpa.gui.TpaRequestGui;
 import net.mineacle.core.tpa.service.TpaRequest;
 import net.mineacle.core.tpa.service.TpaRequestType;
 import net.mineacle.core.tpa.service.TpaService;
+import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -20,8 +21,10 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public final class TpaCommand implements CommandExecutor, TabCompleter {
 
@@ -38,155 +41,214 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(core.getMessage("general.players-only"));
+            sender.sendMessage("Players only");
             return true;
         }
 
         if (!player.hasPermission("mineacletpa.use")) {
-            player.sendMessage(core.getMessage("general.no-permission"));
+            sendBoth(player, "&cYou do not have permission");
             SoundService.guiError(player, core);
             return true;
         }
 
-        String used = label == null || label.isBlank() ? command.getName() : label;
-        String name = used.toLowerCase(Locale.ROOT);
+        String commandName = label.toLowerCase(Locale.ROOT);
 
-        if (name.equals("tpaccept") || name.equals("tpyes") || name.equals("accepttp")) {
-            return accept(player);
-        }
+        return switch (commandName) {
+            case "tpa", "tpask" -> handleTpa(player, args, TpaRequestType.TO_TARGET);
+            case "tpahere", "tphere", "tpah" -> handleTpa(player, args, TpaRequestType.HERE);
+            case "tpaccept", "tpyes", "accepttp" -> handleAccept(player);
+            case "tpdeny", "tpno", "denytp" -> handleDeny(player);
+            default -> true;
+        };
+    }
 
-        if (name.equals("tpdeny") || name.equals("tpno") || name.equals("denytp")) {
-            return deny(player);
-        }
-
+    private boolean handleTpa(Player requester, String[] args, TpaRequestType type) {
         if (args.length < 1) {
-            player.sendMessage(TextColor.color(name.equals("tpahere") || name.equals("tphere") || name.equals("tpah")
-                    ? "&cUsage: /tpahere <player>"
-                    : "&cUsage: /tpa <player>"));
-            SoundService.guiError(player, core);
+            sendBoth(requester, type == TpaRequestType.TO_TARGET ? "&cUsage: /tpa <player>" : "&cUsage: /tpahere <player>");
+            SoundService.guiError(requester, core);
             return true;
         }
 
         Player target = DisplayNames.resolveOnline(args[0]);
 
         if (target == null) {
-            player.sendMessage(TextColor.color("&cThat player is offline"));
-            SoundService.guiError(player, core);
+            target = Bukkit.getPlayerExact(args[0]);
+        }
+
+        if (target == null) {
+            sendBoth(requester, "&cThat player is not online");
+            SoundService.guiError(requester, core);
             return true;
         }
 
-        if (target.getUniqueId().equals(player.getUniqueId())) {
-            player.sendMessage(TextColor.color("&cYou cannot send a teleport request to yourself"));
-            SoundService.guiError(player, core);
+        if (target.getUniqueId().equals(requester.getUniqueId())) {
+            sendBoth(requester, "&cYou cannot send a teleport request to yourself");
+            SoundService.guiError(requester, core);
             return true;
         }
 
-        TpaRequestType type = name.equals("tpahere") || name.equals("tphere") || name.equals("tpah")
-                ? TpaRequestType.HERE
-                : TpaRequestType.TO_TARGET;
-
-        if (!tpaService.createRequest(player, target, type)) {
-            player.sendMessage(TextColor.color("&cCould not send teleport request"));
-            SoundService.guiError(player, core);
+        if (!tpaService.createRequest(requester, target, type)) {
+            sendBoth(requester, "&cCould not send teleport request");
+            SoundService.guiError(requester, core);
             return true;
         }
 
-        String targetName = DisplayNames.displayName(target);
-        String playerName = DisplayNames.displayName(player);
+        String requesterName = DisplayNames.prefixedDisplayName(requester);
+        String targetName = DisplayNames.prefixedDisplayName(target);
 
-        player.sendMessage(TextColor.color("&#bbbbbbTeleport request sent to &d" + targetName));
-        player.sendActionBar(component("&#bbbbbbTeleport request sent to &d" + targetName));
-        SoundService.teleportRequest(player, core);
+        sendBoth(requester, "&aTeleport request sent to " + targetName);
+        SoundService.teleportRequest(requester, core);
 
-        Component accept = component("&d[Accept]").clickEvent(ClickEvent.runCommand("/tpaccept"));
-        Component deny = component("&d[Deny]").clickEvent(ClickEvent.runCommand("/tpdeny"));
-
-        Component message = type == TpaRequestType.TO_TARGET
-                ? component("&d" + playerName + " &#bbbbbbwants to teleport to you ")
-                : component("&d" + playerName + " &#bbbbbbwants you to teleport to them ");
-
-        target.sendMessage(message.append(accept).append(Component.space()).append(deny));
-        target.sendActionBar(component("&d" + playerName + " &#bbbbbbsent a teleport request"));
+        sendRequestMessage(requester, target, requesterName, type);
         SoundService.teleportReceived(target, core);
+        scheduleExpiration(requester, target, targetName);
         return true;
     }
 
-    private boolean accept(Player target) {
-        TpaRequest request = tpaService.removeRequest(target.getUniqueId());
+    private void sendRequestMessage(Player requester, Player target, String requesterName, TpaRequestType type) {
+        String mainLine = type == TpaRequestType.TO_TARGET
+                ? requesterName + " &#bbbbbbwants to teleport to you"
+                : requesterName + " &#bbbbbbwants you to teleport to them";
+
+        target.sendActionBar(actionBar(mainLine));
+        target.sendMessage(legacy(mainLine));
+
+        Component accept = legacy("&d[Accept]").clickEvent(ClickEvent.runCommand("/tpaccept"));
+        Component deny = legacy("&d[Deny]").clickEvent(ClickEvent.runCommand("/tpdeny"));
+        Component view = legacy("&d[View]").clickEvent(ClickEvent.runCommand("/tpaccept"));
+
+        Component buttons = legacy("&#bbbbbbRespond ")
+                .append(accept)
+                .append(Component.space())
+                .append(deny)
+                .append(Component.space())
+                .append(view);
+
+        target.sendMessage(buttons);
+    }
+
+    private void scheduleExpiration(Player requester, Player target, String targetName) {
+        core.getServer().getScheduler().runTaskLater(core, () -> {
+            TpaRequest request = tpaService.getRequest(target.getUniqueId());
+
+            if (request == null) {
+                return;
+            }
+
+            if (!request.requesterId().equals(requester.getUniqueId())) {
+                return;
+            }
+
+            tpaService.removeRequest(target.getUniqueId());
+
+            if (requester.isOnline()) {
+                sendBoth(requester, "&cTeleport request to " + targetName + " &cexpired");
+                SoundService.guiError(requester, core);
+            }
+
+            if (target.isOnline()) {
+                sendBoth(target, "&cTeleport request expired");
+                SoundService.guiError(target, core);
+            }
+        }, tpaService.timeoutSeconds() * 20L);
+    }
+
+    private boolean handleAccept(Player player) {
+        TpaRequest request = tpaService.getRequest(player.getUniqueId());
 
         if (request == null) {
-            target.sendMessage(TextColor.color("&cYou have no pending teleport requests"));
-            SoundService.guiError(target, core);
+            sendBoth(player, "&cYou have no pending teleport requests");
+            SoundService.guiError(player, core);
+            return true;
+        }
+
+        SoundService.guiClick(player, core);
+        MenuHistory.openRoot(core, player, () -> TpaRequestGui.open(core, player, request));
+        return true;
+    }
+
+    private boolean handleDeny(Player player) {
+        TpaRequest request = tpaService.removeRequest(player.getUniqueId());
+
+        if (request == null) {
+            sendBoth(player, "&cYou have no pending teleport requests");
+            SoundService.guiError(player, core);
             return true;
         }
 
         Player requester = tpaService.requester(request);
 
-        if (requester == null || !requester.isOnline()) {
-            target.sendMessage(TextColor.color("&cThat player is no longer online"));
-            SoundService.guiError(target, core);
-            return true;
-        }
-
-        target.sendMessage(TextColor.color("&#bbbbbbTeleport request accepted"));
-        requester.sendMessage(TextColor.color("&#bbbbbbTeleport request accepted"));
-        SoundService.guiConfirm(target, core);
-
-        if (request.type() == TpaRequestType.TO_TARGET) {
-            teleportService.begin(requester, "TPA", () -> {
-                requester.teleport(target.getLocation());
-                requester.sendMessage(TextColor.color("&#bbbbbbTeleported to &d" + DisplayNames.displayName(target)));
-            });
-            return true;
-        }
-
-        teleportService.begin(target, "TPA", () -> {
-            target.teleport(requester.getLocation());
-            target.sendMessage(TextColor.color("&#bbbbbbTeleported to &d" + DisplayNames.displayName(requester)));
-        });
-        return true;
-    }
-
-    private boolean deny(Player target) {
-        TpaRequest request = tpaService.removeRequest(target.getUniqueId());
-
-        if (request == null) {
-            target.sendMessage(TextColor.color("&cYou have no pending teleport requests"));
-            SoundService.guiError(target, core);
-            return true;
-        }
-
-        Player requester = tpaService.requester(request);
-        target.sendMessage(TextColor.color("&cTeleport request denied"));
-        SoundService.guiCancel(target, core);
+        sendBoth(player, "&cTeleport request denied");
+        SoundService.guiCancel(player, core);
 
         if (requester != null && requester.isOnline()) {
-            requester.sendMessage(TextColor.color("&c" + DisplayNames.displayName(target) + " denied your teleport request"));
+            sendBoth(requester, "&c" + DisplayNames.prefixedDisplayName(player) + " denied your teleport request");
             SoundService.guiCancel(requester, core);
         }
 
         return true;
     }
 
-    public void openRequestGui(Player player) {
-        TpaRequest request = tpaService.getRequest(player.getUniqueId());
-        TpaRequestGui.open(core, player, request);
-    }
-
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        List<String> completions = new ArrayList<>();
+
         if (!(sender instanceof Player player)) {
-            return new ArrayList<>();
+            return completions;
         }
 
-        if (args.length == 1 && (command.getName().equalsIgnoreCase("tpa") || command.getName().equalsIgnoreCase("tpahere"))) {
-            return PlayerTabComplete.onlinePlayers(player, args[0]);
+        if (!player.hasPermission("mineacletpa.use")) {
+            return completions;
         }
 
-        return new ArrayList<>();
+        String commandName = alias.toLowerCase(Locale.ROOT);
+
+        if ((commandName.equals("tpa") || commandName.equals("tpask") || commandName.equals("tpahere") || commandName.equals("tphere") || commandName.equals("tpah")) && args.length == 1) {
+            return onlinePlayerCompletions(player, args[0]);
+        }
+
+        return completions;
     }
 
-    private Component component(String value) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(value));
+    private List<String> onlinePlayerCompletions(Player player, String input) {
+        String partial = input.toLowerCase(Locale.ROOT);
+        Set<String> completions = new LinkedHashSet<>();
+
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            if (online.getUniqueId().equals(player.getUniqueId())) {
+                continue;
+            }
+
+            String commandName = DisplayNames.commandDisplayName(online);
+            String displayName = DisplayNames.displayName(online);
+            String username = online.getName();
+
+            if (commandName.toLowerCase(Locale.ROOT).startsWith(partial)) {
+                completions.add(commandName);
+            }
+
+            if (displayName.toLowerCase(Locale.ROOT).startsWith(partial)) {
+                completions.add(commandName);
+            }
+
+            if (username.toLowerCase(Locale.ROOT).startsWith(partial)) {
+                completions.add(username);
+            }
+        }
+
+        return new ArrayList<>(completions);
+    }
+
+    private void sendBoth(Player player, String message) {
+        player.sendMessage(legacy(message));
+        player.sendActionBar(actionBar(message));
+    }
+
+    private Component actionBar(String message) {
+        return legacy(message);
+    }
+
+    private Component legacy(String message) {
+        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
     }
 }

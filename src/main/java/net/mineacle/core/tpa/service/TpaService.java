@@ -5,13 +5,17 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class TpaService {
 
     private final Core core;
     private final Map<UUID, TpaRequest> requestsByTarget = new HashMap<>();
+    private final Set<UUID> autoAccept = new HashSet<>();
 
     public TpaService(Core core) {
         this.core = core;
@@ -66,13 +70,47 @@ public final class TpaService {
         return requestsByTarget.remove(targetId);
     }
 
+    public TpaRequest cancelOutgoing(UUID requesterId) {
+        if (requesterId == null) {
+            return null;
+        }
+
+        Iterator<Map.Entry<UUID, TpaRequest>> iterator = requestsByTarget.entrySet().iterator();
+
+        while (iterator.hasNext()) {
+            Map.Entry<UUID, TpaRequest> entry = iterator.next();
+            TpaRequest request = entry.getValue();
+
+            if (!request.requesterId().equals(requesterId)) {
+                continue;
+            }
+
+            iterator.remove();
+            return request;
+        }
+
+        return null;
+    }
+
+    public boolean toggleAutoAccept(UUID playerId) {
+        if (autoAccept.contains(playerId)) {
+            autoAccept.remove(playerId);
+            return false;
+        }
+
+        autoAccept.add(playerId);
+        return true;
+    }
+
+    public boolean autoAccepts(UUID playerId) {
+        return autoAccept.contains(playerId);
+    }
+
     public void clear(UUID playerId) {
         requestsByTarget.remove(playerId);
-
-        requestsByTarget.entrySet().removeIf(entry ->
-                entry.getValue().requesterId().equals(playerId)
-                        || entry.getValue().targetId().equals(playerId)
-        );
+        requestsByTarget.entrySet().removeIf(entry -> entry.getValue().requesterId().equals(playerId)
+                || entry.getValue().targetId().equals(playerId));
+        autoAccept.remove(playerId);
     }
 
     public Player requester(TpaRequest request) {
