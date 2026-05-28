@@ -1,9 +1,9 @@
 package net.mineacle.core.warps.command;
 
 import net.mineacle.core.common.text.TextColor;
-import net.mineacle.core.warps.model.WarpPoint;
-import net.mineacle.core.warps.service.WarpService;
-import net.mineacle.core.warps.service.WarpTeleportService;
+import net.mineacle.core.warp.model.WarpPoint;
+import net.mineacle.core.warp.service.WarpService;
+import net.mineacle.core.warp.service.WarpTeleportService;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;

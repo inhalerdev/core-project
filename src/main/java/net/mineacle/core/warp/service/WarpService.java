@@ -2,7 +2,7 @@ package net.mineacle.core.warps.service;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
-import net.mineacle.core.warps.model.WarpPoint;
+import net.mineacle.core.warp.model.WarpPoint;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
