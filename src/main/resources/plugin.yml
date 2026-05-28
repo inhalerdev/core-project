@@ -12,271 +12,222 @@ commands:
     aliases: [help, mineacle]
     usage: /guide
     permission: mineacleguide.use
-
   rules:
     description: Open the Mineacle rules menu
     usage: /rules
     permission: mineacleguide.use
-
   home:
     description: Open your homes menu
     aliases: [homes, h]
     usage: /home
     permission: mineaclehomes.use
-
   sethome:
     description: Set a named home
     usage: /sethome <name>
     permission: mineaclehomes.use
-
   delhome:
     description: Delete a named home
     usage: /delhome <name>
     permission: mineaclehomes.use
-
   renamehome:
     description: Rename a saved home
     usage: /renamehome <name> <new name>
     permission: mineaclehomes.use
-
   mineaclehomes:
     description: Reload homes config
     usage: /mineaclehomes reload
     permission: mineaclehomes.admin
-
   team:
     description: Create, join, and manage your team
     aliases: [teams]
     usage: /team
     permission: mineacleteams.use
-
   tpa:
     description: Request to teleport to a player
     aliases: [tpask]
     usage: /tpa <player>
     permission: mineacletpa.use
-
   tpahere:
     description: Request a player teleport to you
     aliases: [tphere, tpah]
     usage: /tpahere <player>
     permission: mineacletpa.use
-
   tpaccept:
     description: Accept a teleport request
     aliases: [tpyes, accepttp]
     usage: /tpaccept
     permission: mineacletpa.use
-
   tpdeny:
     description: Deny a teleport request
     aliases: [tpno, denytp]
     usage: /tpdeny
     permission: mineacletpa.use
-
   tp:
     description: Admin teleport command
     usage: /tp <player> [target]
     permission: mineacletpa.admin
-
   tpamenu:
     description: Open teleport request menu for a player
     usage: /tpamenu <player>
     permission: mineacletpa.use
-
   stats:
     description: View player stats
     usage: /stats [player]
     permission: mineaclestats.use
-
   bal:
     description: View your balance
     aliases: [balance, money]
     usage: /bal [player]
     permission: mineacleeconomy.use
-
   pay:
     description: Pay another player
     usage: /pay <player> <amount>
     permission: mineacleeconomy.pay
-
   eco:
     description: Manage balances
-    usage: /eco <give|take|set|reset> <player> [amount]
+    usage: /eco <give|take|set|reset> <player|*|**> [amount]
     permission: mineacleeconomy.admin
-
   baltop:
     description: View balance top
     aliases: [balancetop]
     usage: /baltop
     permission: mineaclebaltop.use
-
   msg:
     description: Send a private message
     aliases: [tell, w, whisper, m]
     usage: /msg <player> <message>
     permission: mineaclechat.message
-
   r:
     description: Reply to your last private message
     aliases: [reply]
     usage: /r <message>
     permission: mineaclechat.message
-
   ignore:
     description: Ignore a player
     usage: /ignore <player>
     permission: mineaclechat.ignore
-
   ignorelist:
     description: View ignored players
     usage: /ignorelist
     permission: mineaclechat.ignore
-
   nick:
     description: Set your nickname
     usage: /nick <name|reset>
     permission: mineaclechat.nick
-
   realname:
     description: Check a player's real name from nickname
-    usage: /realname <nickname>
+    usage: /realname <name>
     permission: mineaclechat.realname
-
   spawn:
     description: Open the spawn menu
     aliases: [lobby]
     usage: /spawn
     permission: mineaclespawn.use
-
   warp:
     description: Warp to a public spawn location
     aliases: [warps]
     usage: /warp <location>
     permission: mineaclewarps.use
-
   setwarp:
     description: Set a warp
     usage: /setwarp <name> [slot] [display name]
     permission: mineaclewarps.admin
-
   delwarp:
     description: Delete a warp
     usage: /delwarp <name>
     permission: mineaclewarps.admin
-
   originrtp:
     description: Queue for random teleport
     aliases: [rtp, originsrtp, wild]
     usage: /originrtp
     permission: mineaclertp.use
-
   doublejump:
     description: Reload double jump config
     usage: /doublejump reload
     permission: mineacledoublejump.admin
-
   fly:
     description: Toggle flight in spawn worlds
     usage: /fly
     permission: mineaclefly.command
-
   order:
     description: Open player orders
     aliases: [orders]
     usage: /order
     permission: mineacleorders.use
-
   sell:
     description: Open sell menu
     usage: /sell
     permission: mineaclesell.use
-
   worth:
     description: Open item prices menu
     aliases: [prices, itemprices]
     usage: /worth
     permission: mineaclesell.use
-
   sellmulti:
     description: View sell multiplier progress
     usage: /sellmulti
     permission: mineaclesell.use
-
   bounty:
     description: View or place bounties
     usage: /bounty
     permission: mineaclebounty.use
-
   gmc:
     description: Set gamemode creative
     usage: /gmc
     permission: mineacle.gamemode
-
   gms:
     description: Set gamemode survival
     usage: /gms
     permission: mineacle.gamemode
-
   gmsp:
     description: Set gamemode spectator
     usage: /gmsp
     permission: mineacle.gamemode
-
   gma:
     description: Set gamemode adventure
     usage: /gma
     permission: mineacle.gamemode
-
   links:
     description: View Mineacle links
     aliases: [link, socials, social]
     usage: /links
     permission: mineaclelinks.use
-
   discord:
     description: View the Mineacle Discord link
     aliases: [dc]
     usage: /discord
     permission: mineaclelinks.use
-
   store:
     description: View the Mineacle store link
     aliases: [buy, shop]
     usage: /store
     permission: mineaclelinks.use
-
   x:
     description: View the Mineacle X link
     aliases: [twitter]
     usage: /x
     permission: mineaclelinks.use
-
   hide:
     description: Toggle hidden mode
     usage: /hide
     permission: mineaclehide.command
-
   mineaclenametags:
     description: Reload Mineacle nametags
     aliases: [nametags]
     usage: /mineaclenametags reload
     permission: mineaclenametags.admin
-
   mineaclesecurity:
     description: Reload Mineacle security
     usage: /mineaclesecurity reload
     permission: mineaclesecurity.bypass
-
   enchant:
     description: Enchant the item in your hand
-    usage: /enchant <enchant> [level] [unsafe]
+    usage: /enchant <enchantment> [level] [unsafe]
     permission: mineacleenchant.admin
-
   enchantinfo:
     description: View enchantment information
     aliases: [enchantments]
-    usage: /enchantinfo <enchant>
+    usage: /enchantinfo <enchantment>
     permission: mineacleenchant.admin
 
 permissions:
