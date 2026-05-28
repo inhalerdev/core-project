@@ -66,7 +66,7 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
     }
 
     private void sendAvailable(Player player) {
-        List<String> keys = warpService.warpKeys();
+        List<String> keys = warpService.warpKeys("");
 
         if (keys.isEmpty()) {
             player.sendMessage(TextColor.color("&cNo warps are available"));
@@ -85,12 +85,7 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
         }
 
         String partial = args[0].toLowerCase(Locale.ROOT);
-
-        for (String key : warpService.warpKeys()) {
-            if (key.toLowerCase(Locale.ROOT).startsWith(partial)) {
-                completions.add(key);
-            }
-        }
+        completions.addAll(warpService.warpKeys(partial));
 
         if (sender.hasPermission("mineaclewarps.admin") && "reload".startsWith(partial)) {
             completions.add("reload");
