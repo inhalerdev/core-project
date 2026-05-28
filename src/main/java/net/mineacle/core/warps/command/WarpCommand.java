@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.warps.gui.WarpGui;
 import net.mineacle.core.warps.model.WarpPoint;
 import net.mineacle.core.warps.service.WarpService;
 import net.mineacle.core.warps.service.WarpTeleportService;
@@ -34,31 +35,36 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        if (!warpService.enabled()) {
+            sendError(player, warpService.message("disabled"));
+            return true;
+        }
+
         if (args.length == 0) {
-            sendUsage(player);
+            WarpGui.open(player, warpService);
             return true;
         }
 
         if (args[0].equalsIgnoreCase("reload")) {
             if (!player.hasPermission("mineaclewarps.admin")) {
-                sendError(player, warpService.noPermissionMessage());
+                sendError(player, "&cYou do not have permission");
                 return true;
             }
 
-            warpService.reload();
+            warpService.load();
             send(player, "&#bbbbbbWarps reloaded");
-            SoundService.guiConfirm(player, net.mineacle.core.Core.instance());
+            SoundService.guiConfirm(player, warpService.core());
             return true;
         }
 
-        WarpPoint point = warpService.warp(args[0]);
+        WarpPoint point = warpService.warpById(args[0]);
 
-        if (point == null) {
-            sendError(player, warpService.notFoundMessage(args[0]));
+        if (point == null || !point.enabled()) {
+            sendError(player, warpService.message("not-found"));
             return true;
         }
 
-        teleportService.teleport(player, point);
+        teleportService.begin(player, point);
         return true;
     }
 
@@ -80,16 +86,13 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
             completions.add("reload");
         }
 
-        completions.addAll(warpService.warpKeys(partial));
+        for (String id : warpService.warpIds()) {
+            if (id.toLowerCase(Locale.ROOT).startsWith(partial)) {
+                completions.add(id);
+            }
+        }
+
         return completions;
-    }
-
-    private void sendUsage(Player player) {
-        List<String> keys = warpService.warpKeys("");
-        String available = keys.isEmpty() ? "none" : String.join(", ", keys);
-
-        send(player, "&#bbbbbbUsage: &d/warp <location>");
-        send(player, "&#bbbbbbAvailable warps: &d" + available);
     }
 
     private void send(Player player, String message) {
@@ -99,7 +102,7 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
 
     private void sendError(Player player, String message) {
         send(player, message);
-        SoundService.guiError(player, net.mineacle.core.Core.instance());
+        SoundService.guiError(player, warpService.core());
     }
 
     private Component actionBar(String message) {
