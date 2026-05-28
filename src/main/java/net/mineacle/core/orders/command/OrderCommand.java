@@ -65,7 +65,7 @@ public final class OrderCommand implements CommandExecutor, TabCompleter {
 
         if (args[0].equalsIgnoreCase("create")) {
             if (args.length == 1) {
-                OrderCreateGui.open(player);
+                OrderCreateGui.open(player, service);
                 return true;
             }
 

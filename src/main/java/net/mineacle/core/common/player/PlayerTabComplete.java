@@ -15,11 +15,15 @@ public final class PlayerTabComplete {
     }
 
     public static List<String> onlinePlayers(Player viewer, String input) {
+        return onlinePlayers(viewer, input, false);
+    }
+
+    public static List<String> onlinePlayers(Player viewer, String input, boolean includeSelf) {
         String partial = input == null ? "" : input.trim().toLowerCase(Locale.ROOT);
         Set<String> completions = new LinkedHashSet<>();
 
         for (Player online : Bukkit.getOnlinePlayers()) {
-            if (viewer != null && online.getUniqueId().equals(viewer.getUniqueId())) {
+            if (!includeSelf && viewer != null && online.getUniqueId().equals(viewer.getUniqueId())) {
                 continue;
             }
 
