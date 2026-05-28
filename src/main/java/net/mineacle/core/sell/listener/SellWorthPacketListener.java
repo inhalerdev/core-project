@@ -8,6 +8,7 @@ import com.comphenix.protocol.reflect.StructureModifier;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.guide.gui.GuideMenuHolder;
+import net.mineacle.core.sell.gui.WorthGui;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
@@ -29,13 +30,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
     private final SellService sellService;
 
     public SellWorthPacketListener(Core core, SellService sellService) {
-        super(
-                core,
-                ListenerPriority.NORMAL,
-                PacketType.Play.Server.SET_SLOT,
-                PacketType.Play.Server.WINDOW_ITEMS
-        );
-
+        super(core, ListenerPriority.NORMAL, PacketType.Play.Server.SET_SLOT, PacketType.Play.Server.WINDOW_ITEMS);
         this.sellService = sellService;
     }
 
@@ -73,6 +68,11 @@ public final class SellWorthPacketListener extends PacketAdapter {
                 continue;
             }
 
+            if (isWorthMenu(player)) {
+                modifier.writeSafely(index, item);
+                continue;
+            }
+
             modifier.writeSafely(index, withWorthLore(player, item));
         }
     }
@@ -99,6 +99,11 @@ public final class SellWorthPacketListener extends PacketAdapter {
 
                 if (shouldStripForRawSlot(player, rawSlot)) {
                     updated.add(stripWorthLore(item));
+                    continue;
+                }
+
+                if (isWorthMenu(player)) {
+                    updated.add(item);
                     continue;
                 }
 
@@ -132,6 +137,11 @@ public final class SellWorthPacketListener extends PacketAdapter {
                     continue;
                 }
 
+                if (isWorthMenu(player)) {
+                    updated[rawSlot] = item;
+                    continue;
+                }
+
                 updated[rawSlot] = withWorthLore(player, item);
             }
 
@@ -141,6 +151,10 @@ public final class SellWorthPacketListener extends PacketAdapter {
 
     private boolean shouldStripForRawSlot(Player player, int rawSlot) {
         if (rawSlot < 0) {
+            return false;
+        }
+
+        if (isWorthMenu(player)) {
             return false;
         }
 
@@ -157,13 +171,18 @@ public final class SellWorthPacketListener extends PacketAdapter {
             return false;
         }
 
-        /*
-         * Hard rule:
-         * Worth lore is never shown on the top inventory of Core/custom menus.
-         * The only intentional exception is the dedicated Item Prices/Worth GUI,
-         * where WorthGui creates its own price encyclopedia lore.
-         */
         return isCoreOrCustomTopInventory(view, top);
+    }
+
+    private boolean isWorthMenu(Player player) {
+        InventoryView view = player.getOpenInventory();
+
+        if (view == null) {
+            return false;
+        }
+
+        String title = ChatColor.stripColor(view.getTitle());
+        return WorthGui.isTitle(title);
     }
 
     private boolean isCoreOrCustomTopInventory(InventoryView view, Inventory top) {
@@ -183,12 +202,6 @@ public final class SellWorthPacketListener extends PacketAdapter {
             return true;
         }
 
-        /*
-         * Bukkit.createInventory(null, size, title) menus have no holder.
-         * Real containers like chests, shulkers, furnaces, crafting tables,
-         * and ender chests usually have a real holder/type and are allowed
-         * to show Worth lore.
-         */
         boolean noHolder = top.getHolder(false) == null;
         InventoryType type = top.getType();
 
@@ -203,7 +216,11 @@ public final class SellWorthPacketListener extends PacketAdapter {
     }
 
     private boolean isKnownMineacleTitle(String lowerTitle) {
-        if (lowerTitle.isBlank()) {
+        if (lowerTitle == null || lowerTitle.isBlank()) {
+            return false;
+        }
+
+        if (lowerTitle.startsWith("item prices")) {
             return false;
         }
 
@@ -226,6 +243,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
                 || lowerTitle.equals("confirm request")
                 || lowerTitle.equals("confirm action")
                 || lowerTitle.equals("mineacle guide")
+                || lowerTitle.equals("guide")
                 || lowerTitle.equals("server rules")
                 || lowerTitle.equals("rules")
                 || lowerTitle.startsWith("homes ")
@@ -233,7 +251,6 @@ public final class SellWorthPacketListener extends PacketAdapter {
                 || lowerTitle.startsWith("orders")
                 || lowerTitle.startsWith("bounties")
                 || lowerTitle.startsWith("sell history")
-                || lowerTitle.startsWith("item prices")
                 || lowerTitle.startsWith("delete ")
                 || lowerTitle.startsWith("confirm ")
                 || lowerTitle.contains(" statistics")
@@ -316,11 +333,6 @@ public final class SellWorthPacketListener extends PacketAdapter {
     private int setSlotRawSlot(PacketEvent event) {
         StructureModifier<Integer> integers = event.getPacket().getIntegers();
 
-        /*
-         * PacketPlayOutSetSlot normally has:
-         * containerId, stateId, slot
-         * ProtocolLib exposes these as integers, so the last int is the raw slot.
-         */
         for (int index = integers.size() - 1; index >= 0; index--) {
             Integer value = integers.readSafely(index);
 
@@ -333,7 +345,6 @@ public final class SellWorthPacketListener extends PacketAdapter {
     }
 
     private boolean isUnsafeInventoryMode(Player player) {
-        return player.getGameMode() == GameMode.CREATIVE
-                || player.getGameMode() == GameMode.SPECTATOR;
+        return player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR;
     }
 }

@@ -5,6 +5,7 @@ import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.economy.service.EconomyService;
+import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -46,6 +47,10 @@ public final class PayCommand implements CommandExecutor, TabCompleter {
 
         OfflinePlayer target = DisplayNames.resolveOffline(args[0]);
 
+        if (target == null || (target.getName() == null && !target.hasPlayedBefore())) {
+            target = Bukkit.getOfflinePlayer(args[0]);
+        }
+
         if (target.getName() == null && !target.hasPlayedBefore()) {
             player.sendMessage(core.getMessage("economy.player-not-found"));
             SoundService.guiError(player, core);
@@ -66,16 +71,28 @@ public final class PayCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> completions = new ArrayList<>();
-
         if (!(sender instanceof Player player)) {
-            return completions;
+            return new ArrayList<>();
         }
 
         if (args.length == 1) {
             return PlayerTabComplete.onlinePlayers(player, args[0]);
         }
 
-        return completions;
+        if (args.length == 2) {
+            String partial = args[1].toLowerCase();
+            List<String> amounts = List.of("10", "100", "1000", "10k", "100k", "1m");
+            List<String> completions = new ArrayList<>();
+
+            for (String amount : amounts) {
+                if (amount.startsWith(partial)) {
+                    completions.add(amount);
+                }
+            }
+
+            return completions;
+        }
+
+        return new ArrayList<>();
     }
 }

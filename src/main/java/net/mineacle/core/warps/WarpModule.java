@@ -12,6 +12,7 @@ import org.bukkit.command.PluginCommand;
 
 public final class WarpModule extends Module {
 
+    private WarpService warpService;
     private WarpTeleportService teleportService;
 
     @Override
@@ -21,41 +22,40 @@ public final class WarpModule extends Module {
 
     @Override
     public void enable(Core core) {
-        WarpService warpService = new WarpService(core);
-        warpService.reload();
+        this.warpService = new WarpService(core);
+        this.teleportService = new WarpTeleportService(warpService);
 
-        teleportService = new WarpTeleportService(core, warpService);
+        WarpCommand warpCommand = new WarpCommand(warpService, teleportService);
+        PluginCommand warp = core.getCommand("warp");
+        if (warp != null) {
+            warp.setExecutor(warpCommand);
+            warp.setTabCompleter(warpCommand);
+        } else {
+            core.getLogger().warning("Missing command in plugin.yml: warp");
+        }
 
-        WarpCommand warpCommand = new WarpCommand(core, warpService, teleportService);
         SetWarpCommand setWarpCommand = new SetWarpCommand(warpService);
+        PluginCommand setWarp = core.getCommand("setwarp");
+        if (setWarp != null) {
+            setWarp.setExecutor(setWarpCommand);
+            setWarp.setTabCompleter(setWarpCommand);
+        } else {
+            core.getLogger().warning("Missing command in plugin.yml: setwarp");
+        }
+
         DelWarpCommand delWarpCommand = new DelWarpCommand(warpService);
+        PluginCommand delWarp = core.getCommand("delwarp");
+        if (delWarp != null) {
+            delWarp.setExecutor(delWarpCommand);
+            delWarp.setTabCompleter(delWarpCommand);
+        } else {
+            core.getLogger().warning("Missing command in plugin.yml: delwarp");
+        }
 
-        register(core, "warp", warpCommand);
-        register(core, "setwarp", setWarpCommand);
-        register(core, "delwarp", delWarpCommand);
-
-        core.getServer().getPluginManager().registerEvents(new WarpGuiListener(core, warpService, teleportService), core);
+        core.getServer().getPluginManager().registerEvents(new WarpGuiListener(warpService, teleportService), core);
     }
 
     @Override
     public void disable() {
-        if (teleportService != null) {
-            teleportService.cancelAll();
-        }
-    }
-
-    private void register(Core core, String name, org.bukkit.command.CommandExecutor executor) {
-        PluginCommand command = core.getCommand(name);
-
-        if (command == null) {
-            core.getLogger().warning("Missing command in plugin.yml: " + name);
-            return;
-        }
-
-        command.setExecutor(executor);
-
-        if (executor instanceof org.bukkit.command.TabCompleter completer) {
-            command.setTabCompleter(completer);
-        }
     }
 }

@@ -1,68 +1,59 @@
-menu_title: 'Server Rules'
+menu_title: "Rules"
 size: 27
-open_command: rules
-register_command: true
-
 items:
-  header:
-    material: BOOK
-    slot: 4
-    display_name: '&d&lMineacle Rules'
+  respect:
+    material: PLAYER_HEAD
+    slot: 10
+    display_name: "&dRule 1 &8┃ &#ffffffRespect Players"
     lore:
-      - '&#ccccccMineacle has two realm styles'
-      - '&#ccccccwith different gameplay expectations'
-      - ''
-      - '&d◆ &#ccccccRead before playing'
-
-  origins_rules:
-    material: GRASS_BLOCK
+      - "&#bbbbbbNo harassment, hate speech, threats, or targeted toxicity"
+      - "&#bbbbbbKeep chat playable for everyone"
+  cheating:
+    material: DIAMOND_SWORD
     slot: 11
-    display_name: '&d&lOrigins Rules'
+    display_name: "&dRule 2 &8┃ &#ffffffNo Cheating"
     lore:
-      - '&#ccccccA structured survival realm'
-      - '&#ccccccbuilt around fairness'
-      - ''
-      - '&d◆ &#ccccccNo griefing or stealing'
-      - '&d◆ &#ccccccNo hacks, dupes, macros, or exploits'
-      - '&d◆ &#ccccccNo harassment, hate, or toxicity'
-      - '&d◆ &#ccccccRespect claims and player builds'
-      - '&d◆ &#ccccccNo scamming or deceptive trades'
-      - '&d◆ &#ccccccNo IRL trading'
-      - ''
-      - '&d➥ &#ccccccMechanics do not override rules'
-
-  global_rules:
-    material: NETHER_STAR
+      - "&#bbbbbbNo hacked clients, macros, x-ray, autoclickers, or unfair mods"
+      - "&#bbbbbbAnything giving an unfair advantage is not allowed"
+  exploits:
+    material: REDSTONE
+    slot: 12
+    display_name: "&dRule 3 &8┃ &#ffffffNo Exploits"
+    lore:
+      - "&#bbbbbbDo not abuse bugs, dupes, lag machines, or bypasses"
+      - "&#bbbbbbReport serious issues to staff"
+  economy:
+    material: EMERALD
     slot: 13
-    display_name: '&d&lGlobal Rules'
+    display_name: "&dRule 4 &8┃ &#ffffffFair Economy"
     lore:
-      - '&#ccccccThese apply everywhere'
-      - ''
-      - '&d◆ &#ccccccNo cheats or hacked clients'
-      - '&d◆ &#ccccccNo dupes, macros, or exploits'
-      - '&d◆ &#ccccccNo hate speech or harassment'
-      - '&d◆ &#ccccccNo IRL threats'
-      - '&d◆ &#ccccccNo IRL trading'
-      - '&d◆ &#ccccccStaff decisions are final'
-      - ''
-      - '&d➥ &#ccccccNot knowing rules is not an excuse'
-
-  trials_rules:
-    material: NETHERITE_SWORD
+      - "&#bbbbbbNo scamming through bugs, chargeback abuse, or alt abuse"
+      - "&#bbbbbbPlayer trading is allowed when done fairly"
+  griefing:
+    material: TNT
+    slot: 14
+    display_name: "&dRule 5 &8┃ &#ffffffNo Malicious Grief"
+    lore:
+      - "&#bbbbbbDo not intentionally destroy spawn, public areas, or protected spaces"
+      - "&#bbbbbbWorld PvP and raiding rules may change by season"
+  advertising:
+    material: OAK_SIGN
     slot: 15
-    display_name: '&c&lTrials Rules'
-    item_flags:
-      - HIDE_ATTRIBUTES
-      - HIDE_UNBREAKABLE
+    display_name: "&dRule 6 &8┃ &#ffffffNo Advertising"
     lore:
-      - '&#ccccccA ruthless high-risk realm'
-      - '&#ccccccwhere danger defines the world'
-      - ''
-      - '&c◆ &#ccccccPvP allowed everywhere'
-      - '&c◆ &#ccccccRaiding and griefing allowed'
-      - '&c◆ &#ccccccStealing and ambushes allowed'
-      - '&c◆ &#ccccccBase destruction allowed'
-      - ''
-      - '&c◆ &#ccccccGlobal rules still apply'
-      - ''
-      - '&c➥ &#ccccccChaos is allowed, cheating is not'
+      - "&#bbbbbbDo not advertise other servers, scams, or unsafe links"
+      - "&#bbbbbbMineacle links are available through &d/guide"
+  staff:
+    material: NETHER_STAR
+    slot: 16
+    display_name: "&dRule 7 &8┃ &#ffffffRespect Staff Decisions"
+    lore:
+      - "&#bbbbbbStaff may act to protect server stability and fairness"
+      - "&#bbbbbbAppeals and disputes should be handled properly, not in public chat"
+  common_sense:
+    material: COMPASS
+    slot: 22
+    display_name: "&dRule 8 &8┃ &#ffffffUse Common Sense"
+    lore:
+      - "&#bbbbbbRules cannot cover every edge case"
+      - "&#bbbbbbIf something clearly hurts the server, do not do it"

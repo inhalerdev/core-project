@@ -1,5 +1,6 @@
 package net.mineacle.core.economy.service;
 
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.format.MoneyFormatter;
@@ -34,7 +35,7 @@ public final class EconomyService {
     }
 
     public long startingBalanceCents() {
-        return amountToCents(BigDecimal.valueOf(core.getConfig().getDouble("economy.starting-balance", 0.0D)));
+        return amountToCents(BigDecimal.valueOf(core.getConfig().getDouble("economy.starting-balance", 0.0)));
     }
 
     public long getBalanceCents(UUID playerId) {
@@ -111,20 +112,21 @@ public final class EconomyService {
         give(target.getUniqueId(), cents);
 
         String amount = format(cents);
-        String targetName = DisplayNames.prefixedDisplayName(target);
+        String senderName = DisplayNames.displayName(sender);
+        String targetName = DisplayNames.displayName(target);
 
-        sender.sendMessage(message("economy.pay-sent")
-                .replace("%amount%", amount)
-                .replace("%player%", targetName));
+        sendChatAndActionBar(sender,
+                "&#bbbbbbYou paid &d" + targetName + " &a" + amount,
+                "&c-" + amount + " &#bbbbbbto &d" + targetName);
         SoundService.economyPay(sender, core);
 
         Player onlineTarget = target.getPlayer();
 
         if (onlineTarget != null && onlineTarget.isOnline()) {
-            sendOnlinePaidMessage(onlineTarget, cents);
+            sendOnlinePaidMessage(onlineTarget, cents, senderName);
             SoundService.economyReceive(onlineTarget, core);
         } else {
-            addOfflinePayment(target.getUniqueId(), cents, DisplayNames.prefixedDisplayName(sender));
+            addOfflinePayment(target.getUniqueId(), cents, "&d" + senderName);
         }
 
         save();
@@ -132,12 +134,22 @@ public final class EconomyService {
     }
 
     public void sendOnlinePaidMessage(Player player, long cents) {
-        String amount = format(cents);
-        String chat = message("economy.paid-chat").replace("%amount%", amount);
-        String actionbar = message("economy.paid-actionbar").replace("%amount%", amount);
+        sendOnlinePaidMessage(player, cents, null);
+    }
 
-        player.sendMessage(TextColor.color(chat));
-        player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(TextColor.color(actionbar)));
+    public void sendOnlinePaidMessage(Player player, long cents, String senderName) {
+        String amount = format(cents);
+
+        if (senderName == null || senderName.isBlank()) {
+            sendChatAndActionBar(player,
+                    "&#bbbbbbYou received &a" + amount,
+                    "&a+" + amount);
+            return;
+        }
+
+        sendChatAndActionBar(player,
+                "&#bbbbbbYou received &a" + amount + " &#bbbbbbfrom &d" + senderName,
+                "&a+" + amount + " &#bbbbbbfrom &d" + senderName);
     }
 
     public void addOfflinePayment(UUID targetId, long cents, String senderName) {
@@ -170,11 +182,7 @@ public final class EconomyService {
         List<Map.Entry<UUID, Long>> entries = new ArrayList<>();
 
         for (Map.Entry<UUID, Long> entry : balances.entrySet()) {
-            if (entry.getValue() == null) {
-                continue;
-            }
-
-            if (entry.getValue() < 1L) {
+            if (entry.getValue() == null || entry.getValue() < 1L) {
                 continue;
             }
 
@@ -195,21 +203,17 @@ public final class EconomyService {
             return -1L;
         }
 
-        String input = raw.trim().replace(",", "").replace("_", "");
-        String lower = input.toLowerCase(Locale.ROOT);
+        String input = raw.trim().replace(",", "").replace("_", "").toLowerCase(Locale.ROOT);
         BigDecimal multiplier = BigDecimal.ONE;
 
-        if (lower.endsWith("k")) {
+        if (input.endsWith("k")) {
             multiplier = BigDecimal.valueOf(1_000L);
             input = input.substring(0, input.length() - 1);
-        } else if (lower.endsWith("m")) {
+        } else if (input.endsWith("m")) {
             multiplier = BigDecimal.valueOf(1_000_000L);
             input = input.substring(0, input.length() - 1);
-        } else if (lower.endsWith("b")) {
+        } else if (input.endsWith("b")) {
             multiplier = BigDecimal.valueOf(1_000_000_000L);
-            input = input.substring(0, input.length() - 1);
-        } else if (lower.endsWith("t")) {
-            multiplier = BigDecimal.valueOf(1_000_000_000_000L);
             input = input.substring(0, input.length() - 1);
         }
 
@@ -221,11 +225,7 @@ public final class EconomyService {
     }
 
     public long amountToCents(BigDecimal amount) {
-        if (amount == null) {
-            return -1L;
-        }
-
-        if (amount.compareTo(BigDecimal.ZERO) < 0) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) < 0) {
             return -1L;
         }
 
@@ -241,7 +241,6 @@ public final class EconomyService {
 
     public void save() {
         FileConfiguration config = core.getEconomyConfig();
-
         config.set("balances", null);
         config.set("offline-payments", null);
 
@@ -255,7 +254,6 @@ public final class EconomyService {
 
         for (Map.Entry<UUID, OfflinePaymentNotice> entry : offlinePayments.entrySet()) {
             String path = "offline-payments." + entry.getKey();
-
             config.set(path + ".total-cents", entry.getValue().totalCents());
             config.set(path + ".senders", new ArrayList<>(entry.getValue().senders()));
         }
@@ -299,6 +297,15 @@ public final class EconomyService {
                 }
             }
         }
+    }
+
+    private void sendChatAndActionBar(Player player, String chat, String actionbar) {
+        player.sendMessage(TextColor.color(chat));
+        player.sendActionBar(component(actionbar));
+    }
+
+    private Component component(String message) {
+        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
     }
 
     private String message(String path) {
