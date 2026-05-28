@@ -1,6 +1,8 @@
 package net.mineacle.core.common.sound;
 
 import net.mineacle.core.Core;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 
@@ -32,11 +34,9 @@ public final class SoundService {
             return;
         }
 
-        Sound sound;
+        Sound sound = resolveSound(soundName);
 
-        try {
-            sound = Sound.valueOf(soundName.trim().toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException exception) {
+        if (sound == null) {
             core.getLogger().warning("Invalid sound configured at " + basePath + ".sound: " + soundName);
             return;
         }
@@ -48,6 +48,33 @@ public final class SoundService {
             player.playSound(player.getLocation(), sound, volume, pitch);
         } catch (Exception ignored) {
         }
+    }
+
+    private static Sound resolveSound(String input) {
+        String normalized = input.trim().toLowerCase(Locale.ROOT);
+        NamespacedKey key;
+
+        if (normalized.contains(":")) {
+            key = NamespacedKey.fromString(normalized);
+        } else {
+            key = NamespacedKey.minecraft(toSoundKey(normalized));
+        }
+
+        if (key == null) {
+            return null;
+        }
+
+        return Registry.SOUNDS.get(key);
+    }
+
+    private static String toSoundKey(String input) {
+        String cleaned = input.trim().toLowerCase(Locale.ROOT);
+
+        if (cleaned.indexOf('.') >= 0) {
+            return cleaned;
+        }
+
+        return cleaned.replace('_', '.');
     }
 
     public static void guiClick(Player player, Core core) {

@@ -31,11 +31,6 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (!player.hasPermission("mineaclewarps.use")) {
-            player.sendMessage(warpService.noPermissionMessage());
-            return true;
-        }
-
         if (args.length == 0) {
             sendUsage(player);
             return true;
@@ -43,7 +38,7 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
 
         if (args[0].equalsIgnoreCase("reload")) {
             if (!player.hasPermission("mineaclewarps.admin")) {
-                player.sendMessage(warpService.noPermissionMessage());
+                player.sendMessage(TextColor.color("&cYou do not have permission"));
                 return true;
             }
 
@@ -56,7 +51,7 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
         WarpPoint warp = warpService.warp(warpId);
 
         if (warp == null) {
-            player.sendMessage(warpService.notFoundMessage(warpId));
+            player.sendMessage(TextColor.color("&cUnknown warp"));
             sendAvailable(player);
             return true;
         }
@@ -83,14 +78,12 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> completions = new ArrayList<>();
-
         if (args.length != 1) {
-            return completions;
+            return List.of();
         }
 
-        String partial = args[0].toLowerCase(Locale.ROOT);
-        completions.addAll(warpService.warpKeys(partial));
+        String partial = args[0] == null ? "" : args[0].toLowerCase(Locale.ROOT);
+        List<String> completions = new ArrayList<>(warpService.warpKeys(partial));
 
         if (sender.hasPermission("mineaclewarps.admin") && "reload".startsWith(partial)) {
             completions.add("reload");

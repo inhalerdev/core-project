@@ -205,15 +205,23 @@ public final class WarpService {
     }
 
     public List<String> warpKeys(String partial) {
-        String normalized = partial == null ? "" : partial.toLowerCase(Locale.ROOT);
+        String normalized = partial == null ? "" : partial.trim().toLowerCase(Locale.ROOT);
+        ConfigurationSection section = config().getConfigurationSection("warps");
         List<String> keys = new ArrayList<>();
 
-        for (WarpPoint point : warps()) {
-            if (point.key().toLowerCase(Locale.ROOT).startsWith(normalized)) {
-                keys.add(point.key());
+        if (section == null) {
+            return keys;
+        }
+
+        for (String key : section.getKeys(false)) {
+            String normalizedKey = key.toLowerCase(Locale.ROOT);
+
+            if (normalized.isEmpty() || normalizedKey.startsWith(normalized)) {
+                keys.add(key);
             }
         }
 
+        keys.sort(String.CASE_INSENSITIVE_ORDER);
         return keys;
     }
 
