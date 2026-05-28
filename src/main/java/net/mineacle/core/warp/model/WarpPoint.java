@@ -1,4 +1,4 @@
-package net.mineacle.core.warps.model;
+package net.mineacle.core.warp.model;
 
 import org.bukkit.Material;
 

@@ -1,9 +1,9 @@
-package net.mineacle.core.warp.command;
+package net.mineacle.core.warps.command;
 
 import net.mineacle.core.common.text.TextColor;
-import net.mineacle.core.warp.model.WarpPoint;
-import net.mineacle.core.warp.service.WarpService;
-import net.mineacle.core.warp.service.WarpTeleportService;
+import net.mineacle.core.warps.model.WarpPoint;
+import net.mineacle.core.warps.service.WarpService;
+import net.mineacle.core.warps.service.WarpTeleportService;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -37,13 +37,13 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args[0].equalsIgnoreCase("reload")) {
-            if (!player.hasPermission("mineaclewarp.admin")) {
+            if (!player.hasPermission("mineaclewarps.admin")) {
                 player.sendMessage(TextColor.color("&cYou do not have permission"));
                 return true;
             }
 
             warpService.reload();
-            player.sendMessage(TextColor.color("&#bbbbbbWarp reloaded"));
+            player.sendMessage(TextColor.color("&#bbbbbbWarps reloaded"));
             return true;
         }
 
@@ -78,24 +78,13 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!(sender instanceof Player player)) {
-            return List.of();
-        }
-
         if (args.length != 1) {
             return List.of();
         }
 
-        String partial = args[0].toLowerCase(Locale.ROOT);
-        List<String> completions = new ArrayList<>();
+        List<String> completions = new ArrayList<>(warpService.warpKeys(""));
 
-        for (String key : warpService.warpKeys("")) {
-            if (key.toLowerCase(Locale.ROOT).startsWith(partial)) {
-                completions.add(key);
-            }
-        }
-
-        if (player.hasPermission("mineaclewarp.admin") && "reload".startsWith(partial)) {
+        if (sender.hasPermission("mineaclewarps.admin")) {
             completions.add("reload");
         }
 

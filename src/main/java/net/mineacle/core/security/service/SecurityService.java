@@ -23,6 +23,7 @@ public final class SecurityService {
 
     private final Core core;
     private final File file;
+
     private FileConfiguration config;
     private final Map<String, CommandGroup> groups = new LinkedHashMap<>();
 
@@ -53,6 +54,11 @@ public final class SecurityService {
         return sender.hasPermission(config.getString("bypass-permission", "mineaclesecurity.bypass"));
     }
 
+    /*
+     * Mineacle security should not replace Bukkit permissions.
+     * It only blocks dangerous/backend commands.
+     * Normal Mineacle commands are allowed to reach their own command executors.
+     */
     public boolean shouldBlock(Player player, String rawCommandMessage) {
         if (!enabled() || bypass(player)) {
             return false;
@@ -64,21 +70,17 @@ public final class SecurityService {
             return false;
         }
 
-        if (isBlockedCommand(command) || isConsoleOnly(command)) {
-            return true;
-        }
-
-        if (!config.getBoolean("block-unlisted-player-commands", true)) {
-            return false;
-        }
-
-        return !allowedCommands(player).contains(command);
+        return isBlockedCommand(command) || isConsoleOnly(command);
     }
 
     public boolean shouldHideFromRootTab(Player player, String rawCommand) {
         return shouldHideFromTab(player, rawCommand);
     }
 
+    /*
+     * Root / tab is curated by group.
+     * This does not control /command <TAB>; follow-up args are left to the command's TabCompleter.
+     */
     public boolean shouldHideFromTab(Player player, String rawCommand) {
         if (!enabled() || bypass(player)) {
             return false;
@@ -102,9 +104,20 @@ public final class SecurityService {
             return completions == null ? List.of() : completions;
         }
 
-        String trimmed = buffer == null ? "" : buffer.trim();
+        String raw = buffer == null ? "" : buffer;
 
-        if (trimmed.isBlank() || !trimmed.startsWith("/") || trimmed.contains(" ")) {
+        /*
+         * Non-negotiable rule:
+         * Security never filters follow-up suggestions after a space.
+         * /warp <TAB>, /sell <TAB>, /bounty <TAB>, /team <TAB>, etc. are handled by the command.
+         */
+        if (raw.contains(" ")) {
+            return completions;
+        }
+
+        String trimmed = raw.trim();
+
+        if (trimmed.isBlank() || !trimmed.startsWith("/")) {
             return completions;
         }
 
@@ -199,6 +212,7 @@ public final class SecurityService {
 
     private void loadGroups() {
         groups.clear();
+
         ConfigurationSection section = config.getConfigurationSection("groups");
 
         if (section == null) {

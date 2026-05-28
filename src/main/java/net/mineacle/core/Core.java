@@ -25,7 +25,7 @@ import net.mineacle.core.spawnprotection.SpawnProtectionModule;
 import net.mineacle.core.stats.StatsModule;
 import net.mineacle.core.teams.TeamsModule;
 import net.mineacle.core.tpa.TpaModule;
-import net.mineacle.core.warps.WarpModule;
+import net.mineacle.core.warp.WarpModule;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;

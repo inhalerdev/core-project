@@ -204,10 +204,6 @@ public final class WarpService {
         );
     }
 
-    /*
-     * Donut-style follow-up tab:
-     * always show every warp option after /warp, regardless of partial typed.
-     */
     public List<String> warpKeys(String partial) {
         ConfigurationSection section = config().getConfigurationSection("warps");
 

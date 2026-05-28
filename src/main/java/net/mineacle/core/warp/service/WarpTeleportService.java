@@ -1,11 +1,11 @@
-package net.mineacle.core.warps.service;
+package net.mineacle.core.warp.service;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
-import net.mineacle.core.warps.model.WarpPoint;
+import net.mineacle.core.warp.model.WarpPoint;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;

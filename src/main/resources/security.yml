@@ -7,7 +7,9 @@ reload-message: "&#bbbbbbSecurity reloaded"
 usage-message: "&#bbbbbbUsage: &d/mineaclesecurity reload"
 groups-message: "&#bbbbbbActive command groups: &d%groups%"
 
-block-unlisted-player-commands: true
+# Bukkit/LuckPerms/plugin.yml already handle command permissions.
+# Security should not block normal Mineacle commands just because they are not listed.
+block-unlisted-player-commands: false
 block-namespaced-commands: true
 
 blocked-prefixes:
@@ -64,7 +66,7 @@ blocked-commands:
   - "ver"
   - "version"
 
-  # backend plugins
+  # backend plugin commands
   - "ajl"
   - "ajlb"
   - "ajleaderboard"
@@ -147,8 +149,6 @@ groups:
       - "balancetop"
       - "baltop"
       - "bounty"
-      - "buy"
-      - "delhome"
       - "discord"
       - "guide"
       - "home"
@@ -157,8 +157,6 @@ groups:
       - "ignore"
       - "ignorelist"
       - "itemprices"
-      - "link"
-      - "links"
       - "msg"
       - "order"
       - "orders"
@@ -172,7 +170,6 @@ groups:
       - "sell"
       - "sellmulti"
       - "sethome"
-      - "shop"
       - "spawn"
       - "stats"
       - "store"
@@ -211,7 +208,6 @@ groups:
       - "plus"
     visible-commands:
       - "ban"
-      - "banmenu"
       - "delwarp"
       - "eco"
       - "enchant"
@@ -223,10 +219,8 @@ groups:
       - "gms"
       - "help"
       - "kick"
-      - "mineaclecore"
       - "mineaclehomes"
       - "mineaclenametags"
-      - "mineaclepunish"
       - "mineaclesecurity"
       - "money"
       - "mute"
