@@ -24,7 +24,6 @@ public final class SecurityService {
     private final Core core;
     private final File file;
     private FileConfiguration config;
-
     private final Map<String, CommandGroup> groups = new LinkedHashMap<>();
 
     public SecurityService(Core core) {
@@ -60,19 +59,24 @@ public final class SecurityService {
         }
 
         String command = firstCommand(rawCommandMessage);
+
         if (command.isBlank()) {
             return false;
         }
 
-        if (isBlocked(command)) {
+        if (isBlockedCommand(command) || isConsoleOnly(command)) {
             return true;
         }
 
-        if (consoleOnlyCommands().contains(command)) {
-            return true;
+        if (!config.getBoolean("block-unlisted-player-commands", true)) {
+            return false;
         }
 
-        return blockUnlistedPlayerCommands() && !visibleCommands(player).contains(command);
+        return !allowedCommands(player).contains(command);
+    }
+
+    public boolean shouldHideFromRootTab(Player player, String rawCommand) {
+        return shouldHideFromTab(player, rawCommand);
     }
 
     public boolean shouldHideFromTab(Player player, String rawCommand) {
@@ -81,58 +85,59 @@ public final class SecurityService {
         }
 
         String command = normalize(rawCommand);
+
         if (command.isBlank()) {
             return false;
         }
 
-        if (isBlocked(command)) {
+        if (isBlockedCommand(command) || isConsoleOnly(command)) {
             return true;
         }
 
-        if (consoleOnlyCommands().contains(command)) {
-            return true;
-        }
-
-        return blockUnlistedPlayerCommands() && !visibleCommands(player).contains(command);
+        return !visibleCommands(player).contains(command);
     }
 
     public List<String> filterTabCompletions(Player player, String buffer, List<String> completions) {
         if (!enabled() || bypass(player) || completions == null || completions.isEmpty()) {
-            return completions;
+            return completions == null ? List.of() : completions;
         }
 
-        String normalizedBuffer = buffer == null ? "" : buffer.trim();
-        if (!normalizedBuffer.startsWith("/")) {
-            return completions;
-        }
+        String trimmed = buffer == null ? "" : buffer.trim();
 
-        String withoutSlash = normalizedBuffer.substring(1);
-        if (withoutSlash.contains(" ")) {
+        if (trimmed.isBlank() || !trimmed.startsWith("/") || trimmed.contains(" ")) {
             return completions;
         }
 
         List<String> filtered = new ArrayList<>();
+
         for (String completion : completions) {
-            if (!shouldHideFromTab(player, completion)) {
+            String command = normalize(completion);
+
+            if (!shouldHideFromTab(player, command)) {
                 filtered.add(completion);
             }
         }
+
         return filtered;
-    }
-
-    public String unknownMessage() {
-        return TextColor.color(config.getString("unknown-command-message", "&cThis command does not exist"));
-    }
-
-    public String reloadMessage() {
-        return TextColor.color(config.getString("reload-message", "&#bbbbbbSecurity reloaded"));
     }
 
     public Set<String> visibleCommands(Player player) {
         Set<String> commands = new LinkedHashSet<>();
 
         for (CommandGroup group : activeGroups(player)) {
-            addGroupCommands(group.id(), commands, new HashSet<>());
+            commands.addAll(resolveVisibleCommands(group.name(), new HashSet<>()));
+        }
+
+        return commands;
+    }
+
+    public Set<String> allowedCommands(Player player) {
+        Set<String> commands = new LinkedHashSet<>();
+
+        for (CommandGroup group : activeGroups(player)) {
+            commands.addAll(resolveVisibleCommands(group.name(), new HashSet<>()));
+            commands.addAll(resolveHiddenCommands(group.name(), new HashSet<>()));
+            commands.addAll(resolveAllowedCommands(group.name(), new HashSet<>()));
         }
 
         return commands;
@@ -140,10 +145,116 @@ public final class SecurityService {
 
     public List<String> activeGroupNames(Player player) {
         List<String> names = new ArrayList<>();
+
         for (CommandGroup group : activeGroups(player)) {
-            names.add(group.id());
+            names.add(group.name());
         }
+
         return names;
+    }
+
+    public List<String> groupSummary(Player player) {
+        return activeGroupNames(player);
+    }
+
+    public String unknownMessage() {
+        return color(config.getString("unknown-command-message", "&cThis command does not exist"));
+    }
+
+    public String reloadMessage() {
+        return color(config.getString("reload-message", "&#bbbbbbSecurity reloaded"));
+    }
+
+    public String usageMessage() {
+        return color(config.getString("usage-message", "&#bbbbbbUsage: &d/mineaclesecurity reload"));
+    }
+
+    public String groupsMessage(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            return color("&#bbbbbbConsole has security bypass");
+        }
+
+        String groupsText = String.join("&#bbbbbb, &d", activeGroupNames(player));
+
+        return color(config.getString("groups-message", "&#bbbbbbActive command groups: &d%groups%")
+                .replace("%groups%", groupsText));
+    }
+
+    public List<String> commandTabs(CommandSender sender, String input) {
+        if (!bypass(sender)) {
+            return List.of();
+        }
+
+        String lowered = input == null ? "" : input.toLowerCase(Locale.ROOT);
+        List<String> matches = new ArrayList<>();
+
+        for (String option : List.of("reload", "groups")) {
+            if (option.startsWith(lowered)) {
+                matches.add(option);
+            }
+        }
+
+        return matches;
+    }
+
+    private void loadGroups() {
+        groups.clear();
+        ConfigurationSection section = config.getConfigurationSection("groups");
+
+        if (section == null) {
+            loadLegacyGroups();
+            return;
+        }
+
+        for (String key : section.getKeys(false)) {
+            String path = "groups." + key;
+
+            Set<String> visible = new LinkedHashSet<>();
+            visible.addAll(normalizeList(config.getStringList(path + ".visible-commands")));
+            visible.addAll(normalizeList(config.getStringList(path + ".commands")));
+
+            groups.put(normalizeGroup(key), new CommandGroup(
+                    normalizeGroup(key),
+                    config.getString(path + ".permission", ""),
+                    config.getInt(path + ".priority", 0),
+                    normalizeList(config.getStringList(path + ".inherits")),
+                    visible,
+                    normalizeList(config.getStringList(path + ".hidden-commands")),
+                    normalizeList(config.getStringList(path + ".allowed-commands"))
+            ));
+        }
+    }
+
+    private void loadLegacyGroups() {
+        groups.put("default", new CommandGroup(
+                "default",
+                "",
+                0,
+                Set.of(),
+                normalizeList(config.getStringList("visible-commands.default")),
+                Set.of(),
+                Set.of()
+        ));
+
+        groups.put("plus", new CommandGroup(
+                "plus",
+                config.getString("plus-group-permission", "mineacle.plus"),
+                10,
+                Set.of("default"),
+                normalizeList(config.getStringList("visible-commands.plus")),
+                Set.of(),
+                Set.of()
+        ));
+
+        groups.put("admin", new CommandGroup(
+                "admin",
+                config.getString("admin-group-permission", "mineaclesecurity.group.admin"),
+                100,
+                Set.of("plus"),
+                normalizeList(config.getStringList("visible-commands.admin")),
+                Set.of(),
+                Set.of()
+        ));
     }
 
     private List<CommandGroup> activeGroups(Player player) {
@@ -159,122 +270,84 @@ public final class SecurityService {
         return active;
     }
 
-    private void addGroupCommands(String groupId, Set<String> commands, Set<String> visited) {
-        String normalizedGroup = normalizeGroup(groupId);
-        if (normalizedGroup.isBlank() || visited.contains(normalizedGroup)) {
-            return;
+    private Set<String> resolveVisibleCommands(String groupName, Set<String> seen) {
+        CommandGroup group = groups.get(normalizeGroup(groupName));
+
+        if (group == null || !seen.add(group.name())) {
+            return Set.of();
         }
 
-        visited.add(normalizedGroup);
-        CommandGroup group = groups.get(normalizedGroup);
-        if (group == null) {
-            return;
+        Set<String> commands = new LinkedHashSet<>();
+
+        for (String parent : group.inherits()) {
+            commands.addAll(resolveVisibleCommands(parent, seen));
         }
 
-        for (String inherited : group.inherits()) {
-            addGroupCommands(inherited, commands, visited);
-        }
-
-        commands.addAll(group.commands());
+        commands.addAll(group.visibleCommands());
+        return commands;
     }
 
-    private void loadGroups() {
-        groups.clear();
+    private Set<String> resolveHiddenCommands(String groupName, Set<String> seen) {
+        CommandGroup group = groups.get(normalizeGroup(groupName));
 
-        ConfigurationSection section = config.getConfigurationSection("groups");
-        if (section == null) {
-            loadLegacyGroups();
-            return;
+        if (group == null || !seen.add(group.name())) {
+            return Set.of();
         }
 
-        for (String id : section.getKeys(false)) {
-            String path = "groups." + id;
-            String normalizedId = normalizeGroup(id);
-            if (normalizedId.isBlank()) {
-                continue;
-            }
+        Set<String> commands = new LinkedHashSet<>();
 
-            String permission = config.getString(path + ".permission", "");
-            int priority = config.getInt(path + ".priority", 0);
-            Set<String> inherits = normalizeGroups(config.getStringList(path + ".inherits"));
-            Set<String> commands = normalizeCommands(config.getStringList(path + ".commands"));
-
-            groups.put(normalizedId, new CommandGroup(normalizedId, permission == null ? "" : permission.trim(), priority, inherits, commands));
+        for (String parent : group.inherits()) {
+            commands.addAll(resolveHiddenCommands(parent, seen));
         }
 
-        if (!groups.containsKey("default")) {
-            groups.put("default", new CommandGroup("default", "", 0, Set.of(), Set.of()));
-        }
+        commands.addAll(group.hiddenCommands());
+        return commands;
     }
 
-    private void loadLegacyGroups() {
-        groups.put("default", new CommandGroup("default", "", 0, Set.of(), normalizeCommands(config.getStringList("visible-commands.default"))));
-        groups.put("plus", new CommandGroup("plus", config.getString("plus-group-permission", "mineacle.plus"), 10, Set.of("default"), normalizeCommands(config.getStringList("visible-commands.plus"))));
-        groups.put("admin", new CommandGroup("admin", config.getString("admin-group-permission", "mineaclesecurity.group.admin"), 100, Set.of("plus"), normalizeCommands(config.getStringList("visible-commands.admin"))));
+    private Set<String> resolveAllowedCommands(String groupName, Set<String> seen) {
+        CommandGroup group = groups.get(normalizeGroup(groupName));
+
+        if (group == null || !seen.add(group.name())) {
+            return Set.of();
+        }
+
+        Set<String> commands = new LinkedHashSet<>();
+
+        for (String parent : group.inherits()) {
+            commands.addAll(resolveAllowedCommands(parent, seen));
+        }
+
+        commands.addAll(group.allowedCommands());
+        return commands;
     }
 
-    private boolean isBlocked(String command) {
-        if (blockNamespacedCommands() && command.contains(":")) {
-            for (String prefix : blockedPrefixes()) {
+    private boolean isBlockedCommand(String command) {
+        if (config.getBoolean("block-namespaced-commands", true) && command.contains(":")) {
+            for (String prefix : normalizeList(config.getStringList("blocked-prefixes"))) {
                 if (command.startsWith(prefix)) {
                     return true;
                 }
             }
         }
 
-        return blockedCommands().contains(command);
+        return normalizeList(config.getStringList("blocked-commands")).contains(command);
     }
 
-    private boolean blockUnlistedPlayerCommands() {
-        return config.getBoolean("block-unlisted-player-commands", true);
+    private boolean isConsoleOnly(String command) {
+        return normalizeList(config.getStringList("console-only-commands")).contains(command);
     }
 
-    private boolean blockNamespacedCommands() {
-        return config.getBoolean("block-namespaced-commands", true);
-    }
-
-    private Set<String> blockedPrefixes() {
-        return normalizePrefixes(config.getStringList("blocked-prefixes"));
-    }
-
-    private Set<String> blockedCommands() {
-        return normalizeCommands(config.getStringList("blocked-commands"));
-    }
-
-    private Set<String> consoleOnlyCommands() {
-        return normalizeCommands(config.getStringList("console-only-commands"));
-    }
-
-    private Set<String> normalizeCommands(List<String> rawValues) {
+    private Set<String> normalizeList(List<String> rawValues) {
         Set<String> values = new LinkedHashSet<>();
+
         for (String raw : rawValues) {
             String normalized = normalize(raw);
+
             if (!normalized.isBlank()) {
                 values.add(normalized);
             }
         }
-        return values;
-    }
 
-    private Set<String> normalizePrefixes(List<String> rawValues) {
-        Set<String> values = new LinkedHashSet<>();
-        for (String raw : rawValues) {
-            String normalized = normalize(raw);
-            if (!normalized.isBlank()) {
-                values.add(normalized.endsWith(":") ? normalized : normalized + ":");
-            }
-        }
-        return values;
-    }
-
-    private Set<String> normalizeGroups(List<String> rawValues) {
-        Set<String> values = new LinkedHashSet<>();
-        for (String raw : rawValues) {
-            String normalized = normalizeGroup(raw);
-            if (!normalized.isBlank()) {
-                values.add(normalized);
-            }
-        }
         return values;
     }
 
@@ -284,11 +357,13 @@ public final class SecurityService {
         }
 
         String trimmed = raw.trim();
+
         if (trimmed.startsWith("/")) {
             trimmed = trimmed.substring(1);
         }
 
         int space = trimmed.indexOf(' ');
+
         if (space >= 0) {
             trimmed = trimmed.substring(0, space);
         }
@@ -302,20 +377,30 @@ public final class SecurityService {
         }
 
         String normalized = raw.trim().toLowerCase(Locale.ROOT);
+
         while (normalized.startsWith("/")) {
             normalized = normalized.substring(1);
         }
+
         return normalized;
     }
 
     private String normalizeGroup(String raw) {
-        if (raw == null) {
-            return "";
-        }
-
-        return raw.trim().toLowerCase(Locale.ROOT).replace(' ', '-');
+        return normalize(raw).replace(" ", "-");
     }
 
-    private record CommandGroup(String id, String permission, int priority, Set<String> inherits, Set<String> commands) {
+    private String color(String message) {
+        return TextColor.color(message);
+    }
+
+    private record CommandGroup(
+            String name,
+            String permission,
+            int priority,
+            Set<String> inherits,
+            Set<String> visibleCommands,
+            Set<String> hiddenCommands,
+            Set<String> allowedCommands
+    ) {
     }
 }
