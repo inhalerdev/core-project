@@ -1,17 +1,9 @@
 enabled: true
 update-interval-seconds: 5
 
-# This system only controls vanilla scoreboard-team nametags.
-# It does not create floating text or custom display entities.
 worlds:
-  enabled: true
-  list:
-    - origins
-    - origins_nether
-    - origins_the_end
-    - spawn1
-    - spawn2
-    - spawn3
+  enabled: false
+  list: []
 
 colors:
   op: "#ff88ff"

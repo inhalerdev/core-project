@@ -101,8 +101,8 @@ nickname:
   prefix: "."
   max-length: 15
   allowed-regex: "^[a-zA-Z_0-9&§]+$"
-  op-name-color: "#ff88ff"
-  default-name-color: "#bbbbbb"
+  op-name-color: "#ff55ff"
+  default-name-color: "#ffffff"
 
 chat:
   enabled: true

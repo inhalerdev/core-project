@@ -1,6 +1,7 @@
 package net.mineacle.core.guide.listener;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.guide.gui.GuideMenuHolder;
 import net.mineacle.core.guide.service.GuideMenuService;
 import org.bukkit.entity.Player;
@@ -10,6 +11,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 
 import java.util.List;
+import java.util.Locale;
 
 public final class GuideMenuListener implements Listener {
 
@@ -43,7 +45,17 @@ public final class GuideMenuListener implements Listener {
             return;
         }
 
-        service.execute(player, holder.menuKey(), commands);
+        if (holder.menuKey().equalsIgnoreCase("guide") && opensRules(commands)) {
+            MenuHistory.openChild(
+                    core,
+                    player,
+                    () -> service.open(player, "guide"),
+                    () -> service.open(player, "rules")
+            );
+            return;
+        }
+
+        service.execute(player, commands);
     }
 
     @EventHandler
@@ -51,5 +63,29 @@ public final class GuideMenuListener implements Listener {
         if (event.getInventory().getHolder() instanceof GuideMenuHolder) {
             event.setCancelled(true);
         }
+    }
+
+    private boolean opensRules(List<String> commands) {
+        for (String raw : commands) {
+            if (raw == null) {
+                continue;
+            }
+
+            String command = raw.trim().toLowerCase(Locale.ROOT);
+
+            if (command.startsWith("[player]")) {
+                command = command.substring("[player]".length()).trim();
+            }
+
+            while (command.startsWith("/")) {
+                command = command.substring(1);
+            }
+
+            if (command.equals("rules")) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -5,7 +5,6 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
-import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.guide.gui.GuideMenuHolder;
@@ -52,8 +51,7 @@ public final class GuideMenuService {
     }
 
     public void open(Player player, String menuKey) {
-        String normalizedKey = menuKey.toLowerCase(Locale.ROOT);
-        FileConfiguration config = menus.get(normalizedKey);
+        FileConfiguration config = menus.get(menuKey.toLowerCase(Locale.ROOT));
 
         if (config == null) {
             player.sendMessage(TextColor.color("&cThat menu is not available"));
@@ -63,9 +61,8 @@ public final class GuideMenuService {
         int size = sanitizeSize(config.getInt("size", 27));
         String title = plainTitle(config.getString("menu_title", menuKey));
         Map<Integer, List<String>> commandMap = new HashMap<>();
-        GuideMenuHolder holder = new GuideMenuHolder(normalizedKey, commandMap);
+        GuideMenuHolder holder = new GuideMenuHolder(menuKey, commandMap);
         Inventory inventory = Bukkit.createInventory(holder, size, title);
-
         ConfigurationSection items = config.getConfigurationSection("items");
 
         if (items != null) {
@@ -97,7 +94,7 @@ public final class GuideMenuService {
         // Inventory holders carry click state.
     }
 
-    public void execute(Player player, String currentMenuKey, List<String> commands) {
+    public void execute(Player player, List<String> commands) {
         for (String rawCommand : commands) {
             if (rawCommand == null || rawCommand.isBlank()) {
                 continue;
@@ -118,35 +115,8 @@ public final class GuideMenuService {
                     playerCommand = playerCommand.substring(1);
                 }
 
-                if (shouldOpenRulesAsGuideChild(currentMenuKey, playerCommand)) {
-                    MenuHistory.openChild(
-                            core,
-                            player,
-                            () -> open(player, "guide"),
-                            () -> open(player, "rules")
-                    );
-                    continue;
-                }
-
                 player.closeInventory();
                 player.performCommand(playerCommand);
-                continue;
-            }
-
-            if (lower.startsWith("[menu]")) {
-                String targetMenu = command.substring("[menu]".length()).trim().toLowerCase(Locale.ROOT);
-
-                if (targetMenu.equals("rules") && currentMenuKey.equalsIgnoreCase("guide")) {
-                    MenuHistory.openChild(
-                            core,
-                            player,
-                            () -> open(player, "guide"),
-                            () -> open(player, "rules")
-                    );
-                    continue;
-                }
-
-                MenuHistory.openRoot(core, player, () -> open(player, targetMenu));
                 continue;
             }
 
@@ -166,15 +136,6 @@ public final class GuideMenuService {
                 player.sendMessage(TextColor.color(message));
             }
         }
-    }
-
-    private boolean shouldOpenRulesAsGuideChild(String currentMenuKey, String playerCommand) {
-        if (!currentMenuKey.equalsIgnoreCase("guide")) {
-            return false;
-        }
-
-        String normalized = playerCommand.trim().toLowerCase(Locale.ROOT);
-        return normalized.equals("rules") || normalized.equals("rule");
     }
 
     private void loadMenu(String menuKey) {
@@ -230,7 +191,6 @@ public final class GuideMenuService {
             }
         }
 
-        // Guide and Rules are informational menus. Do not show vanilla tooltip noise.
         meta.addItemFlags(
                 ItemFlag.HIDE_ATTRIBUTES,
                 ItemFlag.HIDE_ENCHANTS,

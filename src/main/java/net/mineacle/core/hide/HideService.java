@@ -23,6 +23,7 @@ public final class HideService {
     private final Core core;
     private final File file;
     private FileConfiguration config;
+
     private final Set<UUID> hidden = new HashSet<>();
     private BukkitTask task;
     private int actionbarTicks;
@@ -47,6 +48,7 @@ public final class HideService {
 
     public void start() {
         stop();
+
         task = core.getServer().getScheduler().runTaskTimer(core, () -> {
             actionbarTicks += 2;
 
@@ -80,18 +82,6 @@ public final class HideService {
         return config.getString("admin-see-permission", "mineaclehide.admin");
     }
 
-    public boolean visibleObfuscated() {
-        return config.getBoolean("visible-obfuscated", true);
-    }
-
-    public boolean hideFromTab() {
-        return config.getBoolean("hide-from-tab", false);
-    }
-
-    public boolean tabObfuscateName() {
-        return config.getBoolean("tab.obfuscate-name", true);
-    }
-
     public boolean disablePickup() {
         return config.getBoolean("disable-pickup", true);
     }
@@ -120,8 +110,13 @@ public final class HideService {
 
     public void hide(Player player) {
         hidden.add(player.getUniqueId());
-        apply(player);
-        updateTabName(player);
+
+        // Hide mode is identity masking only. The player remains visible, and tab/name/display
+        // placeholders are intentionally left untouched.
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            viewer.showPlayer(core, player);
+        }
+
         NametagModule.refreshAll();
     }
 
@@ -132,7 +127,6 @@ public final class HideService {
             viewer.showPlayer(core, player);
         }
 
-        restoreTabName(player);
         NametagModule.refreshAll();
     }
 
@@ -145,7 +139,6 @@ public final class HideService {
             applyViewer(viewer, hiddenPlayer);
         }
 
-        updateTabName(hiddenPlayer);
         NametagModule.refreshAll();
     }
 
@@ -170,21 +163,12 @@ public final class HideService {
     }
 
     public void applyViewer(Player viewer, Player hiddenPlayer) {
-        if (viewer.getUniqueId().equals(hiddenPlayer.getUniqueId())) {
+        if (viewer == null || hiddenPlayer == null) {
             return;
         }
 
-        if (visibleObfuscated()) {
-            viewer.showPlayer(core, hiddenPlayer);
-            return;
-        }
-
-        if (viewer.hasPermission(adminPermission())) {
-            viewer.showPlayer(core, hiddenPlayer);
-            return;
-        }
-
-        viewer.hidePlayer(core, hiddenPlayer);
+        // Keep the player physically visible. Nametag visibility is handled by NametagService.
+        viewer.showPlayer(core, hiddenPlayer);
     }
 
     public void showAll() {
@@ -192,8 +176,6 @@ public final class HideService {
             for (Player viewer : Bukkit.getOnlinePlayers()) {
                 viewer.showPlayer(core, hiddenPlayer);
             }
-
-            restoreTabName(hiddenPlayer);
         }
 
         hidden.clear();
@@ -209,33 +191,7 @@ public final class HideService {
     }
 
     public boolean shouldHideRealNametag(Player player) {
-        return player != null && isHidden(player.getUniqueId()) && visibleObfuscated();
-    }
-
-    private void updateTabName(Player player) {
-        if (!isHidden(player.getUniqueId())) {
-            restoreTabName(player);
-            return;
-        }
-
-        if (hideFromTab()) {
-            for (Player viewer : Bukkit.getOnlinePlayers()) {
-                if (!viewer.getUniqueId().equals(player.getUniqueId()) && !viewer.hasPermission(adminPermission())) {
-                    viewer.hidePlayer(core, player);
-                }
-            }
-            return;
-        }
-
-        if (!tabObfuscateName()) {
-            return;
-        }
-
-        player.playerListName(component(format("tab.format", "%rank%%hidecolor%&k%displayname%", player)));
-    }
-
-    private void restoreTabName(Player player) {
-        player.playerListName(component(DisplayNames.prefixedDisplayName(player)));
+        return player != null && isHidden(player.getUniqueId());
     }
 
     private void sendActionbars() {
@@ -246,25 +202,6 @@ public final class HideService {
 
             player.sendActionBar(component(message("actionbar", "&#bbbbbbYou are hidden")));
         }
-    }
-
-    private String format(String path, String fallback, Player player) {
-        String value = config.getString(path, fallback);
-
-        return value
-                .replace("%hidecolor%", hiddenNameColor(player))
-                .replace("%player%", DisplayNames.username(player))
-                .replace("%displayname%", DisplayNames.displayName(player))
-                .replace("%nickname%", DisplayNames.nickname(player))
-                .replace("%rank%", DisplayNames.luckPermsPrefix(player));
-    }
-
-    private String hiddenNameColor(Player player) {
-        if (player.isOp() || player.hasPermission(adminPermission())) {
-            return config.getString("hidden-name-colors.admin", "#ff88ff");
-        }
-
-        return config.getString("hidden-name-colors.plus", "#ffffff");
     }
 
     private Component component(String message) {
