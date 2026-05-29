@@ -1,4 +1,4 @@
-package net.mineacle.core.warps.service;
+package net.mineacle.core.warp.service;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
@@ -20,13 +20,11 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.Random;
 
 public final class WarpService {
 
     private final Core core;
     private final File file;
-    private final Random random = new Random();
 
     private FileConfiguration config;
 
@@ -128,28 +126,32 @@ public final class WarpService {
         if (isSpawnWorld(player.getWorld().getName())) {
             world = player.getWorld();
         } else {
-            world = randomLoadedSpawnWorld().orElse(player.getWorld());
+            world = leastPopulatedSpawnWorld().orElse(player.getWorld());
         }
 
         return new Location(world, point.x(), point.y(), point.z(), point.yaw(), point.pitch());
     }
 
-    public Optional<World> randomLoadedSpawnWorld() {
-        List<World> loaded = new ArrayList<>();
+    public Optional<World> leastPopulatedSpawnWorld() {
+        World best = null;
+        int bestCount = Integer.MAX_VALUE;
 
         for (String worldName : spawnWorlds()) {
             World world = Bukkit.getWorld(worldName);
 
-            if (world != null) {
-                loaded.add(world);
+            if (world == null) {
+                continue;
+            }
+
+            int count = world.getPlayers().size();
+
+            if (best == null || count < bestCount) {
+                best = world;
+                bestCount = count;
             }
         }
 
-        if (loaded.isEmpty()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(loaded.get(random.nextInt(loaded.size())));
+        return Optional.ofNullable(best);
     }
 
     public List<WarpPoint> warps() {

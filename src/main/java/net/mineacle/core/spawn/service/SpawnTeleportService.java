@@ -60,6 +60,7 @@ public final class SpawnTeleportService {
                 .replace("%seconds%", String.valueOf(delay));
 
         sendActionBar(player, startMessage);
+        SoundService.teleportStart(player, spawnService.core());
 
         BukkitTask task = spawnService.core().getServer().getScheduler().runTaskTimer(
                 spawnService.core(),
@@ -122,6 +123,7 @@ public final class SpawnTeleportService {
 
         if (sendMessage) {
             sendActionBar(player, CANCELLED_MOVE_MESSAGE);
+            player.sendMessage(TextColor.color(CANCELLED_MOVE_MESSAGE));
             SoundService.teleportCancelled(player, spawnService.core());
         }
     }

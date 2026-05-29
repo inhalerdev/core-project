@@ -1,4 +1,4 @@
-package net.mineacle.core.warps.command;
+package net.mineacle.core.warp.command;
 
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.warp.model.WarpPoint;

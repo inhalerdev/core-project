@@ -7,7 +7,6 @@ import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.reflect.StructureModifier;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
-import net.mineacle.core.guide.gui.GuideMenuHolder;
 import net.mineacle.core.sell.gui.WorthGui;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.ChatColor;
@@ -63,17 +62,21 @@ public final class SellWorthPacketListener extends PacketAdapter {
                 continue;
             }
 
-            if (shouldStripForRawSlot(player, rawSlot)) {
-                modifier.writeSafely(index, stripWorthLore(item));
-                continue;
-            }
-
             if (isWorthMenu(player)) {
                 modifier.writeSafely(index, item);
                 continue;
             }
 
-            modifier.writeSafely(index, withWorthLore(player, item));
+            if (shouldStripForRawSlot(player, rawSlot)) {
+                modifier.writeSafely(index, stripWorthLore(item));
+                continue;
+            }
+
+            if (shouldAddWorthForRawSlot(player, rawSlot)) {
+                modifier.writeSafely(index, withWorthLore(player, item));
+            } else {
+                modifier.writeSafely(index, stripWorthLore(item));
+            }
         }
     }
 
@@ -97,17 +100,21 @@ public final class SellWorthPacketListener extends PacketAdapter {
                     continue;
                 }
 
-                if (shouldStripForRawSlot(player, rawSlot)) {
-                    updated.add(stripWorthLore(item));
-                    continue;
-                }
-
                 if (isWorthMenu(player)) {
                     updated.add(item);
                     continue;
                 }
 
-                updated.add(withWorthLore(player, item));
+                if (shouldStripForRawSlot(player, rawSlot)) {
+                    updated.add(stripWorthLore(item));
+                    continue;
+                }
+
+                if (shouldAddWorthForRawSlot(player, rawSlot)) {
+                    updated.add(withWorthLore(player, item));
+                } else {
+                    updated.add(stripWorthLore(item));
+                }
             }
 
             listModifier.writeSafely(index, updated);
@@ -132,17 +139,21 @@ public final class SellWorthPacketListener extends PacketAdapter {
                     continue;
                 }
 
-                if (shouldStripForRawSlot(player, rawSlot)) {
-                    updated[rawSlot] = stripWorthLore(item);
-                    continue;
-                }
-
                 if (isWorthMenu(player)) {
                     updated[rawSlot] = item;
                     continue;
                 }
 
-                updated[rawSlot] = withWorthLore(player, item);
+                if (shouldStripForRawSlot(player, rawSlot)) {
+                    updated[rawSlot] = stripWorthLore(item);
+                    continue;
+                }
+
+                if (shouldAddWorthForRawSlot(player, rawSlot)) {
+                    updated[rawSlot] = withWorthLore(player, item);
+                } else {
+                    updated[rawSlot] = stripWorthLore(item);
+                }
             }
 
             arrayModifier.writeSafely(index, updated);
@@ -154,24 +165,45 @@ public final class SellWorthPacketListener extends PacketAdapter {
             return false;
         }
 
-        if (isWorthMenu(player)) {
-            return false;
-        }
-
         InventoryView view = player.getOpenInventory();
 
-        if (view == null || view.getTopInventory() == null) {
+        if (view == null) {
             return false;
         }
 
         Inventory top = view.getTopInventory();
-        int topSize = top.getSize();
 
-        if (rawSlot >= topSize) {
+        if (top == null) {
             return false;
         }
 
-        return isCoreOrCustomTopInventory(view, top);
+        /*
+         * Long-term safe rule:
+         * Never show Mineacle worth lore inside top inventories from menus/crates/previews.
+         * This protects PhoenixCrates and any future crate/shop/menu plugin without needing
+         * every plugin title hardcoded.
+         */
+        return rawSlot < top.getSize() && isProtectedTopInventory(view, top);
+    }
+
+    private boolean shouldAddWorthForRawSlot(Player player, int rawSlot) {
+        InventoryView view = player.getOpenInventory();
+
+        if (view == null) {
+            return true;
+        }
+
+        Inventory top = view.getTopInventory();
+
+        if (top == null) {
+            return true;
+        }
+
+        if (rawSlot >= 0 && rawSlot < top.getSize()) {
+            return false;
+        }
+
+        return true;
     }
 
     private boolean isWorthMenu(Player player) {
@@ -185,11 +217,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
         return WorthGui.isTitle(title);
     }
 
-    private boolean isCoreOrCustomTopInventory(InventoryView view, Inventory top) {
-        if (top.getHolder(false) instanceof GuideMenuHolder) {
-            return true;
-        }
-
+    private boolean isProtectedTopInventory(InventoryView view, Inventory top) {
         String title = ChatColor.stripColor(view.getTitle());
 
         if (title == null) {
@@ -197,66 +225,26 @@ public final class SellWorthPacketListener extends PacketAdapter {
         }
 
         String lowerTitle = title.toLowerCase(Locale.ROOT);
+        String holderName = top.getHolder(false) == null ? "" : top.getHolder(false).getClass().getName().toLowerCase(Locale.ROOT);
 
-        if (isKnownMineacleTitle(lowerTitle)) {
+        if (lowerTitle.contains("crate")
+                || lowerTitle.contains("key")
+                || lowerTitle.contains("reward")
+                || holderName.contains("phoenix")
+                || holderName.contains("crate")
+                || holderName.contains("reward")) {
             return true;
         }
 
-        boolean noHolder = top.getHolder(false) == null;
         InventoryType type = top.getType();
-
-        if (!noHolder) {
-            return false;
-        }
 
         return type == InventoryType.CHEST
                 || type == InventoryType.HOPPER
                 || type == InventoryType.DROPPER
-                || type == InventoryType.DISPENSER;
-    }
-
-    private boolean isKnownMineacleTitle(String lowerTitle) {
-        if (lowerTitle == null || lowerTitle.isBlank()) {
-            return false;
-        }
-
-        if (lowerTitle.startsWith("item prices")) {
-            return false;
-        }
-
-        return lowerTitle.equals("homes")
-                || lowerTitle.equals("spawn")
-                || lowerTitle.equals("sell")
-                || lowerTitle.equals("sell multipliers")
-                || lowerTitle.equals("my orders")
-                || lowerTitle.equals("create order")
-                || lowerTitle.equals("confirm delivery")
-                || lowerTitle.equals("confirm cancel")
-                || lowerTitle.equals("team menu")
-                || lowerTitle.equals("team invites")
-                || lowerTitle.equals("team bans")
-                || lowerTitle.equals("team manage")
-                || lowerTitle.equals("member manager")
-                || lowerTitle.equals("banner color")
-                || lowerTitle.equals("name color")
-                || lowerTitle.equals("teleport request")
-                || lowerTitle.equals("confirm request")
-                || lowerTitle.equals("confirm action")
-                || lowerTitle.equals("mineacle guide")
-                || lowerTitle.equals("guide")
-                || lowerTitle.equals("server rules")
-                || lowerTitle.equals("rules")
-                || lowerTitle.startsWith("homes ")
-                || lowerTitle.startsWith("balance top")
-                || lowerTitle.startsWith("orders")
-                || lowerTitle.startsWith("bounties")
-                || lowerTitle.startsWith("sell history")
-                || lowerTitle.startsWith("delete ")
-                || lowerTitle.startsWith("confirm ")
-                || lowerTitle.contains(" statistics")
-                || lowerTitle.endsWith(" stats")
-                || lowerTitle.contains(" member")
-                || lowerTitle.contains("page ");
+                || type == InventoryType.DISPENSER
+                || type == InventoryType.BARREL
+                || type == InventoryType.SHULKER_BOX
+                || type == InventoryType.ENDER_CHEST;
     }
 
     private ItemStack withWorthLore(Player player, ItemStack original) {
@@ -278,10 +266,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
             return item;
         }
 
-        List<String> lore = meta.hasLore() && meta.getLore() != null
-                ? new ArrayList<>(meta.getLore())
-                : new ArrayList<>();
-
+        List<String> lore = meta.hasLore() && meta.getLore() != null ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
         lore.add(0, TextColor.color("&#bbbbbbWorth: &a" + sellService.format(totalWorth)));
         meta.setLore(lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);

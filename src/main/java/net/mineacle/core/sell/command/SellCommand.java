@@ -51,11 +51,6 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (commandName.equals("sellmulti")) {
-            SellMultiGui.open(core, player, sellService);
-            return true;
-        }
-
         if (args.length > 0 && args[0].equalsIgnoreCase("history")) {
             SellHistoryGui.open(core, player, sellService, 0);
             return true;

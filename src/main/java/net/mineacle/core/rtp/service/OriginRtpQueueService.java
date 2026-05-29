@@ -24,7 +24,6 @@ public final class OriginRtpQueueService {
 
     private final Core core;
     private final OriginRtpLocationService locationService;
-
     private final Deque<OriginRtpRequest> plusQueue = new ArrayDeque<>();
     private final Deque<OriginRtpRequest> defaultQueue = new ArrayDeque<>();
     private final Map<UUID, OriginRtpRequest> queuedRequests = new HashMap<>();
@@ -114,6 +113,7 @@ public final class OriginRtpQueueService {
                 .replace("%world%", displayName(key));
 
         sendActionBar(player, queuedMessage);
+        SoundService.teleportStart(player, core);
     }
 
     public void cancel(Player player, boolean sendMessage) {
@@ -212,7 +212,6 @@ public final class OriginRtpQueueService {
         activeRequests.put(player.getUniqueId(), active);
 
         sendActionBar(player, countdownMessage(request.rtpKey(), delay));
-        SoundService.teleportCountdown(player, core);
 
         BukkitTask task = core.getServer().getScheduler().runTaskTimer(
                 core,
@@ -354,6 +353,7 @@ public final class OriginRtpQueueService {
         }
 
         double distance = cancelDistance(rtpKey);
+
         return start.distanceSquared(current) > distance * distance;
     }
 
@@ -364,54 +364,45 @@ public final class OriginRtpQueueService {
     }
 
     private boolean enabled(String rtpKey) {
-        return core.getConfig().getBoolean("origin-rtp.destinations." + rtpKey + ".enabled",
-                core.getConfig().getBoolean("origin-rtp.enabled", true));
+        return core.getConfig().getBoolean("origin-rtp.destinations." + rtpKey + ".enabled", core.getConfig().getBoolean("origin-rtp.enabled", true));
     }
 
     private boolean cancelOnMove(String rtpKey) {
-        return core.getConfig().getBoolean("origin-rtp.destinations." + rtpKey + ".teleport.cancel-on-move",
-                core.getConfig().getBoolean("origin-rtp.teleport.cancel-on-move", true));
+        return core.getConfig().getBoolean("origin-rtp.destinations." + rtpKey + ".teleport.cancel-on-move", core.getConfig().getBoolean("origin-rtp.teleport.cancel-on-move", true));
     }
 
     private double cancelDistance(String rtpKey) {
-        return Math.max(0.01D, core.getConfig().getDouble("origin-rtp.destinations." + rtpKey + ".teleport.cancel-distance",
-                core.getConfig().getDouble("origin-rtp.teleport.cancel-distance", 2.0D)));
+        return Math.max(0.01D, core.getConfig().getDouble("origin-rtp.destinations." + rtpKey + ".teleport.cancel-distance", core.getConfig().getDouble("origin-rtp.teleport.cancel-distance", 1.0D)));
     }
 
     private int defaultDelaySeconds(String rtpKey) {
-        return Math.max(0, core.getConfig().getInt("origin-rtp.destinations." + rtpKey + ".default.delay-seconds",
-                core.getConfig().getInt("origin-rtp.default.delay-seconds", 5)));
+        return Math.max(0, core.getConfig().getInt("origin-rtp.destinations." + rtpKey + ".default.delay-seconds", core.getConfig().getInt("origin-rtp.default.delay-seconds", 5)));
     }
 
     private int plusDelaySeconds(String rtpKey) {
-        return Math.max(0, core.getConfig().getInt("origin-rtp.destinations." + rtpKey + ".plus.delay-seconds",
-                core.getConfig().getInt("origin-rtp.plus.delay-seconds",
-                        core.getConfig().getInt("teleport-perks.plus-delay-seconds", 3))));
+        return Math.max(0, core.getConfig().getInt("origin-rtp.destinations." + rtpKey + ".plus.delay-seconds", core.getConfig().getInt("origin-rtp.plus.delay-seconds", core.getConfig().getInt("teleport-perks.plus-delay-seconds", 3))));
     }
 
     private boolean plusPriority(String rtpKey) {
-        return core.getConfig().getBoolean("origin-rtp.destinations." + rtpKey + ".plus.priority",
-                core.getConfig().getBoolean("origin-rtp.plus.priority", true));
+        return core.getConfig().getBoolean("origin-rtp.destinations." + rtpKey + ".plus.priority", core.getConfig().getBoolean("origin-rtp.plus.priority", true));
     }
 
     private boolean isPlus(Player player) {
-        String permission = core.getConfig().getString("origin-rtp.plus.permission",
-                core.getConfig().getString("teleport-perks.plus-permission", "mineacle.plus"));
+        String permission = core.getConfig().getString("origin-rtp.plus.permission", core.getConfig().getString("teleport-perks.plus-permission", "mineacle.plus"));
+
         return player.hasPermission(permission);
     }
 
     private String displayName(String rtpKey) {
-        return core.getConfig().getString("origin-rtp.destinations." + rtpKey + ".display-name",
-                switch (rtpKey) {
-                    case "nether" -> "Nether";
-                    case "end" -> "End";
-                    default -> "Origins";
-                });
+        return core.getConfig().getString("origin-rtp.destinations." + rtpKey + ".display-name", switch (rtpKey) {
+            case "nether" -> "Nether";
+            case "end" -> "End";
+            default -> "Origins";
+        });
     }
 
     private String message(String rtpKey, String key) {
         String destinationPath = "origin-rtp.destinations." + rtpKey + ".messages." + key;
-
         String raw = core.getConfig().getString(destinationPath);
 
         if (raw == null) {

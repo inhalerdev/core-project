@@ -36,7 +36,6 @@ public final class SellModule extends Module {
         SellCommand command = new SellCommand(core, sellService);
         register(core, "sell", command);
         register(core, "worth", command);
-        register(core, "sellmulti", command);
 
         core.getServer().getPluginManager().registerEvents(new SellGuiListener(core, sellService), core);
         core.getServer().getPluginManager().registerEvents(new WorthGuiListener(core, sellService), core);

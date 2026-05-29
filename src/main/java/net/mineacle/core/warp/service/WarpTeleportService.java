@@ -1,6 +1,5 @@
 package net.mineacle.core.warp.service;
 
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
@@ -18,7 +17,7 @@ public final class WarpTeleportService {
 
     private final Core core;
     private final WarpService warpService;
-    private final Map<UUID, BukkitRunnable> tasks = new HashMap<>();
+    private final Map<UUID, BukkitRunnable> pending = new HashMap<>();
 
     public WarpTeleportService(Core core, WarpService warpService) {
         this.core = core;
@@ -28,94 +27,102 @@ public final class WarpTeleportService {
     public void teleport(Player player, WarpPoint point) {
         cancel(player, false);
 
-        int delay = warpService.countdownSeconds(player);
+        int seconds = warpService.countdownSeconds(player);
 
-        if (delay <= 0) {
+        if (seconds <= 0) {
             complete(player, point);
             return;
         }
 
-        Location start = player.getLocation().clone();
+        Location origin = player.getLocation().clone();
+        double allowedDistance = Math.max(0.01D, core.getConfig().getDouble("warps.teleport.cancel-distance", 1.0D));
 
-        sendBoth(player, warpService.startingMessage(point.key(), delay));
+        sendActionBar(player, warpService.startingMessage(point.displayName(), seconds));
         SoundService.teleportStart(player, core);
 
         BukkitRunnable task = new BukkitRunnable() {
-            private int secondsLeft = delay;
+            private int remaining = seconds;
 
             @Override
             public void run() {
                 if (!player.isOnline()) {
                     WarpTeleportService.this.cancel(player, false);
-                    cancel();
+                    this.cancel();
                     return;
                 }
 
-                if (moved(start, player.getLocation())) {
+                if (moved(origin, player.getLocation(), allowedDistance)) {
                     WarpTeleportService.this.cancel(player, true);
-                    cancel();
+                    this.cancel();
                     return;
                 }
 
-                if (secondsLeft <= 0) {
-                    tasks.remove(player.getUniqueId());
+                remaining--;
+
+                if (remaining <= 0) {
+                    WarpTeleportService.this.cancel(player, false);
                     complete(player, point);
-                    cancel();
+                    this.cancel();
                     return;
                 }
 
-                sendBoth(player, warpService.startingMessage(point.key(), secondsLeft));
+                sendActionBar(player, warpService.startingMessage(point.displayName(), remaining));
                 SoundService.teleportCountdown(player, core);
-                secondsLeft--;
             }
         };
 
-        tasks.put(player.getUniqueId(), task);
-        task.runTaskTimer(core, 0L, 20L);
+        pending.put(player.getUniqueId(), task);
+        task.runTaskTimer(core, 20L, 20L);
     }
 
-    public void cancel(Player player, boolean message) {
-        BukkitRunnable existing = tasks.remove(player.getUniqueId());
+    public void cancel(Player player, boolean notify) {
+        BukkitRunnable task = pending.remove(player.getUniqueId());
 
-        if (existing != null) {
-            existing.cancel();
+        if (task != null) {
+            task.cancel();
         }
 
-        if (message) {
-            sendBoth(player, warpService.cancelledMessage());
+        if (notify) {
+            sendActionBar(player, warpService.cancelledMessage());
+            player.sendMessage(warpService.cancelledMessage());
             SoundService.teleportCancelled(player, core);
         }
     }
 
     public void cancelAll() {
-        for (BukkitRunnable task : tasks.values()) {
-            task.cancel();
+        for (BukkitRunnable task : pending.values()) {
+            if (task != null) {
+                task.cancel();
+            }
         }
 
-        tasks.clear();
+        pending.clear();
     }
 
     private void complete(Player player, WarpPoint point) {
-        Location target = warpService.targetLocation(player, point);
-        player.teleport(target);
-        sendBoth(player, warpService.teleportMessage(point.key()));
+        player.teleport(warpService.targetLocation(player, point));
+        sendActionBar(player, warpService.teleportMessage(point.displayName()));
+        player.sendMessage(warpService.teleportMessage(point.displayName()));
         SoundService.teleportComplete(player, core);
     }
 
-    private boolean moved(Location start, Location now) {
-        if (start.getWorld() == null || now.getWorld() == null || !start.getWorld().equals(now.getWorld())) {
+    private boolean moved(Location origin, Location current, double allowedDistance) {
+        if (origin == null || current == null) {
             return true;
         }
 
-        return start.distanceSquared(now) > 1.0D;
+        if (origin.getWorld() == null || current.getWorld() == null) {
+            return true;
+        }
+
+        if (!origin.getWorld().equals(current.getWorld())) {
+            return true;
+        }
+
+        return origin.distanceSquared(current) > allowedDistance * allowedDistance;
     }
 
-    private void sendBoth(Player player, String message) {
-        player.sendMessage(message);
-        player.sendActionBar(legacy(message));
-    }
-
-    private Component legacy(String value) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(value));
+    private void sendActionBar(Player player, String message) {
+        player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message)));
     }
 }

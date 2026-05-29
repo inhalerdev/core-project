@@ -2,7 +2,6 @@ package net.mineacle.core.rtp.listener;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
-import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.rtp.gui.RtpMenuGui;
 import net.mineacle.core.rtp.service.OriginRtpQueueService;
 import net.mineacle.core.rtp.service.RtpMenuItem;
@@ -51,7 +50,6 @@ public final class RtpMenuListener implements Listener {
             return;
         }
 
-        SoundService.guiClick(player, core);
         MenuHistory.openWithoutBackTrigger(core, player, player::closeInventory);
         queueService.request(player, item.destination());
     }

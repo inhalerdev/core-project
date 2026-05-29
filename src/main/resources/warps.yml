@@ -23,35 +23,30 @@ messages:
 warps:
   crates:
     display-name: crates
-    material: ENDER_PEARL
-    slot: 13
     x: -15.704009628228908
     y: 67.0
     z: -36.47093722693274
     yaw: 115.0
     pitch: 0.0
+
   duels:
     display-name: duels
-    material: ENDER_PEARL
-    slot: 13
     x: -35.616630778779154
     y: 76.0
     z: -95.50583657091839
     yaw: 115.0
     pitch: 0.0
+
   market:
     display-name: market
-    material: ENDER_PEARL
-    slot: 13
     x: 36.620157730516226
     y: 76.0
     z: -95.48015104715984
     yaw: -115.0
     pitch: 0.0
+
   stats:
     display-name: stats
-    material: ENDER_PEARL
-    slot: 13
     x: 16.59010788720482
     y: 67.0
     z: -36.60541724247407

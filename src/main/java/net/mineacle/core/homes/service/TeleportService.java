@@ -62,6 +62,7 @@ public final class TeleportService {
                 .replace("%seconds%", String.valueOf(delaySeconds));
 
         player.sendActionBar(actionBar(startMessage));
+        SoundService.teleportStart(player, core);
 
         new BukkitRunnable() {
             int countdown = delaySeconds;
@@ -120,9 +121,7 @@ public final class TeleportService {
 
         if (movedTooFar(origin, to, cancelDistance(targetName))) {
             cancel(uuid);
-
             String message = TextColor.color(CANCELLED_MOVE_MESSAGE);
-
             player.sendActionBar(actionBar(message));
             player.sendMessage(message);
             SoundService.teleportCancelled(player, core);
@@ -135,7 +134,7 @@ public final class TeleportService {
         }
 
         if (targetName != null && targetName.equalsIgnoreCase("Team Home")) {
-            return teleportDelay(player, "homes.team-home.teleport-delay-seconds", "homes.team-home.plus-teleport-delay-seconds");
+            return teleportDelay(player, "homes.team-home.teleport-delay-seconds", "homes.team-home.plus-delay-seconds");
         }
 
         return teleportDelay(player, "homes.teleport.delay-seconds", "homes.teleport.plus-delay-seconds");
@@ -175,14 +174,14 @@ public final class TeleportService {
 
     private double cancelDistance(String targetName) {
         if (targetName != null && targetName.equalsIgnoreCase("TPA")) {
-            return Math.max(0.01D, core.getConfig().getDouble("tpa.cancel-distance", 2.0D));
+            return Math.max(0.01D, core.getConfig().getDouble("tpa.cancel-distance", 1.0D));
         }
 
         if (targetName != null && targetName.equalsIgnoreCase("Team Home")) {
-            return Math.max(0.01D, core.getConfig().getDouble("homes.team-home.cancel-distance", 2.0D));
+            return Math.max(0.01D, core.getConfig().getDouble("homes.team-home.cancel-distance", 1.0D));
         }
 
-        return Math.max(0.01D, core.getConfig().getDouble("homes.teleport.cancel-distance", 2.0D));
+        return Math.max(0.01D, core.getConfig().getDouble("homes.teleport.cancel-distance", 1.0D));
     }
 
     private boolean movedTooFar(Location start, Location current, double allowedDistance) {
