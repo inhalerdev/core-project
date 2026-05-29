@@ -4,6 +4,7 @@ import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.homes.service.TeleportService;
 import net.mineacle.core.tpa.command.TpaCommand;
+import net.mineacle.core.tpa.listener.TpaGuiListener;
 import net.mineacle.core.tpa.service.TpaService;
 import org.bukkit.command.PluginCommand;
 
@@ -27,9 +28,14 @@ public final class TpaModule extends Module {
         registerCommand(core, "tpa", command);
         registerCommand(core, "tpahere", command);
         registerCommand(core, "tpaccept", command);
-        registerCommand(core, "tpadeny", command);
+        registerCommand(core, "tpdeny", command);
         registerCommand(core, "tpacancel", command);
         registerCommand(core, "tpauto", command);
+
+        core.getServer().getPluginManager().registerEvents(
+                new TpaGuiListener(core, tpaService, teleportService),
+                core
+        );
     }
 
     @Override
