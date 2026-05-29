@@ -10,7 +10,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -33,17 +32,6 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 0) {
             sendUsage(player);
-            return true;
-        }
-
-        if (args[0].equalsIgnoreCase("reload")) {
-            if (!player.hasPermission("mineaclewarps.admin")) {
-                player.sendMessage(TextColor.color("&cYou do not have permission"));
-                return true;
-            }
-
-            warpService.reload();
-            player.sendMessage(TextColor.color("&#bbbbbbWarps reloaded"));
             return true;
         }
 
@@ -82,12 +70,6 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
             return List.of();
         }
 
-        List<String> completions = new ArrayList<>(warpService.warpKeys(""));
-
-        if (sender.hasPermission("mineaclewarps.admin")) {
-            completions.add("reload");
-        }
-
-        return completions;
+        return warpService.warpKeys("");
     }
 }
