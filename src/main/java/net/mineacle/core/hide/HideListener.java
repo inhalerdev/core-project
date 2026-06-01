@@ -2,14 +2,10 @@ package net.mineacle.core.hide;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.nametag.NametagModule;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityPickupItemEvent;
-import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -57,41 +53,5 @@ public final class HideListener implements Listener {
             service.apply(player);
             NametagModule.refreshAll();
         }, 2L);
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onPickup(EntityPickupItemEvent event) {
-        if (!service.disablePickup()) {
-            return;
-        }
-
-        Entity entity = event.getEntity();
-
-        if (!(entity instanceof Player player)) {
-            return;
-        }
-
-        if (service.isHidden(player.getUniqueId())) {
-            event.setCancelled(true);
-        }
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onTarget(EntityTargetEvent event) {
-        if (!service.disableEntityTarget()) {
-            return;
-        }
-
-        if (!(event.getEntity() instanceof Mob)) {
-            return;
-        }
-
-        if (!(event.getTarget() instanceof Player player)) {
-            return;
-        }
-
-        if (service.isHidden(player.getUniqueId())) {
-            event.setCancelled(true);
-        }
     }
 }
