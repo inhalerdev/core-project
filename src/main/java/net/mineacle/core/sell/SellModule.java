@@ -8,6 +8,7 @@ import net.mineacle.core.sell.listener.ItemStackNormalizeListener;
 import net.mineacle.core.sell.listener.SellGuiListener;
 import net.mineacle.core.sell.listener.SellMultiGuiListener;
 import net.mineacle.core.sell.listener.SellWorthPacketListener;
+import net.mineacle.core.sell.listener.SellWorthRefreshListener;
 import net.mineacle.core.sell.listener.WorthGuiListener;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.command.CommandExecutor;
@@ -42,12 +43,13 @@ public final class SellModule extends Module {
         core.getServer().getPluginManager().registerEvents(new WorthGuiListener(core, sellService), core);
         core.getServer().getPluginManager().registerEvents(new SellMultiGuiListener(), core);
         core.getServer().getPluginManager().registerEvents(new ItemStackNormalizeListener(core), core);
+        core.getServer().getPluginManager().registerEvents(new SellWorthRefreshListener(core), core);
 
         Plugin protocolLib = core.getServer().getPluginManager().getPlugin("ProtocolLib");
         if (protocolLib != null && protocolLib.isEnabled()) {
             packetListener = new SellWorthPacketListener(core, sellService);
             ProtocolLibrary.getProtocolManager().addPacketListener(packetListener);
-            core.getLogger().info("Enabled packet-only worth lore for inventories and storage");
+            core.getLogger().info("Sell worth packet hover lore enabled for inventory and storage");
         } else {
             core.getLogger().warning("ProtocolLib not found; worth hover lore is disabled outside Mineacle GUIs");
         }

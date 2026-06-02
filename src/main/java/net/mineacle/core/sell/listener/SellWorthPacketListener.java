@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+@SuppressWarnings({"rawtypes", "unchecked"})
 public final class SellWorthPacketListener extends PacketAdapter {
 
     private final SellService sellService;
@@ -62,12 +63,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
                 continue;
             }
 
-            if (shouldProtectSlot(player, rawSlot)) {
-                modifier.writeSafely(index, stripWorthLore(item));
-                continue;
-            }
-
-            modifier.writeSafely(index, withWorthLore(player, item));
+            modifier.writeSafely(index, displayItem(player, item, rawSlot));
         }
     }
 
@@ -91,12 +87,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
                     continue;
                 }
 
-                if (shouldProtectSlot(player, rawSlot)) {
-                    updated.add(stripWorthLore(item));
-                    continue;
-                }
-
-                updated.add(withWorthLore(player, item));
+                updated.add(displayItem(player, item, rawSlot));
             }
 
             listModifier.writeSafely(index, updated);
@@ -121,49 +112,79 @@ public final class SellWorthPacketListener extends PacketAdapter {
                     continue;
                 }
 
-                if (shouldProtectSlot(player, rawSlot)) {
-                    updated[rawSlot] = stripWorthLore(item);
-                    continue;
-                }
-
-                updated[rawSlot] = withWorthLore(player, item);
+                updated[rawSlot] = displayItem(player, item, rawSlot);
             }
 
             arrayModifier.writeSafely(index, updated);
         }
     }
 
-    private boolean shouldProtectSlot(Player player, int rawSlot) {
-        if (isWorthMenu(player)) {
+    private ItemStack displayItem(Player player, ItemStack original, int rawSlot) {
+        ItemStack clean = stripWorthLore(original);
+
+        if (isProtectedPluginTopSlot(player, rawSlot)) {
+            return clean;
+        }
+
+        return withWorthLore(player, clean);
+    }
+
+    private boolean isProtectedPluginTopSlot(Player player, int rawSlot) {
+        if (isWorthMenu(player) || rawSlot < 0) {
             return false;
         }
 
         InventoryView view = player.getOpenInventory();
-
         if (view == null) {
             return false;
         }
 
         Inventory top = view.getTopInventory();
-
-        if (top == null) {
+        if (top == null || rawSlot >= top.getSize()) {
             return false;
         }
 
-        /*
-         * Important:
-         * Storage inventories such as chests, barrels, shulkers, ender chests, hoppers,
-         * dispensers, and player inventory should all show packet-only worth lore.
-         *
-         * Only protect plugin/menu inventories where worth lore would pollute crate
-         * previews, shop buttons, reward selectors, or Mineacle custom GUIs.
-         */
-        return rawSlot >= 0 && rawSlot < top.getSize() && isProtectedTopInventory(view, top);
+        if (isNormalStorage(top)) {
+            return false;
+        }
+
+        String holderName = top.getHolder(false) == null ? "" : top.getHolder(false).getClass().getName().toLowerCase(Locale.ROOT);
+        String title = ChatColor.stripColor(view.getTitle());
+        String lowerTitle = title == null ? "" : title.toLowerCase(Locale.ROOT);
+
+        return holderName.contains("gui")
+                || holderName.contains("menu")
+                || holderName.contains("crate")
+                || holderName.contains("reward")
+                || holderName.contains("shop")
+                || lowerTitle.contains("crate")
+                || lowerTitle.contains("reward")
+                || lowerTitle.contains("shop")
+                || lowerTitle.contains("menu")
+                || lowerTitle.contains("confirm");
+    }
+
+    private boolean isNormalStorage(Inventory inventory) {
+        InventoryType type = inventory.getType();
+
+        if (type == InventoryType.ENDER_CHEST || type == InventoryType.PLAYER) {
+            return true;
+        }
+
+        if (inventory.getLocation() == null) {
+            return false;
+        }
+
+        return type == InventoryType.CHEST
+                || type == InventoryType.BARREL
+                || type == InventoryType.SHULKER_BOX
+                || type == InventoryType.HOPPER
+                || type == InventoryType.DROPPER
+                || type == InventoryType.DISPENSER;
     }
 
     private boolean isWorthMenu(Player player) {
         InventoryView view = player.getOpenInventory();
-
         if (view == null) {
             return false;
         }
@@ -172,60 +193,18 @@ public final class SellWorthPacketListener extends PacketAdapter {
         return WorthGui.isTitle(title);
     }
 
-    private boolean isProtectedTopInventory(InventoryView view, Inventory top) {
-        InventoryType type = top.getType();
-
-        if (isNormalStorage(type)) {
-            return false;
-        }
-
-        String title = ChatColor.stripColor(view.getTitle());
-
-        if (title == null) {
-            title = "";
-        }
-
-        String lowerTitle = title.toLowerCase(Locale.ROOT);
-        String holderName = top.getHolder(false) == null ? "" : top.getHolder(false).getClass().getName().toLowerCase(Locale.ROOT);
-
-        return lowerTitle.contains("crate")
-                || lowerTitle.contains("key")
-                || lowerTitle.contains("reward")
-                || lowerTitle.contains("shop")
-                || lowerTitle.contains("menu")
-                || lowerTitle.contains("confirm")
-                || holderName.contains("crate")
-                || holderName.contains("reward")
-                || holderName.contains("gui")
-                || holderName.contains("menu");
-    }
-
-    private boolean isNormalStorage(InventoryType type) {
-        return type == InventoryType.CHEST
-                || type == InventoryType.BARREL
-                || type == InventoryType.SHULKER_BOX
-                || type == InventoryType.ENDER_CHEST
-                || type == InventoryType.HOPPER
-                || type == InventoryType.DROPPER
-                || type == InventoryType.DISPENSER
-                || type == InventoryType.PLAYER;
-    }
-
     private ItemStack withWorthLore(Player player, ItemStack original) {
-        ItemStack item = stripWorthLore(original);
-
-        if (item.getType() == Material.AIR) {
-            return item;
+        if (original == null || original.getType() == Material.AIR) {
+            return original;
         }
 
-        long totalWorth = sellService.stackWorthCents(player, item);
-
+        long totalWorth = sellService.stackWorthCents(player, original);
         if (totalWorth <= 0L) {
-            return item;
+            return original;
         }
 
+        ItemStack item = original.clone();
         ItemMeta meta = item.getItemMeta();
-
         if (meta == null) {
             return item;
         }
@@ -268,7 +247,6 @@ public final class SellWorthPacketListener extends PacketAdapter {
         }
 
         String stripped = ChatColor.stripColor(line);
-
         if (stripped == null) {
             return false;
         }
@@ -287,7 +265,6 @@ public final class SellWorthPacketListener extends PacketAdapter {
 
         for (int index = integers.size() - 1; index >= 0; index--) {
             Integer value = integers.readSafely(index);
-
             if (value != null) {
                 return value;
             }
