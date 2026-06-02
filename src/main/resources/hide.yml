@@ -1,18 +1,12 @@
 enabled: true
 
-# Plus can use /hide. Admins/staff can use the admin permission below.
 permission: mineacle.plus
 admin-see-permission: mineaclehide.admin
 
-# Hide is now intentionally simple:
-# - the player stays visible
-# - tab, scoreboard, display names, nicknames, and placeholders are not changed
-# - only the vanilla nametag above the player is hidden
-hide-real-nametag: true
-
-# Gameplay-side masking options.
-disable-pickup: true
-disable-entity-target: true
+# /hide is nametag-only.
+# It must not change gameplay, tablist, scoreboard, inventory, pickup, eating, building, combat, or mob targeting.
+nametag-only: true
+hide-from-tab: false
 
 messages:
   enabled: "&#bbbbbbHidden mode &#ff88ffenabled"

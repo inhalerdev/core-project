@@ -22,8 +22,8 @@ public final class HideService {
 
     private final Core core;
     private final File file;
-    private FileConfiguration config;
 
+    private FileConfiguration config;
     private final Set<UUID> hidden = new HashSet<>();
     private BukkitTask task;
     private int actionbarTicks;
@@ -82,14 +82,6 @@ public final class HideService {
         return config.getString("admin-see-permission", "mineaclehide.admin");
     }
 
-    public boolean disablePickup() {
-        return config.getBoolean("disable-pickup", true);
-    }
-
-    public boolean disableEntityTarget() {
-        return config.getBoolean("disable-entity-target", true);
-    }
-
     public boolean isHidden(UUID uuid) {
         return hidden.contains(uuid);
     }
@@ -111,22 +103,18 @@ public final class HideService {
     public void hide(Player player) {
         hidden.add(player.getUniqueId());
 
-        // Hide mode is identity masking only. The player remains visible, and tab/name/display
-        // placeholders are intentionally left untouched.
-        for (Player viewer : Bukkit.getOnlinePlayers()) {
-            viewer.showPlayer(core, player);
-        }
-
+        /*
+         * /hide is nametag-only.
+         * Do not hide player entity, tablist name, scoreboard identity, pickups,
+         * mob targeting, block placement, eating, or any gameplay action.
+         */
+        ensureVisible(player);
         NametagModule.refreshAll();
     }
 
     public void show(Player player) {
         hidden.remove(player.getUniqueId());
-
-        for (Player viewer : Bukkit.getOnlinePlayers()) {
-            viewer.showPlayer(core, player);
-        }
-
+        ensureVisible(player);
         NametagModule.refreshAll();
     }
 
@@ -135,10 +123,7 @@ public final class HideService {
             return;
         }
 
-        for (Player viewer : Bukkit.getOnlinePlayers()) {
-            applyViewer(viewer, hiddenPlayer);
-        }
-
+        ensureVisible(hiddenPlayer);
         NametagModule.refreshAll();
     }
 
@@ -158,24 +143,18 @@ public final class HideService {
                 continue;
             }
 
-            applyViewer(viewer, hiddenPlayer);
+            viewer.showPlayer(core, hiddenPlayer);
         }
     }
 
     public void applyViewer(Player viewer, Player hiddenPlayer) {
-        if (viewer == null || hiddenPlayer == null) {
-            return;
-        }
-
-        // Keep the player physically visible. Nametag visibility is handled by NametagService.
         viewer.showPlayer(core, hiddenPlayer);
     }
 
     public void showAll() {
         for (Player hiddenPlayer : Bukkit.getOnlinePlayers()) {
-            for (Player viewer : Bukkit.getOnlinePlayers()) {
-                viewer.showPlayer(core, hiddenPlayer);
-            }
+            hidden.remove(hiddenPlayer.getUniqueId());
+            ensureVisible(hiddenPlayer);
         }
 
         hidden.clear();
@@ -192,6 +171,12 @@ public final class HideService {
 
     public boolean shouldHideRealNametag(Player player) {
         return player != null && isHidden(player.getUniqueId());
+    }
+
+    private void ensureVisible(Player player) {
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            viewer.showPlayer(core, player);
+        }
     }
 
     private void sendActionbars() {
