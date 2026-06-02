@@ -1,24 +1,19 @@
 package net.mineacle.core.sell;
 
-import com.comphenix.protocol.ProtocolLibrary;
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.sell.command.SellCommand;
 import net.mineacle.core.sell.listener.SellGuiListener;
 import net.mineacle.core.sell.listener.SellMultiGuiListener;
-import net.mineacle.core.sell.listener.SellWorthPacketListener;
-import net.mineacle.core.sell.listener.SellWorthRefreshListener;
 import net.mineacle.core.sell.listener.WorthGuiListener;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.TabCompleter;
-import org.bukkit.plugin.Plugin;
 
 public final class SellModule extends Module {
 
     private static SellService sellService;
-    private SellWorthPacketListener packetListener;
 
     public static SellService sellService() {
         return sellService;
@@ -36,30 +31,27 @@ public final class SellModule extends Module {
         SellCommand command = new SellCommand(core, sellService);
         register(core, "sell", command);
         register(core, "worth", command);
+        register(core, "sellmulti", command);
 
         core.getServer().getPluginManager().registerEvents(new SellGuiListener(core, sellService), core);
         core.getServer().getPluginManager().registerEvents(new WorthGuiListener(core, sellService), core);
         core.getServer().getPluginManager().registerEvents(new SellMultiGuiListener(), core);
 
-        Plugin protocolLib = core.getServer().getPluginManager().getPlugin("ProtocolLib");
-
-        if (protocolLib != null && protocolLib.isEnabled()) {
-            packetListener = new SellWorthPacketListener(core, sellService);
-            ProtocolLibrary.getProtocolManager().addPacketListener(packetListener);
-            core.getServer().getPluginManager().registerEvents(new SellWorthRefreshListener(core), core);
-            core.getLogger().info("Enabled packet-based sell worth lore");
-        } else {
-            core.getLogger().warning("ProtocolLib not found; global sell worth hover lore is disabled");
-        }
+        /*
+         * Do not globally inject worth lore into normal player inventory packets.
+         *
+         * The old packet listener changed the client-visible ItemStack NBT/lore in
+         * inventory packets. Even though the server item was not intentionally changed,
+         * the client saw picked-up stacks and existing stacks as different items, so
+         * players could not combine normal matching stacks after pickup.
+         *
+         * Worth/prices should stay inside /worth and Mineacle GUI displays only.
+         */
+        core.getLogger().info("Global sell worth inventory lore is disabled");
     }
 
     @Override
     public void disable() {
-        if (packetListener != null) {
-            ProtocolLibrary.getProtocolManager().removePacketListener(packetListener);
-            packetListener = null;
-        }
-
         if (sellService != null) {
             sellService.save();
         }
