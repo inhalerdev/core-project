@@ -62,21 +62,12 @@ public final class SellWorthPacketListener extends PacketAdapter {
                 continue;
             }
 
-            if (isWorthMenu(player)) {
-                modifier.writeSafely(index, item);
-                continue;
-            }
-
-            if (shouldStripForRawSlot(player, rawSlot)) {
+            if (shouldProtectSlot(player, rawSlot)) {
                 modifier.writeSafely(index, stripWorthLore(item));
                 continue;
             }
 
-            if (shouldAddWorthForRawSlot(player, rawSlot)) {
-                modifier.writeSafely(index, withWorthLore(player, item));
-            } else {
-                modifier.writeSafely(index, stripWorthLore(item));
-            }
+            modifier.writeSafely(index, withWorthLore(player, item));
         }
     }
 
@@ -100,21 +91,12 @@ public final class SellWorthPacketListener extends PacketAdapter {
                     continue;
                 }
 
-                if (isWorthMenu(player)) {
-                    updated.add(item);
-                    continue;
-                }
-
-                if (shouldStripForRawSlot(player, rawSlot)) {
+                if (shouldProtectSlot(player, rawSlot)) {
                     updated.add(stripWorthLore(item));
                     continue;
                 }
 
-                if (shouldAddWorthForRawSlot(player, rawSlot)) {
-                    updated.add(withWorthLore(player, item));
-                } else {
-                    updated.add(stripWorthLore(item));
-                }
+                updated.add(withWorthLore(player, item));
             }
 
             listModifier.writeSafely(index, updated);
@@ -139,29 +121,20 @@ public final class SellWorthPacketListener extends PacketAdapter {
                     continue;
                 }
 
-                if (isWorthMenu(player)) {
-                    updated[rawSlot] = item;
-                    continue;
-                }
-
-                if (shouldStripForRawSlot(player, rawSlot)) {
+                if (shouldProtectSlot(player, rawSlot)) {
                     updated[rawSlot] = stripWorthLore(item);
                     continue;
                 }
 
-                if (shouldAddWorthForRawSlot(player, rawSlot)) {
-                    updated[rawSlot] = withWorthLore(player, item);
-                } else {
-                    updated[rawSlot] = stripWorthLore(item);
-                }
+                updated[rawSlot] = withWorthLore(player, item);
             }
 
             arrayModifier.writeSafely(index, updated);
         }
     }
 
-    private boolean shouldStripForRawSlot(Player player, int rawSlot) {
-        if (rawSlot < 0) {
+    private boolean shouldProtectSlot(Player player, int rawSlot) {
+        if (isWorthMenu(player)) {
             return false;
         }
 
@@ -178,32 +151,14 @@ public final class SellWorthPacketListener extends PacketAdapter {
         }
 
         /*
-         * Long-term safe rule:
-         * Never show Mineacle worth lore inside top inventories from menus/crates/previews.
-         * This protects PhoenixCrates and any future crate/shop/menu plugin without needing
-         * every plugin title hardcoded.
+         * Important:
+         * Storage inventories such as chests, barrels, shulkers, ender chests, hoppers,
+         * dispensers, and player inventory should all show packet-only worth lore.
+         *
+         * Only protect plugin/menu inventories where worth lore would pollute crate
+         * previews, shop buttons, reward selectors, or Mineacle custom GUIs.
          */
-        return rawSlot < top.getSize() && isProtectedTopInventory(view, top);
-    }
-
-    private boolean shouldAddWorthForRawSlot(Player player, int rawSlot) {
-        InventoryView view = player.getOpenInventory();
-
-        if (view == null) {
-            return true;
-        }
-
-        Inventory top = view.getTopInventory();
-
-        if (top == null) {
-            return true;
-        }
-
-        if (rawSlot >= 0 && rawSlot < top.getSize()) {
-            return false;
-        }
-
-        return true;
+        return rawSlot >= 0 && rawSlot < top.getSize() && isProtectedTopInventory(view, top);
     }
 
     private boolean isWorthMenu(Player player) {
@@ -218,6 +173,12 @@ public final class SellWorthPacketListener extends PacketAdapter {
     }
 
     private boolean isProtectedTopInventory(InventoryView view, Inventory top) {
+        InventoryType type = top.getType();
+
+        if (isNormalStorage(type)) {
+            return false;
+        }
+
         String title = ChatColor.stripColor(view.getTitle());
 
         if (title == null) {
@@ -227,24 +188,27 @@ public final class SellWorthPacketListener extends PacketAdapter {
         String lowerTitle = title.toLowerCase(Locale.ROOT);
         String holderName = top.getHolder(false) == null ? "" : top.getHolder(false).getClass().getName().toLowerCase(Locale.ROOT);
 
-        if (lowerTitle.contains("crate")
+        return lowerTitle.contains("crate")
                 || lowerTitle.contains("key")
                 || lowerTitle.contains("reward")
-                || holderName.contains("phoenix")
+                || lowerTitle.contains("shop")
+                || lowerTitle.contains("menu")
+                || lowerTitle.contains("confirm")
                 || holderName.contains("crate")
-                || holderName.contains("reward")) {
-            return true;
-        }
+                || holderName.contains("reward")
+                || holderName.contains("gui")
+                || holderName.contains("menu");
+    }
 
-        InventoryType type = top.getType();
-
+    private boolean isNormalStorage(InventoryType type) {
         return type == InventoryType.CHEST
+                || type == InventoryType.BARREL
+                || type == InventoryType.SHULKER_BOX
+                || type == InventoryType.ENDER_CHEST
                 || type == InventoryType.HOPPER
                 || type == InventoryType.DROPPER
                 || type == InventoryType.DISPENSER
-                || type == InventoryType.BARREL
-                || type == InventoryType.SHULKER_BOX
-                || type == InventoryType.ENDER_CHEST;
+                || type == InventoryType.PLAYER;
     }
 
     private ItemStack withWorthLore(Player player, ItemStack original) {
@@ -266,7 +230,10 @@ public final class SellWorthPacketListener extends PacketAdapter {
             return item;
         }
 
-        List<String> lore = meta.hasLore() && meta.getLore() != null ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+        List<String> lore = meta.hasLore() && meta.getLore() != null
+                ? new ArrayList<>(meta.getLore())
+                : new ArrayList<>();
+
         lore.add(0, TextColor.color("&#bbbbbbWorth: &a" + sellService.format(totalWorth)));
         meta.setLore(lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);

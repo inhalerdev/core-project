@@ -1,20 +1,24 @@
 package net.mineacle.core.sell;
 
+import com.comphenix.protocol.ProtocolLibrary;
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.sell.command.SellCommand;
 import net.mineacle.core.sell.listener.ItemStackNormalizeListener;
 import net.mineacle.core.sell.listener.SellGuiListener;
 import net.mineacle.core.sell.listener.SellMultiGuiListener;
+import net.mineacle.core.sell.listener.SellWorthPacketListener;
 import net.mineacle.core.sell.listener.WorthGuiListener;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.plugin.Plugin;
 
 public final class SellModule extends Module {
 
     private static SellService sellService;
+    private SellWorthPacketListener packetListener;
 
     public static SellService sellService() {
         return sellService;
@@ -39,26 +43,23 @@ public final class SellModule extends Module {
         core.getServer().getPluginManager().registerEvents(new SellMultiGuiListener(), core);
         core.getServer().getPluginManager().registerEvents(new ItemStackNormalizeListener(core), core);
 
-        /*
-         * Inventory worth lore is intentionally disabled.
-         *
-         * Do not register SellWorthPacketListener or SellWorthRefreshListener.
-         * Packet-based worth lore causes inconsistent hover lore because it only applies
-         * to some raw inventory slots/views, and it also causes client-side stack
-         * mismatch problems after pickups.
-         *
-         * Worth and price text should only appear on cloned GUI display items inside:
-         * - /worth
-         * - /sell
-         * - /sellmulti
-         *
-         * Normal player inventory items must stay clean so same-material stackables combine.
-         */
-        core.getLogger().info("Sell inventory worth lore disabled; GUI-only worth display active");
+        Plugin protocolLib = core.getServer().getPluginManager().getPlugin("ProtocolLib");
+        if (protocolLib != null && protocolLib.isEnabled()) {
+            packetListener = new SellWorthPacketListener(core, sellService);
+            ProtocolLibrary.getProtocolManager().addPacketListener(packetListener);
+            core.getLogger().info("Enabled packet-only worth lore for inventories and storage");
+        } else {
+            core.getLogger().warning("ProtocolLib not found; worth hover lore is disabled outside Mineacle GUIs");
+        }
     }
 
     @Override
     public void disable() {
+        if (packetListener != null) {
+            ProtocolLibrary.getProtocolManager().removePacketListener(packetListener);
+            packetListener = null;
+        }
+
         if (sellService != null) {
             sellService.save();
         }
