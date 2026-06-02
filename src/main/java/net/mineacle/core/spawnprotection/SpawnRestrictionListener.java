@@ -1,4 +1,4 @@
-package net.mineacle.core.spawnprotection.listener;
+package net.mineacle.core.spawnprotection;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
@@ -47,8 +47,16 @@ public final class SpawnRestrictionListener implements Listener {
             return;
         }
 
-        if (blockedInteractions().contains(block.getType()) || isDeepDarkBlock(block.getType())) {
+        Material type = block.getType();
+
+        if (blockedInteractions().contains(type) || defaultBlockedInteractions().contains(type) || isDeepDarkBlock(type)) {
             event.setCancelled(true);
+
+            if (core.getConfig().getBoolean("spawn-restrictions.show-blocked-message", false)) {
+                event.getPlayer().sendMessage(TextColor.color(
+                        core.getConfig().getString("spawn-restrictions.messages.blocked-interaction", "&cYou cannot use that here")
+                ));
+            }
         }
     }
 
@@ -60,7 +68,12 @@ public final class SpawnRestrictionListener implements Listener {
 
         if (blockedPlacement().contains(event.getBlockPlaced().getType())) {
             event.setCancelled(true);
-            event.getPlayer().sendMessage(TextColor.color("&cYou cannot place that here"));
+
+            if (core.getConfig().getBoolean("spawn-restrictions.show-blocked-message", false)) {
+                event.getPlayer().sendMessage(TextColor.color(
+                        core.getConfig().getString("spawn-restrictions.messages.blocked-place", "&cYou cannot place that here")
+                ));
+            }
         }
     }
 
@@ -72,12 +85,17 @@ public final class SpawnRestrictionListener implements Listener {
 
         if (blockedBreaking().contains(event.getBlock().getType())) {
             event.setCancelled(true);
-            event.getPlayer().sendMessage(TextColor.color("&cYou cannot break that here"));
+
+            if (core.getConfig().getBoolean("spawn-restrictions.show-blocked-message", false)) {
+                event.getPlayer().sendMessage(TextColor.color(
+                        core.getConfig().getString("spawn-restrictions.messages.blocked-break", "&cYou cannot break that here")
+                ));
+            }
         }
     }
 
     private boolean isRestrictedWorld(World world) {
-        if (world == null) {
+        if (world == null || !core.getConfig().getBoolean("spawn-restrictions.enabled", true)) {
             return false;
         }
 
@@ -120,13 +138,69 @@ public final class SpawnRestrictionListener implements Listener {
                 continue;
             }
 
-            try {
-                materials.add(Material.valueOf(raw.toUpperCase(Locale.ROOT)));
-            } catch (IllegalArgumentException ignored) {
+            Material material = Material.matchMaterial(raw.toUpperCase(Locale.ROOT));
+
+            if (material != null) {
+                materials.add(material);
             }
         }
 
         return materials;
+    }
+
+    private Set<Material> defaultBlockedInteractions() {
+        Set<Material> materials = new HashSet<>();
+
+        add(materials,
+                "ENDER_CHEST",
+                "CRAFTING_TABLE",
+                "SMITHING_TABLE",
+                "STONECUTTER",
+                "ANVIL",
+                "CHIPPED_ANVIL",
+                "DAMAGED_ANVIL",
+                "GRINDSTONE",
+                "CARTOGRAPHY_TABLE",
+                "LOOM",
+                "FLETCHING_TABLE",
+                "ENCHANTING_TABLE",
+                "BREWING_STAND",
+                "FURNACE",
+                "BLAST_FURNACE",
+                "SMOKER",
+                "CHEST",
+                "TRAPPED_CHEST",
+                "BARREL",
+                "HOPPER",
+                "DISPENSER",
+                "DROPPER",
+                "LECTERN",
+                "BEACON",
+                "RESPAWN_ANCHOR",
+                "JUKEBOX",
+                "NOTE_BLOCK",
+                "DECORATED_POT"
+        );
+
+        for (Material material : Material.values()) {
+            String name = material.name();
+
+            if (name.endsWith("_SHULKER_BOX")) {
+                materials.add(material);
+            }
+        }
+
+        return materials;
+    }
+
+    private void add(Set<Material> materials, String... names) {
+        for (String name : names) {
+            Material material = Material.matchMaterial(name);
+
+            if (material != null) {
+                materials.add(material);
+            }
+        }
     }
 
     private boolean isDeepDarkBlock(Material material) {
