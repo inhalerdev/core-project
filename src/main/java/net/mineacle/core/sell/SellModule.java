@@ -40,9 +40,15 @@ public final class SellModule extends Module {
         core.getServer().getPluginManager().registerEvents(new ItemStackNormalizeListener(core), core);
 
         /*
-         * Do not register SellWorthPacketListener or SellWorthRefreshListener.
-         * Worth text belongs inside /worth and Mineacle sell/worth GUIs only.
-         * Global packet lore causes client-side stack mismatch after pickup.
+         * Do NOT register SellWorthPacketListener or SellWorthRefreshListener.
+         *
+         * The packet listener adds worth lore to normal player inventory packets.
+         * That makes some items appear with worth lore and some without depending on
+         * inventory view/raw slot. It also makes picked-up stacks and existing stacks
+         * behave like different client-side items.
+         *
+         * Worth/price text belongs only in /worth, /sell, and /sellmulti GUI display
+         * items. Normal player inventory items must stay clean so they combine.
          */
         core.getLogger().info("Sell worth packet lore disabled; item stack normalizer enabled");
     }
