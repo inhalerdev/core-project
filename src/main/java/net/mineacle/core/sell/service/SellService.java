@@ -89,14 +89,13 @@ public final class SellService {
         Map<Material, Long> soldAmounts = new EnumMap<>(Material.class);
         Map<Material, Long> soldCents = new EnumMap<>(Material.class);
         List<ItemStack> returned = new ArrayList<>();
-
         long totalCents = 0L;
         long totalAmount = 0L;
 
         for (ItemStack rawItem : inventory.getContents()) {
             ItemStack item = stripWorthLore(rawItem);
 
-            if (item == null || item.getType() == Material.AIR) {
+            if (item == null || item.getType().isAir()) {
                 continue;
             }
 
@@ -116,7 +115,6 @@ public final class SellService {
 
             totalCents += payout;
             totalAmount += amount;
-
             soldAmounts.merge(material, (long) amount, Long::sum);
             soldCents.merge(material, payout, Long::sum);
         }
@@ -150,10 +148,14 @@ public final class SellService {
 
     public long unitWorthCents(UUID playerId, Material material) {
         long base = baseWorthCents(material);
+
+        if (base <= 0L) {
+            return 0L;
+        }
+
         String category = category(material);
         double playerMultiplier = multiplier(playerId, category);
         double demandMultiplier = demandMultiplier(material);
-
         return Math.max(1L, Math.round(base * playerMultiplier * demandMultiplier));
     }
 
@@ -164,7 +166,7 @@ public final class SellService {
     public boolean canSell(ItemStack item) {
         item = stripWorthLore(item);
 
-        if (item == null || item.getType() == Material.AIR) {
+        if (item == null || item.getType().isAir()) {
             return false;
         }
 
@@ -176,11 +178,24 @@ public final class SellService {
 
         ItemMeta meta = item.getItemMeta();
 
+        if (sellConfig.getBoolean("settings.deny-damaged-tools", false)
+                && meta instanceof Damageable damageable
+                && damageable.hasDamage()
+                && damageable.getDamage() > 0) {
+            return false;
+        }
+
+        if (sellConfig.getBoolean("settings.deny-enchanted-items", false)
+                && meta != null
+                && meta.hasEnchants()) {
+            return false;
+        }
+
         if (sellConfig.getBoolean("settings.deny-filled-containers", true)
                 && meta instanceof BlockStateMeta blockStateMeta
                 && blockStateMeta.getBlockState() instanceof ShulkerBox shulkerBox) {
             for (ItemStack content : shulkerBox.getInventory().getContents()) {
-                if (content != null && content.getType() != Material.AIR) {
+                if (content != null && !content.getType().isAir()) {
                     return false;
                 }
             }
@@ -188,7 +203,6 @@ public final class SellService {
 
         return baseWorthCents(material) > 0L;
     }
-
 
     public void applyWorthLore(Player player, Inventory inventory) {
         if (player == null || inventory == null) {
@@ -199,7 +213,7 @@ public final class SellService {
             ItemStack rawItem = inventory.getItem(slot);
             ItemStack item = stripWorthLore(rawItem);
 
-            if (item == null || item.getType() == Material.AIR) {
+            if (item == null || item.getType().isAir()) {
                 continue;
             }
 
@@ -215,11 +229,9 @@ public final class SellService {
                 continue;
             }
 
-            long totalWorth = unitWorthCents(player, item.getType()) * item.getAmount();
-
+            long totalWorth = stackWorthCents(player, item);
             List<String> lore = new ArrayList<>();
             lore.add(TextColor.color("&#bbbbbbWorth: &a" + format(totalWorth)));
-
             meta.setLore(lore);
             item.setItemMeta(meta);
             inventory.setItem(slot, item);
@@ -227,7 +239,7 @@ public final class SellService {
     }
 
     public ItemStack stripWorthLore(ItemStack item) {
-        if (item == null || item.getType() == Material.AIR) {
+        if (item == null || item.getType().isAir()) {
             return item;
         }
 
@@ -247,37 +259,35 @@ public final class SellService {
                 continue;
             }
 
-            if (stripped.startsWith("Worth:")
-                    || stripped.startsWith("Stack Worth:")
-                    || stripped.startsWith("Enchant Value:")
-                    || stripped.startsWith("Demand:")) {
+            String lower = stripped.toLowerCase(Locale.ROOT);
+
+            if (lower.startsWith("worth:")
+                    || lower.startsWith("price:")
+                    || lower.startsWith("stack:")
+                    || lower.startsWith("stack worth:")
+                    || lower.startsWith("enchant value:")
+                    || lower.startsWith("demand:")
+                    || lower.startsWith("category:")) {
                 continue;
             }
 
             cleaned.add(line);
         }
 
-        if (cleaned.isEmpty()) {
-            meta.setLore(null);
-        } else {
-            meta.setLore(cleaned);
-        }
-
+        meta.setLore(cleaned.isEmpty() ? null : cleaned);
         clone.setItemMeta(meta);
         return clone;
     }
 
-
     public long stackWorthCents(UUID playerId, ItemStack item) {
         item = stripWorthLore(item);
 
-        if (item == null || item.getType() == Material.AIR) {
+        if (item == null || item.getType().isAir()) {
             return 0L;
         }
 
         long baseStackWorth = unitWorthCents(playerId, item.getType()) * Math.max(1, item.getAmount());
         long enchantWorth = enchantWorthCents(item);
-
         return Math.max(1L, baseStackWorth + enchantWorth);
     }
 
@@ -292,7 +302,7 @@ public final class SellService {
     public long enchantWorthCents(ItemStack item) {
         item = stripWorthLore(item);
 
-        if (item == null || item.getType() == Material.AIR) {
+        if (item == null || item.getType().isAir()) {
             return 0L;
         }
 
@@ -310,12 +320,10 @@ public final class SellService {
         for (Map.Entry<Enchantment, Integer> entry : meta.getEnchants().entrySet()) {
             Enchantment enchantment = entry.getKey();
             int level = Math.max(1, entry.getValue());
-
             long enchantBase = sellConfig.getLong(
                     "enchant-values.enchants." + enchantment.getKey().getKey().toUpperCase(Locale.ROOT),
                     perLevel
             );
-
             double multiplier = 1.0D;
 
             if (enchantment.isTreasure()) {
@@ -333,10 +341,18 @@ public final class SellService {
     }
 
     public long baseWorthCents(Material material) {
+        if (material == null || !material.isItem()) {
+            return 0L;
+        }
+
         String path = "prices." + material.name() + ".price";
 
         if (sellConfig.contains(path)) {
             return dollarsToCents(sellConfig.getDouble(path, 0.0D));
+        }
+
+        if (!sellConfig.getBoolean("settings.allow-all-items-with-fallback", true)) {
+            return 0L;
         }
 
         return dollarsToCents(fallbackPrice(material));
@@ -351,7 +367,8 @@ public final class SellService {
 
         String name = material.name();
 
-        if (name.contains("INGOT") || name.contains("ORE") || name.contains("DIAMOND") || name.contains("EMERALD") || name.contains("QUARTZ") || name.contains("LAPIS") || name.contains("REDSTONE")) {
+        if (name.contains("INGOT") || name.contains("ORE") || name.contains("DIAMOND") || name.contains("EMERALD")
+                || name.contains("QUARTZ") || name.contains("LAPIS") || name.contains("REDSTONE")) {
             return "ores";
         }
 
@@ -359,11 +376,13 @@ public final class SellService {
             return "wood";
         }
 
-        if (name.contains("BEEF") || name.contains("PORK") || name.contains("CHICKEN") || name.contains("MUTTON") || name.contains("ROTTEN") || name.contains("BONE") || name.contains("STRING") || name.contains("GUNPOWDER")) {
+        if (name.contains("BEEF") || name.contains("PORK") || name.contains("CHICKEN") || name.contains("MUTTON")
+                || name.contains("ROTTEN") || name.contains("BONE") || name.contains("STRING") || name.contains("GUNPOWDER")) {
             return "mob_drops";
         }
 
-        if (name.contains("WHEAT") || name.contains("CARROT") || name.contains("POTATO") || name.contains("SEEDS") || name.contains("MELON") || name.contains("PUMPKIN") || name.contains("SUGAR_CANE")) {
+        if (name.contains("WHEAT") || name.contains("CARROT") || name.contains("POTATO") || name.contains("SEEDS")
+                || name.contains("MELON") || name.contains("PUMPKIN") || name.contains("SUGAR_CANE")) {
             return "farming";
         }
 
@@ -383,29 +402,29 @@ public final class SellService {
     }
 
     public String categoryDisplay(Material material) {
-        String category = category(material);
-        String configured = sellConfig.getString("multipliers.categories." + category + ".display-name");
+        return categoryDisplay(category(material));
+    }
+
+    public String categoryDisplay(String category) {
+        String normalized = normalizeCategory(category);
+        String configured = sellConfig.getString("multipliers.categories." + normalized + ".display-name");
 
         if (configured != null && !configured.isBlank()) {
             return configured;
         }
 
-        return prettyCategory(category);
+        return prettyCategory(normalized);
     }
 
     public double multiplier(UUID playerId, String category) {
         String normalized = normalizeCategory(category);
         long soldAmount = sellConfig.getLong("multipliers.players." + playerId + "." + normalized + ".sold-amount", 0L);
-
         double base = sellConfig.getDouble("multipliers.categories." + normalized + ".base-multiplier", 1.0D);
         long amountPerLevel = Math.max(1L, sellConfig.getLong("multipliers.categories." + normalized + ".amount-per-level", 5000L));
         double increase = sellConfig.getDouble("multipliers.categories." + normalized + ".increase-per-level", 0.02D);
-        double max = sellConfig.getDouble("multipliers.categories." + normalized + ".max-multiplier",
-                sellConfig.getDouble("multipliers.max-multiplier", 2.0D));
-
+        double max = sellConfig.getDouble("multipliers.categories." + normalized + ".max-multiplier", sellConfig.getDouble("multipliers.max-multiplier", 2.0D));
         long levels = soldAmount / amountPerLevel;
         double multiplier = base + (levels * increase);
-
         return Math.min(max, multiplier);
     }
 
@@ -425,7 +444,6 @@ public final class SellService {
             }
 
             String path = "history." + playerId + "." + key;
-
             entries.add(new SellHistoryEntry(
                     material,
                     sellConfig.getLong(path + ".amount", 0L),
@@ -463,7 +481,6 @@ public final class SellService {
 
     private void addHistory(UUID playerId, Material material, long amount, long cents, long now) {
         String path = "history." + playerId + "." + material.name();
-
         sellConfig.set(path + ".amount", sellConfig.getLong(path + ".amount", 0L) + amount);
         sellConfig.set(path + ".total-cents", sellConfig.getLong(path + ".total-cents", 0L) + cents);
         sellConfig.set(path + ".last-sold", now);
@@ -480,7 +497,6 @@ public final class SellService {
 
     private void addServerVolume(Material material, long amount, long cents) {
         String path = "server-volume." + material.name();
-
         sellConfig.set(path + ".amount", sellConfig.getLong(path + ".amount", 0L) + amount);
         sellConfig.set(path + ".total-cents", sellConfig.getLong(path + ".total-cents", 0L) + cents);
         sellConfig.set(path + ".last-sold", System.currentTimeMillis());
@@ -488,8 +504,7 @@ public final class SellService {
 
     private double fallbackPrice(Material material) {
         String category = category(material);
-        return sellConfig.getDouble("fallback-prices." + category,
-                sellConfig.getDouble("fallback-prices.misc", 0.01D));
+        return sellConfig.getDouble("fallback-prices." + category, sellConfig.getDouble("fallback-prices.misc", 0.01D));
     }
 
     private long dollarsToCents(double dollars) {
@@ -538,93 +553,6 @@ public final class SellService {
         return builder.toString();
     }
 
-    private void ensureDefaults() {
-        sellConfig.addDefault("settings.allow-all-items-with-fallback", true);
-        sellConfig.addDefault("settings.deny-custom-items", false);
-        sellConfig.addDefault("settings.deny-damaged-tools", false);
-        sellConfig.addDefault("settings.deny-filled-containers", true);
-        sellConfig.addDefault("settings.deny-enchanted-items", false);
-
-        sellConfig.addDefault("fallback-prices.blocks", 0.03D);
-        sellConfig.addDefault("fallback-prices.ores", 1.0D);
-        sellConfig.addDefault("fallback-prices.wood", 0.12D);
-        sellConfig.addDefault("fallback-prices.farming", 0.08D);
-        sellConfig.addDefault("fallback-prices.mob_drops", 0.15D);
-        sellConfig.addDefault("fallback-prices.nether", 0.2D);
-        sellConfig.addDefault("fallback-prices.end", 0.35D);
-        sellConfig.addDefault("fallback-prices.misc", 0.01D);
-
-        defaultPrice(Material.DIAMOND, 250.0D, "ores");
-        defaultPrice(Material.EMERALD, 200.0D, "ores");
-        defaultPrice(Material.NETHERITE_INGOT, 3000.0D, "ores");
-        defaultPrice(Material.GOLD_INGOT, 14.0D, "ores");
-        defaultPrice(Material.IRON_INGOT, 8.0D, "ores");
-        defaultPrice(Material.COPPER_INGOT, 3.0D, "ores");
-        defaultPrice(Material.COAL, 2.0D, "ores");
-        defaultPrice(Material.REDSTONE, 1.5D, "ores");
-        defaultPrice(Material.LAPIS_LAZULI, 2.0D, "ores");
-        defaultPrice(Material.QUARTZ, 2.0D, "nether");
-
-        defaultPrice(Material.OAK_LOG, 1.25D, "wood");
-        defaultPrice(Material.SPRUCE_LOG, 1.25D, "wood");
-        defaultPrice(Material.BIRCH_LOG, 1.25D, "wood");
-        defaultPrice(Material.JUNGLE_LOG, 1.25D, "wood");
-        defaultPrice(Material.ACACIA_LOG, 1.25D, "wood");
-        defaultPrice(Material.DARK_OAK_LOG, 1.25D, "wood");
-        defaultPrice(Material.CHERRY_LOG, 1.25D, "wood");
-        defaultPrice(Material.MANGROVE_LOG, 1.25D, "wood");
-
-        defaultPrice(Material.WHEAT, 0.25D, "farming");
-        defaultPrice(Material.CARROT, 0.22D, "farming");
-        defaultPrice(Material.POTATO, 0.22D, "farming");
-        defaultPrice(Material.SUGAR_CANE, 0.18D, "farming");
-        defaultPrice(Material.MELON_SLICE, 0.08D, "farming");
-        defaultPrice(Material.PUMPKIN, 0.35D, "farming");
-
-        defaultPrice(Material.ROTTEN_FLESH, 0.08D, "mob_drops");
-        defaultPrice(Material.BONE, 0.12D, "mob_drops");
-        defaultPrice(Material.STRING, 0.1D, "mob_drops");
-        defaultPrice(Material.GUNPOWDER, 0.25D, "mob_drops");
-        defaultPrice(Material.SPIDER_EYE, 0.18D, "mob_drops");
-        defaultPrice(Material.ENDER_PEARL, 2.0D, "end");
-
-        defaultCategory("blocks", "Blocks", 5000L, 0.02D);
-        defaultCategory("ores", "Ores", 500L, 0.03D);
-        defaultCategory("wood", "Wood", 2500L, 0.02D);
-        defaultCategory("farming", "Farming", 2500L, 0.02D);
-        defaultCategory("mob_drops", "Mob Drops", 1500L, 0.02D);
-        defaultCategory("nether", "Nether", 1500L, 0.025D);
-        defaultCategory("end", "End", 1000L, 0.025D);
-        defaultCategory("misc", "Misc", 5000L, 0.01D);
-
-        sellConfig.addDefault("multipliers.enabled", true);
-        sellConfig.addDefault("multipliers.max-multiplier", 2.0D);
-
-        sellConfig.addDefault("demand.enabled", true);
-        sellConfig.addDefault("demand.update-every-minutes", 30);
-        sellConfig.addDefault("demand.min-multiplier", 0.65D);
-        sellConfig.addDefault("demand.max-multiplier", 1.75D);
-        sellConfig.addDefault("demand.oversold-threshold", 25000);
-        sellConfig.addDefault("demand.undersold-threshold", 2500);
-        sellConfig.addDefault("demand.excluded-items", List.of("BEDROCK", "BARRIER", "COMMAND_BLOCK", "STRUCTURE_BLOCK", "PLAYER_HEAD"));
-
-        sellConfig.options().copyDefaults(true);
-    }
-
-    private void defaultPrice(Material material, double price, String category) {
-        sellConfig.addDefault("prices." + material.name() + ".price", price);
-        sellConfig.addDefault("prices." + material.name() + ".category", category);
-    }
-
-    private void defaultCategory(String id, String displayName, long amountPerLevel, double increasePerLevel) {
-        sellConfig.addDefault("multipliers.categories." + id + ".display-name", displayName);
-        sellConfig.addDefault("multipliers.categories." + id + ".base-multiplier", 1.0D);
-        sellConfig.addDefault("multipliers.categories." + id + ".amount-per-level", amountPerLevel);
-        sellConfig.addDefault("multipliers.categories." + id + ".increase-per-level", increasePerLevel);
-        sellConfig.addDefault("multipliers.categories." + id + ".max-multiplier", 2.0D);
-    }
-
-
     public List<String> multiplierCategories() {
         List<String> categories = new ArrayList<>();
         ConfigurationSection section = sellConfig.getConfigurationSection("multipliers.categories");
@@ -647,17 +575,6 @@ public final class SellService {
         return categories;
     }
 
-    public String categoryDisplay(String category) {
-        String normalized = normalizeCategory(category);
-        String configured = sellConfig.getString("multipliers.categories." + normalized + ".display-name");
-
-        if (configured != null && !configured.isBlank()) {
-            return configured;
-        }
-
-        return prettyCategory(normalized);
-    }
-
     public long categorySoldAmount(UUID playerId, String category) {
         String normalized = normalizeCategory(category);
         return sellConfig.getLong("multipliers.players." + playerId + "." + normalized + ".sold-amount", 0L);
@@ -675,8 +592,7 @@ public final class SellService {
 
     public double categoryMaxMultiplier(String category) {
         String normalized = normalizeCategory(category);
-        return sellConfig.getDouble("multipliers.categories." + normalized + ".max-multiplier",
-                sellConfig.getDouble("multipliers.max-multiplier", 2.0D));
+        return sellConfig.getDouble("multipliers.categories." + normalized + ".max-multiplier", sellConfig.getDouble("multipliers.max-multiplier", 2.0D));
     }
 
     public long categoryProgressAmount(UUID playerId, String category) {
@@ -691,22 +607,21 @@ public final class SellService {
         return Math.max(0L, amountPerLevel - progress);
     }
 
-
     public boolean demandEnabled() {
         return sellConfig.getBoolean("demand.enabled", true);
     }
 
     public double demandMultiplier(Material material) {
-        if (!demandEnabled()) {
+        if (!demandEnabled() || material == null || isDemandExcluded(material)) {
             return 1.0D;
         }
 
         recalculateDemandIfNeeded();
 
         return Math.max(
-                demandMinMultiplier(),
+                demandMinMultiplier(material),
                 Math.min(
-                        demandMaxMultiplier(),
+                        demandMaxMultiplier(material),
                         sellConfig.getDouble("demand-data." + material.name() + ".multiplier", 1.0D)
                 )
         );
@@ -722,6 +637,82 @@ public final class SellService {
 
     public double demandMaxMultiplier() {
         return Math.max(demandMinMultiplier(), sellConfig.getDouble("demand.max-multiplier", 1.75D));
+    }
+
+    public double demandMinMultiplier(Material material) {
+        if (material == null) {
+            return demandMinMultiplier();
+        }
+
+        String path = "demand.per-item-min-multipliers." + material.name();
+
+        if (!sellConfig.contains(path)) {
+            return demandMinMultiplier();
+        }
+
+        return Math.max(0.01D, sellConfig.getDouble(path, demandMinMultiplier()));
+    }
+
+    public double demandMaxMultiplier(Material material) {
+        if (material == null) {
+            return demandMaxMultiplier();
+        }
+
+        String path = "demand.per-item-max-multipliers." + material.name();
+
+        if (!sellConfig.contains(path)) {
+            return demandMaxMultiplier();
+        }
+
+        return Math.max(demandMinMultiplier(material), sellConfig.getDouble(path, demandMaxMultiplier()));
+    }
+
+    public double demandDecayFactor() {
+        double factor = sellConfig.getDouble("demand.decay-factor", 0.60D);
+
+        if (factor < 0.0D) {
+            return 0.0D;
+        }
+
+        if (factor > 1.0D) {
+            return 1.0D;
+        }
+
+        return factor;
+    }
+
+    public long demandMinimumActiveVolume() {
+        return Math.max(0L, sellConfig.getLong("demand.minimum-active-volume", 1L));
+    }
+
+    public long demandWindowAmount(Material material) {
+        if (material == null) {
+            return 0L;
+        }
+
+        return Math.max(0L, sellConfig.getLong("server-volume." + material.name() + ".amount", 0L));
+    }
+
+    public long demandWindowTotalCents(Material material) {
+        if (material == null) {
+            return 0L;
+        }
+
+        return Math.max(0L, sellConfig.getLong("server-volume." + material.name() + ".total-cents", 0L));
+    }
+
+    public boolean isDemandExcluded(Material material) {
+        if (material == null) {
+            return true;
+        }
+
+        for (String excluded : sellConfig.getStringList("demand.excluded-items")) {
+            if (material.name().equalsIgnoreCase(excluded)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public long demandLastUpdate() {
@@ -753,8 +744,10 @@ public final class SellService {
 
         long oversoldThreshold = Math.max(1L, sellConfig.getLong("demand.oversold-threshold", 25000L));
         long undersoldThreshold = Math.max(0L, sellConfig.getLong("demand.undersold-threshold", 2500L));
-        double min = demandMinMultiplier();
-        double max = demandMaxMultiplier();
+        long minimumActiveVolume = demandMinimumActiveVolume();
+        double decay = demandDecayFactor();
+        boolean scarcityBoostNeverSold = sellConfig.getBoolean("demand.scarcity-boost-never-sold", false);
+        long now = System.currentTimeMillis();
 
         for (Material material : Material.values()) {
             if (!material.isItem() || material == Material.AIR) {
@@ -765,32 +758,56 @@ public final class SellService {
                 continue;
             }
 
-            if (sellConfig.getStringList("demand.excluded-items").contains(material.name())) {
+            if (isDemandExcluded(material)) {
+                sellConfig.set("demand-data." + material.name() + ".sold-amount", 0L);
+                sellConfig.set("demand-data." + material.name() + ".total-cents", 0L);
+                sellConfig.set("demand-data." + material.name() + ".multiplier", 1.0D);
+                sellConfig.set("demand-data." + material.name() + ".last-updated", now);
                 continue;
             }
 
-            long sold = sellConfig.getLong("server-volume." + material.name() + ".amount", 0L);
+            String volumePath = "server-volume." + material.name();
+            long previousAmount = Math.max(0L, sellConfig.getLong(volumePath + ".amount", 0L));
+            long previousCents = Math.max(0L, sellConfig.getLong(volumePath + ".total-cents", 0L));
+            long sold = Math.max(0L, Math.round(previousAmount * decay));
+            long cents = Math.max(0L, Math.round(previousCents * decay));
+
+            if (sold < minimumActiveVolume) {
+                sold = 0L;
+                cents = 0L;
+            }
+
+            double min = demandMinMultiplier(material);
+            double max = demandMaxMultiplier(material);
             double multiplier = 1.0D;
 
             if (sold >= oversoldThreshold) {
                 double pressure = Math.min(1.0D, (double) sold / (oversoldThreshold * 2.0D));
                 multiplier = 1.0D - ((1.0D - min) * pressure);
-            } else if (sold <= undersoldThreshold) {
+            } else if (sold > 0L && sold <= undersoldThreshold) {
                 double scarcity = undersoldThreshold <= 0L
                         ? 1.0D
                         : 1.0D - Math.min(1.0D, (double) sold / (double) undersoldThreshold);
-
                 multiplier = 1.0D + ((max - 1.0D) * scarcity);
+            } else if (sold == 0L && scarcityBoostNeverSold) {
+                multiplier = max;
             }
 
-            multiplier = BigDecimal.valueOf(multiplier).setScale(2, RoundingMode.HALF_UP).doubleValue();
+            multiplier = BigDecimal.valueOf(Math.max(min, Math.min(max, multiplier)))
+                    .setScale(2, RoundingMode.HALF_UP)
+                    .doubleValue();
+
+            sellConfig.set(volumePath + ".amount", sold);
+            sellConfig.set(volumePath + ".total-cents", cents);
+            sellConfig.set(volumePath + ".last-decayed", now);
 
             sellConfig.set("demand-data." + material.name() + ".sold-amount", sold);
+            sellConfig.set("demand-data." + material.name() + ".total-cents", cents);
             sellConfig.set("demand-data." + material.name() + ".multiplier", multiplier);
-            sellConfig.set("demand-data." + material.name() + ".last-updated", System.currentTimeMillis());
+            sellConfig.set("demand-data." + material.name() + ".last-updated", now);
         }
 
-        sellConfig.set("demand.last-update", System.currentTimeMillis());
+        sellConfig.set("demand.last-update", now);
         save();
     }
 
@@ -803,5 +820,93 @@ public final class SellService {
 
     public String message(String path, String fallback) {
         return TextColor.color(sellConfig.getString("messages." + path, fallback));
+    }
+
+    private void ensureDefaults() {
+        sellConfig.addDefault("settings.allow-all-items-with-fallback", true);
+        sellConfig.addDefault("settings.deny-custom-items", false);
+        sellConfig.addDefault("settings.deny-damaged-tools", false);
+        sellConfig.addDefault("settings.deny-filled-containers", true);
+        sellConfig.addDefault("settings.deny-enchanted-items", false);
+
+        sellConfig.addDefault("fallback-prices.blocks", 0.03D);
+        sellConfig.addDefault("fallback-prices.ores", 1.0D);
+        sellConfig.addDefault("fallback-prices.wood", 0.12D);
+        sellConfig.addDefault("fallback-prices.farming", 0.08D);
+        sellConfig.addDefault("fallback-prices.mob_drops", 0.15D);
+        sellConfig.addDefault("fallback-prices.nether", 0.2D);
+        sellConfig.addDefault("fallback-prices.end", 0.35D);
+        sellConfig.addDefault("fallback-prices.misc", 0.01D);
+
+        defaultPrice(Material.DIAMOND, 250.0D, "ores");
+        defaultPrice(Material.EMERALD, 200.0D, "ores");
+        defaultPrice(Material.NETHERITE_INGOT, 3000.0D, "ores");
+        defaultPrice(Material.GOLD_INGOT, 14.0D, "ores");
+        defaultPrice(Material.IRON_INGOT, 8.0D, "ores");
+        defaultPrice(Material.COPPER_INGOT, 3.0D, "ores");
+        defaultPrice(Material.COAL, 2.0D, "ores");
+        defaultPrice(Material.REDSTONE, 1.5D, "ores");
+        defaultPrice(Material.LAPIS_LAZULI, 2.0D, "ores");
+        defaultPrice(Material.QUARTZ, 2.0D, "nether");
+        defaultPrice(Material.OAK_LOG, 1.25D, "wood");
+        defaultPrice(Material.SPRUCE_LOG, 1.25D, "wood");
+        defaultPrice(Material.BIRCH_LOG, 1.25D, "wood");
+        defaultPrice(Material.JUNGLE_LOG, 1.25D, "wood");
+        defaultPrice(Material.ACACIA_LOG, 1.25D, "wood");
+        defaultPrice(Material.DARK_OAK_LOG, 1.25D, "wood");
+        defaultPrice(Material.CHERRY_LOG, 1.25D, "wood");
+        defaultPrice(Material.MANGROVE_LOG, 1.25D, "wood");
+        defaultPrice(Material.WHEAT, 0.25D, "farming");
+        defaultPrice(Material.CARROT, 0.22D, "farming");
+        defaultPrice(Material.POTATO, 0.22D, "farming");
+        defaultPrice(Material.SUGAR_CANE, 0.18D, "farming");
+        defaultPrice(Material.MELON_SLICE, 0.08D, "farming");
+        defaultPrice(Material.PUMPKIN, 0.35D, "farming");
+        defaultPrice(Material.ROTTEN_FLESH, 0.08D, "mob_drops");
+        defaultPrice(Material.BONE, 0.12D, "mob_drops");
+        defaultPrice(Material.STRING, 0.1D, "mob_drops");
+        defaultPrice(Material.GUNPOWDER, 0.25D, "mob_drops");
+        defaultPrice(Material.SPIDER_EYE, 0.18D, "mob_drops");
+        defaultPrice(Material.ENDER_PEARL, 2.0D, "end");
+
+        defaultCategory("blocks", "Blocks", 5000L, 0.02D);
+        defaultCategory("ores", "Ores", 500L, 0.03D);
+        defaultCategory("wood", "Wood", 2500L, 0.02D);
+        defaultCategory("farming", "Farming", 2500L, 0.02D);
+        defaultCategory("mob_drops", "Mob Drops", 1500L, 0.02D);
+        defaultCategory("nether", "Nether", 1500L, 0.025D);
+        defaultCategory("end", "End", 1000L, 0.025D);
+        defaultCategory("misc", "Misc", 5000L, 0.01D);
+
+        sellConfig.addDefault("multipliers.enabled", true);
+        sellConfig.addDefault("multipliers.max-multiplier", 2.0D);
+
+        sellConfig.addDefault("demand.enabled", true);
+        sellConfig.addDefault("demand.update-every-minutes", 30);
+        sellConfig.addDefault("demand.min-multiplier", 0.65D);
+        sellConfig.addDefault("demand.max-multiplier", 1.75D);
+        sellConfig.addDefault("demand.oversold-threshold", 25000);
+        sellConfig.addDefault("demand.undersold-threshold", 2500);
+        sellConfig.addDefault("demand.excluded-items", List.of("BEDROCK", "BARRIER", "COMMAND_BLOCK", "STRUCTURE_BLOCK", "PLAYER_HEAD"));
+        sellConfig.addDefault("demand.decay-factor", 0.60D);
+        sellConfig.addDefault("demand.minimum-active-volume", 1L);
+        sellConfig.addDefault("demand.scarcity-boost-never-sold", false);
+        sellConfig.addDefault("demand.per-item-min-multipliers", Map.of());
+        sellConfig.addDefault("demand.per-item-max-multipliers", Map.of());
+
+        sellConfig.options().copyDefaults(true);
+    }
+
+    private void defaultPrice(Material material, double price, String category) {
+        sellConfig.addDefault("prices." + material.name() + ".price", price);
+        sellConfig.addDefault("prices." + material.name() + ".category", category);
+    }
+
+    private void defaultCategory(String id, String displayName, long amountPerLevel, double increasePerLevel) {
+        sellConfig.addDefault("multipliers.categories." + id + ".display-name", displayName);
+        sellConfig.addDefault("multipliers.categories." + id + ".base-multiplier", 1.0D);
+        sellConfig.addDefault("multipliers.categories." + id + ".amount-per-level", amountPerLevel);
+        sellConfig.addDefault("multipliers.categories." + id + ".increase-per-level", increasePerLevel);
+        sellConfig.addDefault("multipliers.categories." + id + ".max-multiplier", 2.0D);
     }
 }

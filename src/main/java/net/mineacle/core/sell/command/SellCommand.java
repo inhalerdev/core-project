@@ -129,20 +129,29 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
         }
 
         long base = sellService.baseWorthCents(material);
+        String category = sellService.category(material);
+        double playerMultiplier = sellService.multiplier(player.getUniqueId(), category);
         double demand = sellService.demandMultiplier(material);
         long adjusted = sellService.unitWorthCents(player, material);
+        long windowAmount = sellService.demandWindowAmount(material);
+        long windowCents = sellService.demandWindowTotalCents(material);
 
         player.sendMessage(TextColor.color("&#bbbbbbItem: &#ff88ff" + sellService.pretty(material)));
+        player.sendMessage(TextColor.color("&#bbbbbbCategory: &#ff88ff" + sellService.categoryDisplay(category)));
         player.sendMessage(TextColor.color("&#bbbbbbBase: &a" + sellService.format(base)));
-        player.sendMessage(TextColor.color("&#bbbbbbDemand: &#ff88ff" + SellService.formatMultiplier(demand) + "x"));
-        player.sendMessage(TextColor.color("&#bbbbbbAdjusted: &a" + sellService.format(adjusted)));
+        player.sendMessage(TextColor.color("&#bbbbbbPlayer Multiplier: &#ff88ff" + SellService.formatMultiplier(playerMultiplier) + "x"));
+        player.sendMessage(TextColor.color("&#bbbbbbDemand Multiplier: &#ff88ff" + SellService.formatMultiplier(demand) + "x"));
+        player.sendMessage(TextColor.color("&#bbbbbbFinal Unit Price: &a" + sellService.format(adjusted)));
+        player.sendMessage(TextColor.color("&#bbbbbbWindow Volume: &#ff88ff" + windowAmount + " &#bbbbbbitems / &a" + sellService.format(windowCents)));
+        player.sendMessage(TextColor.color("&#bbbbbbDecay: &#ff88ff" + SellService.formatMultiplier(sellService.demandDecayFactor()) + "x &#bbbbbbevery &#ff88ff" + (sellService.demandUpdateIntervalMillis() / 60000L) + "m"));
+
         SoundService.economyBalance(player, core);
     }
 
     private void sendHeldWorth(Player player) {
         ItemStack item = player.getInventory().getItemInMainHand();
 
-        if (item == null || item.getType() == Material.AIR) {
+        if (item == null || item.getType().isAir()) {
             player.sendMessage(TextColor.color("&cHold an item to check its worth"));
             SoundService.guiError(player, core);
             return;
