@@ -12,7 +12,6 @@ import net.mineacle.core.sell.service.SellService;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
-import org.bukkit.block.BlockState;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.BlockInventoryHolder;
@@ -125,64 +124,49 @@ public final class SellWorthPacketListener extends PacketAdapter {
     private ItemStack displayItem(Player player, ItemStack original, int rawSlot) {
         ItemStack clean = stripWorthLore(original);
 
-        if (isPluginGuiSlot(player, rawSlot)) {
+        if (!shouldShowWorth(player, rawSlot)) {
             return clean;
         }
 
         return withWorthLore(player, clean);
     }
 
-    private boolean isPluginGuiSlot(Player player, int rawSlot) {
+    private boolean shouldShowWorth(Player player, int rawSlot) {
         if (isWorthMenu(player)) {
-            return false;
-        }
-
-        if (rawSlot < 0) {
-            return false;
+            return true;
         }
 
         InventoryView view = player.getOpenInventory();
 
         if (view == null) {
-            return false;
+            return true;
         }
 
         Inventory top = view.getTopInventory();
 
-        if (top == null || rawSlot >= top.getSize()) {
-            return false;
-        }
-
-        /*
-         * Only vanilla/player storage should get packet-only worth lore:
-         * player inventory, chests, barrels, ender chests, shulkers, hoppers,
-         * droppers, and dispensers.
-         *
-         * Every custom GUI is protected: Homes, BalTop, Bounty, Guide, Rules,
-         * Teams, TPA, Spawn, RTP, Crates, menus, confirms, etc.
-         */
-        return !isVanillaStorage(top);
-    }
-
-    private boolean isVanillaStorage(Inventory inventory) {
-        InventoryType type = inventory.getType();
-
-        if (type == InventoryType.PLAYER || type == InventoryType.ENDER_CHEST) {
+        if (top == null) {
             return true;
         }
 
-        InventoryHolder holder = inventory.getHolder(false);
-
-        if (holder instanceof BlockInventoryHolder || holder instanceof BlockState) {
-            return type == InventoryType.CHEST
-                    || type == InventoryType.BARREL
-                    || type == InventoryType.SHULKER_BOX
-                    || type == InventoryType.HOPPER
-                    || type == InventoryType.DROPPER
-                    || type == InventoryType.DISPENSER;
+        /*
+         * Raw slots inside the top inventory are the dangerous ones.
+         *
+         * Custom MineacleCore GUIs are usually CHEST inventories with no real block
+         * location and often no holder, so title/keyword checks are not reliable.
+         * Those top slots must never receive worth lore.
+         *
+         * Real vanilla storage top inventories are allowed:
+         * chests, barrels, ender chests, shulkers, hoppers, droppers, dispensers.
+         */
+        if (rawSlot >= 0 && rawSlot < top.getSize()) {
+            return isVanillaStorageTop(top);
         }
 
-        return false;
+        /*
+         * Bottom player inventory slots should show packet-only worth lore even while a
+         * custom GUI is open, because these are real inventory items and not GUI buttons.
+         */
+        return true;
     }
 
     private boolean isWorthMenu(Player player) {
@@ -194,6 +178,31 @@ public final class SellWorthPacketListener extends PacketAdapter {
 
         String title = ChatColor.stripColor(view.getTitle());
         return WorthGui.isTitle(title);
+    }
+
+    private boolean isVanillaStorageTop(Inventory inventory) {
+        InventoryType type = inventory.getType();
+
+        if (type == InventoryType.ENDER_CHEST || type == InventoryType.PLAYER) {
+            return true;
+        }
+
+        /*
+         * Real block inventories have a BlockInventoryHolder. MineacleCore GUI
+         * inventories do not, even when their inventory type is CHEST.
+         */
+        InventoryHolder holder = inventory.getHolder(false);
+
+        if (!(holder instanceof BlockInventoryHolder)) {
+            return false;
+        }
+
+        return type == InventoryType.CHEST
+                || type == InventoryType.BARREL
+                || type == InventoryType.SHULKER_BOX
+                || type == InventoryType.HOPPER
+                || type == InventoryType.DROPPER
+                || type == InventoryType.DISPENSER;
     }
 
     private ItemStack withWorthLore(Player player, ItemStack original) {
@@ -258,6 +267,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
         }
 
         String lower = stripped.toLowerCase(Locale.ROOT);
+
         return lower.startsWith("worth:")
                 || lower.startsWith("price:")
                 || lower.startsWith("stack:")
