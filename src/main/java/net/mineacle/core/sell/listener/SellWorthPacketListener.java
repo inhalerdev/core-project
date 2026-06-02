@@ -20,6 +20,7 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.BundleMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
@@ -28,6 +29,8 @@ import java.util.Locale;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public final class SellWorthPacketListener extends PacketAdapter {
+
+    private static final int MAX_CONTAINER_DEPTH = 3;
 
     private final SellService sellService;
 
@@ -149,22 +152,17 @@ public final class SellWorthPacketListener extends PacketAdapter {
         }
 
         /*
-         * Raw slots inside the top inventory are the dangerous ones.
-         *
-         * Custom MineacleCore GUIs are usually CHEST inventories with no real block
-         * location and often no holder, so title/keyword checks are not reliable.
-         * Those top slots must never receive worth lore.
-         *
-         * Real vanilla storage top inventories are allowed:
-         * chests, barrels, ender chests, shulkers, hoppers, droppers, dispensers.
+         * Top inventory slots are only allowed when the top inventory is real vanilla
+         * storage. MineacleCore GUIs often use CHEST inventory type, so type/title alone
+         * is not enough. Real storage has a real vanilla holder. Core GUI buttons do not.
          */
         if (rawSlot >= 0 && rawSlot < top.getSize()) {
             return isVanillaStorageTop(top);
         }
 
         /*
-         * Bottom player inventory slots should show packet-only worth lore even while a
-         * custom GUI is open, because these are real inventory items and not GUI buttons.
+         * Bottom player-inventory slots should keep packet-only worth lore, even while
+         * a custom Core GUI is open, because those are the player's real inventory items.
          */
         return true;
     }
@@ -183,14 +181,10 @@ public final class SellWorthPacketListener extends PacketAdapter {
     private boolean isVanillaStorageTop(Inventory inventory) {
         InventoryType type = inventory.getType();
 
-        if (type == InventoryType.ENDER_CHEST || type == InventoryType.PLAYER) {
+        if (type == InventoryType.ENDER_CHEST) {
             return true;
         }
 
-        /*
-         * Real block inventories have a BlockInventoryHolder. MineacleCore GUI
-         * inventories do not, even when their inventory type is CHEST.
-         */
         InventoryHolder holder = inventory.getHolder(false);
 
         if (!(holder instanceof BlockInventoryHolder)) {
@@ -210,7 +204,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
             return original;
         }
 
-        long totalWorth = sellService.stackWorthCents(player, original);
+        long totalWorth = visualWorthCents(player, original, 0);
 
         if (totalWorth <= 0L) {
             return original;
@@ -232,6 +226,25 @@ public final class SellWorthPacketListener extends PacketAdapter {
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
+    }
+
+    private long visualWorthCents(Player player, ItemStack item, int depth) {
+        if (item == null || item.getType() == Material.AIR || depth > MAX_CONTAINER_DEPTH) {
+            return 0L;
+        }
+
+        ItemStack clean = stripWorthLore(item);
+        long total = sellService.stackWorthCents(player, clean);
+
+        ItemMeta meta = clean.getItemMeta();
+
+        if (meta instanceof BundleMeta bundleMeta) {
+            for (ItemStack content : bundleMeta.getItems()) {
+                total += visualWorthCents(player, content, depth + 1);
+            }
+        }
+
+        return Math.max(0L, total);
     }
 
     private ItemStack stripWorthLore(ItemStack original) {

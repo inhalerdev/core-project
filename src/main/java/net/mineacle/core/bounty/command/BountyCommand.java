@@ -1,6 +1,9 @@
-package net.mineacle.core.bounty;
+package net.mineacle.core.bounty.command;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.bounty.BountyConfirmGui;
+import net.mineacle.core.bounty.BountyMainGui;
+import net.mineacle.core.bounty.BountyService;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
@@ -17,7 +20,6 @@ import org.bukkit.metadata.FixedMetadataValue;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 public final class BountyCommand implements CommandExecutor, TabCompleter {
 
@@ -49,9 +51,9 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (args[0].equalsIgnoreCase("add") || args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("place")) {
+        if (isPlaceSubcommand(args[0])) {
             if (args.length < 3) {
-                sendError(player, "&cUsage: /bounty add <player> <amount>");
+                sendError(player, "&cUsage: /bounty set <player> <amount>");
                 return true;
             }
 
@@ -73,7 +75,7 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        sendError(player, "&cUsage: /bounty add <player> <amount>");
+        sendError(player, "&cUsage: /bounty set <player> <amount>");
         return true;
     }
 
@@ -119,6 +121,7 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
 
         player.setMetadata(META_TARGET, new FixedMetadataValue(core, target.getUniqueId().toString()));
         player.setMetadata(META_AMOUNT, new FixedMetadataValue(core, amount));
+
         BountyConfirmGui.open(core, player, target, amount, bountyService);
         return true;
     }
@@ -170,7 +173,7 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 1) {
-            List<String> options = new ArrayList<>(List.of("add", "list"));
+            List<String> options = new ArrayList<>(List.of("set", "list"));
 
             if (player.hasPermission("mineaclebounty.admin")) {
                 options.add("remove");
@@ -196,6 +199,8 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean isPlaceSubcommand(String input) {
-        return input.equalsIgnoreCase("add") || input.equalsIgnoreCase("set") || input.equalsIgnoreCase("place");
+        return input.equalsIgnoreCase("set")
+                || input.equalsIgnoreCase("add")
+                || input.equalsIgnoreCase("place");
     }
 }
