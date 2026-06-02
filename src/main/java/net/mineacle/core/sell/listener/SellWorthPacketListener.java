@@ -12,7 +12,10 @@ import net.mineacle.core.sell.service.SellService;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
+import org.bukkit.block.DoubleChest;
+import org.bukkit.block.ShulkerBox;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.minecart.StorageMinecart;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.BlockInventoryHolder;
 import org.bukkit.inventory.Inventory;
@@ -20,6 +23,7 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.BundleMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -64,7 +68,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
         for (int index = 0; index < modifier.size(); index++) {
             ItemStack item = modifier.readSafely(index);
 
-            if (item == null || item.getType() == Material.AIR) {
+            if (item == null || item.getType().isAir()) {
                 continue;
             }
 
@@ -87,7 +91,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
             for (int rawSlot = 0; rawSlot < original.size(); rawSlot++) {
                 ItemStack item = original.get(rawSlot);
 
-                if (item == null || item.getType() == Material.AIR) {
+                if (item == null || item.getType().isAir()) {
                     updated.add(item);
                     continue;
                 }
@@ -112,7 +116,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
             for (int rawSlot = 0; rawSlot < original.length; rawSlot++) {
                 ItemStack item = original[rawSlot];
 
-                if (item == null || item.getType() == Material.AIR) {
+                if (item == null || item.getType().isAir()) {
                     updated[rawSlot] = item;
                     continue;
                 }
@@ -151,19 +155,10 @@ public final class SellWorthPacketListener extends PacketAdapter {
             return true;
         }
 
-        /*
-         * Top inventory slots are only allowed when the top inventory is real vanilla
-         * storage. MineacleCore GUIs often use CHEST inventory type, so type/title alone
-         * is not enough. Real storage has a real vanilla holder. Core GUI buttons do not.
-         */
         if (rawSlot >= 0 && rawSlot < top.getSize()) {
-            return isVanillaStorageTop(top);
+            return isRealStorageTop(top);
         }
 
-        /*
-         * Bottom player-inventory slots should keep packet-only worth lore, even while
-         * a custom Core GUI is open, because those are the player's real inventory items.
-         */
         return true;
     }
 
@@ -178,7 +173,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
         return WorthGui.isTitle(title);
     }
 
-    private boolean isVanillaStorageTop(Inventory inventory) {
+    private boolean isRealStorageTop(Inventory inventory) {
         InventoryType type = inventory.getType();
 
         if (type == InventoryType.ENDER_CHEST) {
@@ -187,20 +182,25 @@ public final class SellWorthPacketListener extends PacketAdapter {
 
         InventoryHolder holder = inventory.getHolder(false);
 
-        if (!(holder instanceof BlockInventoryHolder)) {
-            return false;
+        if (holder instanceof BlockInventoryHolder || holder instanceof DoubleChest || holder instanceof StorageMinecart) {
+            return isStorageType(type);
         }
 
+        return false;
+    }
+
+    private boolean isStorageType(InventoryType type) {
         return type == InventoryType.CHEST
                 || type == InventoryType.BARREL
                 || type == InventoryType.SHULKER_BOX
                 || type == InventoryType.HOPPER
                 || type == InventoryType.DROPPER
-                || type == InventoryType.DISPENSER;
+                || type == InventoryType.DISPENSER
+                || type == InventoryType.ENDER_CHEST;
     }
 
     private ItemStack withWorthLore(Player player, ItemStack original) {
-        if (original == null || original.getType() == Material.AIR) {
+        if (original == null || original.getType().isAir()) {
             return original;
         }
 
@@ -229,17 +229,22 @@ public final class SellWorthPacketListener extends PacketAdapter {
     }
 
     private long visualWorthCents(Player player, ItemStack item, int depth) {
-        if (item == null || item.getType() == Material.AIR || depth > MAX_CONTAINER_DEPTH) {
+        if (item == null || item.getType().isAir() || depth > MAX_CONTAINER_DEPTH) {
             return 0L;
         }
 
         ItemStack clean = stripWorthLore(item);
         long total = sellService.stackWorthCents(player, clean);
-
         ItemMeta meta = clean.getItemMeta();
 
         if (meta instanceof BundleMeta bundleMeta) {
             for (ItemStack content : bundleMeta.getItems()) {
+                total += visualWorthCents(player, content, depth + 1);
+            }
+        }
+
+        if (meta instanceof BlockStateMeta blockStateMeta && blockStateMeta.getBlockState() instanceof ShulkerBox shulkerBox) {
+            for (ItemStack content : shulkerBox.getInventory().getContents()) {
                 total += visualWorthCents(player, content, depth + 1);
             }
         }

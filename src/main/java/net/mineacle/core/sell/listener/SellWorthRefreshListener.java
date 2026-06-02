@@ -76,6 +76,7 @@ public final class SellWorthRefreshListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
     public void onDrop(PlayerDropItemEvent event) {
         refresh(event.getPlayer(), 1L);
+        refresh(event.getPlayer(), 3L);
     }
 
     private void refresh(Player player, long delay) {
