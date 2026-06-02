@@ -3,6 +3,7 @@ package net.mineacle.core.sell;
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.sell.command.SellCommand;
+import net.mineacle.core.sell.listener.ItemStackNormalizeListener;
 import net.mineacle.core.sell.listener.SellGuiListener;
 import net.mineacle.core.sell.listener.SellMultiGuiListener;
 import net.mineacle.core.sell.listener.WorthGuiListener;
@@ -36,18 +37,14 @@ public final class SellModule extends Module {
         core.getServer().getPluginManager().registerEvents(new SellGuiListener(core, sellService), core);
         core.getServer().getPluginManager().registerEvents(new WorthGuiListener(core, sellService), core);
         core.getServer().getPluginManager().registerEvents(new SellMultiGuiListener(), core);
+        core.getServer().getPluginManager().registerEvents(new ItemStackNormalizeListener(core), core);
 
         /*
-         * Important:
          * Do not register SellWorthPacketListener or SellWorthRefreshListener.
-         *
-         * The packet listener injects worth/price lore into normal inventory packets.
-         * That makes the client see picked-up items and existing items as different
-         * stacks, so normal items stop combining after pickup.
-         *
-         * Worth info belongs only inside /worth and Mineacle sell/worth GUIs.
+         * Worth text belongs inside /worth and Mineacle sell/worth GUIs only.
+         * Global packet lore causes client-side stack mismatch after pickup.
          */
-        core.getLogger().info("Sell worth packet lore disabled; /worth GUI only");
+        core.getLogger().info("Sell worth packet lore disabled; item stack normalizer enabled");
     }
 
     @Override
