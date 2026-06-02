@@ -1,4 +1,4 @@
-package net.mineacle.core.spawnprotection;
+package net.mineacle.core.spawnprotection.listener;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
