@@ -49,7 +49,7 @@ public final class SellModule extends Module {
         if (protocolLib != null && protocolLib.isEnabled()) {
             packetListener = new SellWorthPacketListener(core, sellService);
             ProtocolLibrary.getProtocolManager().addPacketListener(packetListener);
-            core.getLogger().info("Sell worth packet hover lore enabled for inventory and storage");
+            core.getLogger().info("Sell worth hover lore enabled for normal inventory and storage only");
         } else {
             core.getLogger().warning("ProtocolLib not found; worth hover lore is disabled outside Mineacle GUIs");
         }

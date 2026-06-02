@@ -12,9 +12,12 @@ import net.mineacle.core.sell.service.SellService;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
+import org.bukkit.block.BlockState;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.inventory.BlockInventoryHolder;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
@@ -122,69 +125,69 @@ public final class SellWorthPacketListener extends PacketAdapter {
     private ItemStack displayItem(Player player, ItemStack original, int rawSlot) {
         ItemStack clean = stripWorthLore(original);
 
-        if (isProtectedPluginTopSlot(player, rawSlot)) {
+        if (isPluginGuiSlot(player, rawSlot)) {
             return clean;
         }
 
         return withWorthLore(player, clean);
     }
 
-    private boolean isProtectedPluginTopSlot(Player player, int rawSlot) {
-        if (isWorthMenu(player) || rawSlot < 0) {
+    private boolean isPluginGuiSlot(Player player, int rawSlot) {
+        if (isWorthMenu(player)) {
+            return false;
+        }
+
+        if (rawSlot < 0) {
             return false;
         }
 
         InventoryView view = player.getOpenInventory();
+
         if (view == null) {
             return false;
         }
 
         Inventory top = view.getTopInventory();
+
         if (top == null || rawSlot >= top.getSize()) {
             return false;
         }
 
-        if (isNormalStorage(top)) {
-            return false;
-        }
-
-        String holderName = top.getHolder(false) == null ? "" : top.getHolder(false).getClass().getName().toLowerCase(Locale.ROOT);
-        String title = ChatColor.stripColor(view.getTitle());
-        String lowerTitle = title == null ? "" : title.toLowerCase(Locale.ROOT);
-
-        return holderName.contains("gui")
-                || holderName.contains("menu")
-                || holderName.contains("crate")
-                || holderName.contains("reward")
-                || holderName.contains("shop")
-                || lowerTitle.contains("crate")
-                || lowerTitle.contains("reward")
-                || lowerTitle.contains("shop")
-                || lowerTitle.contains("menu")
-                || lowerTitle.contains("confirm");
+        /*
+         * Only vanilla/player storage should get packet-only worth lore:
+         * player inventory, chests, barrels, ender chests, shulkers, hoppers,
+         * droppers, and dispensers.
+         *
+         * Every custom GUI is protected: Homes, BalTop, Bounty, Guide, Rules,
+         * Teams, TPA, Spawn, RTP, Crates, menus, confirms, etc.
+         */
+        return !isVanillaStorage(top);
     }
 
-    private boolean isNormalStorage(Inventory inventory) {
+    private boolean isVanillaStorage(Inventory inventory) {
         InventoryType type = inventory.getType();
 
-        if (type == InventoryType.ENDER_CHEST || type == InventoryType.PLAYER) {
+        if (type == InventoryType.PLAYER || type == InventoryType.ENDER_CHEST) {
             return true;
         }
 
-        if (inventory.getLocation() == null) {
-            return false;
+        InventoryHolder holder = inventory.getHolder(false);
+
+        if (holder instanceof BlockInventoryHolder || holder instanceof BlockState) {
+            return type == InventoryType.CHEST
+                    || type == InventoryType.BARREL
+                    || type == InventoryType.SHULKER_BOX
+                    || type == InventoryType.HOPPER
+                    || type == InventoryType.DROPPER
+                    || type == InventoryType.DISPENSER;
         }
 
-        return type == InventoryType.CHEST
-                || type == InventoryType.BARREL
-                || type == InventoryType.SHULKER_BOX
-                || type == InventoryType.HOPPER
-                || type == InventoryType.DROPPER
-                || type == InventoryType.DISPENSER;
+        return false;
     }
 
     private boolean isWorthMenu(Player player) {
         InventoryView view = player.getOpenInventory();
+
         if (view == null) {
             return false;
         }
@@ -199,12 +202,14 @@ public final class SellWorthPacketListener extends PacketAdapter {
         }
 
         long totalWorth = sellService.stackWorthCents(player, original);
+
         if (totalWorth <= 0L) {
             return original;
         }
 
         ItemStack item = original.clone();
         ItemMeta meta = item.getItemMeta();
+
         if (meta == null) {
             return item;
         }
@@ -247,17 +252,19 @@ public final class SellWorthPacketListener extends PacketAdapter {
         }
 
         String stripped = ChatColor.stripColor(line);
+
         if (stripped == null) {
             return false;
         }
 
-        return stripped.startsWith("Worth:")
-                || stripped.startsWith("Price:")
-                || stripped.startsWith("Stack:")
-                || stripped.startsWith("Stack Worth:")
-                || stripped.startsWith("Enchant Value:")
-                || stripped.startsWith("Demand:")
-                || stripped.startsWith("Category:");
+        String lower = stripped.toLowerCase(Locale.ROOT);
+        return lower.startsWith("worth:")
+                || lower.startsWith("price:")
+                || lower.startsWith("stack:")
+                || lower.startsWith("stack worth:")
+                || lower.startsWith("enchant value:")
+                || lower.startsWith("demand:")
+                || lower.startsWith("category:");
     }
 
     private int setSlotRawSlot(PacketEvent event) {
@@ -265,6 +272,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
 
         for (int index = integers.size() - 1; index >= 0; index--) {
             Integer value = integers.readSafely(index);
+
             if (value != null) {
                 return value;
             }
