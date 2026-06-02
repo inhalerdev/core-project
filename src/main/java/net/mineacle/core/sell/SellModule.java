@@ -38,16 +38,16 @@ public final class SellModule extends Module {
         core.getServer().getPluginManager().registerEvents(new SellMultiGuiListener(), core);
 
         /*
-         * Do not globally inject worth lore into normal player inventory packets.
+         * Important:
+         * Do not register SellWorthPacketListener or SellWorthRefreshListener.
          *
-         * The old packet listener changed the client-visible ItemStack NBT/lore in
-         * inventory packets. Even though the server item was not intentionally changed,
-         * the client saw picked-up stacks and existing stacks as different items, so
-         * players could not combine normal matching stacks after pickup.
+         * The packet listener injects worth/price lore into normal inventory packets.
+         * That makes the client see picked-up items and existing items as different
+         * stacks, so normal items stop combining after pickup.
          *
-         * Worth/prices should stay inside /worth and Mineacle GUI displays only.
+         * Worth info belongs only inside /worth and Mineacle sell/worth GUIs.
          */
-        core.getLogger().info("Global sell worth inventory lore is disabled");
+        core.getLogger().info("Sell worth packet lore disabled; /worth GUI only");
     }
 
     @Override
