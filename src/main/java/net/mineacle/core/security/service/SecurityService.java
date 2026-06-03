@@ -58,17 +58,21 @@ public final class SecurityService {
             return false;
         }
 
-        String command = firstCommand(rawCommandMessage);
+        ParsedCommand parsed = parse(rawCommandMessage);
 
-        if (command.isBlank()) {
+        if (parsed.command().isBlank()) {
             return false;
         }
 
-        if (isBlockedCommand(command) || isConsoleOnly(command)) {
+        if (isBlockedCommand(parsed.command()) || isConsoleOnly(parsed.command())) {
             return true;
         }
 
-        return isBlockedSubCommand(player, rawCommandMessage);
+        if (!parsed.subCommand().isBlank() && hasSubcommandRules(parsed.command())) {
+            return !allowedSubCommands(player, parsed.command()).contains(parsed.subCommand());
+        }
+
+        return false;
     }
 
     public boolean shouldHideFromRootTab(Player player, String rawCommand) {
@@ -100,60 +104,38 @@ public final class SecurityService {
 
         String raw = buffer == null ? "" : buffer;
 
-        if (!raw.trim().startsWith("/")) {
+        /*
+         * Important:
+         * Do NOT filter follow-up suggestions here.
+         *
+         * Minecraft shows the automatic suggestion bar for subcommands from each
+         * command's TabCompleter. Filtering here after a space can stop the client from
+         * showing the full suggestion list until the player types another character.
+         *
+         * Security still blocks forbidden subcommands on execution in shouldBlock().
+         * Individual command TabCompleters should hide admin options visually.
+         */
+        if (raw.contains(" ")) {
             return completions;
         }
 
-        String withoutSlash = raw.trim().substring(1);
-        String[] parts = withoutSlash.split("\\s+", -1);
+        String trimmed = raw.trim();
 
-        if (parts.length <= 1) {
-            List<String> filtered = new ArrayList<>();
-
-            for (String completion : completions) {
-                String command = normalize(completion);
-
-                if (!shouldHideFromTab(player, command)) {
-                    filtered.add(completion);
-                }
-            }
-
-            return filtered;
-        }
-
-        String command = normalize(parts[0]);
-
-        if (!hasSubcommandRules(command)) {
+        if (trimmed.isBlank() || !trimmed.startsWith("/")) {
             return completions;
         }
 
-        if (parts.length == 2) {
-            Set<String> allowed = allowedSubCommands(player, command);
+        List<String> filtered = new ArrayList<>();
 
-            if (allowed.isEmpty()) {
-                return List.of();
+        for (String completion : completions) {
+            String command = normalize(completion);
+
+            if (!shouldHideFromTab(player, command)) {
+                filtered.add(completion);
             }
-
-            List<String> filtered = new ArrayList<>();
-
-            for (String completion : completions) {
-                String sub = normalize(completion);
-
-                if (allowed.contains(sub)) {
-                    filtered.add(completion);
-                }
-            }
-
-            return filtered;
         }
 
-        String sub = normalize(parts[1]);
-
-        if (!allowedSubCommands(player, command).contains(sub)) {
-            return List.of();
-        }
-
-        return completions;
+        return filtered;
     }
 
     public Set<String> visibleCommands(Player player) {
@@ -243,22 +225,10 @@ public final class SecurityService {
         return matches;
     }
 
-    private boolean isBlockedSubCommand(Player player, String rawCommandMessage) {
-        ParsedCommand parsed = parse(rawCommandMessage);
-
-        if (parsed.command().isBlank() || parsed.subCommand().isBlank()) {
-            return false;
-        }
-
-        if (!hasSubcommandRules(parsed.command())) {
-            return false;
-        }
-
-        return !allowedSubCommands(player, parsed.command()).contains(parsed.subCommand());
-    }
-
     private boolean hasSubcommandRules(String command) {
-        return config.isConfigurationSection("subcommands." + normalize(command));
+        return config.isConfigurationSection("groups.default.subcommands." + normalize(command))
+                || config.isConfigurationSection("groups.plus.subcommands." + normalize(command))
+                || config.isConfigurationSection("groups.admin.subcommands." + normalize(command));
     }
 
     private void loadGroups() {
@@ -464,10 +434,6 @@ public final class SecurityService {
         String command = parts.length >= 1 ? normalize(parts[0]) : "";
         String sub = parts.length >= 2 ? normalize(parts[1]) : "";
         return new ParsedCommand(command, sub);
-    }
-
-    private String firstCommand(String raw) {
-        return parse(raw).command();
     }
 
     private String normalize(String raw) {
