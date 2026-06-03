@@ -15,7 +15,7 @@ menus:
           - "&#bbbbbbExplore the main survival world"
           - "&#bbbbbbPlayers Online: &a%online%"
           - ""
-          - "&a> Click to teleport"
+          - "&eClick to teleport"
       nether:
         enabled: true
         slot: 13
@@ -26,7 +26,7 @@ menus:
           - "&#bbbbbbExplore the Nether dimension"
           - "&#bbbbbbPlayers Online: &c%online%"
           - ""
-          - "&c> Click to teleport"
+          - "&cClick to teleport"
       end:
         enabled: true
         slot: 15
@@ -37,7 +37,7 @@ menus:
           - "&#bbbbbbExplore the outer End islands"
           - "&#bbbbbbPlayers Online: &#ff88ff%online%"
           - ""
-          - "&#ff88ff> Click to teleport"
+          - "&#ff88ffClick to teleport"
 
 messages:
   no-permission: "&cThis command does not exist."

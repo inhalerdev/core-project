@@ -30,12 +30,12 @@ gui:
     available-lore:
       - "&#bbbbbb%online%/%max%"
       - ""
-      - "&#ff88ff> Click to return to Spawn"
+      - "&#ff88ffClick to return to Spawn"
   random:
     lore:
       - "&#bbbbbbClick to teleport to a random &#ff88ffSpawn"
       - ""
-      - "&#ff88ff> Click to return to Spawn"
+      - "&#ff88ffClick to return to Spawn"
 
 random:
   enabled: true
