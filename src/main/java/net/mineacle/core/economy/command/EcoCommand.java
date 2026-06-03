@@ -1,7 +1,6 @@
 package net.mineacle.core.economy.command;
 
 import net.mineacle.core.Core;
-import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.economy.service.EconomyService;
 import org.bukkit.Bukkit;
@@ -15,8 +14,8 @@ import org.bukkit.entity.Player;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 public final class EcoCommand implements CommandExecutor, TabCompleter {
@@ -77,7 +76,7 @@ public final class EcoCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean reset(CommandSender sender, String target) {
-        List<OfflinePlayer> targets = resolveTargets(sender, target);
+        List<OfflinePlayer> targets = resolveTargets(target);
 
         if (targets.isEmpty()) {
             sender.sendMessage(core.getMessage("economy.player-not-found"));
@@ -98,7 +97,7 @@ public final class EcoCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean apply(CommandSender sender, String target, long cents, EcoAction action) {
-        List<OfflinePlayer> targets = resolveTargets(sender, target);
+        List<OfflinePlayer> targets = resolveTargets(target);
 
         if (targets.isEmpty()) {
             sender.sendMessage(core.getMessage("economy.player-not-found"));
@@ -114,6 +113,7 @@ public final class EcoCommand implements CommandExecutor, TabCompleter {
             switch (action) {
                 case GIVE -> {
                     economyService.give(uuid, cents);
+
                     Player online = offlinePlayer.getPlayer();
 
                     if (online != null && online.isOnline()) {
@@ -139,7 +139,7 @@ public final class EcoCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
-    private List<OfflinePlayer> resolveTargets(CommandSender sender, String target) {
+    private List<OfflinePlayer> resolveTargets(String target) {
         List<OfflinePlayer> targets = new ArrayList<>();
 
         if (target.equals("*")) {
@@ -191,29 +191,44 @@ public final class EcoCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 1) {
-            return PlayerTabComplete.options(args[0], List.of("give", "take", "set", "reset"));
+        List<String> completions = new ArrayList<>();
+
+        if (!sender.hasPermission("mineacleeconomy.admin")) {
+            return completions;
         }
 
-        if (args.length == 2) {
-            List<String> completions = new ArrayList<>(List.of("*", "**"));
+        if (args.length == 1) {
+            List<String> options = List.of("give", "take", "set", "reset");
+            String partial = args[0].toLowerCase(Locale.ROOT);
 
-            if (sender instanceof Player player) {
-                completions.addAll(PlayerTabComplete.onlinePlayers(player, args[1], true));
-            } else {
-                for (Player online : Bukkit.getOnlinePlayers()) {
-                    completions.add(online.getName());
+            for (String option : options) {
+                if (option.startsWith(partial)) {
+                    completions.add(option);
                 }
             }
 
             return completions;
         }
 
-        if (args.length == 3 && !args[0].equalsIgnoreCase("reset")) {
-            return PlayerTabComplete.options(args[2], List.of("1", "10", "100", "1000", "10k", "100k", "1M"));
+        if (args.length == 2) {
+            String partial = args[1].toLowerCase(Locale.ROOT);
+
+            if ("*".startsWith(partial)) {
+                completions.add("*");
+            }
+
+            if ("**".startsWith(partial)) {
+                completions.add("**");
+            }
+
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                if (online.getName().toLowerCase(Locale.ROOT).startsWith(partial)) {
+                    completions.add(online.getName());
+                }
+            }
         }
 
-        return List.of();
+        return completions;
     }
 
     private enum EcoAction {
