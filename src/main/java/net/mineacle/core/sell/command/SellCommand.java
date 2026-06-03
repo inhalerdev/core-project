@@ -199,17 +199,22 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
             return List.of();
         }
 
-        if (args.length == 1) {
-            List<String> options = new ArrayList<>(List.of("demand", "hand", "history", "multi", "worth"));
+        if (!(sender instanceof Player player) || !player.hasPermission("mineaclesell.use")) {
+            return List.of();
+        }
 
-            if (sender.hasPermission("mineaclesell.admin")) {
+        if (args.length == 1) {
+            List<String> options = new ArrayList<>(List.of("hand", "history", "multi", "worth"));
+
+            if (player.hasPermission("mineaclesell.admin")) {
+                options.add("demand");
                 options.add("reload");
             }
 
             return PlayerTabComplete.options(args[0], options);
         }
 
-        if (args.length == 2 && args[0].equalsIgnoreCase("demand") && sender.hasPermission("mineaclesell.admin")) {
+        if (args.length == 2 && args[0].equalsIgnoreCase("demand") && player.hasPermission("mineaclesell.admin")) {
             List<String> completions = new ArrayList<>(List.of("recalc", "reset"));
             String partial = args[1] == null ? "" : args[1].toLowerCase(Locale.ROOT);
 
