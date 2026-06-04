@@ -5,6 +5,7 @@ import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.servermessages.command.ServerControlCommand;
 import net.mineacle.core.servermessages.command.WorldMaintenanceCommand;
 import net.mineacle.core.servermessages.listener.ServerCommandInterceptListener;
+import net.mineacle.core.servermessages.listener.ServerKickListener;
 import net.mineacle.core.servermessages.listener.ServerLoginListener;
 import net.mineacle.core.servermessages.listener.WorldMaintenanceListener;
 import net.mineacle.core.servermessages.service.ServerMessageService;
@@ -38,6 +39,7 @@ public final class ServerMessagesModule extends Module {
         register(core, "mineacleworldmaintenance", worldCommand);
 
         core.getServer().getPluginManager().registerEvents(new ServerLoginListener(service), core);
+        core.getServer().getPluginManager().registerEvents(new ServerKickListener(service), core);
         core.getServer().getPluginManager().registerEvents(new ServerCommandInterceptListener(service), core);
         core.getServer().getPluginManager().registerEvents(new WorldMaintenanceListener(worldMaintenanceService), core);
 

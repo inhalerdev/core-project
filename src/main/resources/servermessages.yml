@@ -1,4 +1,5 @@
 enabled: true
+shutdown-message-active-seconds: 30
 
 messages:
   whitelist:
@@ -43,14 +44,6 @@ chat:
 maintenance:
   enabled: false
   bypass-permission: mineacleservermessages.bypass
-
-restart:
-  delay-seconds: 3
-  command: "restart"
-
-shutdown:
-  delay-seconds: 3
-  command: "stop"
 
 world-maintenance:
   bypass-permission: mineacleservermessages.bypass

@@ -2,11 +2,10 @@ package net.mineacle.core.servermessages.service;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
-import org.bukkit.Bukkit;
-import org.bukkit.Server;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
 import org.bukkit.event.player.PlayerLoginEvent;
 
 import java.io.File;
@@ -18,7 +17,9 @@ public final class ServerMessageService {
     private final Core core;
     private final File file;
     private FileConfiguration config;
-    private boolean internalServerControl;
+
+    private String activeShutdownMessageKey;
+    private long activeShutdownMessageUntil;
 
     public ServerMessageService(Core core) {
         this.core = core;
@@ -78,16 +79,41 @@ public final class ServerMessageService {
         return TextColor.color(config.getString("chat." + key, "&dMineacle &8» &#bbbbbbDone"));
     }
 
-    public int delaySeconds(String key) {
-        return Math.max(0, config.getInt(key + ".delay-seconds", 3));
+    public void beginServerControl(String key) {
+        this.activeShutdownMessageKey = key.equalsIgnoreCase("restart") ? "restart" : "shutdown";
+        this.activeShutdownMessageUntil = System.currentTimeMillis() + (config.getLong("shutdown-message-active-seconds", 30L) * 1000L);
     }
 
-    public String command(String key) {
-        return config.getString(key + ".command", key.equalsIgnoreCase("restart") ? "restart" : "stop");
+    public String activeShutdownMessage() {
+        if (activeShutdownMessageKey == null || activeShutdownMessageKey.isBlank()) {
+            return null;
+        }
+
+        if (System.currentTimeMillis() > activeShutdownMessageUntil) {
+            activeShutdownMessageKey = null;
+            activeShutdownMessageUntil = 0L;
+            return null;
+        }
+
+        return message(activeShutdownMessageKey);
     }
 
-    public boolean isInternalServerControl() {
-        return internalServerControl;
+    public boolean handleAsyncPreLogin(AsyncPlayerPreLoginEvent event) {
+        if (!enabled()) {
+            return false;
+        }
+
+        if (event.getLoginResult() == AsyncPlayerPreLoginEvent.Result.KICK_WHITELIST) {
+            event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_WHITELIST, message("whitelist"));
+            return true;
+        }
+
+        if (event.getLoginResult() == AsyncPlayerPreLoginEvent.Result.KICK_FULL) {
+            event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_FULL, message("full"));
+            return true;
+        }
+
+        return false;
     }
 
     public boolean handleLogin(PlayerLoginEvent event) {
@@ -105,45 +131,15 @@ public final class ServerMessageService {
         PlayerLoginEvent.Result result = event.getResult();
 
         if (result == PlayerLoginEvent.Result.KICK_WHITELIST) {
-            event.setKickMessage(message("whitelist"));
+            event.disallow(PlayerLoginEvent.Result.KICK_WHITELIST, message("whitelist"));
             return true;
         }
 
         if (result == PlayerLoginEvent.Result.KICK_FULL) {
-            event.setKickMessage(message("full"));
+            event.disallow(PlayerLoginEvent.Result.KICK_FULL, message("full"));
             return true;
         }
 
         return false;
-    }
-
-    public void runBrandedServerControl(String key) {
-        String normalized = key.equalsIgnoreCase("restart") ? "restart" : "shutdown";
-        kickAll(normalized);
-        runActualServerCommandLater(normalized);
-    }
-
-    public void kickAll(String key) {
-        String message = message(key);
-
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            player.kickPlayer(message);
-        }
-    }
-
-    private void runActualServerCommandLater(String key) {
-        int delayTicks = delaySeconds(key) * 20;
-        String command = command(key);
-
-        Bukkit.getScheduler().runTaskLater(core, () -> {
-            Server server = Bukkit.getServer();
-
-            try {
-                internalServerControl = true;
-                server.dispatchCommand(server.getConsoleSender(), command);
-            } finally {
-                internalServerControl = false;
-            }
-        }, delayTicks);
     }
 }

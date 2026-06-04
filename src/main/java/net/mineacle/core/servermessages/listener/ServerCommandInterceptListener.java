@@ -1,7 +1,6 @@
 package net.mineacle.core.servermessages.listener;
 
 import net.mineacle.core.servermessages.service.ServerMessageService;
-import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -20,7 +19,7 @@ public final class ServerCommandInterceptListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
-        if (!service.enabled() || service.isInternalServerControl()) {
+        if (!service.enabled()) {
             return;
         }
 
@@ -33,15 +32,13 @@ public final class ServerCommandInterceptListener implements Listener {
             return;
         }
 
-        event.setCancelled(true);
+        service.beginServerControl(key);
         event.getPlayer().sendMessage(service.chat(key.equals("restart") ? "restart-started" : "shutdown-started"));
-
-        Bukkit.getScheduler().runTask(Bukkit.getPluginManager().getPlugin("MineacleCore"), () -> service.runBrandedServerControl(key));
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onConsoleCommand(ServerCommandEvent event) {
-        if (!service.enabled() || service.isInternalServerControl()) {
+        if (!service.enabled()) {
             return;
         }
 
@@ -50,10 +47,8 @@ public final class ServerCommandInterceptListener implements Listener {
             return;
         }
 
-        event.setCancelled(true);
+        service.beginServerControl(key);
         event.getSender().sendMessage(service.chat(key.equals("restart") ? "restart-started" : "shutdown-started"));
-
-        Bukkit.getScheduler().runTask(Bukkit.getPluginManager().getPlugin("MineacleCore"), () -> service.runBrandedServerControl(key));
     }
 
     private String firstToken(String raw) {
@@ -62,6 +57,7 @@ public final class ServerCommandInterceptListener implements Listener {
         }
 
         String cleaned = raw.trim();
+
         if (cleaned.startsWith("/")) {
             cleaned = cleaned.substring(1);
         }
