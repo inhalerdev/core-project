@@ -449,6 +449,93 @@ public final class DuelService {
         }
     }
 
+
+    public void setQueueZone(String id, Player player, double radius) {
+        String key = normalizeZoneId(id);
+        String path = "queue-zones." + key;
+        Location location = player.getLocation();
+
+        config.set(path + ".world", location.getWorld().getName());
+        config.set(path + ".x", round(location.getX()));
+        config.set(path + ".y", round(location.getY()));
+        config.set(path + ".z", round(location.getZ()));
+        config.set(path + ".radius", Math.max(1.0D, radius));
+        config.set(path + ".min-y", round(location.getY() - 3.0D));
+        config.set(path + ".max-y", round(location.getY() + 5.0D));
+        save();
+    }
+
+    public boolean removeQueueZone(String id) {
+        String key = normalizeZoneId(id);
+        String path = "queue-zones." + key;
+
+        if (!config.isConfigurationSection(path)) {
+            return false;
+        }
+
+        config.set(path, null);
+        save();
+        return true;
+    }
+
+    public List<String> queueZoneIds() {
+        ConfigurationSection section = config.getConfigurationSection("queue-zones");
+
+        if (section == null) {
+            return List.of();
+        }
+
+        List<String> ids = new ArrayList<>(section.getKeys(false));
+        ids.sort(String.CASE_INSENSITIVE_ORDER);
+        return ids;
+    }
+
+    public String queueZoneInfo(String id) {
+        String key = normalizeZoneId(id);
+        String path = "queue-zones." + key;
+
+        if (!config.isConfigurationSection(path)) {
+            return null;
+        }
+
+        return key
+                + " &8- &#bbbbbb"
+                + config.getString(path + ".world", "unknown")
+                + " &d"
+                + trim(config.getDouble(path + ".x"))
+                + " "
+                + trim(config.getDouble(path + ".y"))
+                + " "
+                + trim(config.getDouble(path + ".z"))
+                + " &#bbbbbbradius &d"
+                + trim(config.getDouble(path + ".radius", 5.0D));
+    }
+
+    private String normalizeZoneId(String input) {
+        if (input == null || input.isBlank()) {
+            return "spawn1";
+        }
+
+        return input.toLowerCase(Locale.ROOT)
+                .replace(" ", "_")
+                .replace("-", "_")
+                .replaceAll("[^a-z0-9_]", "");
+    }
+
+    private double round(double value) {
+        return Math.round(value * 100.0D) / 100.0D;
+    }
+
+    private String trim(double value) {
+        double rounded = round(value);
+
+        if (Math.abs(rounded - Math.rint(rounded)) < 0.001D) {
+            return String.valueOf((long) rounded);
+        }
+
+        return String.valueOf(rounded);
+    }
+
     private boolean validPlayer(Player player) {
         if (player == null || !player.isOnline()) {
             return false;

@@ -14,6 +14,9 @@ arena:
   max-radius: 0
   find-location-attempts: 80
 
+# Admin setup:
+# Stand in the center of the duel circle and run /duel zone set <id> [radius]
+# Example: /duel zone set spawn1 5
 queue-zones:
   spawn1:
     world: spawn1
