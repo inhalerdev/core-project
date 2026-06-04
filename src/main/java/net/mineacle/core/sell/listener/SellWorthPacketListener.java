@@ -7,7 +7,6 @@ import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.reflect.StructureModifier;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
-import net.mineacle.core.sell.gui.SellGui;
 import net.mineacle.core.sell.gui.WorthGui;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.ChatColor;
@@ -37,12 +36,10 @@ public final class SellWorthPacketListener extends PacketAdapter {
 
     private static final int MAX_CONTAINER_DEPTH = 3;
 
-    private final Core core;
     private final SellService sellService;
 
     public SellWorthPacketListener(Core core, SellService sellService) {
         super(core, ListenerPriority.NORMAL, PacketType.Play.Server.SET_SLOT, PacketType.Play.Server.WINDOW_ITEMS);
-        this.core = core;
         this.sellService = sellService;
     }
 
@@ -51,6 +48,10 @@ public final class SellWorthPacketListener extends PacketAdapter {
         Player player = event.getPlayer();
 
         if (player == null || isUnsafeInventoryMode(player)) {
+            return;
+        }
+
+        if (isWorthMenu(player)) {
             return;
         }
 
@@ -134,39 +135,31 @@ public final class SellWorthPacketListener extends PacketAdapter {
     private ItemStack displayItem(Player player, ItemStack original, int rawSlot) {
         ItemStack clean = stripWorthLore(original);
 
-        if (!shouldShowWorth(player, clean, rawSlot)) {
+        if (!shouldShowWorth(player, rawSlot)) {
             return clean;
         }
 
         return withWorthLore(player, clean);
     }
 
-    private boolean shouldShowWorth(Player player, ItemStack item, int rawSlot) {
-        if (isWorthMenu(player) || isSellMenu(player)) {
-            return item.getType() != Material.BLACK_STAINED_GLASS_PANE;
-        }
-
+    private boolean shouldShowWorth(Player player, int rawSlot) {
         InventoryView view = player.getOpenInventory();
 
         if (view == null) {
-            return item.getType() != Material.BLACK_STAINED_GLASS_PANE;
+            return true;
         }
 
         Inventory top = view.getTopInventory();
 
         if (top == null) {
-            return item.getType() != Material.BLACK_STAINED_GLASS_PANE;
+            return true;
         }
 
         if (rawSlot >= 0 && rawSlot < top.getSize()) {
-            if (isPhoenixCrateRewardsMenu(view)) {
-                return item.getType() != Material.BLACK_STAINED_GLASS_PANE;
-            }
-
-            return isRealStorageTop(top) && item.getType() != Material.BLACK_STAINED_GLASS_PANE;
+            return isRealStorageTop(top);
         }
 
-        return item.getType() != Material.BLACK_STAINED_GLASS_PANE;
+        return true;
     }
 
     private boolean isWorthMenu(Player player) {
@@ -178,48 +171,6 @@ public final class SellWorthPacketListener extends PacketAdapter {
 
         String title = ChatColor.stripColor(view.getTitle());
         return WorthGui.isTitle(title);
-    }
-
-    private boolean isSellMenu(Player player) {
-        InventoryView view = player.getOpenInventory();
-
-        if (view == null) {
-            return false;
-        }
-
-        String title = ChatColor.stripColor(view.getTitle());
-        String sellTitle = ChatColor.stripColor(SellGui.title(core));
-        return title != null && sellTitle != null && title.equals(sellTitle);
-    }
-
-    private boolean isPhoenixCrateRewardsMenu(InventoryView view) {
-        Inventory top = view.getTopInventory();
-
-        if (top == null || isRealStorageTop(top)) {
-            return false;
-        }
-
-        String title = ChatColor.stripColor(view.getTitle());
-
-        if (title == null) {
-            title = "";
-        }
-
-        String lowerTitle = title.toLowerCase(Locale.ROOT);
-        String holderName = top.getHolder(false) == null ? "" : top.getHolder(false).getClass().getName().toLowerCase(Locale.ROOT);
-
-        /*
-         * PhoenixCrates preview/reward inventories are custom top inventories, not
-         * vanilla storage. They should still show packet-only worth on reward items,
-         * but not on black glass filler panes.
-         */
-        return holderName.contains("phoenix")
-                || holderName.contains("pcrates")
-                || holderName.contains("crate")
-                || lowerTitle.contains("crate reward")
-                || lowerTitle.contains("crate preview")
-                || lowerTitle.contains("rewards")
-                || lowerTitle.contains("preview");
     }
 
     private boolean isRealStorageTop(Inventory inventory) {
@@ -249,7 +200,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
     }
 
     private ItemStack withWorthLore(Player player, ItemStack original) {
-        if (original == null || original.getType().isAir() || original.getType() == Material.BLACK_STAINED_GLASS_PANE) {
+        if (original == null || original.getType().isAir()) {
             return original;
         }
 
@@ -266,10 +217,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
             return item;
         }
 
-        List<String> lore = meta.hasLore() && meta.getLore() != null
-                ? new ArrayList<>(meta.getLore())
-                : new ArrayList<>();
-
+        List<String> lore = meta.hasLore() && meta.getLore() != null ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
         lore.add(0, TextColor.color("&#bbbbbbWorth: &a" + sellService.format(totalWorth)));
         meta.setLore(lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
@@ -336,12 +284,9 @@ public final class SellWorthPacketListener extends PacketAdapter {
         String lower = stripped.toLowerCase(Locale.ROOT);
 
         return lower.startsWith("worth:")
-                || lower.startsWith("price:")
-                || lower.startsWith("stack:")
                 || lower.startsWith("stack worth:")
                 || lower.startsWith("enchant value:")
-                || lower.startsWith("demand:")
-                || lower.startsWith("category:");
+                || lower.startsWith("demand:");
     }
 
     private int setSlotRawSlot(PacketEvent event) {

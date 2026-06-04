@@ -25,15 +25,20 @@ public final class WorthGui {
     public static final String TITLE_PREFIX = "Item Prices (Page ";
     public static final int SIZE = 54;
     public static final int ENTRIES_PER_PAGE = 45;
+
     public static final int PREVIOUS_SLOT = 45;
     public static final int SORT_SLOT = 48;
     public static final int FILTER_SLOT = 49;
     public static final int REFRESH_SLOT = 50;
+    public static final int SEARCH_SLOT = 51;
     public static final int NEXT_SLOT = 53;
+
     public static final String META_PAGE = "mineacle_worth_page";
+    public static final String META_SEARCHING = "mineacle_worth_searching";
 
     private static final Map<UUID, SortMode> SORTS = new HashMap<>();
     private static final Map<UUID, FilterMode> FILTERS = new HashMap<>();
+    private static final Map<UUID, String> SEARCHES = new HashMap<>();
 
     private WorthGui() {
     }
@@ -55,7 +60,7 @@ public final class WorthGui {
         }
 
         if (safePage > 0) {
-            inventory.setItem(PREVIOUS_SLOT, item(
+            inventory.setItem(PREVIOUS_SLOT, toolbarItem(
                     Material.ARROW,
                     "&dBack",
                     List.of("&#bbbbbbClick to go to the previous page")
@@ -64,17 +69,15 @@ public final class WorthGui {
 
         inventory.setItem(SORT_SLOT, sortItem(currentSort(player)));
         inventory.setItem(FILTER_SLOT, filterItem(currentFilter(player)));
-        inventory.setItem(REFRESH_SLOT, item(
+        inventory.setItem(REFRESH_SLOT, toolbarItem(
                 Material.PAPER,
-                "&dItem Prices",
-                List.of(
-                        "&#bbbbbbThis menu intentionally shows item worths",
-                        "&#bbbbbbClick to refresh prices"
-                )
+                "&dRefresh",
+                List.of("&#bbbbbbClick to refresh prices")
         ));
+        inventory.setItem(SEARCH_SLOT, searchItem(currentSearch(player)));
 
         if (safePage < totalPages - 1) {
-            inventory.setItem(NEXT_SLOT, item(
+            inventory.setItem(NEXT_SLOT, toolbarItem(
                     Material.ARROW,
                     "&dNext",
                     List.of("&#bbbbbbClick to go to the next page")
@@ -86,6 +89,10 @@ public final class WorthGui {
 
     public static boolean isTitle(String strippedTitle) {
         return strippedTitle != null && strippedTitle.startsWith(TITLE_PREFIX);
+    }
+
+    public static boolean isToolbarSlot(int rawSlot) {
+        return rawSlot >= ENTRIES_PER_PAGE && rawSlot < SIZE;
     }
 
     public static int currentPage(Player player) {
@@ -104,6 +111,25 @@ public final class WorthGui {
         return FILTERS.getOrDefault(player.getUniqueId(), FilterMode.ALL);
     }
 
+    public static String currentSearch(Player player) {
+        return SEARCHES.getOrDefault(player.getUniqueId(), "");
+    }
+
+    public static void setSearch(Player player, String search) {
+        String trimmed = search == null ? "" : search.trim();
+
+        if (trimmed.isBlank()) {
+            SEARCHES.remove(player.getUniqueId());
+            return;
+        }
+
+        SEARCHES.put(player.getUniqueId(), trimmed.toLowerCase(Locale.ROOT));
+    }
+
+    public static void clearSearch(Player player) {
+        SEARCHES.remove(player.getUniqueId());
+    }
+
     public static void cycleSort(Player player) {
         SORTS.put(player.getUniqueId(), currentSort(player).next());
     }
@@ -115,6 +141,8 @@ public final class WorthGui {
     private static List<Material> materials(Player player, SellService sellService) {
         FilterMode filter = currentFilter(player);
         SortMode sort = currentSort(player);
+        String search = currentSearch(player);
+
         List<Material> materials = new ArrayList<>();
 
         for (Material material : Material.values()) {
@@ -128,6 +156,15 @@ public final class WorthGui {
 
             if (!filter.matches(material)) {
                 continue;
+            }
+
+            if (!search.isBlank()) {
+                String materialName = material.name().toLowerCase(Locale.ROOT);
+                String prettyName = sellService.pretty(material).toLowerCase(Locale.ROOT);
+
+                if (!materialName.contains(search) && !prettyName.contains(search)) {
+                    continue;
+                }
             }
 
             materials.add(material);
@@ -177,7 +214,7 @@ public final class WorthGui {
             lore.add((mode == current ? "&#ff88ff" : "&#bbbbbb") + mode.displayName());
         }
 
-        return item(Material.ANVIL, "&dSort", lore);
+        return toolbarItem(Material.ANVIL, "&dSort", lore);
     }
 
     private static ItemStack filterItem(FilterMode current) {
@@ -189,7 +226,25 @@ public final class WorthGui {
             lore.add((mode == current ? "&#ff88ff" : "&#bbbbbb") + mode.displayName());
         }
 
-        return item(Material.HOPPER, "&dFilter", lore);
+        return toolbarItem(Material.HOPPER, "&dFilter", lore);
+    }
+
+    private static ItemStack searchItem(String search) {
+        List<String> lore = new ArrayList<>();
+        lore.add("&#bbbbbbClick to search item prices");
+        lore.add("&#bbbbbbType &dcancel &#bbbbbbto cancel");
+        lore.add("&#bbbbbbType &dclear &#bbbbbbto clear search");
+
+        if (!search.isBlank()) {
+            lore.add("");
+            lore.add("&#bbbbbbCurrent: &#ff88ff" + search);
+        }
+
+        return toolbarItem(Material.SPYGLASS, "&dSearch", lore);
+    }
+
+    private static ItemStack toolbarItem(Material material, String name, List<String> lore) {
+        return item(material, name, lore);
     }
 
     private static String categoryDisplay(Material material) {
@@ -298,10 +353,15 @@ public final class WorthGui {
                         || name.equals("SHIELD")
                         || name.equals("ARROW")
                         || name.equals("SPECTRAL_ARROW")
-                        || name.equals("TIPPED_ARROW");
+                        || name.equals("TIPPED_ARROW")
+                        || name.equals("TOTEM_OF_UNDYING")
+                        || name.equals("ELYTRA")
+                        || name.equals("END_CRYSTAL")
+                        || name.equals("RESPAWN_ANCHOR");
                 case POTIONS -> name.contains("POTION")
                         || name.equals("GLASS_BOTTLE")
-                        || name.equals("DRAGON_BREATH");
+                        || name.equals("DRAGON_BREATH")
+                        || name.equals("OMINOUS_BOTTLE");
                 case BOOKS -> name.contains("BOOK")
                         || name.equals("PAPER")
                         || name.equals("MAP")
@@ -344,9 +404,7 @@ public final class WorthGui {
                         || name.equals("CLOCK")
                         || name.equals("LEAD")
                         || name.equals("NAME_TAG")
-                        || name.equals("SADDLE")
-                        || name.equals("TOTEM_OF_UNDYING")
-                        || name.equals("ELYTRA");
+                        || name.equals("SADDLE");
             };
         }
     }
