@@ -36,7 +36,7 @@ commands:
 
   renamehome:
     description: Rename a saved home
-    usage: /renamehome <name> <new name>
+    usage: /renamehome <name> <new>
     permission: mineaclehomes.use
 
   mineaclehomes:
@@ -134,7 +134,7 @@ commands:
 
   nick:
     description: Set your nickname
-    usage: /nick <name|reset>
+    usage: /nick <name>
     permission: mineaclechat.nick
 
   realname:
@@ -151,7 +151,7 @@ commands:
   warp:
     description: Teleport to a warp
     aliases: [warps]
-    usage: /warp <location>
+    usage: /warp <name>
     permission: mineaclewarps.use
 
   setwarp:
@@ -189,6 +189,11 @@ commands:
   sell:
     description: Open sell menu
     usage: /sell
+    permission: mineaclesell.use
+
+  sellmulti:
+    description: Open the multi sell menu
+    usage: /sellmulti
     permission: mineaclesell.use
 
   worth:
@@ -254,12 +259,12 @@ commands:
 
   enchant:
     description: Enchant your held item
-    usage: /enchant <enchant> [level]
+    usage: /enchant <enchantment> [level]
     permission: mineacleenchant.admin
 
   enchantinfo:
     description: View enchantment information
-    usage: /enchantinfo <enchant>
+    usage: /enchantinfo <enchantment>
     permission: mineacleenchant.admin
 
 permissions:
@@ -270,7 +275,6 @@ permissions:
 
   mineacle.plus:
     default: false
-
   mineacle.gamemode:
     default: op
 
