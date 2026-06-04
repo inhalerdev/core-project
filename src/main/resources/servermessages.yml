@@ -51,3 +51,37 @@ restart:
 shutdown:
   delay-seconds: 3
   command: "stop"
+
+world-maintenance:
+  bypass-permission: mineacleservermessages.bypass
+  notify-interval-seconds: 10
+
+  redirect-spawn:
+    world: spawn1
+    use-exact-location: false
+    x: 0.5
+    y: 67.0
+    z: 0.5
+    yaw: 0.0
+    pitch: 0.0
+
+  groups:
+    survival:
+      enabled: false
+      action: redirect-spawn
+      worlds:
+        - origins
+        - origins_nether
+        - origins_the_end
+      message: "&#bbbbbbSurvival worlds are being worked on for &dQoL &#bbbbbbor &dSafety &#bbbbbbupdates"
+      actionbar: "&#bbbbbbSurvival is under maintenance"
+
+    spawn:
+      enabled: false
+      action: notify
+      worlds:
+        - spawn1
+        - spawn2
+        - spawn3
+      message: "&#bbbbbbSpawn is being worked on for &dQoL &#bbbbbbor &dSafety &#bbbbbbupdates"
+      actionbar: "&#bbbbbbQoL or safety updates are being applied"
