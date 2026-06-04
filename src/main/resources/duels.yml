@@ -1,0 +1,88 @@
+enabled: true
+
+queue:
+  min-players: 2
+  max-players: 8
+  countdown-seconds: 30
+
+duel-request:
+  timeout-seconds: 60
+
+arena:
+  world: origins
+  min-radius: 250
+  max-radius: 0
+  find-location-attempts: 80
+
+queue-zones:
+  spawn1:
+    world: spawn1
+    x: -35.5
+    y: 76.0
+    z: -95.5
+    radius: 5.0
+    min-y: 72.0
+    max-y: 82.0
+
+  spawn2:
+    world: spawn2
+    x: -35.5
+    y: 76.0
+    z: -95.5
+    radius: 5.0
+    min-y: 72.0
+    max-y: 82.0
+
+  spawn3:
+    world: spawn3
+    x: -35.5
+    y: 76.0
+    z: -95.5
+    radius: 5.0
+    min-y: 72.0
+    max-y: 82.0
+
+blocked-commands:
+  - spawn
+  - home
+  - homes
+  - tpa
+  - tpahere
+  - tpaccept
+  - tpdeny
+  - tpacancel
+  - rtp
+  - wild
+  - originrtp
+  - warp
+  - team home
+  - fly
+
+messages:
+  disabled: "&cDuels are disabled"
+  self: "&cYou cannot duel yourself"
+  invalid-player: "&cThat player cannot duel right now"
+  already-in-duel: "&cThat player is already in a duel"
+  no-arena: "&cCould not find a safe duel location"
+
+  invite-sent: "&#bbbbbbDuel request sent to &d%target%"
+  invite-received: "&d%player% &#bbbbbbsent you a duel request. Type &d/duel accept"
+  invite-denied: "&d%player% &#bbbbbbdenied your duel request"
+  denied: "&#bbbbbbDuel request denied"
+  no-invite: "&cYou do not have a pending duel request"
+  no-outgoing: "&cYou do not have an outgoing duel request"
+  inviter-offline: "&cThat player is no longer online"
+  cancelled: "&#bbbbbbDuel request cancelled"
+
+  queue-joined: "&#bbbbbbYou joined the duel queue"
+  queue-left: "&#bbbbbbYou left the duel queue"
+  queue-started: "&#bbbbbbDuel starting in &d%seconds%s"
+  queue-cancelled: "&#bbbbbbDuel countdown cancelled"
+  queue-actionbar: "&#bbbbbbDuel starting in &d%seconds%s"
+
+  started: "&#bbbbbbDuel started. Fight to the death"
+  started-actionbar: "&#bbbbbbDuel started"
+  eliminated: "&d%player% &#bbbbbbwas eliminated"
+  finished: "&#bbbbbbDuel finished. Winner: &d%winner%"
+  finished-actionbar: "&#bbbbbbWinner: &d%winner%"
+  forfeit: "&#bbbbbbYou left the duel"

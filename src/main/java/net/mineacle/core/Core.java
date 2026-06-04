@@ -7,6 +7,7 @@ import net.mineacle.core.chat.ChatModule;
 import net.mineacle.core.common.gui.MenuCloseListener;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.doublejump.DoubleJumpModule;
+import net.mineacle.core.duels.DuelsModule;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.enchant.EnchantModule;
 import net.mineacle.core.gamemode.GamemodeModule;
@@ -90,6 +91,7 @@ public final class Core extends JavaPlugin {
         enableModule(new SpawnProtectionModule());
         enableModule(new DoubleJumpModule());
         enableModule(new RtpModule());
+        enableModule(new DuelsModule());
         enableModule(new OrdersModule());
         enableModule(new SellModule());
         enableModule(new BountyModule());

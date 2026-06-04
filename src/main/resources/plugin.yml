@@ -267,6 +267,12 @@ commands:
     usage: /enchantinfo <enchantment>
     permission: mineacleenchant.admin
 
+  duel:
+    description: Challenge players or join Mineacle duels
+    aliases: [duels]
+    usage: /duel <player|accept|deny|cancel|leave>
+    permission: mineacleduels.use
+
   mineacleworldmaintenance:
     description: Control world maintenance groups
     aliases: [worldmaintenance, wm]
@@ -391,4 +397,9 @@ permissions:
   mineacleworldmaintenance.admin:
     default: op
   mineacleworldmaintenance.bypass:
+    default: op
+
+  mineacleduels.use:
+    default: true
+  mineacleduels.admin:
     default: op
