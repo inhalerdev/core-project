@@ -7,8 +7,8 @@ import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.duels.model.DuelInvite;
 import net.mineacle.core.duels.model.DuelSession;
 import org.bukkit.Bukkit;
-import org.bukkit.FluidCollisionMode;
 import org.bukkit.GameMode;
+import org.bukkit.HeightMap;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -488,7 +488,7 @@ public final class DuelService {
     }
 
     private Location safeLocation(World world, int x, int z) {
-        int y = world.getHighestBlockYAt(x, z, FluidCollisionMode.NEVER);
+        int y = world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES);
         Location location = new Location(world, x + 0.5D, y + 1.0D, z + 0.5D);
         Block ground = world.getBlockAt(x, y, z);
         Block feet = world.getBlockAt(x, y + 1, z);
