@@ -35,16 +35,9 @@ public final class MoneyFormatter {
             suffixIndex++;
         }
 
-        String formatted;
-        if (suffixIndex == 0) {
-            formatted = decimal(number, true);
-        } else if (number.compareTo(BigDecimal.valueOf(100L)) >= 0) {
-            formatted = whole(number);
-        } else if (number.compareTo(BigDecimal.TEN) >= 0) {
-            formatted = oneDecimal(number);
-        } else {
-            formatted = twoDecimals(number);
-        }
+        String formatted = suffixIndex == 0
+                ? plain(number)
+                : shortDecimal(number);
 
         return (negative ? "-" : "") + formatted + SUFFIXES[suffixIndex];
     }
@@ -58,14 +51,7 @@ public final class MoneyFormatter {
             return "$0";
         }
 
-        BigDecimal rounded = value.setScale(2, RoundingMode.HALF_UP);
-        BigDecimal absolute = rounded.abs();
-
-        if (absolute.compareTo(BigDecimal.valueOf(1000L)) >= 0) {
-            return "$" + compact(rounded);
-        }
-
-        return "$" + decimal(rounded, true);
+        return "$" + compact(value);
     }
 
     public static String moneyFull(double value) {
@@ -77,7 +63,7 @@ public final class MoneyFormatter {
             return "$0";
         }
 
-        return "$" + decimal(value.setScale(2, RoundingMode.HALF_UP), true);
+        return "$" + full(value);
     }
 
     public static String moneyFromCents(long cents) {
@@ -89,34 +75,31 @@ public final class MoneyFormatter {
     }
 
     public static String rawFromCents(long cents) {
-        return decimal(centsToDollars(cents), true);
+        return plain(centsToDollars(cents));
     }
 
     private static BigDecimal centsToDollars(long cents) {
         return BigDecimal.valueOf(cents).divide(BigDecimal.valueOf(100L), 2, RoundingMode.HALF_UP);
     }
 
-    private static String decimal(BigDecimal value, boolean stripZeroCents) {
-        DecimalFormat format = new DecimalFormat(stripZeroCents ? "#,##0.##" : "#,##0.00", SYMBOLS);
-        format.setRoundingMode(RoundingMode.HALF_UP);
-        return format.format(value);
-    }
-
-    private static String whole(BigDecimal value) {
-        DecimalFormat format = new DecimalFormat("#,##0", SYMBOLS);
-        format.setRoundingMode(RoundingMode.HALF_UP);
-        return format.format(value.setScale(0, RoundingMode.HALF_UP));
-    }
-
-    private static String oneDecimal(BigDecimal value) {
-        DecimalFormat format = new DecimalFormat("#,##0.#", SYMBOLS);
-        format.setRoundingMode(RoundingMode.HALF_UP);
-        return format.format(value.setScale(1, RoundingMode.HALF_UP));
-    }
-
-    private static String twoDecimals(BigDecimal value) {
+    private static String shortDecimal(BigDecimal value) {
+        BigDecimal rounded = value.setScale(2, RoundingMode.DOWN);
         DecimalFormat format = new DecimalFormat("#,##0.##", SYMBOLS);
-        format.setRoundingMode(RoundingMode.HALF_UP);
-        return format.format(value.setScale(2, RoundingMode.HALF_UP));
+        format.setRoundingMode(RoundingMode.DOWN);
+        return format.format(rounded);
+    }
+
+    private static String plain(BigDecimal value) {
+        BigDecimal rounded = value.setScale(2, RoundingMode.DOWN);
+        DecimalFormat format = new DecimalFormat("#,##0.##", SYMBOLS);
+        format.setRoundingMode(RoundingMode.DOWN);
+        return format.format(rounded);
+    }
+
+    private static String full(BigDecimal value) {
+        BigDecimal rounded = value.setScale(2, RoundingMode.DOWN);
+        DecimalFormat format = new DecimalFormat("#,##0.##", SYMBOLS);
+        format.setRoundingMode(RoundingMode.DOWN);
+        return format.format(rounded);
     }
 }
