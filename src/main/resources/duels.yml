@@ -8,15 +8,27 @@ queue:
 duel-request:
   timeout-seconds: 60
 
-arena:
+# Duels are loose survival PvP matchmaking.
+# Players are matched, RTP'd together into Origins, briefly held for a fair start,
+# then released into normal survival PvP.
+loose-tracking-seconds: 180
+
+destination:
   world: origins
   min-radius: 250
   max-radius: 0
   find-location-attempts: 80
 
+fair-start:
+  enabled: true
+  countdown-seconds: 5
+  freeze-movement: true
+  prevent-damage: true
+  prevent-interact: true
+
 # Admin setup:
 # Stand in the center of the duel circle and run /duel zone set <id> [radius]
-# Example: /duel zone set spawn1 5
+# Example: /duel zone set spawn1 9
 queue-zones:
   spawn1:
     world: spawn1
@@ -45,49 +57,30 @@ queue-zones:
     min-y: 73.0
     max-y: 81.0
 
-blocked-commands:
-  - spawn
-  - home
-  - homes
-  - tpa
-  - tpahere
-  - tpaccept
-  - tpdeny
-  - tpacancel
-  - rtp
-  - wild
-  - originrtp
-  - warp
-  - team home
-  - fly
-
 messages:
   disabled: "&cDuels are disabled"
   self: "&cYou cannot duel yourself"
   invalid-player: "&cThat player cannot duel right now"
-  already-in-duel: "&cThat player is already in a duel"
   no-arena: "&cCould not find a safe duel location"
 
-  invite-sent: "&#bbbbbbDuel request &asent&#bbbbbb to &c%target%"
-  invite-received: "&#bbbbbb%player% &asent&#bbbbbb you a duel request. Type &d/duel accept"
-  invite-denied: "&#bbbbbb%player% &cdenied&#bbbbbb your duel request"
+  invite-sent: "&#bbbbbbDuel request &asent &#bbbbbbto &c%target%"
+  invite-received: "&#bbbbbb%player% &asent &#bbbbbbyou a duel request. Type &d/duel accept"
+  invite-denied: "&#bbbbbb%player% &cdenied &#bbbbbbyour duel request"
   denied: "&#bbbbbbDuel request &cdenied"
   no-invite: "&cYou do not have a pending duel request"
   no-outgoing: "&cYou do not have an outgoing duel request"
   inviter-offline: "&cThat player is no longer online"
   cancelled: "&#bbbbbbDuel request &ccancelled"
 
-  queue-joined: ""
-  queue-left: "" #&#bbbbbbNo longer queued for duels
-  queue-started: ""
-  queue-cancelled: ""
+  queue-left: "&#bbbbbbNo longer queued"
   queue-waiting-actionbar: "&#bbbbbbQueue: &eWaiting for an opponent"
   queue-actionbar: "&#bbbbbbQueue: &a%queued%/%max% teleporting in &d%seconds%s"
-  queue-left-actionbar: "&#bbbbbbNo longer queued for duels"
+  queue-left-actionbar: "&#bbbbbbNo longer queued"
 
-  started: "&#bbbbbbDuel &astarted&#bbbbbb. Fight to the &cdeath"
-  started-actionbar: "&aDuel started"
-  eliminated: "&#ff88ff%player% &#bbbbbbwas &celiminated"
-  finished: "&#bbbbbbDuel finished. Winner: &d%winner%"
-  finished-actionbar: "&#bbbbbbWinner: &a%winner%"
-  forfeit: "&#bbbbbbYou left the duel"
+  matched: "&#bbbbbbMatched into &dOrigins&#bbbbbb. Prepare to fight"
+  teleported-actionbar: "&#bbbbbbMatched into &dOrigins"
+  fight-countdown-actionbar: "&#bbbbbbFight begins in &d%seconds%"
+  released-actionbar: "&aFight"
+  started: "&#bbbbbbFight"
+  winner: "&a%winner% &#bbbbbbdefeated &c%loser%"
+  winner-actionbar: "&a%winner% &#bbbbbbwon the duel"

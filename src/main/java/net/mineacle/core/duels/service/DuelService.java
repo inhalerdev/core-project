@@ -52,6 +52,8 @@ public final class DuelService {
 
     public void reload() {
         this.config = YamlConfiguration.loadConfiguration(file);
+        ensureDefaults();
+        save();
     }
 
     public void save() {
@@ -70,24 +72,25 @@ public final class DuelService {
         zoneCountdown = -1;
     }
 
-    public FileConfiguration config() {
-        return config;
-    }
-
     public boolean enabled() {
         return config.getBoolean("enabled", true);
     }
 
-    public boolean inDuel(Player player) {
+    public boolean queued(Player player) {
+        return player != null && zoneQueued.contains(player.getUniqueId());
+    }
+
+    public boolean tracked(Player player) {
         return player != null && sessionsByPlayer.containsKey(player.getUniqueId());
+    }
+
+    public boolean frozen(Player player) {
+        DuelSession session = session(player);
+        return session != null && session.frozen();
     }
 
     public DuelSession session(Player player) {
         return player == null ? null : sessionsByPlayer.get(player.getUniqueId());
-    }
-
-    public boolean queued(Player player) {
-        return player != null && zoneQueued.contains(player.getUniqueId());
     }
 
     public void removeFromQueue(Player player) {
@@ -95,7 +98,12 @@ public final class DuelService {
             return;
         }
 
-        zoneQueued.remove(player.getUniqueId());
+        boolean removed = zoneQueued.remove(player.getUniqueId());
+
+        if (removed) {
+            player.sendMessage(message("messages.queue-left", "&#bbbbbbNo longer queued"));
+            sendActionbar(player, config.getString("messages.queue-left-actionbar", "&#bbbbbbNo longer queued"));
+        }
 
         if (zoneQueued.size() < minPlayers()) {
             zoneCountdown = -1;
@@ -108,7 +116,12 @@ public final class DuelService {
         }
 
         updateZoneQueue();
+        tickQueue();
+        tickSessions();
+        cleanupInvites();
+    }
 
+    private void tickQueue() {
         if (zoneQueued.size() < minPlayers()) {
             zoneCountdown = -1;
             broadcastQueueActionbar();
@@ -125,7 +138,7 @@ public final class DuelService {
             List<Player> players = queuedPlayers();
 
             if (players.size() >= minPlayers()) {
-                startDuel(players);
+                startLooseDuel(players);
             }
 
             zoneQueued.clear();
@@ -136,6 +149,51 @@ public final class DuelService {
         zoneCountdown--;
     }
 
+    private void tickSessions() {
+        Set<DuelSession> sessions = new HashSet<>(sessionsByPlayer.values());
+
+        for (DuelSession session : sessions) {
+            long now = System.currentTimeMillis();
+
+            if (session.expired()) {
+                clearSession(session);
+                continue;
+            }
+
+            if (session.frozen()) {
+                int seconds = Math.max(1, (int) Math.ceil((session.fightStartsAt() - now) / 1000.0D));
+
+                for (UUID id : session.players()) {
+                    Player player = Bukkit.getPlayer(id);
+
+                    if (player != null && player.isOnline()) {
+                        sendActionbar(player, config.getString("messages.fight-countdown-actionbar", "&#bbbbbbFight begins in &d%seconds%")
+                                .replace("%seconds%", String.valueOf(seconds)));
+                    }
+                }
+
+                continue;
+            }
+
+            if (!session.released()) {
+                session.release();
+
+                for (UUID id : session.players()) {
+                    Player player = Bukkit.getPlayer(id);
+
+                    if (player != null && player.isOnline()) {
+                        sendActionbar(player, config.getString("messages.released-actionbar", "&aFight"));
+                        player.sendMessage(message("messages.started", "&#bbbbbbFight"));
+                    }
+                }
+            }
+        }
+    }
+
+    private void cleanupInvites() {
+        invitesByTarget.entrySet().removeIf(entry -> entry.getValue().expired());
+    }
+
     public void challenge(Player challenger, Player target) {
         if (!enabled()) {
             challenger.sendMessage(message("messages.disabled", "&cDuels are disabled"));
@@ -144,11 +202,6 @@ public final class DuelService {
 
         if (challenger.equals(target)) {
             challenger.sendMessage(message("messages.self", "&cYou cannot duel yourself"));
-            return;
-        }
-
-        if (inDuel(challenger) || inDuel(target)) {
-            challenger.sendMessage(message("messages.already-in-duel", "&cThat player is already in a duel"));
             return;
         }
 
@@ -163,7 +216,7 @@ public final class DuelService {
         challenger.sendMessage(message("messages.invite-sent", "&#bbbbbbDuel request sent to &d%target%")
                 .replace("%target%", displayName(target)));
 
-        target.sendMessage(message("messages.invite-received", "&d%player% &#bbbbbbsent you a duel request. Type &d/duel accept")
+        target.sendMessage(message("messages.invite-received", "&#bbbbbb%player% sent you a duel request. Type &d/duel accept")
                 .replace("%player%", displayName(challenger)));
     }
 
@@ -182,12 +235,7 @@ public final class DuelService {
             return;
         }
 
-        if (inDuel(challenger) || inDuel(target)) {
-            target.sendMessage(message("messages.already-in-duel", "&cThat player is already in a duel"));
-            return;
-        }
-
-        startDuel(List.of(challenger, target));
+        startLooseDuel(List.of(challenger, target));
     }
 
     public void deny(Player target) {
@@ -201,7 +249,7 @@ public final class DuelService {
         Player challenger = Bukkit.getPlayer(invite.challengerId());
 
         if (challenger != null) {
-            challenger.sendMessage(message("messages.invite-denied", "&d%player% &#bbbbbbdenied your duel request")
+            challenger.sendMessage(message("messages.invite-denied", "&#bbbbbb%player% denied your duel request")
                     .replace("%player%", displayName(target)));
         }
 
@@ -228,11 +276,10 @@ public final class DuelService {
         challenger.sendMessage(message("messages.cancelled", "&#bbbbbbDuel request cancelled"));
     }
 
-    public void startDuel(List<Player> rawPlayers) {
+    public void startLooseDuel(List<Player> rawPlayers) {
         List<Player> players = rawPlayers.stream()
                 .filter(player -> player != null && player.isOnline())
                 .filter(this::validPlayer)
-                .filter(player -> !inDuel(player))
                 .limit(maxPlayers())
                 .toList();
 
@@ -240,106 +287,114 @@ public final class DuelService {
             return;
         }
 
-        Location arena = findArenaLocation();
+        Location location = findDuelLocation();
 
-        if (arena == null) {
+        if (location == null) {
             for (Player player : players) {
                 player.sendMessage(message("messages.no-arena", "&cCould not find a safe duel location"));
             }
             return;
         }
 
-        UUID sessionId = UUID.randomUUID();
+        location.getChunk().load(true);
+
+        long now = System.currentTimeMillis();
+        long fightStartsAt = now + (Math.max(0, preFightSeconds()) * 1000L);
+        long expiresAt = now + (Math.max(30, trackingSeconds()) * 1000L);
+
         Set<UUID> ids = new HashSet<>();
+        UUID sessionId = UUID.randomUUID();
 
         for (Player player : players) {
             ids.add(player.getUniqueId());
         }
 
-        DuelSession session = new DuelSession(sessionId, ids, arena);
+        DuelSession session = new DuelSession(sessionId, ids, now, fightStartsAt, expiresAt);
 
-        for (Player player : players) {
+        for (int index = 0; index < players.size(); index++) {
+            Player player = players.get(index);
+
             sessionsByPlayer.put(player.getUniqueId(), session);
             zoneQueued.remove(player.getUniqueId());
-            player.teleport(arena.clone().add(random.nextInt(7) - 3, 0, random.nextInt(7) - 3));
-            player.sendMessage(message("messages.started", "&#bbbbbbDuel started. Fight to the death"));
-            sendActionbar(player, config.getString("messages.started-actionbar", "&#bbbbbbDuel started"));
+
+            Location spawn = location.clone().add(offset(index, players.size()), 0.0D, offset(index + 2, players.size()));
+            player.teleport(spawn);
+            player.sendMessage(message("messages.matched", "&#bbbbbbMatched. Fight starts soon"));
+            sendActionbar(player, config.getString("messages.teleported-actionbar", "&#bbbbbbMatched into Origins"));
         }
     }
 
-    public void eliminate(Player player) {
-        DuelSession session = session(player);
+    public void handleDeath(Player victim) {
+        DuelSession session = session(victim);
 
-        if (session == null || !session.alive(player.getUniqueId())) {
+        if (session == null) {
             return;
         }
 
-        session.eliminate(player.getUniqueId());
+        Player killer = victim.getKiller();
+
+        if (killer == null || !session.contains(killer.getUniqueId())) {
+            clearSession(session);
+            return;
+        }
+
+        if (session.frozen()) {
+            clearSession(session);
+            return;
+        }
+
+        String winner = displayName(killer);
+        String loser = displayName(victim);
 
         for (UUID id : session.players()) {
             Player participant = Bukkit.getPlayer(id);
 
             if (participant != null && participant.isOnline()) {
-                participant.sendMessage(message("messages.eliminated", "&d%player% &#bbbbbbwas eliminated")
-                        .replace("%player%", displayName(player)));
+                participant.sendMessage(message("messages.winner", "&a%winner% &#bbbbbbdefeated &c%loser%")
+                        .replace("%winner%", winner)
+                        .replace("%loser%", loser));
+                sendActionbar(participant, config.getString("messages.winner-actionbar", "&a%winner% &#bbbbbbwon the duel")
+                        .replace("%winner%", winner)
+                        .replace("%loser%", loser));
             }
         }
 
-        if (session.finished()) {
-            finish(session);
-        }
+        clearSession(session);
     }
 
-    public void forfeit(Player player) {
+    public void handleQuit(Player player) {
+        removeFromQueue(player);
+
         DuelSession session = session(player);
 
         if (session == null) {
             return;
         }
 
-        session.eliminate(player.getUniqueId());
-
-        player.sendMessage(message("messages.forfeit", "&#bbbbbbYou left the duel"));
-
-        if (session.finished()) {
-            finish(session);
+        if (session.frozen()) {
+            clearSession(session);
+            return;
         }
+
+        sessionsByPlayer.remove(player.getUniqueId());
     }
 
-    public void finish(DuelSession session) {
-        UUID winnerId = session.alive().stream().findFirst().orElse(null);
-        Player winner = winnerId == null ? null : Bukkit.getPlayer(winnerId);
-        String winnerName = winner == null ? "No one" : displayName(winner);
+    public boolean shouldCancelFrozenMove(Player player) {
+        return frozen(player) && config.getBoolean("fair-start.freeze-movement", true);
+    }
 
+    public boolean shouldCancelFrozenDamage(Player player) {
+        return frozen(player) && config.getBoolean("fair-start.prevent-damage", true);
+    }
+
+    public boolean shouldCancelFrozenInteract(Player player) {
+        return frozen(player) && config.getBoolean("fair-start.prevent-interact", true);
+    }
+
+    private void clearSession(DuelSession session) {
         for (UUID id : session.players()) {
-            Player player = Bukkit.getPlayer(id);
             sessionsByPlayer.remove(id);
-
-            if (player != null && player.isOnline()) {
-                player.sendMessage(message("messages.finished", "&#bbbbbbDuel finished. Winner: &d%winner%")
-                        .replace("%winner%", winnerName));
-                sendActionbar(player, config.getString("messages.finished-actionbar", "&#bbbbbbWinner: &d%winner%")
-                        .replace("%winner%", winnerName));
-            }
         }
-    }
-
-    public boolean blockedCommand(Player player, String command) {
-        if (!inDuel(player)) {
-            return false;
-        }
-
-        String lower = command.toLowerCase(Locale.ROOT);
-
-        for (String blocked : config.getStringList("blocked-commands")) {
-            String normalized = blocked.toLowerCase(Locale.ROOT);
-
-            if (lower.equals(normalized) || lower.startsWith(normalized + " ")) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private void updateZoneQueue() {
@@ -350,16 +405,12 @@ public final class DuelService {
                 continue;
             }
 
-            if (!validPlayer(player) || inDuel(player)) {
+            if (!validPlayer(player) || tracked(player)) {
                 continue;
             }
 
             if (insideAnyQueueZone(player)) {
                 found.add(player.getUniqueId());
-
-                if (!zoneQueued.contains(player.getUniqueId())) {
-                    sendActionbar(player, config.getString("messages.queue-waiting-actionbar", "&#bbbbbbDuel queue &8» &#bbbbbbWaiting for an opponent"));
-                }
             }
         }
 
@@ -368,8 +419,8 @@ public final class DuelService {
                 Player player = Bukkit.getPlayer(old);
 
                 if (player != null) {
-                    player.sendMessage(message("messages.queue-left", "&#bbbbbbNo longer queued for duels"));
-                    sendActionbar(player, config.getString("messages.queue-left-actionbar", "&#bbbbbbNo longer queued for duels"));
+                    player.sendMessage(message("messages.queue-left", "&#bbbbbbNo longer queued"));
+                    sendActionbar(player, config.getString("messages.queue-left-actionbar", "&#bbbbbbNo longer queued"));
                 }
             }
         }
@@ -387,8 +438,7 @@ public final class DuelService {
 
         for (String key : section.getKeys(false)) {
             String path = "queue-zones." + key;
-            String worldName = config.getString(path + ".world", "");
-            World world = Bukkit.getWorld(worldName);
+            World world = Bukkit.getWorld(config.getString(path + ".world", ""));
 
             if (world == null || !player.getWorld().equals(world)) {
                 continue;
@@ -397,7 +447,7 @@ public final class DuelService {
             double x = config.getDouble(path + ".x");
             double y = config.getDouble(path + ".y", player.getLocation().getY());
             double z = config.getDouble(path + ".z");
-            double radius = config.getDouble(path + ".radius", 5.0D);
+            double radius = config.getDouble(path + ".radius", 9.0D);
             double minY = config.getDouble(path + ".min-y", y - 3.0D);
             double maxY = config.getDouble(path + ".max-y", y + 5.0D);
 
@@ -421,7 +471,7 @@ public final class DuelService {
         for (UUID id : zoneQueued) {
             Player player = Bukkit.getPlayer(id);
 
-            if (player != null && player.isOnline() && validPlayer(player) && !inDuel(player)) {
+            if (player != null && player.isOnline() && validPlayer(player) && !tracked(player)) {
                 players.add(player);
             }
         }
@@ -429,24 +479,15 @@ public final class DuelService {
         return players;
     }
 
-    private void broadcastQueue(String path, String fallback) {
-        String message = message(path, fallback).replace("%seconds%", String.valueOf(zoneCountdown));
-
-        for (Player player : queuedPlayers()) {
-            player.sendMessage(message);
-        }
-    }
-
     private void broadcastQueueActionbar() {
         List<Player> players = queuedPlayers();
         int queued = players.size();
-
         String raw;
 
         if (queued < minPlayers()) {
-            raw = config.getString("messages.queue-waiting-actionbar", "&#bbbbbbDuel queue &8» &#bbbbbbWaiting for an opponent");
+            raw = config.getString("messages.queue-waiting-actionbar", "&#bbbbbbQueue: &eWaiting for an opponent");
         } else {
-            raw = config.getString("messages.queue-actionbar", "&#bbbbbbDuel queue &8» &d%queued%/%max% &#bbbbbbfighters &8» &#bbbbbbTeleporting in &d%seconds%s")
+            raw = config.getString("messages.queue-actionbar", "&#bbbbbbQueue: &a%queued%/%max% teleporting in &d%seconds%s")
                     .replace("%seconds%", String.valueOf(Math.max(0, zoneCountdown)))
                     .replace("%queued%", String.valueOf(queued))
                     .replace("%min%", String.valueOf(minPlayers()))
@@ -458,6 +499,68 @@ public final class DuelService {
         }
     }
 
+    private Location findDuelLocation() {
+        World world = Bukkit.getWorld(config.getString("destination.world", "origins"));
+
+        if (world == null) {
+            return null;
+        }
+
+        WorldBorder border = world.getWorldBorder();
+        Location center = border.getCenter();
+        double borderRadius = Math.max(16.0D, border.getSize() / 2.0D - 32.0D);
+        double maxRadius = config.getDouble("destination.max-radius", 0.0D);
+
+        if (maxRadius <= 0.0D) {
+            maxRadius = borderRadius;
+        }
+
+        double radius = Math.min(borderRadius, maxRadius);
+        double minRadius = Math.max(0.0D, config.getDouble("destination.min-radius", 250.0D));
+        int attempts = Math.max(10, config.getInt("destination.find-location-attempts", 80));
+
+        for (int attempt = 0; attempt < attempts; attempt++) {
+            double distance = minRadius + (random.nextDouble() * Math.max(1.0D, radius - minRadius));
+            double angle = random.nextDouble() * Math.PI * 2.0D;
+            int x = center.getBlockX() + (int) Math.round(Math.cos(angle) * distance);
+            int z = center.getBlockZ() + (int) Math.round(Math.sin(angle) * distance);
+            Location safe = safeLocation(world, x, z);
+
+            if (safe != null) {
+                return safe;
+            }
+        }
+
+        return null;
+    }
+
+    private Location safeLocation(World world, int x, int z) {
+        int y = world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES);
+        Location location = new Location(world, x + 0.5D, y + 1.0D, z + 0.5D);
+        Block ground = world.getBlockAt(x, y, z);
+        Block feet = world.getBlockAt(x, y + 1, z);
+        Block head = world.getBlockAt(x, y + 2, z);
+
+        if (!ground.getType().isSolid()) {
+            return null;
+        }
+
+        if (!feet.isPassable() || !head.isPassable()) {
+            return null;
+        }
+
+        Material type = ground.getType();
+
+        if (type == Material.LAVA
+                || type == Material.WATER
+                || type == Material.MAGMA_BLOCK
+                || type == Material.CACTUS
+                || type == Material.POWDER_SNOW) {
+            return null;
+        }
+
+        return location;
+    }
 
     public void setQueueZone(String id, Player player, double radius) {
         String key = normalizeZoneId(id);
@@ -517,7 +620,61 @@ public final class DuelService {
                 + " "
                 + trim(config.getDouble(path + ".z"))
                 + " &#bbbbbbradius &d"
-                + trim(config.getDouble(path + ".radius", 5.0D));
+                + trim(config.getDouble(path + ".radius", 9.0D));
+    }
+
+    private boolean validPlayer(Player player) {
+        if (player == null || !player.isOnline()) {
+            return false;
+        }
+
+        return player.getGameMode() == GameMode.SURVIVAL || player.getGameMode() == GameMode.ADVENTURE;
+    }
+
+    private double offset(int index, int size) {
+        if (size <= 1) {
+            return 0.0D;
+        }
+
+        double angle = (Math.PI * 2.0D / size) * index;
+        return Math.round(Math.cos(angle) * 4.0D);
+    }
+
+    private int minPlayers() {
+        return Math.max(2, config.getInt("queue.min-players", 2));
+    }
+
+    private int maxPlayers() {
+        return Math.max(minPlayers(), config.getInt("queue.max-players", 8));
+    }
+
+    private int countdownSeconds() {
+        return Math.max(3, config.getInt("queue.countdown-seconds", 30));
+    }
+
+    private int inviteTimeoutSeconds() {
+        return Math.max(10, config.getInt("duel-request.timeout-seconds", 60));
+    }
+
+    private int preFightSeconds() {
+        return Math.max(0, config.getInt("fair-start.countdown-seconds", 5));
+    }
+
+    private int trackingSeconds() {
+        return Math.max(30, config.getInt("loose-tracking-seconds", 180));
+    }
+
+    private String displayName(Player player) {
+        return player == null ? "Unknown" : player.getDisplayName();
+    }
+
+    private String message(String path, String fallback) {
+        return TextColor.color(config.getString(path, fallback));
+    }
+
+    private void sendActionbar(Player player, String input) {
+        Component component = LegacyComponentSerializer.legacySection().deserialize(TextColor.color(input));
+        player.sendActionBar(component);
     }
 
     private String normalizeZoneId(String input) {
@@ -545,98 +702,22 @@ public final class DuelService {
         return String.valueOf(rounded);
     }
 
-    private boolean validPlayer(Player player) {
-        if (player == null || !player.isOnline()) {
-            return false;
-        }
-
-        return player.getGameMode() == GameMode.SURVIVAL || player.getGameMode() == GameMode.ADVENTURE;
-    }
-
-    private Location findArenaLocation() {
-        World world = Bukkit.getWorld(config.getString("arena.world", "origins"));
-
-        if (world == null) {
-            return null;
-        }
-
-        WorldBorder border = world.getWorldBorder();
-        Location center = border.getCenter();
-        double borderRadius = Math.max(16.0D, border.getSize() / 2.0D - 32.0D);
-        double maxRadius = Math.max(32.0D, config.getDouble("arena.max-radius", borderRadius));
-        double radius = Math.min(borderRadius, maxRadius);
-        double minRadius = Math.max(0.0D, config.getDouble("arena.min-radius", 250.0D));
-        int attempts = Math.max(10, config.getInt("arena.find-location-attempts", 80));
-
-        for (int attempt = 0; attempt < attempts; attempt++) {
-            double distance = minRadius + (random.nextDouble() * Math.max(1.0D, radius - minRadius));
-            double angle = random.nextDouble() * Math.PI * 2.0D;
-            int x = center.getBlockX() + (int) Math.round(Math.cos(angle) * distance);
-            int z = center.getBlockZ() + (int) Math.round(Math.sin(angle) * distance);
-            Location safe = safeLocation(world, x, z);
-
-            if (safe != null) {
-                return safe;
-            }
-        }
-
-        return null;
-    }
-
-    private Location safeLocation(World world, int x, int z) {
-        int y = world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES);
-        Location location = new Location(world, x + 0.5D, y + 1.0D, z + 0.5D);
-        Block ground = world.getBlockAt(x, y, z);
-        Block feet = world.getBlockAt(x, y + 1, z);
-        Block head = world.getBlockAt(x, y + 2, z);
-
-        if (!ground.getType().isSolid()) {
-            return null;
-        }
-
-        if (!feet.isPassable() || !head.isPassable()) {
-            return null;
-        }
-
-        Material type = ground.getType();
-
-        if (type == Material.LAVA
-                || type == Material.WATER
-                || type == Material.MAGMA_BLOCK
-                || type == Material.CACTUS
-                || type == Material.POWDER_SNOW) {
-            return null;
-        }
-
-        return location;
-    }
-
-    private int minPlayers() {
-        return Math.max(2, config.getInt("queue.min-players", 2));
-    }
-
-    private int maxPlayers() {
-        return Math.max(minPlayers(), config.getInt("queue.max-players", 8));
-    }
-
-    private int countdownSeconds() {
-        return Math.max(3, config.getInt("queue.countdown-seconds", 30));
-    }
-
-    private int inviteTimeoutSeconds() {
-        return Math.max(10, config.getInt("duel-request.timeout-seconds", 60));
-    }
-
-    private String displayName(Player player) {
-        return player == null ? "Unknown" : player.getDisplayName();
-    }
-
-    private String message(String path, String fallback) {
-        return TextColor.color(config.getString(path, fallback));
-    }
-
-    private void sendActionbar(Player player, String input) {
-        Component component = LegacyComponentSerializer.legacySection().deserialize(TextColor.color(input));
-        player.sendActionBar(component);
+    private void ensureDefaults() {
+        config.addDefault("enabled", true);
+        config.addDefault("queue.min-players", 2);
+        config.addDefault("queue.max-players", 8);
+        config.addDefault("queue.countdown-seconds", 30);
+        config.addDefault("duel-request.timeout-seconds", 60);
+        config.addDefault("loose-tracking-seconds", 180);
+        config.addDefault("destination.world", "origins");
+        config.addDefault("destination.min-radius", 250);
+        config.addDefault("destination.max-radius", 0);
+        config.addDefault("destination.find-location-attempts", 80);
+        config.addDefault("fair-start.enabled", true);
+        config.addDefault("fair-start.countdown-seconds", 5);
+        config.addDefault("fair-start.freeze-movement", true);
+        config.addDefault("fair-start.prevent-damage", true);
+        config.addDefault("fair-start.prevent-interact", true);
+        config.options().copyDefaults(true);
     }
 }

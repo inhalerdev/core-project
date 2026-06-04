@@ -1,7 +1,5 @@
 package net.mineacle.core.duels.model;
 
-import org.bukkit.Location;
-
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -10,16 +8,17 @@ public final class DuelSession {
 
     private final UUID id;
     private final Set<UUID> players;
-    private final Set<UUID> alive;
-    private final Location arenaLocation;
-    private final long startedAt;
+    private final long createdAt;
+    private final long fightStartsAt;
+    private final long expiresAt;
+    private boolean released;
 
-    public DuelSession(UUID id, Set<UUID> players, Location arenaLocation) {
+    public DuelSession(UUID id, Set<UUID> players, long createdAt, long fightStartsAt, long expiresAt) {
         this.id = id;
         this.players = new HashSet<>(players);
-        this.alive = new HashSet<>(players);
-        this.arenaLocation = arenaLocation;
-        this.startedAt = System.currentTimeMillis();
+        this.createdAt = createdAt;
+        this.fightStartsAt = fightStartsAt;
+        this.expiresAt = expiresAt;
     }
 
     public UUID id() {
@@ -30,31 +29,35 @@ public final class DuelSession {
         return players;
     }
 
-    public Set<UUID> alive() {
-        return alive;
+    public long createdAt() {
+        return createdAt;
     }
 
-    public Location arenaLocation() {
-        return arenaLocation;
+    public long fightStartsAt() {
+        return fightStartsAt;
     }
 
-    public long startedAt() {
-        return startedAt;
+    public long expiresAt() {
+        return expiresAt;
+    }
+
+    public boolean released() {
+        return released;
+    }
+
+    public void release() {
+        this.released = true;
     }
 
     public boolean contains(UUID playerId) {
         return players.contains(playerId);
     }
 
-    public boolean alive(UUID playerId) {
-        return alive.contains(playerId);
+    public boolean expired() {
+        return System.currentTimeMillis() > expiresAt;
     }
 
-    public void eliminate(UUID playerId) {
-        alive.remove(playerId);
-    }
-
-    public boolean finished() {
-        return alive.size() <= 1;
+    public boolean frozen() {
+        return !released && System.currentTimeMillis() < fightStartsAt;
     }
 }

@@ -61,7 +61,6 @@ public final class DuelCommand implements CommandExecutor, TabCompleter {
 
         if (sub.equals("leave")) {
             duelService.removeFromQueue(player);
-            player.sendMessage(TextColor.color("&#bbbbbbNo longer queued for duels"));
             return true;
         }
 
@@ -121,7 +120,7 @@ public final class DuelCommand implements CommandExecutor, TabCompleter {
 
         if (args[1].equalsIgnoreCase("set")) {
             String id = args.length >= 3 ? args[2] : player.getWorld().getName();
-            double radius = 5.0D;
+            double radius = 9.0D;
 
             if (args.length >= 4) {
                 try {
@@ -133,7 +132,7 @@ public final class DuelCommand implements CommandExecutor, TabCompleter {
             }
 
             duelService.setQueueZone(id, player, radius);
-            player.sendMessage(TextColor.color("&#bbbbbbDuel zone &d" + id + " &#bbbbbbset at your location"));
+            player.sendMessage(TextColor.color("&#bbbbbbDuel queue zone &d" + id + " &#bbbbbbset"));
             player.sendMessage(TextColor.color("&#bbbbbbRadius: &d" + radius));
             return;
         }
@@ -149,7 +148,7 @@ public final class DuelCommand implements CommandExecutor, TabCompleter {
                 return;
             }
 
-            player.sendMessage(TextColor.color("&#bbbbbbDuel zone &d" + args[2] + " &#bbbbbbremoved"));
+            player.sendMessage(TextColor.color("&#bbbbbbDuel queue zone &d" + args[2] + " &#bbbbbbremoved"));
             return;
         }
 
@@ -158,7 +157,7 @@ public final class DuelCommand implements CommandExecutor, TabCompleter {
 
     private void sendUsage(Player player, String label) {
         player.sendMessage(TextColor.color("&dMineacle &8» &#bbbbbbUse &d/" + label + " <player>"));
-        player.sendMessage(TextColor.color("&#bbbbbbOr stand in the duel circle with another player"));
+        player.sendMessage(TextColor.color("&#bbbbbbOr stand in the duel queue circle with another player"));
 
         if (player.hasPermission("mineacleduels.admin")) {
             player.sendMessage(TextColor.color("&#bbbbbbAdmin: &d/" + label + " zone set <id> [radius]"));
@@ -204,7 +203,7 @@ public final class DuelCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 4 && args[0].equalsIgnoreCase("zone") && args[1].equalsIgnoreCase("set") && player.hasPermission("mineacleduels.admin")) {
-            return PlayerTabComplete.options(args[3], List.of("3", "5", "7", "10"));
+            return PlayerTabComplete.options(args[3], List.of("5", "7", "9", "10"));
         }
 
         return List.of();

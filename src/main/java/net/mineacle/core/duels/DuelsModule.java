@@ -8,6 +8,8 @@ import net.mineacle.core.duels.service.DuelService;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.io.File;
+
 public final class DuelsModule extends Module {
 
     private DuelService duelService;
@@ -20,7 +22,15 @@ public final class DuelsModule extends Module {
 
     @Override
     public void enable(Core core) {
-        core.saveResource("duels.yml", false);
+        File file = new File(core.getDataFolder(), "duels.yml");
+
+        if (!file.exists()) {
+            try {
+                core.saveResource("duels.yml", false);
+            } catch (IllegalArgumentException ignored) {
+                core.getLogger().warning("duels.yml was not embedded in the jar, creating runtime file");
+            }
+        }
 
         this.duelService = new DuelService(core);
 
@@ -36,12 +46,7 @@ public final class DuelsModule extends Module {
 
         core.getServer().getPluginManager().registerEvents(new DuelListener(core, duelService), core);
 
-        this.tickTask = core.getServer().getScheduler().runTaskTimer(
-                core,
-                duelService::tick,
-                20L,
-                20L
-        );
+        this.tickTask = core.getServer().getScheduler().runTaskTimer(core, duelService::tick, 20L, 20L);
     }
 
     @Override
