@@ -26,6 +26,7 @@ import net.mineacle.core.stats.StatsModule;
 import net.mineacle.core.teams.TeamsModule;
 import net.mineacle.core.tpa.TpaModule;
 import net.mineacle.core.warp.WarpModule;
+import net.mineacle.core.worldmaintenance.WorldMaintenanceModule;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -85,6 +86,7 @@ public final class Core extends JavaPlugin {
         enableModule(new PlaceholdersModule());
         enableModule(new SpawnModule());
         enableModule(new WarpModule());
+        enableModule(new WorldMaintenanceModule());
         enableModule(new SpawnProtectionModule());
         enableModule(new DoubleJumpModule());
         enableModule(new RtpModule());

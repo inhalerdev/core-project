@@ -267,33 +267,11 @@ commands:
     usage: /enchantinfo <enchantment>
     permission: mineacleenchant.admin
 
-  mineacleservermessages:
-    description: Reload Mineacle server messages
-    aliases: [servermessages]
-    usage: /mineacleservermessages reload
-    permission: mineacleservermessages.admin
-
-  mineaclemaintenance:
-    description: Toggle Mineacle maintenance mode
-    aliases: [maintenance]
-    usage: /mineaclemaintenance <on|off>
-    permission: mineacleservermessages.admin
-
-  mrestart:
-    description: Restart the server with Mineacle branding
-    usage: /mrestart
-    permission: mineacleservermessages.admin
-
-  mstop:
-    description: Stop the server with Mineacle branding
-    usage: /mstop
-    permission: mineacleservermessages.admin
-
   mineacleworldmaintenance:
     description: Control world maintenance groups
     aliases: [worldmaintenance, wm]
     usage: /mineacleworldmaintenance <group> <on|off>
-    permission: mineacleservermessages.admin
+    permission: mineacleworldmaintenance.admin
 
 permissions:
   mineacleguide.use:
@@ -410,7 +388,7 @@ permissions:
   mineacleenchant.admin:
     default: op
 
-  mineacleservermessages.admin:
+  mineacleworldmaintenance.admin:
     default: op
-  mineacleservermessages.bypass:
+  mineacleworldmaintenance.bypass:
     default: op
