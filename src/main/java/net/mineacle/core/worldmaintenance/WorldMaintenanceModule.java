@@ -8,6 +8,8 @@ import net.mineacle.core.worldmaintenance.service.WorldMaintenanceService;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.io.File;
+
 public final class WorldMaintenanceModule extends Module {
 
     private WorldMaintenanceService service;
@@ -20,7 +22,15 @@ public final class WorldMaintenanceModule extends Module {
 
     @Override
     public void enable(Core core) {
-        core.saveResource("worldmaintenance.yml", false);
+        File file = new File(core.getDataFolder(), "worldmaintenance.yml");
+
+        if (!file.exists()) {
+            try {
+                core.saveResource("worldmaintenance.yml", false);
+            } catch (IllegalArgumentException ignored) {
+                core.getLogger().warning("worldmaintenance.yml was not embedded in the jar, creating empty runtime file");
+            }
+        }
 
         this.service = new WorldMaintenanceService(core);
 
