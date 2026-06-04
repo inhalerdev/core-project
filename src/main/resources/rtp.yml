@@ -10,7 +10,7 @@ menus:
         slot: 11
         material: GRASS_BLOCK
         destination: "origins"
-        name: "&aOrigins"
+        name: "&aOrigins &#bbbbbb(&a%player_ping%ms&#bbbbbb)"
         lore:
           - "&#bbbbbbExplore the main survival world"
           - "&#bbbbbb%server_online_origins%/300"
@@ -21,7 +21,7 @@ menus:
         slot: 13
         material: NETHERRACK
         destination: "nether"
-        name: "&cNether"
+        name: "&cNether &#bbbbbb(&c%player_ping%ms&#bbbbbb)"
         lore:
           - "&#bbbbbbExplore the Nether dimension"
           - "&#bbbbbb%server_online_origins_nether%/300"
@@ -32,12 +32,12 @@ menus:
         slot: 15
         material: END_STONE
         destination: "end"
-        name: "&#ff88ffThe End"
+        name: "&dThe End &#bbbbbb(&d%player_ping%ms&#bbbbbb)"
         lore:
           - "&#bbbbbbExplore the outer End islands"
           - "&#bbbbbb%server_online_origins_the_end%/300"
           - ""
-          - "&#ff88ffClick to teleport"
+          - "&dClick to teleport"
 
 messages:
   no-permission: "&cThis command does not exist."
