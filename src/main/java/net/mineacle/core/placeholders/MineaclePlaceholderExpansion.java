@@ -4,6 +4,8 @@ import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import net.mineacle.core.Core;
 import net.mineacle.core.chat.ChatModule;
 import net.mineacle.core.chat.service.NicknameService;
+import net.mineacle.core.common.format.MoneyFormatter;
+import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.teams.model.TeamMemberRecord;
 import net.mineacle.core.teams.model.TeamRecord;
@@ -15,12 +17,10 @@ import org.bukkit.Statistic;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -65,94 +65,122 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
 
     @Override
     public @Nullable String onRequest(OfflinePlayer player, @NotNull String params) {
+        String key = params.toLowerCase(Locale.ROOT);
+
+        String globalBalTop = globalBalTopPlaceholder(key);
+        if (globalBalTop != null) {
+            return globalBalTop;
+        }
+
         if (player == null) {
             return "";
         }
 
-        String key = params.toLowerCase(Locale.ROOT);
         UUID uuid = player.getUniqueId();
 
         return switch (key) {
             case "name", "player_name", "username" -> username(player);
-
             case "displayname", "display_name", "player_displayname", "player_display_name" -> displayName(player);
-
             case "nickname", "nick", "player_nickname", "player_nick" -> nickname(player);
-
             case "chat_displayname", "chat_display_name" -> chatDisplayName(player);
-
             case "tab_displayname", "tab_display_name" -> tabDisplayName(player);
 
             case "balance", "balance_formatted", "money", "money_formatted" ->
                     economyService.format(economyService.getBalanceCents(uuid));
+            case "balance_full", "money_full" ->
+                    MoneyFormatter.moneyFullFromCents(economyService.getBalanceCents(uuid));
+            case "balance_raw", "money_raw" -> rawMoney(economyService.getBalanceCents(uuid));
 
-            case "balance_raw", "money_raw" ->
-                    rawMoney(economyService.getBalanceCents(uuid));
+            case "baltop_rank", "baltop_position" -> formattedBalTopRank(uuid);
+            case "baltop_rank_raw", "baltop_position_raw" -> String.valueOf(rawBalTopRank(uuid));
+            case "baltop_value", "baltop_value_formatted", "baltop_balance", "baltop_balance_formatted" ->
+                    economyService.format(economyService.getBalanceCents(uuid));
+            case "baltop_value_raw", "baltop_balance_raw" -> rawMoney(economyService.getBalanceCents(uuid));
 
-            case "baltop_rank" ->
-                    formattedBalTopRank(uuid);
+            case "team_name" -> teamName(uuid);
+            case "team_role", "team_rank" -> teamRole(uuid);
+            case "team_member_count", "team_members" -> teamMemberCount(uuid);
+            case "team_max_members" -> String.valueOf(teamService.maxMembers());
+            case "team_pvp", "team_friendlyfire", "team_friendly_fire" -> teamPvp(uuid);
+            case "team_chat" -> teamChat(uuid);
 
-            case "baltop_rank_raw" ->
-                    String.valueOf(rawBalTopRank(uuid));
+            case "stats_kills", "stats_player_kills", "kills" -> String.valueOf(statistic(uuid, Statistic.PLAYER_KILLS));
+            case "stats_deaths", "deaths" -> String.valueOf(statistic(uuid, Statistic.DEATHS));
+            case "stats_playtime" -> playtime(uuid);
+            case "stats_playtime_seconds" -> String.valueOf(playtimeSeconds(uuid));
+            case "stats_blocks_placed", "blocks_placed" -> String.valueOf(blocksPlaced(uuid));
+            case "stats_blocks_broken", "blocks_broken" -> String.valueOf(blocksBroken(uuid));
+            case "stats_mobs_killed", "mobs_killed" -> String.valueOf(statistic(uuid, Statistic.MOB_KILLS));
 
-            case "team_name" ->
-                    teamName(uuid);
-
-            case "team_role", "team_rank" ->
-                    teamRole(uuid);
-
-            case "team_member_count", "team_members" ->
-                    teamMemberCount(uuid);
-
-            case "team_max_members" ->
-                    String.valueOf(teamService.maxMembers());
-
-            case "team_pvp", "team_friendlyfire", "team_friendly_fire" ->
-                    teamPvp(uuid);
-
-            case "team_chat" ->
-                    teamChat(uuid);
-
-            case "stats_kills", "stats_player_kills", "kills" ->
-                    String.valueOf(statistic(uuid, Statistic.PLAYER_KILLS));
-
-            case "stats_deaths", "deaths" ->
-                    String.valueOf(statistic(uuid, Statistic.DEATHS));
-
-            case "stats_playtime" ->
-                    playtime(uuid);
-
-            case "stats_playtime_seconds" ->
-                    String.valueOf(playtimeSeconds(uuid));
-
-            case "stats_blocks_placed", "blocks_placed" ->
-                    String.valueOf(blocksPlaced(uuid));
-
-            case "stats_blocks_broken", "blocks_broken" ->
-                    String.valueOf(blocksBroken(uuid));
-
-            case "stats_mobs_killed", "mobs_killed" ->
-                    String.valueOf(statistic(uuid, Statistic.MOB_KILLS));
-
-            case "date" ->
-                    date();
-
-            case "time" ->
-                    time();
-
-            case "datetime", "date_time" ->
-                    dateTime();
-
-            case "timezone", "time_zone" ->
-                    timeZone();
+            case "date" -> date();
+            case "time" -> time();
+            case "datetime", "date_time" -> dateTime();
+            case "timezone", "time_zone" -> timeZone();
 
             default -> null;
         };
     }
 
+    private String globalBalTopPlaceholder(String key) {
+        if (!key.startsWith("baltop_")) {
+            return null;
+        }
+
+        String rest = key.substring("baltop_".length());
+        int split = rest.indexOf('_');
+        if (split <= 0 || split >= rest.length() - 1) {
+            return null;
+        }
+
+        String positionRaw = rest.substring(0, split);
+        String field = rest.substring(split + 1);
+
+        int position;
+        try {
+            position = Integer.parseInt(positionRaw);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+
+        if (position < 1 || position > 100) {
+            return "";
+        }
+
+        BalTopEntry entry = balTopEntry(position);
+        if (entry == null) {
+            return "";
+        }
+
+        return switch (field) {
+            case "name", "username", "player", "player_name" -> username(entry.player());
+            case "displayname", "display_name", "player_displayname", "player_display_name" -> displayName(entry.player());
+            case "nickname", "nick" -> nickname(entry.player());
+
+            case "balance", "balance_formatted", "money", "money_formatted", "value", "value_formatted" ->
+                    economyService.format(entry.cents());
+            case "balance_full", "money_full", "value_full" -> MoneyFormatter.moneyFullFromCents(entry.cents());
+            case "balance_raw", "money_raw", "value_raw" -> rawMoney(entry.cents());
+
+            case "rank", "position" -> "#" + position;
+            case "rank_raw", "position_raw" -> String.valueOf(position);
+
+            default -> null;
+        };
+    }
+
+    private BalTopEntry balTopEntry(int position) {
+        List<Map.Entry<UUID, Long>> entries = economyService.topBalances(position);
+        if (entries.size() < position) {
+            return null;
+        }
+
+        Map.Entry<UUID, Long> entry = entries.get(position - 1);
+        OfflinePlayer player = Bukkit.getOfflinePlayer(entry.getKey());
+        return new BalTopEntry(player, entry.getValue());
+    }
+
     private String username(OfflinePlayer player) {
         NicknameService service = ChatModule.nicknameService();
-
         if (service != null) {
             return service.username(player);
         }
@@ -162,17 +190,15 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
 
     private String displayName(OfflinePlayer player) {
         NicknameService service = ChatModule.nicknameService();
-
         if (service != null) {
             return service.displayName(player);
         }
 
-        return username(player);
+        return DisplayNames.displayName(player);
     }
 
     private String nickname(OfflinePlayer player) {
         NicknameService service = ChatModule.nicknameService();
-
         if (service != null) {
             return service.nickname(player);
         }
@@ -182,7 +208,6 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
 
     private String chatDisplayName(OfflinePlayer player) {
         NicknameService service = ChatModule.nicknameService();
-
         if (service != null) {
             return service.rawChatDisplayName(player);
         }
@@ -195,11 +220,7 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
     }
 
     private String rawMoney(long cents) {
-        BigDecimal value = BigDecimal.valueOf(cents)
-                .divide(BigDecimal.valueOf(100L), 2, RoundingMode.HALF_UP)
-                .stripTrailingZeros();
-
-        return value.toPlainString();
+        return MoneyFormatter.rawFromCents(cents);
     }
 
     private int rawBalTopRank(UUID playerId) {
@@ -231,7 +252,6 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
 
     private String teamMemberCount(UUID playerId) {
         TeamRecord team = teamService.getTeamByPlayer(playerId);
-
         if (team == null) {
             return "0";
         }
@@ -241,7 +261,6 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
 
     private String teamPvp(UUID playerId) {
         TeamRecord team = teamService.getTeamByPlayer(playerId);
-
         if (team == null) {
             return "Off";
         }
@@ -255,7 +274,6 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
 
     private int statistic(UUID playerId, Statistic statistic) {
         Player player = Bukkit.getPlayer(playerId);
-
         if (player == null) {
             return 0;
         }
@@ -273,7 +291,6 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
 
     private String playtime(UUID playerId) {
         long totalSeconds = playtimeSeconds(playerId);
-
         long days = totalSeconds / 86400L;
         long hours = (totalSeconds % 86400L) / 3600L;
         long minutes = (totalSeconds % 3600L) / 60L;
@@ -291,13 +308,11 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
 
     private int blocksPlaced(UUID playerId) {
         Player player = Bukkit.getPlayer(playerId);
-
         if (player == null) {
             return 0;
         }
 
         int total = 0;
-
         for (Material material : Material.values()) {
             if (!material.isBlock() || !material.isItem()) {
                 continue;
@@ -314,13 +329,11 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
 
     private int blocksBroken(UUID playerId) {
         Player player = Bukkit.getPlayer(playerId);
-
         if (player == null) {
             return 0;
         }
 
         int total = 0;
-
         for (Material material : Material.values()) {
             if (!material.isBlock()) {
                 continue;
@@ -369,5 +382,8 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
         } catch (Exception ignored) {
             return ZoneId.systemDefault();
         }
+    }
+
+    private record BalTopEntry(OfflinePlayer player, long cents) {
     }
 }
