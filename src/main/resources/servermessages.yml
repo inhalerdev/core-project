@@ -1,0 +1,53 @@
+enabled: true
+
+messages:
+  whitelist:
+    - "&d&lMineacle"
+    - ""
+    - "&#bbbbbbThe server is currently whitelisted"
+    - "&#bbbbbbJoin our Discord for updates"
+    - ""
+    - "&ddiscord.gg/4xrYFxdSWg"
+
+  maintenance:
+    - "&d&lMineacle"
+    - ""
+    - "&#bbbbbbThe server is currently under maintenance"
+    - "&#bbbbbbPlease check back soon"
+
+  full:
+    - "&d&lMineacle"
+    - ""
+    - "&#bbbbbbThe server is currently full"
+    - "&#bbbbbbPlease try again soon"
+
+  shutdown:
+    - "&d&lMineacle"
+    - ""
+    - "&#bbbbbbThe server is shutting down"
+    - "&#bbbbbbPlease reconnect in a moment"
+
+  restart:
+    - "&d&lMineacle"
+    - ""
+    - "&#bbbbbbThe server is restarting"
+    - "&#bbbbbbPlease reconnect in a moment"
+
+chat:
+  reloaded: "&dMineacle &8» &#bbbbbbServer messages reloaded"
+  maintenance-enabled: "&dMineacle &8» &#bbbbbbMaintenance mode enabled"
+  maintenance-disabled: "&dMineacle &8» &#bbbbbbMaintenance mode disabled"
+  restart-started: "&dMineacle &8» &#bbbbbbRestarting server"
+  shutdown-started: "&dMineacle &8» &#bbbbbbShutting down server"
+
+maintenance:
+  enabled: false
+  bypass-permission: mineacleservermessages.bypass
+
+restart:
+  delay-seconds: 3
+  command: "restart"
+
+shutdown:
+  delay-seconds: 3
+  command: "stop"
