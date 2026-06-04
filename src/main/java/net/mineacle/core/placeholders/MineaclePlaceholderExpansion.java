@@ -18,6 +18,8 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -27,6 +29,8 @@ import java.util.Map;
 import java.util.UUID;
 
 public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
+
+    private static final String EMPTY_SLOT = "---";
 
     private final Core core;
     private final EconomyService economyService;
@@ -89,13 +93,15 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
                     economyService.format(economyService.getBalanceCents(uuid));
             case "balance_full", "money_full" ->
                     MoneyFormatter.moneyFullFromCents(economyService.getBalanceCents(uuid));
-            case "balance_raw", "money_raw" -> rawMoney(economyService.getBalanceCents(uuid));
+            case "balance_raw", "money_raw" ->
+                    rawMoney(economyService.getBalanceCents(uuid));
 
             case "baltop_rank", "baltop_position" -> formattedBalTopRank(uuid);
             case "baltop_rank_raw", "baltop_position_raw" -> String.valueOf(rawBalTopRank(uuid));
             case "baltop_value", "baltop_value_formatted", "baltop_balance", "baltop_balance_formatted" ->
                     economyService.format(economyService.getBalanceCents(uuid));
-            case "baltop_value_raw", "baltop_balance_raw" -> rawMoney(economyService.getBalanceCents(uuid));
+            case "baltop_value_raw", "baltop_balance_raw" ->
+                    rawMoney(economyService.getBalanceCents(uuid));
 
             case "team_name" -> teamName(uuid);
             case "team_role", "team_rank" -> teamRole(uuid);
@@ -143,27 +149,42 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
         }
 
         if (position < 1 || position > 100) {
-            return "";
+            return EMPTY_SLOT;
         }
 
         BalTopEntry entry = balTopEntry(position);
         if (entry == null) {
-            return "";
+            return emptyBalTopValue(field);
         }
 
         return switch (field) {
             case "name", "username", "player", "player_name" -> username(entry.player());
             case "displayname", "display_name", "player_displayname", "player_display_name" -> displayName(entry.player());
-            case "nickname", "nick" -> nickname(entry.player());
+            case "nickname", "nick" -> emptyIfBlank(nickname(entry.player()));
 
             case "balance", "balance_formatted", "money", "money_formatted", "value", "value_formatted" ->
                     economyService.format(entry.cents());
-            case "balance_full", "money_full", "value_full" -> MoneyFormatter.moneyFullFromCents(entry.cents());
-            case "balance_raw", "money_raw", "value_raw" -> rawMoney(entry.cents());
+            case "balance_full", "money_full", "value_full" ->
+                    MoneyFormatter.moneyFullFromCents(entry.cents());
+            case "balance_raw", "money_raw", "value_raw" ->
+                    rawMoney(entry.cents());
 
             case "rank", "position" -> "#" + position;
             case "rank_raw", "position_raw" -> String.valueOf(position);
 
+            default -> null;
+        };
+    }
+
+    private String emptyBalTopValue(String field) {
+        return switch (field) {
+            case "name", "username", "player", "player_name",
+                 "displayname", "display_name", "player_displayname", "player_display_name",
+                 "nickname", "nick",
+                 "balance", "balance_formatted", "money", "money_formatted",
+                 "value", "value_formatted", "balance_full", "money_full", "value_full" -> EMPTY_SLOT;
+            case "balance_raw", "money_raw", "value_raw" -> "0";
+            case "rank", "position", "rank_raw", "position_raw" -> EMPTY_SLOT;
             default -> null;
         };
     }
@@ -220,7 +241,14 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
     }
 
     private String rawMoney(long cents) {
-        return MoneyFormatter.rawFromCents(cents);
+        try {
+            return MoneyFormatter.rawFromCents(cents);
+        } catch (NoSuchMethodError ignored) {
+            BigDecimal value = BigDecimal.valueOf(cents)
+                    .divide(BigDecimal.valueOf(100L), 2, RoundingMode.DOWN)
+                    .stripTrailingZeros();
+            return value.toPlainString();
+        }
     }
 
     private int rawBalTopRank(UUID playerId) {
@@ -382,6 +410,10 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
         } catch (Exception ignored) {
             return ZoneId.systemDefault();
         }
+    }
+
+    private String emptyIfBlank(String value) {
+        return value == null || value.isBlank() ? EMPTY_SLOT : value;
     }
 
     private record BalTopEntry(OfflinePlayer player, long cents) {
