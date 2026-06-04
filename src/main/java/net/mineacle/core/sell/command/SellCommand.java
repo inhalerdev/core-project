@@ -106,9 +106,9 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        if (args[1].equalsIgnoreCase("recalc")) {
+        if (args[1].equalsIgnoreCase("recalc") || args[1].equalsIgnoreCase("rotate")) {
             sellService.recalculateDemand();
-            player.sendMessage(TextColor.color("&#bbbbbbSell demand recalculated"));
+            player.sendMessage(TextColor.color("&#bbbbbbSell demand rotated"));
             SoundService.guiConfirm(player, core);
             return;
         }
@@ -130,7 +130,6 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
 
         long base = sellService.baseWorthCents(material);
         String category = sellService.category(material);
-        double playerMultiplier = sellService.multiplier(player.getUniqueId(), category);
         double demand = sellService.demandMultiplier(material);
         long adjusted = sellService.unitWorthCents(player, material);
         long windowAmount = sellService.demandWindowAmount(material);
@@ -138,12 +137,16 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
 
         player.sendMessage(TextColor.color("&#bbbbbbItem: &#ff88ff" + sellService.pretty(material)));
         player.sendMessage(TextColor.color("&#bbbbbbCategory: &#ff88ff" + sellService.categoryDisplay(category)));
-        player.sendMessage(TextColor.color("&#bbbbbbBase: &a" + sellService.format(base)));
-        player.sendMessage(TextColor.color("&#bbbbbbPlayer Multiplier: &#ff88ff" + SellService.formatMultiplier(playerMultiplier) + "x"));
-        player.sendMessage(TextColor.color("&#bbbbbbDemand Multiplier: &#ff88ff" + SellService.formatMultiplier(demand) + "x"));
+        player.sendMessage(TextColor.color("&#bbbbbbBase Price: &a" + sellService.format(base)));
+        player.sendMessage(TextColor.color("&#bbbbbbServer Demand: &#ff88ff" + SellService.formatMultiplier(demand) + "x"));
         player.sendMessage(TextColor.color("&#bbbbbbFinal Unit Price: &a" + sellService.format(adjusted)));
-        player.sendMessage(TextColor.color("&#bbbbbbWindow Volume: &#ff88ff" + windowAmount + " &#bbbbbbitems / &a" + sellService.format(windowCents)));
-        player.sendMessage(TextColor.color("&#bbbbbbDecay: &#ff88ff" + SellService.formatMultiplier(sellService.demandDecayFactor()) + "x &#bbbbbbevery &#ff88ff" + (sellService.demandUpdateIntervalMillis() / 60000L) + "m"));
+
+        if (sellService.isActiveDemandItem(material)) {
+            player.sendMessage(TextColor.color("&#bbbbbbDemand Tier: &#ff88ff" + sellService.demandTierDisplay(material)));
+            player.sendMessage(TextColor.color("&#bbbbbbSold This Cycle: &#ff88ff" + windowAmount + " &#bbbbbbitems / &a" + sellService.format(windowCents)));
+        } else {
+            player.sendMessage(TextColor.color("&#bbbbbbDemand Tier: &#bbbbbbNormal"));
+        }
 
         SoundService.economyBalance(player, core);
     }
@@ -164,18 +167,19 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
         }
 
         long cents = sellService.stackWorthCents(player, item);
-        String category = sellService.category(item.getType());
-        double multiplier = sellService.multiplier(player.getUniqueId(), category);
-        double demand = sellService.demandMultiplier(item.getType());
+        Material material = item.getType();
+        double demand = sellService.demandMultiplier(material);
 
         player.sendMessage(TextColor.color(
                 "&#bbbbbbWorth: &a" + sellService.format(cents)
-                        + " &#bbbbbbper &#ff88ff" + sellService.pretty(item.getType())
-                        + " &#bbbbbb(&#ff88ff" + SellService.formatMultiplier(multiplier) + "x&#bbbbbb)"
+                        + " &#bbbbbbfor &#ff88ff" + item.getAmount()
+                        + "x " + sellService.pretty(material)
         ));
 
+        player.sendMessage(TextColor.color("&#bbbbbbUnit Price: &a" + sellService.format(sellService.unitWorthCents(player, material))));
+
         if (Math.abs(demand - 1.0D) >= 0.01D) {
-            player.sendMessage(TextColor.color("&#bbbbbbDemand: &#ff88ff" + SellService.formatMultiplier(demand) + "x"));
+            player.sendMessage(TextColor.color("&#bbbbbbServer Demand: &#ff88ff" + SellService.formatMultiplier(demand) + "x"));
         }
 
         SoundService.economyBalance(player, core);
@@ -215,7 +219,7 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 2 && args[0].equalsIgnoreCase("demand") && player.hasPermission("mineaclesell.admin")) {
-            List<String> completions = new ArrayList<>(List.of("recalc", "reset"));
+            List<String> completions = new ArrayList<>(List.of("recalc", "rotate", "reset"));
             String partial = args[1] == null ? "" : args[1].toLowerCase(Locale.ROOT);
 
             for (Material material : Material.values()) {
@@ -224,7 +228,6 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
                 }
 
                 String name = material.name().toLowerCase(Locale.ROOT);
-
                 if (partial.isEmpty() || name.startsWith(partial)) {
                     completions.add(name);
                 }
