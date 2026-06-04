@@ -61,7 +61,7 @@ public final class DuelCommand implements CommandExecutor, TabCompleter {
 
         if (sub.equals("leave")) {
             duelService.removeFromQueue(player);
-            player.sendMessage(TextColor.color("&#bbbbbbYou left the duel queue"));
+            player.sendMessage(TextColor.color("&#bbbbbbNo longer queued for duels"));
             return true;
         }
 

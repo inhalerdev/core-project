@@ -77,11 +77,13 @@ messages:
   inviter-offline: "&cThat player is no longer online"
   cancelled: "&#bbbbbbDuel request cancelled"
 
-  queue-joined: "&#bbbbbbYou joined the duel queue"
-  queue-left: "&#bbbbbbYou left the duel queue"
-  queue-started: "&#bbbbbbDuel starting in &d%seconds%s"
-  queue-cancelled: "&#bbbbbbDuel countdown cancelled"
-  queue-actionbar: "&#bbbbbbDuel starting in &d%seconds%s"
+  queue-joined: ""
+  queue-left: "&#bbbbbbNo longer queued for duels"
+  queue-started: ""
+  queue-cancelled: ""
+  queue-waiting-actionbar: "&#bbbbbbDuel queue &8» &#bbbbbbWaiting for an opponent"
+  queue-actionbar: "&#bbbbbbDuel queue &8» &d%queued%/%max% &#bbbbbbfighters &8» &#bbbbbbTeleporting in &d%seconds%s"
+  queue-left-actionbar: "&#bbbbbbNo longer queued for duels"
 
   started: "&#bbbbbbDuel started. Fight to the death"
   started-actionbar: "&#bbbbbbDuel started"

@@ -18,8 +18,8 @@ groups:
       - origins
       - origins_nether
       - origins_the_end
-    message: "&#bbbbbbSurvival worlds are under maintenance to apply &#ff88ffQoL & Player Safety &#bbbbbbUpdates"
-    actionbar: "&#bbbbbbWorlds currently under maintenance, thank you for your patience"
+    message: "&#bbbbbbSurvival worlds are being worked on for &dQoL &#bbbbbbor &dSafety &#bbbbbbupdates"
+    actionbar: "&#bbbbbbSurvival is under maintenance"
 
   spawn:
     enabled: false

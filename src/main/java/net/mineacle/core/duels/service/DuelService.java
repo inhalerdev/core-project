@@ -110,17 +110,13 @@ public final class DuelService {
         updateZoneQueue();
 
         if (zoneQueued.size() < minPlayers()) {
-            if (zoneCountdown > 0) {
-                broadcastQueue("messages.queue-cancelled", "&#bbbbbbDuel countdown cancelled");
-            }
-
             zoneCountdown = -1;
+            broadcastQueueActionbar();
             return;
         }
 
         if (zoneCountdown < 0) {
             zoneCountdown = countdownSeconds();
-            broadcastQueue("messages.queue-started", "&#bbbbbbDuel starting in &d%seconds%s");
         }
 
         broadcastQueueActionbar();
@@ -362,7 +358,7 @@ public final class DuelService {
                 found.add(player.getUniqueId());
 
                 if (!zoneQueued.contains(player.getUniqueId())) {
-                    player.sendMessage(message("messages.queue-joined", "&#bbbbbbYou joined the duel queue"));
+                    sendActionbar(player, config.getString("messages.queue-waiting-actionbar", "&#bbbbbbDuel queue &8» &#bbbbbbWaiting for an opponent"));
                 }
             }
         }
@@ -372,7 +368,8 @@ public final class DuelService {
                 Player player = Bukkit.getPlayer(old);
 
                 if (player != null) {
-                    player.sendMessage(message("messages.queue-left", "&#bbbbbbYou left the duel queue"));
+                    player.sendMessage(message("messages.queue-left", "&#bbbbbbNo longer queued for duels"));
+                    sendActionbar(player, config.getString("messages.queue-left-actionbar", "&#bbbbbbNo longer queued for duels"));
                 }
             }
         }
@@ -441,10 +438,22 @@ public final class DuelService {
     }
 
     private void broadcastQueueActionbar() {
-        String raw = config.getString("messages.queue-actionbar", "&#bbbbbbDuel starting in &d%seconds%s")
-                .replace("%seconds%", String.valueOf(Math.max(0, zoneCountdown)));
+        List<Player> players = queuedPlayers();
+        int queued = players.size();
 
-        for (Player player : queuedPlayers()) {
+        String raw;
+
+        if (queued < minPlayers()) {
+            raw = config.getString("messages.queue-waiting-actionbar", "&#bbbbbbDuel queue &8» &#bbbbbbWaiting for an opponent");
+        } else {
+            raw = config.getString("messages.queue-actionbar", "&#bbbbbbDuel queue &8» &d%queued%/%max% &#bbbbbbfighters &8» &#bbbbbbTeleporting in &d%seconds%s")
+                    .replace("%seconds%", String.valueOf(Math.max(0, zoneCountdown)))
+                    .replace("%queued%", String.valueOf(queued))
+                    .replace("%min%", String.valueOf(minPlayers()))
+                    .replace("%max%", String.valueOf(maxPlayers()));
+        }
+
+        for (Player player : players) {
             sendActionbar(player, raw);
         }
     }
