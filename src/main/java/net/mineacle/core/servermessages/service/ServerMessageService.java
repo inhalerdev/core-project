@@ -42,6 +42,10 @@ public final class ServerMessageService {
         }
     }
 
+    public FileConfiguration config() {
+        return config;
+    }
+
     public boolean enabled() {
         return config.getBoolean("enabled", true);
     }
