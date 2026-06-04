@@ -1,4 +1,4 @@
-package net.mineacle.core;
+ackage net.mineacle.core;
 
 import net.mineacle.core.baltop.BalTopModule;
 import net.mineacle.core.bootstrap.Module;
@@ -7,6 +7,7 @@ import net.mineacle.core.chat.ChatModule;
 import net.mineacle.core.common.gui.MenuCloseListener;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.doublejump.DoubleJumpModule;
+import net.mineacle.core.duels.DuelsModule;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.gamemode.GamemodeModule;
 import net.mineacle.core.homes.HomesModule;
@@ -24,6 +25,7 @@ import net.mineacle.core.spawnprotection.SpawnProtectionModule;
 import net.mineacle.core.stats.StatsModule;
 import net.mineacle.core.teams.TeamsModule;
 import net.mineacle.core.tpa.TpaModule;
+import net.mineacle.core.worldmaintenance.WorldMaintenanceModule;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -86,6 +88,8 @@ public final class Core extends JavaPlugin {
             registerModule(new SpawnProtectionModule());
             registerModule(new DoubleJumpModule());
             registerModule(new RtpModule());
+            registerModule(new WorldMaintenanceModule());
+            registerModule(new DuelsModule());
             registerModule(new OrdersModule());
             registerModule(new SellModule());
             registerModule(new BountyModule());
