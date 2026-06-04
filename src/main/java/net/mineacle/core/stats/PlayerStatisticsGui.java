@@ -36,11 +36,21 @@ public final class PlayerStatisticsGui implements Listener {
 
     private final StatsService statsService;
 
+    public PlayerStatisticsGui() {
+        this.statsService = null;
+    }
+
     public PlayerStatisticsGui(StatsService statsService) {
         this.statsService = statsService;
     }
 
     public void open(Player viewer, UUID targetId) {
+        StatsService stats = stats();
+        if (stats == null) {
+            viewer.sendMessage(color("&cStats are not ready"));
+            return;
+        }
+
         OfflinePlayer target = Bukkit.getOfflinePlayer(targetId);
 
         Inventory inventory = Bukkit.createInventory(
@@ -49,13 +59,47 @@ public final class PlayerStatisticsGui implements Listener {
                 DisplayNames.displayName(target) + " Stats"
         );
 
-        inventory.setItem(SLOT_MONEY, statItem(Material.EMERALD, "&dMoney", "&#bbbbbb" + statsService.money(targetId)));
-        inventory.setItem(SLOT_PLAYER_KILLS, statItem(Material.DIAMOND_SWORD, "&dKills", "&#bbbbbb" + statsService.kills(targetId)));
-        inventory.setItem(SLOT_DEATHS, statItem(Material.SKELETON_SKULL, "&dDeaths", "&#bbbbbb" + statsService.deaths(targetId)));
-        inventory.setItem(SLOT_PLAYTIME, statItem(Material.CLOCK, "&dPlaytime", "&#bbbbbb" + statsService.playtime(targetId)));
-        inventory.setItem(SLOT_BLOCKS_PLACED, statItem(Material.GRASS_BLOCK, "&dBlocks Placed", "&#bbbbbb" + statsService.blocksPlaced(targetId)));
-        inventory.setItem(SLOT_BLOCKS_BROKEN, statItem(Material.COBBLESTONE, "&dBlocks Broken", "&#bbbbbb" + statsService.blocksBroken(targetId)));
-        inventory.setItem(SLOT_MOBS_KILLED, statItem(Material.ZOMBIE_HEAD, "&dMobs Killed", "&#bbbbbb" + statsService.mobsKilled(targetId)));
+        inventory.setItem(SLOT_MONEY, statItem(
+                Material.EMERALD,
+                "&dMoney",
+                "&#bbbbbb" + stats.money(targetId)
+        ));
+
+        inventory.setItem(SLOT_PLAYER_KILLS, statItem(
+                Material.DIAMOND_SWORD,
+                "&dKills",
+                "&#bbbbbb" + stats.kills(targetId)
+        ));
+
+        inventory.setItem(SLOT_DEATHS, statItem(
+                Material.SKELETON_SKULL,
+                "&dDeaths",
+                "&#bbbbbb" + stats.deaths(targetId)
+        ));
+
+        inventory.setItem(SLOT_PLAYTIME, statItem(
+                Material.CLOCK,
+                "&dPlaytime",
+                "&#bbbbbb" + stats.playtime(targetId)
+        ));
+
+        inventory.setItem(SLOT_BLOCKS_PLACED, statItem(
+                Material.GRASS_BLOCK,
+                "&dBlocks Placed",
+                "&#bbbbbb" + stats.blocksPlaced(targetId)
+        ));
+
+        inventory.setItem(SLOT_BLOCKS_BROKEN, statItem(
+                Material.COBBLESTONE,
+                "&dBlocks Broken",
+                "&#bbbbbb" + stats.blocksBroken(targetId)
+        ));
+
+        inventory.setItem(SLOT_MOBS_KILLED, statItem(
+                Material.ZOMBIE_HEAD,
+                "&dMobs Killed",
+                "&#bbbbbb" + stats.mobsKilled(targetId)
+        ));
 
         viewer.openInventory(inventory);
     }
@@ -83,6 +127,14 @@ public final class PlayerStatisticsGui implements Listener {
             event.setCancelled(true);
             event.setResult(Event.Result.DENY);
         }
+    }
+
+    private StatsService stats() {
+        if (statsService != null) {
+            return statsService;
+        }
+
+        return StatsModule.statsService();
     }
 
     private ItemStack statItem(Material material, String name, String value) {
