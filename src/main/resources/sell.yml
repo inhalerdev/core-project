@@ -4,6 +4,17 @@ settings:
   deny-damaged-tools: false
   deny-filled-containers: true
   deny-enchanted-items: false
+  blocked-items:
+    - BEDROCK
+    - BARRIER
+    - COMMAND_BLOCK
+    - CHAIN_COMMAND_BLOCK
+    - REPEATING_COMMAND_BLOCK
+    - STRUCTURE_BLOCK
+    - STRUCTURE_VOID
+    - JIGSAW
+    - DEBUG_STICK
+    - PLAYER_HEAD
 
 fallback-prices:
   blocks: 0.03
@@ -13,15 +24,52 @@ fallback-prices:
   mob_drops: 0.15
   nether: 0.2
   end: 0.35
+  combat: 0.5
   misc: 0.01
+
+categories:
+  blocks:
+    display-name: Blocks
+  ores:
+    display-name: Ores
+  wood:
+    display-name: Wood
+  farming:
+    display-name: Farming
+  mob_drops:
+    display-name: Mob Drops
+  nether:
+    display-name: Nether
+  end:
+    display-name: End
+  combat:
+    display-name: Combat
+  misc:
+    display-name: Misc
 
 demand:
   enabled: true
-  update-every-minutes: 30
-  min-multiplier: 0.65
-  max-multiplier: 1.75
-  oversold-threshold: 25000
-  undersold-threshold: 2500
+  cycle-hours: 24
+  active-items: 12
+  reduce-after-sold: 10000
+  oversold-after-sold: 25000
+  last-rotation: 0
+
+  tiers:
+    oversold: 0.65
+    normal: 1.0
+    wanted: 1.25
+    high_demand: 1.75
+    premium: 2.25
+    shortage: 2.5
+
+  tier-order:
+    - wanted
+    - high_demand
+    - premium
+    - high_demand
+    - wanted
+
   excluded-items:
     - BEDROCK
     - BARRIER
@@ -33,6 +81,47 @@ demand:
     - JIGSAW
     - DEBUG_STICK
     - PLAYER_HEAD
+
+  pool:
+    farming:
+      - SUGAR_CANE
+      - WHEAT
+      - CARROT
+      - POTATO
+      - PUMPKIN
+      - MELON_SLICE
+      - CACTUS
+    mob_drops:
+      - GUNPOWDER
+      - BONE
+      - STRING
+      - ROTTEN_FLESH
+      - SPIDER_EYE
+      - SLIME_BALL
+    mining:
+      - COAL
+      - IRON_INGOT
+      - COPPER_INGOT
+      - GOLD_INGOT
+      - REDSTONE
+      - LAPIS_LAZULI
+      - AMETHYST_SHARD
+      - DIAMOND
+      - EMERALD
+    nether:
+      - BLAZE_ROD
+      - BLAZE_POWDER
+      - GHAST_TEAR
+      - MAGMA_CREAM
+      - QUARTZ
+    end:
+      - ENDER_PEARL
+      - SHULKER_SHELL
+    utility:
+      - ENDER_CHEST
+      - ANVIL
+      - NAME_TAG
+      - SADDLE
 
 enchant-values:
   default-per-level-cents: 2500
@@ -48,39 +137,53 @@ enchant-values:
     SILK_TOUCH: 7500
 
 prices:
+  DRAGON_EGG:
+    price: 50000.0
+    category: end
   NETHERITE_BLOCK:
     price: 27000.0
     category: ores
+  ELYTRA:
+    price: 15000.0
+    category: end
   BEACON:
     price: 12000.0
     category: misc
   NETHER_STAR:
     price: 10000.0
     category: misc
-  DRAGON_EGG:
-    price: 50000.0
-    category: end
-  ELYTRA:
-    price: 15000.0
-    category: end
-  TOTEM_OF_UNDYING:
-    price: 2500.0
-    category: combat
-  END_CRYSTAL:
-    price: 350.0
-    category: combat
   ENCHANTED_GOLDEN_APPLE:
     price: 5000.0
     category: combat
-  GOLDEN_APPLE:
-    price: 750.0
+  NETHERITE_INGOT:
+    price: 3000.0
+    category: ores
+  TOTEM_OF_UNDYING:
+    price: 2500.0
     category: combat
-
   DIAMOND_BLOCK:
     price: 2250.0
     category: ores
   EMERALD_BLOCK:
     price: 1800.0
+    category: ores
+  NETHERITE_SCRAP:
+    price: 750.0
+    category: ores
+  ANCIENT_DEBRIS:
+    price: 750.0
+    category: ores
+  GOLDEN_APPLE:
+    price: 750.0
+    category: combat
+  END_CRYSTAL:
+    price: 350.0
+    category: combat
+  DIAMOND:
+    price: 250.0
+    category: ores
+  EMERALD:
+    price: 200.0
     category: ores
   GOLD_BLOCK:
     price: 126.0
@@ -91,22 +194,21 @@ prices:
   COPPER_BLOCK:
     price: 27.0
     category: ores
+  AMETHYST_BLOCK:
+    price: 24.0
+    category: ores
   COAL_BLOCK:
+    price: 18.0
+    category: ores
+  LAPIS_BLOCK:
     price: 18.0
     category: ores
   REDSTONE_BLOCK:
     price: 13.5
     category: ores
-  LAPIS_BLOCK:
-    price: 18.0
-    category: ores
   QUARTZ_BLOCK:
     price: 8.0
     category: nether
-  AMETHYST_BLOCK:
-    price: 24.0
-    category: ores
-
   RAW_GOLD_BLOCK:
     price: 126.0
     category: ores
@@ -116,56 +218,39 @@ prices:
   RAW_COPPER_BLOCK:
     price: 27.0
     category: ores
-
-  NETHERITE_INGOT:
-    price: 3000.0
-    category: ores
-  NETHERITE_SCRAP:
-    price: 750.0
-    category: ores
-  ANCIENT_DEBRIS:
-    price: 750.0
-    category: ores
-  DIAMOND:
-    price: 250.0
-    category: ores
-  EMERALD:
-    price: 200.0
-    category: ores
   GOLD_INGOT:
     price: 14.0
     category: ores
   IRON_INGOT:
     price: 8.0
     category: ores
+  AMETHYST_SHARD:
+    price: 6.0
+    category: ores
   COPPER_INGOT:
     price: 3.0
     category: ores
-  GOLD_NUGGET:
-    price: 1.55
-    category: ores
-  IRON_NUGGET:
-    price: 0.88
-    category: ores
   COAL:
-    price: 2.0
-    category: ores
-  CHARCOAL:
-    price: 1.5
-    category: ores
-  REDSTONE:
-    price: 1.5
-    category: ores
-  LAPIS_LAZULI:
     price: 2.0
     category: ores
   QUARTZ:
     price: 2.0
     category: nether
-  AMETHYST_SHARD:
-    price: 6.0
+  LAPIS_LAZULI:
+    price: 2.0
     category: ores
-
+  ENDER_PEARL:
+    price: 2.0
+    category: end
+  REDSTONE:
+    price: 1.5
+    category: ores
+  BLAZE_ROD:
+    price: 1.5
+    category: nether
+  CHARCOAL:
+    price: 1.5
+    category: ores
   OAK_LOG:
     price: 1.25
     category: wood
@@ -190,10 +275,30 @@ prices:
   MANGROVE_LOG:
     price: 1.25
     category: wood
-
+  GHAST_TEAR:
+    price: 4.0
+    category: nether
+  SHULKER_SHELL:
+    price: 20.0
+    category: end
+  BLAZE_POWDER:
+    price: 0.75
+    category: nether
+  MAGMA_CREAM:
+    price: 0.7
+    category: nether
+  SLIME_BALL:
+    price: 0.6
+    category: mob_drops
+  PUMPKIN:
+    price: 0.35
+    category: farming
   WHEAT:
     price: 0.25
     category: farming
+  GUNPOWDER:
+    price: 0.25
+    category: mob_drops
   CARROT:
     price: 0.22
     category: farming
@@ -203,15 +308,8 @@ prices:
   SUGAR_CANE:
     price: 0.18
     category: farming
-  MELON_SLICE:
-    price: 0.08
-    category: farming
-  PUMPKIN:
-    price: 0.35
-    category: farming
-
-  ROTTEN_FLESH:
-    price: 0.08
+  SPIDER_EYE:
+    price: 0.18
     category: mob_drops
   BONE:
     price: 0.12
@@ -219,92 +317,12 @@ prices:
   STRING:
     price: 0.1
     category: mob_drops
-  GUNPOWDER:
-    price: 0.25
+  ROTTEN_FLESH:
+    price: 0.08
     category: mob_drops
-  SPIDER_EYE:
-    price: 0.18
-    category: mob_drops
-  BLAZE_ROD:
-    price: 1.5
-    category: nether
-  BLAZE_POWDER:
-    price: 0.75
-    category: nether
-  GHAST_TEAR:
-    price: 4.0
-    category: nether
-  MAGMA_CREAM:
-    price: 0.7
-    category: nether
-  SLIME_BALL:
-    price: 0.6
-    category: mob_drops
-  ENDER_PEARL:
-    price: 2.0
-    category: end
-  SHULKER_SHELL:
-    price: 20.0
-    category: end
-
-multipliers:
-  enabled: true
-  max-multiplier: 2.0
-  categories:
-    blocks:
-      display-name: Blocks
-      base-multiplier: 1.0
-      amount-per-level: 5000
-      increase-per-level: 0.02
-      max-multiplier: 2.0
-    ores:
-      display-name: Ores
-      base-multiplier: 1.0
-      amount-per-level: 500
-      increase-per-level: 0.03
-      max-multiplier: 2.0
-    wood:
-      display-name: Wood
-      base-multiplier: 1.0
-      amount-per-level: 2500
-      increase-per-level: 0.02
-      max-multiplier: 2.0
-    farming:
-      display-name: Farming
-      base-multiplier: 1.0
-      amount-per-level: 2500
-      increase-per-level: 0.02
-      max-multiplier: 2.0
-    mob_drops:
-      display-name: Mob Drops
-      base-multiplier: 1.0
-      amount-per-level: 1500
-      increase-per-level: 0.02
-      max-multiplier: 2.0
-    nether:
-      display-name: Nether
-      base-multiplier: 1.0
-      amount-per-level: 1500
-      increase-per-level: 0.025
-      max-multiplier: 2.0
-    end:
-      display-name: End
-      base-multiplier: 1.0
-      amount-per-level: 1000
-      increase-per-level: 0.025
-      max-multiplier: 2.0
-    combat:
-      display-name: Combat
-      base-multiplier: 1.0
-      amount-per-level: 1000
-      increase-per-level: 0.015
-      max-multiplier: 2.0
-    misc:
-      display-name: Misc
-      base-multiplier: 1.0
-      amount-per-level: 5000
-      increase-per-level: 0.01
-      max-multiplier: 2.0
+  MELON_SLICE:
+    price: 0.08
+    category: farming
 
 messages:
   sold-chat: "&#bbbbbbSold &#ff88ff%amount%x items &#bbbbbbfor &a+%money%"
