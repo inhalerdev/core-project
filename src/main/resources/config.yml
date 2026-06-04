@@ -98,7 +98,7 @@ baltop:
 
 nickname:
   enabled: true
-  prefix: "."
+  prefix: ""
   max-length: 15
   allowed-regex: "^[a-zA-Z_0-9&§]+$"
   op-name-color: "#ff55ff"
