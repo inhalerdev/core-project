@@ -1,43 +1,58 @@
-package net.mineacle.core.servermessages.service;
+package net.mineacle.core.worldmaintenance.service;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
 public final class WorldMaintenanceService {
 
     private final Core core;
-    private final ServerMessageService messages;
+    private final File file;
+    private FileConfiguration config;
 
-    public WorldMaintenanceService(Core core, ServerMessageService messages) {
+    public WorldMaintenanceService(Core core) {
         this.core = core;
-        this.messages = messages;
+        this.file = new File(core.getDataFolder(), "worldmaintenance.yml");
+        reload();
     }
 
     public void reload() {
-        messages.reload();
+        this.config = YamlConfiguration.loadConfiguration(file);
     }
 
     public void save() {
-        messages.save();
+        if (config == null) {
+            return;
+        }
+
+        try {
+            config.save(file);
+        } catch (IOException exception) {
+            core.getLogger().severe("Could not save worldmaintenance.yml");
+            exception.printStackTrace();
+        }
     }
 
     public int notifyIntervalSeconds() {
-        return Math.max(3, messages.config().getInt("world-maintenance.notify-interval-seconds", 10));
+        return Math.max(3, config.getInt("notify-interval-seconds", 10));
     }
 
     public List<String> groups() {
-        ConfigurationSection section = messages.config().getConfigurationSection("world-maintenance.groups");
+        ConfigurationSection section = config.getConfigurationSection("groups");
         if (section == null) {
             return List.of();
         }
@@ -48,24 +63,24 @@ public final class WorldMaintenanceService {
     }
 
     public boolean groupExists(String group) {
-        return messages.config().isConfigurationSection(groupPath(group));
+        return config.isConfigurationSection(groupPath(group));
     }
 
     public boolean enabled(String group) {
-        return messages.config().getBoolean(groupPath(group) + ".enabled", false);
+        return config.getBoolean(groupPath(group) + ".enabled", false);
     }
 
     public void setEnabled(String group, boolean enabled) {
-        messages.config().set(groupPath(group) + ".enabled", enabled);
-        messages.save();
+        config.set(groupPath(group) + ".enabled", enabled);
+        save();
     }
 
     public String action(String group) {
-        return messages.config().getString(groupPath(group) + ".action", "notify").toLowerCase(Locale.ROOT);
+        return config.getString(groupPath(group) + ".action", "notify").toLowerCase(Locale.ROOT);
     }
 
     public List<String> worlds(String group) {
-        return messages.config().getStringList(groupPath(group) + ".worlds");
+        return config.getStringList(groupPath(group) + ".worlds");
     }
 
     public boolean worldInGroup(String group, String world) {
@@ -130,7 +145,7 @@ public final class WorldMaintenanceService {
     }
 
     public void apply(Player player, String group) {
-        if (player.hasPermission(messages.config().getString("world-maintenance.bypass-permission", "mineacleservermessages.bypass"))) {
+        if (player.hasPermission(config.getString("bypass-permission", "mineacleworldmaintenance.bypass"))) {
             return;
         }
 
@@ -138,6 +153,7 @@ public final class WorldMaintenanceService {
 
         if (action.equals("redirect-spawn") || action.equals("redirect")) {
             Location location = spawnLocation();
+
             if (location != null && !player.getWorld().getName().equalsIgnoreCase(location.getWorld().getName())) {
                 player.teleport(location);
             }
@@ -150,17 +166,17 @@ public final class WorldMaintenanceService {
     }
 
     public void sendNotice(Player player, String group, boolean actionBarOnly) {
-        String chat = format(messages.config().getString("world-maintenance.groups." + group + ".message",
-                "&#bbbbbbThis world is being worked on for QoL or safety updates"));
+        String chat = config.getString(groupPath(group) + ".message",
+                "&#bbbbbbThis world is being worked on for &dQoL &#bbbbbbor &dSafety &#bbbbbbupdates");
 
-        String actionbar = format(messages.config().getString("world-maintenance.groups." + group + ".actionbar",
-                "&#bbbbbbQoL or safety updates are being applied"));
+        String actionbar = config.getString(groupPath(group) + ".actionbar",
+                "&#bbbbbbQoL or safety updates are being applied");
 
         if (!actionBarOnly) {
             player.sendMessage(TextColor.color(chat));
         }
 
-        player.sendActionBar(Component.text(TextColor.strip(actionbar)));
+        player.sendActionBar(component(actionbar));
     }
 
     public String statusLine(String group) {
@@ -169,7 +185,7 @@ public final class WorldMaintenanceService {
     }
 
     private Location spawnLocation() {
-        String worldName = messages.config().getString("world-maintenance.redirect-spawn.world", "spawn1");
+        String worldName = config.getString("redirect-spawn.world", "spawn1");
         World world = Bukkit.getWorld(worldName);
 
         if (world == null) {
@@ -180,24 +196,24 @@ public final class WorldMaintenanceService {
             return null;
         }
 
-        if (!messages.config().getBoolean("world-maintenance.redirect-spawn.use-exact-location", false)) {
+        if (!config.getBoolean("redirect-spawn.use-exact-location", false)) {
             return world.getSpawnLocation();
         }
 
-        double x = messages.config().getDouble("world-maintenance.redirect-spawn.x", world.getSpawnLocation().getX());
-        double y = messages.config().getDouble("world-maintenance.redirect-spawn.y", world.getSpawnLocation().getY());
-        double z = messages.config().getDouble("world-maintenance.redirect-spawn.z", world.getSpawnLocation().getZ());
-        float yaw = (float) messages.config().getDouble("world-maintenance.redirect-spawn.yaw", 0.0D);
-        float pitch = (float) messages.config().getDouble("world-maintenance.redirect-spawn.pitch", 0.0D);
+        double x = config.getDouble("redirect-spawn.x", world.getSpawnLocation().getX());
+        double y = config.getDouble("redirect-spawn.y", world.getSpawnLocation().getY());
+        double z = config.getDouble("redirect-spawn.z", world.getSpawnLocation().getZ());
+        float yaw = (float) config.getDouble("redirect-spawn.yaw", 0.0D);
+        float pitch = (float) config.getDouble("redirect-spawn.pitch", 0.0D);
 
         return new Location(world, x, y, z, yaw, pitch);
     }
 
-    private String groupPath(String group) {
-        return "world-maintenance.groups." + group.toLowerCase(Locale.ROOT);
+    private Component component(String input) {
+        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(input));
     }
 
-    private String format(String value) {
-        return value == null ? "" : value;
+    private String groupPath(String group) {
+        return "groups." + group.toLowerCase(Locale.ROOT);
     }
 }

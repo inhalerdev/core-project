@@ -1,7 +1,7 @@
-package net.mineacle.core.servermessages.command;
+package net.mineacle.core.worldmaintenance.command;
 
 import net.mineacle.core.common.text.TextColor;
-import net.mineacle.core.servermessages.service.WorldMaintenanceService;
+import net.mineacle.core.worldmaintenance.service.WorldMaintenanceService;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -23,7 +23,7 @@ public final class WorldMaintenanceCommand implements CommandExecutor, TabComple
 
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String[] args) {
-        if (!sender.hasPermission("mineacleservermessages.admin")) {
+        if (!sender.hasPermission("mineacleworldmaintenance.admin")) {
             sender.sendMessage(color("&cThis command does not exist"));
             return true;
         }
@@ -83,7 +83,7 @@ public final class WorldMaintenanceCommand implements CommandExecutor, TabComple
 
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, String[] args) {
-        if (!sender.hasPermission("mineacleservermessages.admin")) {
+        if (!sender.hasPermission("mineacleworldmaintenance.admin")) {
             return List.of();
         }
 
