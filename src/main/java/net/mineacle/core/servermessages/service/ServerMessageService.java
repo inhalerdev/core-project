@@ -18,6 +18,7 @@ public final class ServerMessageService {
     private final Core core;
     private final File file;
     private FileConfiguration config;
+    private boolean internalServerControl;
 
     public ServerMessageService(Core core) {
         this.core = core;
@@ -85,6 +86,10 @@ public final class ServerMessageService {
         return config.getString(key + ".command", key.equalsIgnoreCase("restart") ? "restart" : "stop");
     }
 
+    public boolean isInternalServerControl() {
+        return internalServerControl;
+    }
+
     public boolean handleLogin(PlayerLoginEvent event) {
         if (!enabled()) {
             return false;
@@ -100,16 +105,22 @@ public final class ServerMessageService {
         PlayerLoginEvent.Result result = event.getResult();
 
         if (result == PlayerLoginEvent.Result.KICK_WHITELIST) {
-            event.disallow(PlayerLoginEvent.Result.KICK_WHITELIST, message("whitelist"));
+            event.setKickMessage(message("whitelist"));
             return true;
         }
 
         if (result == PlayerLoginEvent.Result.KICK_FULL) {
-            event.disallow(PlayerLoginEvent.Result.KICK_FULL, message("full"));
+            event.setKickMessage(message("full"));
             return true;
         }
 
         return false;
+    }
+
+    public void runBrandedServerControl(String key) {
+        String normalized = key.equalsIgnoreCase("restart") ? "restart" : "shutdown";
+        kickAll(normalized);
+        runActualServerCommandLater(normalized);
     }
 
     public void kickAll(String key) {
@@ -120,13 +131,19 @@ public final class ServerMessageService {
         }
     }
 
-    public void runServerCommandLater(String key) {
+    private void runActualServerCommandLater(String key) {
         int delayTicks = delaySeconds(key) * 20;
         String command = command(key);
 
         Bukkit.getScheduler().runTaskLater(core, () -> {
             Server server = Bukkit.getServer();
-            server.dispatchCommand(server.getConsoleSender(), command);
+
+            try {
+                internalServerControl = true;
+                server.dispatchCommand(server.getConsoleSender(), command);
+            } finally {
+                internalServerControl = false;
+            }
         }, delayTicks);
     }
 }

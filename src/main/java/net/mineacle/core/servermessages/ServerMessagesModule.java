@@ -4,6 +4,7 @@ import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.servermessages.command.ServerControlCommand;
 import net.mineacle.core.servermessages.command.WorldMaintenanceCommand;
+import net.mineacle.core.servermessages.listener.ServerCommandInterceptListener;
 import net.mineacle.core.servermessages.listener.ServerLoginListener;
 import net.mineacle.core.servermessages.listener.WorldMaintenanceListener;
 import net.mineacle.core.servermessages.service.ServerMessageService;
@@ -29,16 +30,15 @@ public final class ServerMessagesModule extends Module {
         this.service = new ServerMessageService(core);
         this.worldMaintenanceService = new WorldMaintenanceService(core, service);
 
-        ServerControlCommand command = new ServerControlCommand(core, service);
+        ServerControlCommand command = new ServerControlCommand(service);
         WorldMaintenanceCommand worldCommand = new WorldMaintenanceCommand(worldMaintenanceService);
 
         register(core, "mineacleservermessages", command);
         register(core, "mineaclemaintenance", command);
-        register(core, "mrestart", command);
-        register(core, "mstop", command);
         register(core, "mineacleworldmaintenance", worldCommand);
 
         core.getServer().getPluginManager().registerEvents(new ServerLoginListener(service), core);
+        core.getServer().getPluginManager().registerEvents(new ServerCommandInterceptListener(service), core);
         core.getServer().getPluginManager().registerEvents(new WorldMaintenanceListener(worldMaintenanceService), core);
 
         this.worldMaintenanceTask = core.getServer().getScheduler().runTaskTimer(

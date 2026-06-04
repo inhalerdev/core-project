@@ -1,9 +1,7 @@
 package net.mineacle.core.servermessages.command;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.servermessages.service.ServerMessageService;
-import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -17,11 +15,9 @@ import java.util.Locale;
 
 public final class ServerControlCommand implements CommandExecutor, TabCompleter {
 
-    private final Core core;
     private final ServerMessageService service;
 
-    public ServerControlCommand(Core core, ServerMessageService service) {
-        this.core = core;
+    public ServerControlCommand(ServerMessageService service) {
         this.service = service;
     }
 
@@ -32,8 +28,6 @@ public final class ServerControlCommand implements CommandExecutor, TabCompleter
         return switch (name) {
             case "mineacleservermessages" -> handleReload(sender, args);
             case "mineaclemaintenance" -> handleMaintenance(sender, args);
-            case "mrestart" -> handleControl(sender, "restart");
-            case "mstop" -> handleControl(sender, "shutdown");
             default -> true;
         };
     }
@@ -79,23 +73,6 @@ public final class ServerControlCommand implements CommandExecutor, TabCompleter
         }
 
         sender.sendMessage(color("&dMineacle &8» &#bbbbbbUsage: &d/mineaclemaintenance <on|off>"));
-        return true;
-    }
-
-    private boolean handleControl(CommandSender sender, String key) {
-        if (!sender.hasPermission("mineacleservermessages.admin")) {
-            deny(sender);
-            return true;
-        }
-
-        String chatKey = key.equals("restart") ? "restart-started" : "shutdown-started";
-        sender.sendMessage(service.chat(chatKey));
-
-        Bukkit.getScheduler().runTask(core, () -> {
-            service.kickAll(key);
-            service.runServerCommandLater(key);
-        });
-
         return true;
     }
 
