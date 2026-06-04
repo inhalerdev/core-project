@@ -4,11 +4,14 @@ import net.mineacle.core.Core;
 import net.mineacle.core.economy.service.EconomyService;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.Statistic;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -28,6 +31,7 @@ public final class StatsService {
 
     public void startSession(Player player) {
         storage.ensureProfile(player);
+
         if (!isPlaytimeWorld(player.getWorld())) {
             playtimeSessionStarted.remove(player.getUniqueId());
             return;
@@ -118,6 +122,69 @@ public final class StatsService {
 
     public String playtime(UUID uuid) {
         return formatPlaytime(playtimeSeconds(uuid));
+    }
+
+    public List<StatsStorageService.StatProfile> topKills(int limit) {
+        return storage.profiles()
+                .values()
+                .stream()
+                .filter(profile -> profile.kills() > 0L)
+                .sorted(Comparator
+                        .comparingLong(StatsStorageService.StatProfile::kills)
+                        .reversed()
+                        .thenComparing(profile -> profile.name() == null ? "" : profile.name(), String.CASE_INSENSITIVE_ORDER))
+                .limit(limit)
+                .toList();
+    }
+
+    public List<StatsStorageService.StatProfile> topDeaths(int limit) {
+        return storage.profiles()
+                .values()
+                .stream()
+                .filter(profile -> profile.deaths() > 0L)
+                .sorted(Comparator
+                        .comparingLong(StatsStorageService.StatProfile::deaths)
+                        .reversed()
+                        .thenComparing(profile -> profile.name() == null ? "" : profile.name(), String.CASE_INSENSITIVE_ORDER))
+                .limit(limit)
+                .toList();
+    }
+
+    public List<StatsStorageService.StatProfile> topPlaytime(int limit) {
+        flushAllSessions();
+
+        return storage.profiles()
+                .values()
+                .stream()
+                .filter(profile -> profile.playtimeSeconds() > 0L)
+                .sorted(Comparator
+                        .comparingLong(StatsStorageService.StatProfile::playtimeSeconds)
+                        .reversed()
+                        .thenComparing(profile -> profile.name() == null ? "" : profile.name(), String.CASE_INSENSITIVE_ORDER))
+                .limit(limit)
+                .toList();
+    }
+
+    public int rankKills(UUID uuid) {
+        return rank(uuid, topKills(Integer.MAX_VALUE));
+    }
+
+    public int rankDeaths(UUID uuid) {
+        return rank(uuid, topDeaths(Integer.MAX_VALUE));
+    }
+
+    public int rankPlaytime(UUID uuid) {
+        return rank(uuid, topPlaytime(Integer.MAX_VALUE));
+    }
+
+    private int rank(UUID uuid, List<StatsStorageService.StatProfile> profiles) {
+        for (int i = 0; i < profiles.size(); i++) {
+            if (profiles.get(i).uuid().equals(uuid)) {
+                return i + 1;
+            }
+        }
+
+        return 0;
     }
 
     public int mobsKilled(UUID uuid) {
@@ -220,5 +287,9 @@ public final class StatsService {
         } catch (Exception ignored) {
             return 0;
         }
+    }
+
+    public OfflinePlayer offline(UUID uuid) {
+        return Bukkit.getOfflinePlayer(uuid);
     }
 }

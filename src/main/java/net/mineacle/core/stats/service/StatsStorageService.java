@@ -2,11 +2,14 @@ package net.mineacle.core.stats.service;
 
 import net.mineacle.core.Core;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 
 public final class StatsStorageService {
@@ -72,6 +75,35 @@ public final class StatsStorageService {
         }
     }
 
+    public Map<UUID, StatProfile> profiles() {
+        Map<UUID, StatProfile> profiles = new LinkedHashMap<>();
+        ConfigurationSection section = config.getConfigurationSection("players");
+
+        if (section == null) {
+            return profiles;
+        }
+
+        for (String key : section.getKeys(false)) {
+            UUID uuid;
+            try {
+                uuid = UUID.fromString(key);
+            } catch (IllegalArgumentException ignored) {
+                continue;
+            }
+
+            String path = "players." + key;
+            profiles.put(uuid, new StatProfile(
+                    uuid,
+                    config.getString(path + ".name", ""),
+                    config.getLong(path + ".playtime-seconds", 0L),
+                    config.getLong(path + ".kills", 0L),
+                    config.getLong(path + ".deaths", 0L)
+            ));
+        }
+
+        return profiles;
+    }
+
     public long playtimeSeconds(UUID uuid) {
         return config.getLong(profilePath(uuid) + ".playtime-seconds", 0L);
     }
@@ -106,5 +138,8 @@ public final class StatsStorageService {
 
     private String profilePath(UUID uuid) {
         return "players." + uuid;
+    }
+
+    public record StatProfile(UUID uuid, String name, long playtimeSeconds, long kills, long deaths) {
     }
 }
