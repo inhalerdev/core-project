@@ -536,13 +536,13 @@ orders:
     inventory-full: "&cYour inventory is full"
 
 stats:
+  autosave-seconds: 60
   playtime:
-    import-vanilla-on-first-seen: false
+    import-vanilla-on-first-seen: true
     enabled-worlds:
       - origins
       - origins_nether
       - origins_the_end
-
   combat:
     enabled-worlds:
       - origins

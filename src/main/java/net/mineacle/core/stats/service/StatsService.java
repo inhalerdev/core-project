@@ -35,15 +35,18 @@ public final class StatsService {
 
         if (!isPlaytimeWorld(player.getWorld())) {
             playtimeSessionStarted.remove(player.getUniqueId());
+            storage.save();
             return;
         }
 
         playtimeSessionStarted.put(player.getUniqueId(), System.currentTimeMillis());
+        storage.save();
     }
 
     public void stopSession(Player player) {
         flushSession(player);
         playtimeSessionStarted.remove(player.getUniqueId());
+        storage.save();
     }
 
     public void switchWorld(Player player) {
@@ -56,12 +59,19 @@ public final class StatsService {
         } else {
             playtimeSessionStarted.remove(player.getUniqueId());
         }
+
+        storage.save();
     }
 
     public void flushAllSessions() {
         for (Player player : Bukkit.getOnlinePlayers()) {
             flushSession(player);
         }
+    }
+
+    public void autosave() {
+        flushAllSessions();
+        storage.save();
     }
 
     public void flushSession(Player player) {
@@ -90,16 +100,12 @@ public final class StatsService {
         storage.addDeath(victim.getUniqueId());
 
         Player killer = victim.getKiller();
-        if (killer == null || killer.getUniqueId().equals(victim.getUniqueId())) {
-            return;
+        if (killer != null && !killer.getUniqueId().equals(victim.getUniqueId()) && isCombatStatsWorld(killer.getWorld())) {
+            storage.ensureProfile(killer);
+            storage.addKill(killer.getUniqueId());
         }
 
-        if (!isCombatStatsWorld(killer.getWorld())) {
-            return;
-        }
-
-        storage.ensureProfile(killer);
-        storage.addKill(killer.getUniqueId());
+        storage.save();
     }
 
     public String money(UUID uuid) {

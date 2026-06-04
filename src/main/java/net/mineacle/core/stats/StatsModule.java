@@ -9,6 +9,7 @@ import net.mineacle.core.stats.listener.StatsListener;
 import net.mineacle.core.stats.service.StatsService;
 import net.mineacle.core.stats.service.StatsStorageService;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.scheduler.BukkitTask;
 
 public final class StatsModule extends Module {
 
@@ -16,6 +17,7 @@ public final class StatsModule extends Module {
 
     private StatsStorageService storageService;
     private PlayerStatisticsGui playerStatisticsGui;
+    private BukkitTask autosaveTask;
 
     public static StatsService statsService() {
         return statsService;
@@ -46,10 +48,31 @@ public final class StatsModule extends Module {
 
         core.getServer().getPluginManager().registerEvents(playerStatisticsGui, core);
         core.getServer().getPluginManager().registerEvents(new StatsListener(statsService), core);
+
+        long autosaveTicks = core.getConfig().getLong("stats.autosave-seconds", 60L) * 20L;
+        if (autosaveTicks < 20L) {
+            autosaveTicks = 1200L;
+        }
+
+        this.autosaveTask = core.getServer().getScheduler().runTaskTimer(
+                core,
+                () -> {
+                    if (statsService != null) {
+                        statsService.autosave();
+                    }
+                },
+                autosaveTicks,
+                autosaveTicks
+        );
     }
 
     @Override
     public void disable() {
+        if (autosaveTask != null) {
+            autosaveTask.cancel();
+            autosaveTask = null;
+        }
+
         if (statsService != null) {
             statsService.save();
         }
