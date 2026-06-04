@@ -4,6 +4,8 @@ import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
+import net.mineacle.core.stats.StatsModule;
+import net.mineacle.core.stats.service.StatsService;
 import net.mineacle.core.teams.TeamsModule;
 import net.mineacle.core.teams.service.TeamService;
 import org.bukkit.Bukkit;
@@ -27,6 +29,7 @@ public final class PlaceholdersModule extends Module {
 
         EconomyService economyService = EconomyModule.economyService();
         TeamService teamService = TeamsModule.teamService();
+        StatsService statsService = StatsModule.statsService();
 
         if (economyService == null) {
             core.getLogger().warning("Mineacle placeholders could not register because EconomyService is not loaded.");
@@ -38,7 +41,12 @@ public final class PlaceholdersModule extends Module {
             return;
         }
 
-        this.expansion = new MineaclePlaceholderExpansion(core, economyService, teamService);
+        if (statsService == null) {
+            core.getLogger().warning("Mineacle placeholders could not register because StatsService is not loaded.");
+            return;
+        }
+
+        this.expansion = new MineaclePlaceholderExpansion(core, economyService, teamService, statsService);
         this.expansion.register();
 
         this.teamsExpansion = new MineacleTeamsPlaceholderExpansion(core, teamService);

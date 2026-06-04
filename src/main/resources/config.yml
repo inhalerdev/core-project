@@ -534,3 +534,15 @@ orders:
     collected: "&#bbbbbbCollected &#ff88ff%amount%x %item%"
     nothing-to-collect: "&cThere are no items to collect"
     inventory-full: "&cYour inventory is full"
+
+stats:
+  playtime:
+    enabled-worlds:
+      - origins
+      - origins_nether
+      - origins_the_end
+  combat:
+    enabled-worlds:
+      - origins
+      - origins_nether
+      - origins_the_end

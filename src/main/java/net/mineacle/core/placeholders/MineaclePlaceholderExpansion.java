@@ -5,21 +5,16 @@ import net.mineacle.core.Core;
 import net.mineacle.core.chat.ChatModule;
 import net.mineacle.core.chat.service.NicknameService;
 import net.mineacle.core.common.format.MoneyFormatter;
-import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.economy.service.EconomyService;
+import net.mineacle.core.stats.service.StatsService;
 import net.mineacle.core.teams.model.TeamMemberRecord;
 import net.mineacle.core.teams.model.TeamRecord;
 import net.mineacle.core.teams.service.TeamService;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
-import org.bukkit.Statistic;
-import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -30,16 +25,16 @@ import java.util.UUID;
 
 public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
 
-    private static final String EMPTY_SLOT = "---";
-
     private final Core core;
     private final EconomyService economyService;
     private final TeamService teamService;
+    private final StatsService statsService;
 
-    public MineaclePlaceholderExpansion(Core core, EconomyService economyService, TeamService teamService) {
+    public MineaclePlaceholderExpansion(Core core, EconomyService economyService, TeamService teamService, StatsService statsService) {
         this.core = core;
         this.economyService = economyService;
         this.teamService = teamService;
+        this.statsService = statsService;
     }
 
     @Override
@@ -89,19 +84,14 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
             case "chat_displayname", "chat_display_name" -> chatDisplayName(player);
             case "tab_displayname", "tab_display_name" -> tabDisplayName(player);
 
-            case "balance", "balance_formatted", "money", "money_formatted" ->
-                    economyService.format(economyService.getBalanceCents(uuid));
-            case "balance_full", "money_full" ->
-                    MoneyFormatter.moneyFullFromCents(economyService.getBalanceCents(uuid));
-            case "balance_raw", "money_raw" ->
-                    rawMoney(economyService.getBalanceCents(uuid));
+            case "balance", "balance_formatted", "money", "money_formatted" -> economyService.format(economyService.getBalanceCents(uuid));
+            case "balance_full", "money_full" -> MoneyFormatter.moneyFullFromCents(economyService.getBalanceCents(uuid));
+            case "balance_raw", "money_raw" -> MoneyFormatter.rawFromCents(economyService.getBalanceCents(uuid));
 
             case "baltop_rank", "baltop_position" -> formattedBalTopRank(uuid);
             case "baltop_rank_raw", "baltop_position_raw" -> String.valueOf(rawBalTopRank(uuid));
-            case "baltop_value", "baltop_value_formatted", "baltop_balance", "baltop_balance_formatted" ->
-                    economyService.format(economyService.getBalanceCents(uuid));
-            case "baltop_value_raw", "baltop_balance_raw" ->
-                    rawMoney(economyService.getBalanceCents(uuid));
+            case "baltop_value", "baltop_value_formatted", "baltop_balance", "baltop_balance_formatted" -> economyService.format(economyService.getBalanceCents(uuid));
+            case "baltop_value_raw", "baltop_balance_raw" -> MoneyFormatter.rawFromCents(economyService.getBalanceCents(uuid));
 
             case "team_name" -> teamName(uuid);
             case "team_role", "team_rank" -> teamRole(uuid);
@@ -110,13 +100,13 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
             case "team_pvp", "team_friendlyfire", "team_friendly_fire" -> teamPvp(uuid);
             case "team_chat" -> teamChat(uuid);
 
-            case "stats_kills", "stats_player_kills", "kills" -> String.valueOf(statistic(uuid, Statistic.PLAYER_KILLS));
-            case "stats_deaths", "deaths" -> String.valueOf(statistic(uuid, Statistic.DEATHS));
-            case "stats_playtime" -> playtime(uuid);
-            case "stats_playtime_seconds" -> String.valueOf(playtimeSeconds(uuid));
-            case "stats_blocks_placed", "blocks_placed" -> String.valueOf(blocksPlaced(uuid));
-            case "stats_blocks_broken", "blocks_broken" -> String.valueOf(blocksBroken(uuid));
-            case "stats_mobs_killed", "mobs_killed" -> String.valueOf(statistic(uuid, Statistic.MOB_KILLS));
+            case "stats_kills", "stats_player_kills", "kills" -> String.valueOf(statsService.kills(uuid));
+            case "stats_deaths", "deaths" -> String.valueOf(statsService.deaths(uuid));
+            case "stats_playtime" -> statsService.playtime(uuid);
+            case "stats_playtime_seconds" -> String.valueOf(statsService.playtimeSeconds(uuid));
+            case "stats_blocks_placed", "blocks_placed" -> String.valueOf(statsService.blocksPlaced(uuid));
+            case "stats_blocks_broken", "blocks_broken" -> String.valueOf(statsService.blocksBroken(uuid));
+            case "stats_mobs_killed", "mobs_killed" -> String.valueOf(statsService.mobsKilled(uuid));
 
             case "date" -> date();
             case "time" -> time();
@@ -134,6 +124,7 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
 
         String rest = key.substring("baltop_".length());
         int split = rest.indexOf('_');
+
         if (split <= 0 || split >= rest.length() - 1) {
             return null;
         }
@@ -149,25 +140,22 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
         }
 
         if (position < 1 || position > 100) {
-            return EMPTY_SLOT;
+            return "---";
         }
 
         BalTopEntry entry = balTopEntry(position);
         if (entry == null) {
-            return emptyBalTopValue(field);
+            return field.endsWith("_raw") ? "0" : "---";
         }
 
         return switch (field) {
             case "name", "username", "player", "player_name" -> username(entry.player());
             case "displayname", "display_name", "player_displayname", "player_display_name" -> displayName(entry.player());
-            case "nickname", "nick" -> emptyIfBlank(nickname(entry.player()));
+            case "nickname", "nick" -> nickname(entry.player());
 
-            case "balance", "balance_formatted", "money", "money_formatted", "value", "value_formatted" ->
-                    economyService.format(entry.cents());
-            case "balance_full", "money_full", "value_full" ->
-                    MoneyFormatter.moneyFullFromCents(entry.cents());
-            case "balance_raw", "money_raw", "value_raw" ->
-                    rawMoney(entry.cents());
+            case "balance", "balance_formatted", "money", "money_formatted", "value", "value_formatted" -> economyService.format(entry.cents());
+            case "balance_full", "money_full", "value_full" -> MoneyFormatter.moneyFullFromCents(entry.cents());
+            case "balance_raw", "money_raw", "value_raw" -> MoneyFormatter.rawFromCents(entry.cents());
 
             case "rank", "position" -> "#" + position;
             case "rank_raw", "position_raw" -> String.valueOf(position);
@@ -176,21 +164,9 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
         };
     }
 
-    private String emptyBalTopValue(String field) {
-        return switch (field) {
-            case "name", "username", "player", "player_name",
-                 "displayname", "display_name", "player_displayname", "player_display_name",
-                 "nickname", "nick",
-                 "balance", "balance_formatted", "money", "money_formatted",
-                 "value", "value_formatted", "balance_full", "money_full", "value_full" -> EMPTY_SLOT;
-            case "balance_raw", "money_raw", "value_raw" -> "0";
-            case "rank", "position", "rank_raw", "position_raw" -> EMPTY_SLOT;
-            default -> null;
-        };
-    }
-
     private BalTopEntry balTopEntry(int position) {
         List<Map.Entry<UUID, Long>> entries = economyService.topBalances(position);
+
         if (entries.size() < position) {
             return null;
         }
@@ -215,7 +191,7 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
             return service.displayName(player);
         }
 
-        return DisplayNames.displayName(player);
+        return username(player);
     }
 
     private String nickname(OfflinePlayer player) {
@@ -238,17 +214,6 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
 
     private String tabDisplayName(OfflinePlayer player) {
         return chatDisplayName(player);
-    }
-
-    private String rawMoney(long cents) {
-        try {
-            return MoneyFormatter.rawFromCents(cents);
-        } catch (NoSuchMethodError ignored) {
-            BigDecimal value = BigDecimal.valueOf(cents)
-                    .divide(BigDecimal.valueOf(100L), 2, RoundingMode.DOWN)
-                    .stripTrailingZeros();
-            return value.toPlainString();
-        }
     }
 
     private int rawBalTopRank(UUID playerId) {
@@ -300,98 +265,16 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
         return teamService.isTeamChatEnabled(playerId) ? "Enabled" : "Disabled";
     }
 
-    private int statistic(UUID playerId, Statistic statistic) {
-        Player player = Bukkit.getPlayer(playerId);
-        if (player == null) {
-            return 0;
-        }
-
-        try {
-            return player.getStatistic(statistic);
-        } catch (Exception ignored) {
-            return 0;
-        }
-    }
-
-    private long playtimeSeconds(UUID playerId) {
-        return statistic(playerId, Statistic.PLAY_ONE_MINUTE) / 20L;
-    }
-
-    private String playtime(UUID playerId) {
-        long totalSeconds = playtimeSeconds(playerId);
-        long days = totalSeconds / 86400L;
-        long hours = (totalSeconds % 86400L) / 3600L;
-        long minutes = (totalSeconds % 3600L) / 60L;
-
-        if (days > 0) {
-            return days + "d " + hours + "h";
-        }
-
-        if (hours > 0) {
-            return hours + "h " + minutes + "m";
-        }
-
-        return minutes + "m";
-    }
-
-    private int blocksPlaced(UUID playerId) {
-        Player player = Bukkit.getPlayer(playerId);
-        if (player == null) {
-            return 0;
-        }
-
-        int total = 0;
-        for (Material material : Material.values()) {
-            if (!material.isBlock() || !material.isItem()) {
-                continue;
-            }
-
-            try {
-                total += player.getStatistic(Statistic.USE_ITEM, material);
-            } catch (Exception ignored) {
-            }
-        }
-
-        return total;
-    }
-
-    private int blocksBroken(UUID playerId) {
-        Player player = Bukkit.getPlayer(playerId);
-        if (player == null) {
-            return 0;
-        }
-
-        int total = 0;
-        for (Material material : Material.values()) {
-            if (!material.isBlock()) {
-                continue;
-            }
-
-            try {
-                total += player.getStatistic(Statistic.MINE_BLOCK, material);
-            } catch (Exception ignored) {
-            }
-        }
-
-        return total;
-    }
-
     private String date() {
-        return now().format(DateTimeFormatter.ofPattern(
-                core.getConfig().getString("placeholders.datetime.date-format", "MM/dd/yy")
-        ));
+        return now().format(DateTimeFormatter.ofPattern(core.getConfig().getString("placeholders.datetime.date-format", "MM/dd/yy")));
     }
 
     private String time() {
-        return now().format(DateTimeFormatter.ofPattern(
-                core.getConfig().getString("placeholders.datetime.time-format", "hh:mm")
-        ));
+        return now().format(DateTimeFormatter.ofPattern(core.getConfig().getString("placeholders.datetime.time-format", "hh:mm")));
     }
 
     private String dateTime() {
-        return now().format(DateTimeFormatter.ofPattern(
-                core.getConfig().getString("placeholders.datetime.datetime-format", "MM/dd/yy | hh:mm")
-        ));
+        return now().format(DateTimeFormatter.ofPattern(core.getConfig().getString("placeholders.datetime.datetime-format", "MM/dd/yy | hh:mm")));
     }
 
     private String timeZone() {
@@ -410,10 +293,6 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
         } catch (Exception ignored) {
             return ZoneId.systemDefault();
         }
-    }
-
-    private String emptyIfBlank(String value) {
-        return value == null || value.isBlank() ? EMPTY_SLOT : value;
     }
 
     private record BalTopEntry(OfflinePlayer player, long cents) {
