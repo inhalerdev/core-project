@@ -10,12 +10,12 @@ menus:
         slot: 11
         material: GRASS_BLOCK
         destination: "origins"
-        name: "&aOverworld"
+        name: "&aOrigins"
         lore:
           - "&#bbbbbbExplore the main survival world"
-          - "&#bbbbbbPlayers Online: &a%online%"
+          - "&#bbbbbb%server_online_origins%/300"
           - ""
-          - "&eClick to teleport"
+          - "&aClick to teleport"
       nether:
         enabled: true
         slot: 13
@@ -24,7 +24,7 @@ menus:
         name: "&cNether"
         lore:
           - "&#bbbbbbExplore the Nether dimension"
-          - "&#bbbbbbPlayers Online: &c%online%"
+          - "&#bbbbbb%server_online_origins_nether%/300"
           - ""
           - "&cClick to teleport"
       end:
@@ -35,7 +35,7 @@ menus:
         name: "&#ff88ffThe End"
         lore:
           - "&#bbbbbbExplore the outer End islands"
-          - "&#bbbbbbPlayers Online: &#ff88ff%online%"
+          - "&#bbbbbb%server_online_origins_the_end%/300"
           - ""
           - "&#ff88ffClick to teleport"
 
