@@ -20,30 +20,30 @@ arena:
 queue-zones:
   spawn1:
     world: spawn1
-    x: -35.5
+    x: -63.5
     y: 76.0
-    z: -95.5
-    radius: 5.0
-    min-y: 72.0
-    max-y: 82.0
+    z: -112.5
+    radius: 9.0
+    min-y: 73.0
+    max-y: 81.0
 
   spawn2:
     world: spawn2
-    x: -35.5
+    x: -63.5
     y: 76.0
-    z: -95.5
-    radius: 5.0
-    min-y: 72.0
-    max-y: 82.0
+    z: -112.5
+    radius: 9.0
+    min-y: 73.0
+    max-y: 81.0
 
   spawn3:
     world: spawn3
-    x: -35.5
+    x: -63.5
     y: 76.0
-    z: -95.5
-    radius: 5.0
-    min-y: 72.0
-    max-y: 82.0
+    z: -112.5
+    radius: 9.0
+    min-y: 73.0
+    max-y: 81.0
 
 blocked-commands:
   - spawn
@@ -68,26 +68,26 @@ messages:
   already-in-duel: "&cThat player is already in a duel"
   no-arena: "&cCould not find a safe duel location"
 
-  invite-sent: "&#bbbbbbDuel request sent to &d%target%"
-  invite-received: "&d%player% &#bbbbbbsent you a duel request. Type &d/duel accept"
-  invite-denied: "&d%player% &#bbbbbbdenied your duel request"
-  denied: "&#bbbbbbDuel request denied"
+  invite-sent: "&#bbbbbbDuel request &asent&#bbbbbb to &c%target%"
+  invite-received: "&#bbbbbb%player% &asent&#bbbbbb you a duel request. Type &d/duel accept"
+  invite-denied: "&#bbbbbb%player% &cdenied&#bbbbbb your duel request"
+  denied: "&#bbbbbbDuel request &cdenied"
   no-invite: "&cYou do not have a pending duel request"
   no-outgoing: "&cYou do not have an outgoing duel request"
   inviter-offline: "&cThat player is no longer online"
-  cancelled: "&#bbbbbbDuel request cancelled"
+  cancelled: "&#bbbbbbDuel request &ccancelled"
 
   queue-joined: ""
-  queue-left: "&#bbbbbbNo longer queued for duels"
+  queue-left: "" #&#bbbbbbNo longer queued for duels
   queue-started: ""
   queue-cancelled: ""
-  queue-waiting-actionbar: "&#bbbbbbDuel queue &8» &#bbbbbbWaiting for an opponent"
-  queue-actionbar: "&#bbbbbbDuel queue &8» &d%queued%/%max% &#bbbbbbfighters &8» &#bbbbbbTeleporting in &d%seconds%s"
+  queue-waiting-actionbar: "&#bbbbbbQueue: &eWaiting for an opponent"
+  queue-actionbar: "&#bbbbbbQueue: &a%queued%/%max% teleporting in &d%seconds%s"
   queue-left-actionbar: "&#bbbbbbNo longer queued for duels"
 
-  started: "&#bbbbbbDuel started. Fight to the death"
-  started-actionbar: "&#bbbbbbDuel started"
-  eliminated: "&d%player% &#bbbbbbwas eliminated"
+  started: "&#bbbbbbDuel &astarted&#bbbbbb. Fight to the &cdeath"
+  started-actionbar: "&aDuel started"
+  eliminated: "&#ff88ff%player% &#bbbbbbwas &celiminated"
   finished: "&#bbbbbbDuel finished. Winner: &d%winner%"
-  finished-actionbar: "&#bbbbbbWinner: &d%winner%"
+  finished-actionbar: "&#bbbbbbWinner: &a%winner%"
   forfeit: "&#bbbbbbYou left the duel"
