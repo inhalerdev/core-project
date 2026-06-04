@@ -537,10 +537,12 @@ orders:
 
 stats:
   playtime:
+    import-vanilla-on-first-seen: true
     enabled-worlds:
       - origins
       - origins_nether
       - origins_the_end
+
   combat:
     enabled-worlds:
       - origins

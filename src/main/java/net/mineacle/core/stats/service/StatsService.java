@@ -31,6 +31,7 @@ public final class StatsService {
 
     public void startSession(Player player) {
         storage.ensureProfile(player);
+        seedExistingPlaytime(player);
 
         if (!isPlaytimeWorld(player.getWorld())) {
             playtimeSessionStarted.remove(player.getUniqueId());
@@ -46,6 +47,8 @@ public final class StatsService {
     }
 
     public void switchWorld(Player player) {
+        storage.ensureProfile(player);
+        seedExistingPlaytime(player);
         flushSession(player);
 
         if (isPlaytimeWorld(player.getWorld())) {
@@ -114,6 +117,8 @@ public final class StatsService {
     public long playtimeSeconds(UUID uuid) {
         Player online = Bukkit.getPlayer(uuid);
         if (online != null) {
+            storage.ensureProfile(online);
+            seedExistingPlaytime(online);
             flushSession(online);
         }
 
@@ -152,6 +157,11 @@ public final class StatsService {
 
     public List<StatsStorageService.StatProfile> topPlaytime(int limit) {
         flushAllSessions();
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            storage.ensureProfile(player);
+            seedExistingPlaytime(player);
+        }
 
         return storage.profiles()
                 .values()
@@ -259,9 +269,8 @@ public final class StatsService {
             return false;
         }
 
-        return core.getConfig().getStringList("stats.playtime.enabled-worlds")
+        return enabledWorlds("stats.playtime.enabled-worlds")
                 .stream()
-                .map(value -> value.toLowerCase(Locale.ROOT))
                 .anyMatch(value -> value.equals(world.getName().toLowerCase(Locale.ROOT)));
     }
 
@@ -270,9 +279,8 @@ public final class StatsService {
             return false;
         }
 
-        return core.getConfig().getStringList("stats.combat.enabled-worlds")
+        return enabledWorlds("stats.combat.enabled-worlds")
                 .stream()
-                .map(value -> value.toLowerCase(Locale.ROOT))
                 .anyMatch(value -> value.equals(world.getName().toLowerCase(Locale.ROOT)));
     }
 
@@ -291,5 +299,40 @@ public final class StatsService {
 
     public OfflinePlayer offline(UUID uuid) {
         return Bukkit.getOfflinePlayer(uuid);
+    }
+
+    private void seedExistingPlaytime(Player player) {
+        if (!core.getConfig().getBoolean("stats.playtime.import-vanilla-on-first-seen", true)) {
+            return;
+        }
+
+        long currentNative = storage.playtimeSeconds(player.getUniqueId());
+        if (currentNative > 0L) {
+            return;
+        }
+
+        long vanillaSeconds;
+        try {
+            vanillaSeconds = Math.max(0L, player.getStatistic(Statistic.PLAY_ONE_MINUTE) / 20L);
+        } catch (Exception ignored) {
+            vanillaSeconds = 0L;
+        }
+
+        if (vanillaSeconds > 0L) {
+            storage.setPlaytimeSeconds(player.getUniqueId(), vanillaSeconds);
+        }
+    }
+
+    private List<String> enabledWorlds(String path) {
+        List<String> configured = core.getConfig().getStringList(path);
+
+        if (configured == null || configured.isEmpty()) {
+            return List.of("origins", "origins_nether", "origins_the_end");
+        }
+
+        return configured.stream()
+                .filter(value -> value != null && !value.isBlank())
+                .map(value -> value.toLowerCase(Locale.ROOT))
+                .toList();
     }
 }
