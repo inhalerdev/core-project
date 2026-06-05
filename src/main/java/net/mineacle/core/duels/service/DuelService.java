@@ -40,6 +40,8 @@ public final class DuelService {
 
     private final Map<UUID, DuelInvite> invitesByTarget = new HashMap<>();
     private final Set<UUID> zoneQueued = new HashSet<>();
+    private final Map<UUID, PendingTeleport> pendingTeleportsByPlayer = new HashMap<>();
+    private final Set<PendingTeleport> pendingTeleports = new HashSet<>();
     private final Random random = new Random();
 
     private int zoneCountdown = -1;
@@ -68,6 +70,8 @@ public final class DuelService {
     public void shutdown() {
         zoneQueued.clear();
         invitesByTarget.clear();
+        pendingTeleportsByPlayer.clear();
+        pendingTeleports.clear();
         zoneCountdown = -1;
     }
 
@@ -77,6 +81,10 @@ public final class DuelService {
 
     public boolean queued(Player player) {
         return player != null && zoneQueued.contains(player.getUniqueId());
+    }
+
+    public boolean pendingTeleport(Player player) {
+        return player != null && pendingTeleportsByPlayer.containsKey(player.getUniqueId());
     }
 
     public void removeFromQueue(Player player) {
@@ -102,6 +110,7 @@ public final class DuelService {
 
         updateZoneQueue();
         tickQueue();
+        tickPendingTeleports();
         cleanupInvites();
     }
 
@@ -113,7 +122,7 @@ public final class DuelService {
         }
 
         if (zoneCountdown < 0) {
-            zoneCountdown = countdownSeconds();
+            zoneCountdown = queueCountdownSeconds();
         }
 
         broadcastQueueActionbar();
@@ -122,7 +131,7 @@ public final class DuelService {
             List<Player> players = queuedPlayers();
 
             if (players.size() >= minPlayers()) {
-                startLooseDuel(players);
+                teleportTogether(players);
             }
 
             zoneQueued.clear();
@@ -131,6 +140,36 @@ public final class DuelService {
         }
 
         zoneCountdown--;
+    }
+
+    private void tickPendingTeleports() {
+        for (PendingTeleport pending : new HashSet<>(pendingTeleports)) {
+            List<Player> players = pending.onlinePlayers();
+
+            if (players.size() < pending.minimumPlayers()) {
+                cancelPendingTeleport(pending, config.getString("messages.teleport-cancelled", "&cTeleport cancelled"));
+                continue;
+            }
+
+            if (!pending.samePositions()) {
+                cancelPendingTeleport(pending, config.getString("messages.teleport-cancelled-moved", "&cTeleport cancelled — you moved"));
+                continue;
+            }
+
+            int seconds = pending.secondsRemaining();
+
+            if (seconds <= 0) {
+                completePendingTeleport(pending);
+                continue;
+            }
+
+            String message = config.getString("messages.teleport-countdown-actionbar", "&#bbbbbbDuel teleport in &d%seconds%s")
+                    .replace("%seconds%", String.valueOf(seconds));
+
+            for (Player player : players) {
+                sendActionbar(player, message);
+            }
+        }
     }
 
     private void cleanupInvites() {
@@ -150,6 +189,11 @@ public final class DuelService {
 
         if (!validPlayer(challenger) || !validPlayer(target)) {
             challenger.sendMessage(message("messages.invalid-player", "&cThat player cannot duel right now"));
+            return;
+        }
+
+        if (pendingTeleport(challenger) || pendingTeleport(target)) {
+            challenger.sendMessage(message("messages.already-teleporting", "&cThat player is already preparing for a duel"));
             return;
         }
 
@@ -189,7 +233,7 @@ public final class DuelService {
             return;
         }
 
-        startLooseDuel(List.of(challenger, target));
+        startTeleportCountdown(List.of(challenger, target), minPlayers());
     }
 
     public void deny(Player target) {
@@ -222,6 +266,13 @@ public final class DuelService {
         }
 
         if (found == null) {
+            PendingTeleport pending = pendingTeleportsByPlayer.get(challengerId);
+
+            if (pending != null) {
+                cancelPendingTeleport(pending, config.getString("messages.teleport-cancelled", "&cTeleport cancelled"));
+                return;
+            }
+
             challenger.sendMessage(message("messages.no-outgoing", "&cYou do not have an outgoing duel request"));
             return;
         }
@@ -230,7 +281,59 @@ public final class DuelService {
         challenger.sendMessage(message("messages.cancelled", "&#bbbbbbDuel request &ccancelled"));
     }
 
-    public void startLooseDuel(List<Player> rawPlayers) {
+    private void startTeleportCountdown(List<Player> rawPlayers, int minimumPlayers) {
+        List<Player> players = rawPlayers.stream()
+                .filter(player -> player != null && player.isOnline())
+                .filter(this::validPlayer)
+                .filter(player -> !pendingTeleport(player))
+                .limit(maxPlayers())
+                .toList();
+
+        if (players.size() < minimumPlayers) {
+            return;
+        }
+
+        PendingTeleport pending = new PendingTeleport(players, minimumPlayers, teleportCountdownSeconds());
+
+        pendingTeleports.add(pending);
+
+        for (Player player : players) {
+            zoneQueued.remove(player.getUniqueId());
+            pendingTeleportsByPlayer.put(player.getUniqueId(), pending);
+            player.sendMessage(message("messages.teleport-started", "&#bbbbbbDuel teleport started. Do not move"));
+            sendActionbar(player, config.getString("messages.teleport-countdown-actionbar", "&#bbbbbbDuel teleport in &d%seconds%s")
+                    .replace("%seconds%", String.valueOf(teleportCountdownSeconds())));
+        }
+    }
+
+    private void completePendingTeleport(PendingTeleport pending) {
+        List<Player> players = pending.onlinePlayers();
+        clearPendingTeleport(pending);
+
+        if (players.size() >= pending.minimumPlayers()) {
+            teleportTogether(players);
+        }
+    }
+
+    private void cancelPendingTeleport(PendingTeleport pending, String message) {
+        List<Player> players = pending.onlinePlayers();
+        clearPendingTeleport(pending);
+
+        for (Player player : players) {
+            player.sendMessage(TextColor.color(message));
+            sendActionbar(player, message);
+        }
+    }
+
+    private void clearPendingTeleport(PendingTeleport pending) {
+        pendingTeleports.remove(pending);
+
+        for (UUID id : pending.playerIds()) {
+            pendingTeleportsByPlayer.remove(id);
+        }
+    }
+
+    private void teleportTogether(List<Player> rawPlayers) {
         List<Player> players = rawPlayers.stream()
                 .filter(player -> player != null && player.isOnline())
                 .filter(this::validPlayer)
@@ -258,6 +361,7 @@ public final class DuelService {
 
             Location spawn = location.clone().add(offset(index, players.size()), 0.0D, offset(index + 2, players.size()));
             player.teleport(spawn);
+            sendActionbar(player, config.getString("messages.teleported-actionbar", "&#bbbbbbTeleported to &dOrigins"));
         }
     }
 
@@ -269,7 +373,7 @@ public final class DuelService {
                 continue;
             }
 
-            if (!validPlayer(player)) {
+            if (!validPlayer(player) || pendingTeleport(player)) {
                 continue;
             }
 
@@ -334,7 +438,7 @@ public final class DuelService {
         for (UUID id : zoneQueued) {
             Player player = Bukkit.getPlayer(id);
 
-            if (player != null && player.isOnline() && validPlayer(player)) {
+            if (player != null && player.isOnline() && validPlayer(player) && !pendingTeleport(player)) {
                 players.add(player);
             }
         }
@@ -348,9 +452,9 @@ public final class DuelService {
         String raw;
 
         if (queued < minPlayers()) {
-            raw = config.getString("messages.queue-waiting-actionbar", "&#bbbbbbQueue: &eWaiting for an opponent");
+            raw = config.getString("messages.queue-waiting-actionbar", "&#bbbbbbQueue: &#ff88ffWaiting for an opponent");
         } else {
-            raw = config.getString("messages.queue-actionbar", "&#bbbbbbQueue: &a%queued%/%max% teleporting in &d%seconds%s")
+            raw = config.getString("messages.queue-actionbar", "&#bbbbbbQueue: &#ff88ff%queued%/%max%&#bbbbbb teleporting in &d%seconds%s")
                     .replace("%seconds%", String.valueOf(Math.max(0, zoneCountdown)))
                     .replace("%queued%", String.valueOf(queued))
                     .replace("%min%", String.valueOf(minPlayers()))
@@ -370,17 +474,17 @@ public final class DuelService {
         }
 
         WorldBorder border = world.getWorldBorder();
-        Location center = border.getCenter();
+        Location center = new Location(world, config.getDouble("destination.center-x", border.getCenter().getX()), 64.0D, config.getDouble("destination.center-z", border.getCenter().getZ()));
         double borderRadius = Math.max(16.0D, border.getSize() / 2.0D - 32.0D);
-        double maxRadius = config.getDouble("destination.max-radius", config.getDouble("arena.max-radius", 0.0D));
+        double maxRadius = config.getDouble("destination.max-radius", config.getDouble("arena.max-radius", 48000.0D));
 
         if (maxRadius <= 0.0D) {
             maxRadius = borderRadius;
         }
 
         double radius = Math.min(borderRadius, maxRadius);
-        double minRadius = Math.max(0.0D, config.getDouble("destination.min-radius", config.getDouble("arena.min-radius", 250.0D)));
-        int attempts = Math.max(10, config.getInt("destination.find-location-attempts", config.getInt("arena.find-location-attempts", 80)));
+        double minRadius = Math.max(0.0D, config.getDouble("destination.min-radius", config.getDouble("arena.min-radius", 5000.0D)));
+        int attempts = Math.max(10, config.getInt("destination.find-location-attempts", config.getInt("arena.find-location-attempts", 120)));
 
         for (int attempt = 0; attempt < attempts; attempt++) {
             double distance = minRadius + (random.nextDouble() * Math.max(1.0D, radius - minRadius));
@@ -511,8 +615,12 @@ public final class DuelService {
         return Math.max(minPlayers(), config.getInt("queue.max-players", 8));
     }
 
-    private int countdownSeconds() {
+    private int queueCountdownSeconds() {
         return Math.max(3, config.getInt("queue.countdown-seconds", 30));
+    }
+
+    private int teleportCountdownSeconds() {
+        return Math.max(3, config.getInt("teleport.countdown-seconds", 30));
     }
 
     private int inviteTimeoutSeconds() {
@@ -565,11 +673,76 @@ public final class DuelService {
         config.addDefault("queue.min-players", 2);
         config.addDefault("queue.max-players", 8);
         config.addDefault("queue.countdown-seconds", 30);
+        config.addDefault("teleport.countdown-seconds", 30);
         config.addDefault("duel-request.timeout-seconds", 60);
         config.addDefault("destination.world", "origins");
-        config.addDefault("destination.min-radius", 250);
-        config.addDefault("destination.max-radius", 0);
-        config.addDefault("destination.find-location-attempts", 80);
+        config.addDefault("destination.center-x", 0);
+        config.addDefault("destination.center-z", 1);
+        config.addDefault("destination.min-radius", 5000);
+        config.addDefault("destination.max-radius", 48000);
+        config.addDefault("destination.find-location-attempts", 120);
         config.options().copyDefaults(true);
+    }
+
+    private final class PendingTeleport {
+
+        private final Set<UUID> playerIds = new HashSet<>();
+        private final Map<UUID, Location> startLocations = new HashMap<>();
+        private final int minimumPlayers;
+        private final long completeAt;
+
+        private PendingTeleport(List<Player> players, int minimumPlayers, int countdownSeconds) {
+            this.minimumPlayers = minimumPlayers;
+            this.completeAt = System.currentTimeMillis() + (countdownSeconds * 1000L);
+
+            for (Player player : players) {
+                playerIds.add(player.getUniqueId());
+                startLocations.put(player.getUniqueId(), player.getLocation().clone());
+            }
+        }
+
+        private Set<UUID> playerIds() {
+            return playerIds;
+        }
+
+        private int minimumPlayers() {
+            return minimumPlayers;
+        }
+
+        private int secondsRemaining() {
+            return (int) Math.ceil((completeAt - System.currentTimeMillis()) / 1000.0D);
+        }
+
+        private List<Player> onlinePlayers() {
+            List<Player> players = new ArrayList<>();
+
+            for (UUID id : playerIds) {
+                Player player = Bukkit.getPlayer(id);
+
+                if (player != null && player.isOnline() && validPlayer(player)) {
+                    players.add(player);
+                }
+            }
+
+            return players;
+        }
+
+        private boolean samePositions() {
+            for (Player player : onlinePlayers()) {
+                Location start = startLocations.get(player.getUniqueId());
+
+                if (start == null || start.getWorld() == null || !start.getWorld().equals(player.getWorld())) {
+                    return false;
+                }
+
+                Location current = player.getLocation();
+
+                if (start.distanceSquared(current) > 4.0D) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
     }
 }

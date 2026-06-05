@@ -5,6 +5,9 @@ queue:
   max-players: 8
   countdown-seconds: 30
 
+teleport:
+  countdown-seconds: 30
+
 duel-request:
   timeout-seconds: 60
 
@@ -48,6 +51,7 @@ messages:
   disabled: "&cDuels are disabled"
   self: "&cYou cannot duel yourself"
   invalid-player: "&cThat player cannot duel right now"
+  already-teleporting: "&cThat player is already preparing for a duel"
   no-arena: "&cCould not find a safe duel location"
 
   invite-sent: "&#bbbbbbDuel request &asent &#bbbbbbto &c%target%"
@@ -63,6 +67,12 @@ messages:
   no-outgoing: "&cYou do not have an outgoing duel request"
   inviter-offline: "&cThat player is no longer online"
   cancelled: "&#bbbbbbDuel request &ccancelled"
+
+  teleport-started: "&#bbbbbbDuel teleport started. Do not move"
+  teleport-countdown-actionbar: "&#bbbbbbDuel teleport in &d%seconds%s"
+  teleport-cancelled: "&cTeleport cancelled"
+  teleport-cancelled-moved: "&cTeleport cancelled — you moved"
+  teleported-actionbar: "&#bbbbbbTeleported to &dOrigins"
 
   queue-waiting-actionbar: "&#bbbbbbQueue: &#ff88ffWaiting for an opponent"
   queue-actionbar: "&#bbbbbbQueue: &#ff88ff%queued%/%max%&#bbbbbb teleporting in &d%seconds%s"
