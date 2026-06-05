@@ -10,9 +10,11 @@ duel-request:
 
 destination:
   world: origins
-  min-radius: 250
-  max-radius: 0
-  find-location-attempts: 80
+  center-x: 0
+  center-z: 1
+  min-radius: 5000
+  max-radius: 48000
+  find-location-attempts: 120
 
 queue-zones:
   spawn1:
@@ -62,6 +64,6 @@ messages:
   inviter-offline: "&cThat player is no longer online"
   cancelled: "&#bbbbbbDuel request &ccancelled"
 
-  queue-waiting-actionbar: "&#bbbbbbQueue: &eWaiting for an opponent"
-  queue-actionbar: "&#bbbbbbQueue: &a%queued%/%max% teleporting in &d%seconds%s"
+  queue-waiting-actionbar: "&#bbbbbbQueue: &#ff88ffWaiting for an opponent"
+  queue-actionbar: "&#bbbbbbQueue: &#ff88ff%queued%/%max%&#bbbbbb teleporting in &d%seconds%s"
   queue-left-actionbar: "&#bbbbbbNo longer queued"

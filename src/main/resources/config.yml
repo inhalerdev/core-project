@@ -128,11 +128,18 @@ placeholders:
 origin-rtp:
   enabled: true
   world: origins
+
   destinations:
     origins:
       enabled: true
       display-name: Origins
       world: origins
+      search:
+        min-y: 64
+        max-y: 320
+        min-radius: 5000
+        max-radius: 48000
+
     nether:
       enabled: true
       display-name: Nether
@@ -140,8 +147,9 @@ origin-rtp:
       search:
         min-y: 32
         max-y: 118
-        min-radius: 500
-        max-radius: 10000
+        min-radius: 5000
+        max-radius: 48000
+
     end:
       enabled: true
       display-name: End
@@ -149,31 +157,34 @@ origin-rtp:
       search:
         min-y: 48
         max-y: 256
-        min-radius: 500
-        max-radius: 10000
+        min-radius: 5000
+        max-radius: 48000
+
   queue:
     enabled: true
     process-every-ticks: 10
     max-processing-at-once: 2
-  default:
-    delay-seconds: 5
-  plus:
-    permission: mineacle.plus
-    delay-seconds: 3
-    priority: true
+    default:
+      delay-seconds: 5
+    plus:
+      permission: mineacle.plus
+      delay-seconds: 3
+      priority: true
+
   teleport:
     cancel-on-move: true
     cancel-distance: 1.0
+
   search:
     use-world-border: false
     center-x: 0
-    center-z: 0
-    min-radius: 500
-    max-radius: 10000
+    center-z: 1
+    min-radius: 5000
+    max-radius: 48000
     shape: square
     min-y: 64
     max-y: 320
-    max-attempts: 512
+    max-attempts: 768
     preload-radius: 1
     respect-worldguard: false
     unsafe-blocks:
@@ -200,6 +211,7 @@ origin-rtp:
       - CHERRY_LEAVES
       - AZALEA_LEAVES
       - FLOWERING_AZALEA_LEAVES
+
   messages:
     disabled: "&cRTP is disabled"
     already-queued: "&cYou are already queued for RTP"
