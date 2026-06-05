@@ -9,6 +9,8 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Locale;
@@ -24,9 +26,14 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String[] args) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage("Players only");
+            return true;
+        }
+
+        if (!player.hasPermission("mineaclewarps.use")) {
+            player.sendMessage(warpService.noPermissionMessage());
             return true;
         }
 
@@ -39,7 +46,7 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
         WarpPoint warp = warpService.warp(warpId);
 
         if (warp == null) {
-            player.sendMessage(TextColor.color("&cUnknown warp"));
+            player.sendMessage(warpService.notFoundMessage(args[0]));
             sendAvailable(player);
             return true;
         }
@@ -49,7 +56,7 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
     }
 
     private void sendUsage(Player player) {
-        player.sendMessage(TextColor.color("&#bbbbbbUsage: &d/warp <location>"));
+        player.sendMessage(TextColor.color("&#bbbbbbUsage: &d/warp <warp>"));
         sendAvailable(player);
     }
 
@@ -65,11 +72,15 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
     }
 
     @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length != 1) {
+    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, String[] args) {
+        if (!sender.hasPermission("mineaclewarps.use")) {
             return List.of();
         }
 
-        return warpService.warpKeys("");
+        if (args.length == 1) {
+            return warpService.warpKeys(args[0]);
+        }
+
+        return List.of();
     }
 }

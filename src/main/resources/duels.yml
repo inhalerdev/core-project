@@ -73,8 +73,8 @@ messages:
   cancelled: "&#bbbbbbDuel request &ccancelled"
 
   queue-left: "&#bbbbbbNo longer queued"
-  queue-waiting-actionbar: "&#bbbbbbQueue: &eWaiting for an opponent"
-  queue-actionbar: "&#bbbbbbQueue: &a%queued%/%max% teleporting in &d%seconds%s"
+  queue-waiting-actionbar: "&#bbbbbbQueue: &#ff88ffWaiting for an opponent"
+  queue-actionbar: "&#bbbbbbQueue: &#ff88ff%queued%/%max%&#bbbbbb teleporting in &d%seconds%s"
   queue-left-actionbar: "&#bbbbbbNo longer queued"
 
   matched: "&#bbbbbbMatched into &dOrigins&#bbbbbb. Prepare to fight"

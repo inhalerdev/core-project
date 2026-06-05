@@ -20,12 +20,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Random;
 
 public final class WarpService {
 
     private final Core core;
     private final File file;
-
+    private final Random random = new Random();
     private FileConfiguration config;
 
     public WarpService(Core core) {
@@ -59,7 +60,7 @@ public final class WarpService {
     }
 
     public String notFoundMessage(String name) {
-        return TextColor.color(config().getString("messages.not-found", "&cWarp not found").replace("%warp%", name));
+        return TextColor.color(config().getString("messages.not-found", "&cThat warp does not exist").replace("%warp%", name));
     }
 
     public String setMessage(String name) {
@@ -126,32 +127,28 @@ public final class WarpService {
         if (isSpawnWorld(player.getWorld().getName())) {
             world = player.getWorld();
         } else {
-            world = leastPopulatedSpawnWorld().orElse(player.getWorld());
+            world = randomLoadedSpawnWorld().orElse(player.getWorld());
         }
 
         return new Location(world, point.x(), point.y(), point.z(), point.yaw(), point.pitch());
     }
 
-    public Optional<World> leastPopulatedSpawnWorld() {
-        World best = null;
-        int bestCount = Integer.MAX_VALUE;
+    public Optional<World> randomLoadedSpawnWorld() {
+        List<World> loaded = new ArrayList<>();
 
         for (String worldName : spawnWorlds()) {
             World world = Bukkit.getWorld(worldName);
 
-            if (world == null) {
-                continue;
-            }
-
-            int count = world.getPlayers().size();
-
-            if (best == null || count < bestCount) {
-                best = world;
-                bestCount = count;
+            if (world != null) {
+                loaded.add(world);
             }
         }
 
-        return Optional.ofNullable(best);
+        if (loaded.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(loaded.get(random.nextInt(loaded.size())));
     }
 
     public List<WarpPoint> warps() {
@@ -213,7 +210,15 @@ public final class WarpService {
             return Collections.emptyList();
         }
 
-        List<String> keys = new ArrayList<>(section.getKeys(false));
+        String filter = partial == null ? "" : partial.toLowerCase(Locale.ROOT);
+        List<String> keys = new ArrayList<>();
+
+        for (String key : section.getKeys(false)) {
+            if (filter.isBlank() || key.toLowerCase(Locale.ROOT).startsWith(filter)) {
+                keys.add(key);
+            }
+        }
+
         keys.sort(String.CASE_INSENSITIVE_ORDER);
         return keys;
     }

@@ -1,4 +1,4 @@
-ackage net.mineacle.core;
+package net.mineacle.core;
 
 import net.mineacle.core.baltop.BalTopModule;
 import net.mineacle.core.bootstrap.Module;
@@ -16,7 +16,6 @@ import net.mineacle.core.links.LinksModule;
 import net.mineacle.core.nametag.NametagModule;
 import net.mineacle.core.orders.OrdersModule;
 import net.mineacle.core.placeholders.PlaceholdersModule;
-import net.mineacle.core.punish.PunishModule;
 import net.mineacle.core.rtp.RtpModule;
 import net.mineacle.core.sell.SellModule;
 import net.mineacle.core.security.SecurityModule;
@@ -25,6 +24,7 @@ import net.mineacle.core.spawnprotection.SpawnProtectionModule;
 import net.mineacle.core.stats.StatsModule;
 import net.mineacle.core.teams.TeamsModule;
 import net.mineacle.core.tpa.TpaModule;
+import net.mineacle.core.warp.WarpModule;
 import net.mineacle.core.worldmaintenance.WorldMaintenanceModule;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -80,11 +80,11 @@ public final class Core extends JavaPlugin {
             registerModule(new ChatModule());
             registerModule(new LinksModule());
             registerModule(new SecurityModule());
-            registerModule(new PunishModule());
             registerModule(new NametagModule());
             registerModule(new HideModule());
             registerModule(new PlaceholdersModule());
             registerModule(new SpawnModule());
+            registerModule(new WarpModule());
             registerModule(new SpawnProtectionModule());
             registerModule(new DoubleJumpModule());
             registerModule(new RtpModule());

@@ -69,7 +69,11 @@ public final class SecurityService {
         }
 
         if (!parsed.subCommand().isBlank() && hasSubcommandRules(parsed.command())) {
-            return !allowedSubCommands(player, parsed.command()).contains(parsed.subCommand());
+            Set<String> allowed = allowedSubCommands(player, parsed.command());
+
+            if (!allowed.isEmpty()) {
+                return !allowed.contains(parsed.subCommand());
+            }
         }
 
         return false;
@@ -105,15 +109,17 @@ public final class SecurityService {
         String raw = buffer == null ? "" : buffer;
 
         /*
-         * Important:
-         * Do NOT filter follow-up suggestions here.
+         * Do not filter suggestions after a space.
          *
-         * Minecraft shows the automatic suggestion bar for subcommands from each
-         * command's TabCompleter. Filtering here after a space can stop the client from
-         * showing the full suggestion list until the player types another character.
+         * This preserves Minecraft's automatic subcommand suggestion pills:
+         * /warp <space>
+         * /sell <space>
+         * /team <space>
+         * /bounty <space>
          *
-         * Security still blocks forbidden subcommands on execution in shouldBlock().
-         * Individual command TabCompleters should hide admin options visually.
+         * Root command filtering is still handled here.
+         * Forbidden admin subcommands are still blocked on execution by shouldBlock().
+         * Individual command TabCompleters should hide admin-only subcommands visually.
          */
         if (raw.contains(" ")) {
             return completions;
@@ -226,13 +232,16 @@ public final class SecurityService {
     }
 
     private boolean hasSubcommandRules(String command) {
-        return config.isConfigurationSection("groups.default.subcommands." + normalize(command))
-                || config.isConfigurationSection("groups.plus.subcommands." + normalize(command))
-                || config.isConfigurationSection("groups.admin.subcommands." + normalize(command));
+        String normalized = normalize(command);
+
+        return config.isConfigurationSection("groups.default.subcommands." + normalized)
+                || config.isConfigurationSection("groups.plus.subcommands." + normalized)
+                || config.isConfigurationSection("groups.admin.subcommands." + normalized);
     }
 
     private void loadGroups() {
         groups.clear();
+
         ConfigurationSection section = config.getConfigurationSection("groups");
 
         if (section == null) {
@@ -243,6 +252,7 @@ public final class SecurityService {
         for (String key : section.getKeys(false)) {
             String path = "groups." + key;
             String groupName = normalizeGroup(key);
+
             Set<String> visible = new LinkedHashSet<>();
             visible.addAll(normalizeList(config.getStringList(path + ".visible-commands")));
             visible.addAll(normalizeList(config.getStringList(path + ".commands")));
@@ -433,6 +443,7 @@ public final class SecurityService {
         String[] parts = trimmed.split("\\s+", 3);
         String command = parts.length >= 1 ? normalize(parts[0]) : "";
         String sub = parts.length >= 2 ? normalize(parts[1]) : "";
+
         return new ParsedCommand(command, sub);
     }
 
