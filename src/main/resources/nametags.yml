@@ -7,7 +7,7 @@ worlds:
 
 colors:
   op: "#ff88ff"
-  default: "#ffffff"
+  default: "#bbbbbb"
 
 rank:
   use-placeholderapi: true
