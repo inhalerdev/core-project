@@ -214,13 +214,13 @@ origin-rtp:
 
   messages:
     disabled: "&cRTP is disabled"
-    already-queued: "&cYou are already queued for RTP"
-    queued: "&#bbbbbbQueued for &d%world% RTP"
+    already-queued: "&#ff88ffQueued:&#bbbbbb You are already in the random teleport queue"
+    queued: "&#ff88ffQueued:&#bbbbbb Finding you a safe spot in &d%world%"
     queued-position: "&#bbbbbbQueued for &d%world% RTP &#bbbbbbPosition &d#%position%"
     countdown: "&#bbbbbbTeleporting to &d%world% &#bbbbbbin &d%seconds%s"
     cancelled: "&cTeleport cancelled — you moved"
-    searching: "&#bbbbbbFinding a safe location in &d%world%"
-    failed: "&cCould not find a safe location in &d%world%"
+    searching: "&#ff88ffQueued:&#bbbbbb Finding you a safe spot in &d%world%"
+    failed: "&#bbbbbbCould not find a &csafe&#bbbbbb location in &d%world%"
     teleported: "&#bbbbbbTeleported to &d%world%"
 
 double-jump:

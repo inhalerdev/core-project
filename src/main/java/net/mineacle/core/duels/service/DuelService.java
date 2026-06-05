@@ -5,6 +5,7 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
+import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.duels.model.DuelInvite;
 import org.bukkit.Bukkit;
@@ -151,8 +152,10 @@ public final class DuelService {
                 continue;
             }
 
-            if (!pending.samePositions()) {
-                cancelPendingTeleport(pending, config.getString("messages.teleport-cancelled-moved", "&cTeleport cancelled — you moved"));
+            Player moved = pending.movedPlayer();
+
+            if (moved != null) {
+                cancelPendingTeleportMoved(pending, moved);
                 continue;
             }
 
@@ -203,17 +206,25 @@ public final class DuelService {
         challenger.sendMessage(message("messages.invite-sent", "&#bbbbbbDuel request &asent &#bbbbbbto &c%target%")
                 .replace("%target%", displayName(target)));
 
-        target.sendMessage(message("messages.invite-received-header", "&#bbbbbb%player% &asent &#bbbbbbyou a duel request")
-                .replace("%player%", displayName(challenger)));
+        String challengerName = DisplayNames.prefixedDisplayName(challenger);
+        String mainLine = config.getString("messages.invite-received-header", "%player% &#bbbbbbsent you a duel request")
+                .replace("%player%", challengerName);
 
-        Component buttons = legacy(config.getString("messages.invite-buttons-prefix", ""))
-                .append(legacy(config.getString("messages.accept-button", "&a&l[ACCEPT]"))
-                        .clickEvent(ClickEvent.runCommand("/duel accept"))
-                        .hoverEvent(HoverEvent.showText(legacy(config.getString("messages.accept-hover", "&#bbbbbbAccept duel request")))))
-                .append(legacy(" "))
-                .append(legacy(config.getString("messages.deny-button", "&c&l[DENY]"))
-                        .clickEvent(ClickEvent.runCommand("/duel deny"))
-                        .hoverEvent(HoverEvent.showText(legacy(config.getString("messages.deny-hover", "&#bbbbbbDeny duel request")))));
+        target.sendActionBar(legacy(mainLine));
+        target.sendMessage(legacy(mainLine));
+
+        Component accept = legacy(config.getString("messages.accept-button", "&d[Accept]"))
+                .clickEvent(ClickEvent.runCommand("/duel accept"))
+                .hoverEvent(HoverEvent.showText(legacy(config.getString("messages.accept-hover", "&#bbbbbbAccept duel request"))));
+
+        Component deny = legacy(config.getString("messages.deny-button", "&d[Deny]"))
+                .clickEvent(ClickEvent.runCommand("/duel deny"))
+                .hoverEvent(HoverEvent.showText(legacy(config.getString("messages.deny-hover", "&#bbbbbbDeny duel request"))));
+
+        Component buttons = legacy(config.getString("messages.respond-prefix", "&#bbbbbbRespond "))
+                .append(accept)
+                .append(Component.space())
+                .append(deny);
 
         target.sendMessage(buttons);
     }
@@ -312,6 +323,22 @@ public final class DuelService {
 
         if (players.size() >= pending.minimumPlayers()) {
             teleportTogether(players);
+        }
+    }
+
+    private void cancelPendingTeleportMoved(PendingTeleport pending, Player moved) {
+        List<Player> players = pending.onlinePlayers();
+        clearPendingTeleport(pending);
+
+        String movedName = DisplayNames.displayName(moved);
+        String moverMessage = config.getString("messages.teleport-cancelled-moved", "&cTeleport cancelled — you moved");
+        String otherMessage = config.getString("messages.teleport-cancelled-other-moved", "&cDuel cancelled — %player% moved")
+                .replace("%player%", movedName);
+
+        for (Player player : players) {
+            String message = player.getUniqueId().equals(moved.getUniqueId()) ? moverMessage : otherMessage;
+            player.sendMessage(TextColor.color(message));
+            sendActionbar(player, message);
         }
     }
 
@@ -727,22 +754,22 @@ public final class DuelService {
             return players;
         }
 
-        private boolean samePositions() {
+        private Player movedPlayer() {
             for (Player player : onlinePlayers()) {
                 Location start = startLocations.get(player.getUniqueId());
 
                 if (start == null || start.getWorld() == null || !start.getWorld().equals(player.getWorld())) {
-                    return false;
+                    return player;
                 }
 
                 Location current = player.getLocation();
 
                 if (start.distanceSquared(current) > 4.0D) {
-                    return false;
+                    return player;
                 }
             }
 
-            return true;
+            return null;
         }
     }
 }
