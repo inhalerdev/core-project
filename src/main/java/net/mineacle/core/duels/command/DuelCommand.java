@@ -151,8 +151,7 @@ public final class DuelCommand implements CommandExecutor, TabCompleter {
     }
 
     private void sendUsage(Player player, String label) {
-        player.sendMessage(TextColor.color("&dMineacle &8» &#bbbbbbUse &d/" + label + " <player>"));
-        player.sendMessage(TextColor.color("&#bbbbbbOr stand in the duel queue circle with another player"));
+        player.sendMessage(TextColor.color("&cUsage /" + label + " <player>"));
     }
 
     @Override
