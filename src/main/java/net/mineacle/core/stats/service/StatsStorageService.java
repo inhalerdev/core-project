@@ -1,6 +1,7 @@
 package net.mineacle.core.stats.service;
 
 import net.mineacle.core.Core;
+import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -8,8 +9,9 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 
 public final class StatsStorageService {
@@ -75,33 +77,8 @@ public final class StatsStorageService {
         }
     }
 
-    public Map<UUID, StatProfile> profiles() {
-        Map<UUID, StatProfile> profiles = new LinkedHashMap<>();
-        ConfigurationSection section = config.getConfigurationSection("players");
-
-        if (section == null) {
-            return profiles;
-        }
-
-        for (String key : section.getKeys(false)) {
-            UUID uuid;
-            try {
-                uuid = UUID.fromString(key);
-            } catch (IllegalArgumentException ignored) {
-                continue;
-            }
-
-            String path = "players." + key;
-            profiles.put(uuid, new StatProfile(
-                    uuid,
-                    config.getString(path + ".name", ""),
-                    config.getLong(path + ".playtime-seconds", 0L),
-                    config.getLong(path + ".kills", 0L),
-                    config.getLong(path + ".deaths", 0L)
-            ));
-        }
-
-        return profiles;
+    public OfflinePlayer offline(UUID uuid) {
+        return Bukkit.getOfflinePlayer(uuid);
     }
 
     public long playtimeSeconds(UUID uuid) {
@@ -136,10 +113,91 @@ public final class StatsStorageService {
         config.set(profilePath(uuid) + ".deaths", deaths(uuid) + 1L);
     }
 
+    public List<StatProfile> profiles() {
+        ConfigurationSection section = config.getConfigurationSection("players");
+
+        if (section == null) {
+            return List.of();
+        }
+
+        List<StatProfile> profiles = new ArrayList<>();
+
+        for (String key : section.getKeys(false)) {
+            try {
+                UUID uuid = UUID.fromString(key);
+                profiles.add(new StatProfile(
+                        uuid,
+                        config.getString("players." + key + ".name", ""),
+                        config.getLong("players." + key + ".kills", 0L),
+                        config.getLong("players." + key + ".deaths", 0L),
+                        config.getLong("players." + key + ".playtime-seconds", 0L)
+                ));
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+
+        return profiles;
+    }
+
+    public List<StatProfile> topKills(int limit) {
+        return top(limit, Comparator
+                .comparingLong(StatProfile::kills)
+                .thenComparingLong(StatProfile::playtimeSeconds)
+                .reversed());
+    }
+
+    public List<StatProfile> topDeaths(int limit) {
+        return top(limit, Comparator
+                .comparingLong(StatProfile::deaths)
+                .thenComparingLong(StatProfile::playtimeSeconds)
+                .reversed());
+    }
+
+    public List<StatProfile> topPlaytime(int limit) {
+        return top(limit, Comparator
+                .comparingLong(StatProfile::playtimeSeconds)
+                .thenComparingLong(StatProfile::kills)
+                .reversed());
+    }
+
+    public int rankKills(UUID uuid) {
+        return rank(uuid, topKills(Integer.MAX_VALUE));
+    }
+
+    public int rankDeaths(UUID uuid) {
+        return rank(uuid, topDeaths(Integer.MAX_VALUE));
+    }
+
+    public int rankPlaytime(UUID uuid) {
+        return rank(uuid, topPlaytime(Integer.MAX_VALUE));
+    }
+
+    private List<StatProfile> top(int limit, Comparator<StatProfile> comparator) {
+        List<StatProfile> profiles = new ArrayList<>(profiles());
+        profiles.removeIf(profile -> profile.kills() <= 0L && profile.deaths() <= 0L && profile.playtimeSeconds() <= 0L);
+        profiles.sort(comparator);
+
+        if (limit <= 0 || profiles.size() <= limit) {
+            return profiles;
+        }
+
+        return profiles.subList(0, limit);
+    }
+
+    private int rank(UUID uuid, List<StatProfile> profiles) {
+        for (int i = 0; i < profiles.size(); i++) {
+            if (profiles.get(i).uuid().equals(uuid)) {
+                return i + 1;
+            }
+        }
+
+        return 0;
+    }
+
     private String profilePath(UUID uuid) {
         return "players." + uuid;
     }
 
-    public record StatProfile(UUID uuid, String name, long playtimeSeconds, long kills, long deaths) {
+    public record StatProfile(UUID uuid, String name, long kills, long deaths, long playtimeSeconds) {
     }
 }

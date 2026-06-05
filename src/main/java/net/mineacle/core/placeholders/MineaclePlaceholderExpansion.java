@@ -7,6 +7,7 @@ import net.mineacle.core.chat.service.NicknameService;
 import net.mineacle.core.common.format.MoneyFormatter;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.stats.service.StatsService;
+import net.mineacle.core.stats.service.StatsStorageService;
 import net.mineacle.core.teams.model.TeamMemberRecord;
 import net.mineacle.core.teams.model.TeamRecord;
 import net.mineacle.core.teams.service.TeamService;
@@ -26,6 +27,8 @@ import java.util.Map;
 import java.util.UUID;
 
 public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
+
+    private static final String EMPTY_SLOT = "---";
 
     private final Core core;
     private final EconomyService economyService;
@@ -67,10 +70,25 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
     @Override
     public @Nullable String onRequest(OfflinePlayer player, @NotNull String params) {
         String key = params.toLowerCase(Locale.ROOT);
-        String globalBalTop = globalBalTopPlaceholder(key);
 
+        String globalBalTop = globalBalTopPlaceholder(key);
         if (globalBalTop != null) {
             return globalBalTop;
+        }
+
+        String globalKills = globalStatsPlaceholder(key, "kills");
+        if (globalKills != null) {
+            return globalKills;
+        }
+
+        String globalDeaths = globalStatsPlaceholder(key, "deaths");
+        if (globalDeaths != null) {
+            return globalDeaths;
+        }
+
+        String globalPlaytime = globalStatsPlaceholder(key, "playtime");
+        if (globalPlaytime != null) {
+            return globalPlaytime;
         }
 
         if (player == null) {
@@ -95,6 +113,13 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
             case "baltop_value", "baltop_value_formatted", "baltop_balance", "baltop_balance_formatted" -> compactMoney(economyService.getBalanceCents(uuid));
             case "baltop_value_raw", "baltop_balance_raw" -> MoneyFormatter.rawFromCents(economyService.getBalanceCents(uuid));
 
+            case "kills_rank" -> formattedRank(statsService.rankKills(uuid));
+            case "kills_rank_raw" -> String.valueOf(statsService.rankKills(uuid));
+            case "deaths_rank" -> formattedRank(statsService.rankDeaths(uuid));
+            case "deaths_rank_raw" -> String.valueOf(statsService.rankDeaths(uuid));
+            case "playtime_rank" -> formattedRank(statsService.rankPlaytime(uuid));
+            case "playtime_rank_raw" -> String.valueOf(statsService.rankPlaytime(uuid));
+
             case "team_name" -> teamName(uuid);
             case "team_role", "team_rank" -> teamRole(uuid);
             case "team_member_count", "team_members" -> teamMemberCount(uuid);
@@ -118,6 +143,94 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
         };
     }
 
+    private String globalStatsPlaceholder(String key, String type) {
+        if (!key.startsWith(type + "_")) {
+            return null;
+        }
+
+        String rest = key.substring((type + "_").length());
+
+        if (rest.equals("rank") || rest.equals("rank_raw")) {
+            return null;
+        }
+
+        int split = rest.indexOf('_');
+
+        if (split <= 0 || split >= rest.length() - 1) {
+            return null;
+        }
+
+        int position;
+
+        try {
+            position = Integer.parseInt(rest.substring(0, split));
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+
+        String field = rest.substring(split + 1);
+
+        if (position < 1 || position > 100) {
+            return emptyStatValue(field);
+        }
+
+        StatsStorageService.StatProfile profile = switch (type) {
+            case "kills" -> statEntry(statsService.topKills(position), position);
+            case "deaths" -> statEntry(statsService.topDeaths(position), position);
+            case "playtime" -> statEntry(statsService.topPlaytime(position), position);
+            default -> null;
+        };
+
+        if (profile == null) {
+            return emptyStatValue(field);
+        }
+
+        OfflinePlayer statPlayer = statsService.offline(profile.uuid());
+
+        return switch (field) {
+            case "name", "username", "player", "player_name" -> username(statPlayer);
+            case "displayname", "display_name", "player_displayname", "player_display_name" -> displayName(statPlayer);
+            case "nickname", "nick" -> emptyIfBlank(nickname(statPlayer));
+            case "value" -> rawStatValue(type, profile);
+            case "kills" -> type.equals("kills") ? String.valueOf(profile.kills()) : null;
+            case "deaths" -> type.equals("deaths") ? String.valueOf(profile.deaths()) : null;
+            case "time", "playtime" -> type.equals("playtime") ? statsService.formatPlaytime(profile.playtimeSeconds()) : null;
+            case "seconds", "playtime_seconds", "value_raw" -> type.equals("playtime") ? String.valueOf(profile.playtimeSeconds()) : rawStatValue(type, profile);
+            case "rank", "position" -> "#" + position;
+            case "rank_raw", "position_raw" -> String.valueOf(position);
+            default -> null;
+        };
+    }
+
+    private StatsStorageService.StatProfile statEntry(List<StatsStorageService.StatProfile> profiles, int position) {
+        if (profiles.size() < position) {
+            return null;
+        }
+
+        return profiles.get(position - 1);
+    }
+
+    private String rawStatValue(String type, StatsStorageService.StatProfile profile) {
+        return switch (type) {
+            case "kills" -> String.valueOf(profile.kills());
+            case "deaths" -> String.valueOf(profile.deaths());
+            case "playtime" -> String.valueOf(profile.playtimeSeconds());
+            default -> "0";
+        };
+    }
+
+    private String emptyStatValue(String field) {
+        return switch (field) {
+            case "name", "username", "player", "player_name",
+                 "displayname", "display_name", "player_displayname", "player_display_name",
+                 "nickname", "nick",
+                 "value", "kills", "deaths", "time", "playtime",
+                 "rank", "position", "rank_raw", "position_raw" -> EMPTY_SLOT;
+            case "seconds", "playtime_seconds", "value_raw" -> "0";
+            default -> null;
+        };
+    }
+
     private String globalBalTopPlaceholder(String key) {
         if (!key.startsWith("baltop_")) {
             return null;
@@ -130,35 +243,48 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
             return null;
         }
 
-        String positionRaw = rest.substring(0, split);
-        String field = rest.substring(split + 1);
         int position;
 
         try {
-            position = Integer.parseInt(positionRaw);
+            position = Integer.parseInt(rest.substring(0, split));
         } catch (NumberFormatException ignored) {
             return null;
         }
 
+        String field = rest.substring(split + 1);
+
         if (position < 1 || position > 100) {
-            return "---";
+            return emptyBalTopValue(field);
         }
 
         BalTopEntry entry = balTopEntry(position);
 
         if (entry == null) {
-            return field.endsWith("_raw") ? "0" : "---";
+            return emptyBalTopValue(field);
         }
 
         return switch (field) {
             case "name", "username", "player", "player_name" -> username(entry.player());
             case "displayname", "display_name", "player_displayname", "player_display_name" -> displayName(entry.player());
-            case "nickname", "nick" -> nickname(entry.player());
+            case "nickname", "nick" -> emptyIfBlank(nickname(entry.player()));
             case "balance", "balance_formatted", "money", "money_formatted", "value", "value_formatted" -> compactMoney(entry.cents());
             case "balance_full", "money_full", "value_full" -> MoneyFormatter.rawFromCents(entry.cents());
             case "balance_raw", "money_raw", "value_raw" -> MoneyFormatter.rawFromCents(entry.cents());
             case "rank", "position" -> "#" + position;
             case "rank_raw", "position_raw" -> String.valueOf(position);
+            default -> null;
+        };
+    }
+
+    private String emptyBalTopValue(String field) {
+        return switch (field) {
+            case "name", "username", "player", "player_name",
+                 "displayname", "display_name", "player_displayname", "player_display_name",
+                 "nickname", "nick",
+                 "balance", "balance_formatted", "money", "money_formatted",
+                 "value", "value_formatted", "balance_full", "money_full", "value_full",
+                 "rank", "position", "rank_raw", "position_raw" -> EMPTY_SLOT;
+            case "balance_raw", "money_raw", "value_raw" -> "0";
             default -> null;
         };
     }
@@ -173,6 +299,26 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
         Map.Entry<UUID, Long> entry = entries.get(position - 1);
         OfflinePlayer player = Bukkit.getOfflinePlayer(entry.getKey());
         return new BalTopEntry(player, entry.getValue());
+    }
+
+    private int rawBalTopRank(UUID playerId) {
+        List<Map.Entry<UUID, Long>> entries = economyService.topBalances(Integer.MAX_VALUE);
+
+        for (int i = 0; i < entries.size(); i++) {
+            if (entries.get(i).getKey().equals(playerId)) {
+                return i + 1;
+            }
+        }
+
+        return 0;
+    }
+
+    private String formattedBalTopRank(UUID playerId) {
+        return formattedRank(rawBalTopRank(playerId));
+    }
+
+    private String formattedRank(int rank) {
+        return rank <= 0 ? "Unranked" : "#" + rank;
     }
 
     private String compactMoney(long cents) {
@@ -222,23 +368,6 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
 
     private String tabDisplayName(OfflinePlayer player) {
         return chatDisplayName(player);
-    }
-
-    private int rawBalTopRank(UUID playerId) {
-        List<Map.Entry<UUID, Long>> entries = economyService.topBalances(Integer.MAX_VALUE);
-
-        for (int i = 0; i < entries.size(); i++) {
-            if (entries.get(i).getKey().equals(playerId)) {
-                return i + 1;
-            }
-        }
-
-        return 0;
-    }
-
-    private String formattedBalTopRank(UUID playerId) {
-        int rank = rawBalTopRank(playerId);
-        return rank <= 0 ? "Unranked" : "#" + rank;
     }
 
     private String teamName(UUID playerId) {
@@ -303,6 +432,10 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
         } catch (Exception ignored) {
             return ZoneId.systemDefault();
         }
+    }
+
+    private String emptyIfBlank(String value) {
+        return value == null || value.isBlank() ? EMPTY_SLOT : value;
     }
 
     private record BalTopEntry(OfflinePlayer player, long cents) {

@@ -4,12 +4,10 @@ import net.mineacle.core.Core;
 import net.mineacle.core.economy.service.EconomyService;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.Statistic;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -31,27 +29,21 @@ public final class StatsService {
 
     public void startSession(Player player) {
         storage.ensureProfile(player);
-        seedExistingPlaytime(player);
 
         if (!isPlaytimeWorld(player.getWorld())) {
             playtimeSessionStarted.remove(player.getUniqueId());
-            storage.save();
             return;
         }
 
         playtimeSessionStarted.put(player.getUniqueId(), System.currentTimeMillis());
-        storage.save();
     }
 
     public void stopSession(Player player) {
         flushSession(player);
         playtimeSessionStarted.remove(player.getUniqueId());
-        storage.save();
     }
 
     public void switchWorld(Player player) {
-        storage.ensureProfile(player);
-        seedExistingPlaytime(player);
         flushSession(player);
 
         if (isPlaytimeWorld(player.getWorld())) {
@@ -59,8 +51,6 @@ public final class StatsService {
         } else {
             playtimeSessionStarted.remove(player.getUniqueId());
         }
-
-        storage.save();
     }
 
     public void flushAllSessions() {
@@ -69,13 +59,9 @@ public final class StatsService {
         }
     }
 
-    public void autosave() {
-        flushAllSessions();
-        storage.save();
-    }
-
     public void flushSession(Player player) {
         Long startedAt = playtimeSessionStarted.get(player.getUniqueId());
+
         if (startedAt == null) {
             return;
         }
@@ -100,16 +86,21 @@ public final class StatsService {
         storage.addDeath(victim.getUniqueId());
 
         Player killer = victim.getKiller();
-        if (killer != null && !killer.getUniqueId().equals(victim.getUniqueId()) && isCombatStatsWorld(killer.getWorld())) {
-            storage.ensureProfile(killer);
-            storage.addKill(killer.getUniqueId());
+
+        if (killer == null || killer.getUniqueId().equals(victim.getUniqueId())) {
+            return;
         }
 
-        storage.save();
+        if (!isCombatStatsWorld(killer.getWorld())) {
+            return;
+        }
+
+        storage.ensureProfile(killer);
+        storage.addKill(killer.getUniqueId());
     }
 
     public String money(UUID uuid) {
-        return economyService == null ? "$0" : economyService.format(economyService.getBalanceCents(uuid));
+        return economyService == null ? "0" : economyService.format(economyService.getBalanceCents(uuid)).replace("$", "");
     }
 
     public long kills(UUID uuid) {
@@ -122,9 +113,8 @@ public final class StatsService {
 
     public long playtimeSeconds(UUID uuid) {
         Player online = Bukkit.getPlayer(uuid);
+
         if (online != null) {
-            storage.ensureProfile(online);
-            seedExistingPlaytime(online);
             flushSession(online);
         }
 
@@ -136,71 +126,37 @@ public final class StatsService {
     }
 
     public List<StatsStorageService.StatProfile> topKills(int limit) {
-        return storage.profiles()
-                .values()
-                .stream()
-                .filter(profile -> profile.kills() > 0L)
-                .sorted(Comparator
-                        .comparingLong(StatsStorageService.StatProfile::kills)
-                        .reversed()
-                        .thenComparing(profile -> profile.name() == null ? "" : profile.name(), String.CASE_INSENSITIVE_ORDER))
-                .limit(limit)
-                .toList();
+        flushAllSessions();
+        return storage.topKills(limit);
     }
 
     public List<StatsStorageService.StatProfile> topDeaths(int limit) {
-        return storage.profiles()
-                .values()
-                .stream()
-                .filter(profile -> profile.deaths() > 0L)
-                .sorted(Comparator
-                        .comparingLong(StatsStorageService.StatProfile::deaths)
-                        .reversed()
-                        .thenComparing(profile -> profile.name() == null ? "" : profile.name(), String.CASE_INSENSITIVE_ORDER))
-                .limit(limit)
-                .toList();
+        flushAllSessions();
+        return storage.topDeaths(limit);
     }
 
     public List<StatsStorageService.StatProfile> topPlaytime(int limit) {
         flushAllSessions();
-
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            storage.ensureProfile(player);
-            seedExistingPlaytime(player);
-        }
-
-        return storage.profiles()
-                .values()
-                .stream()
-                .filter(profile -> profile.playtimeSeconds() > 0L)
-                .sorted(Comparator
-                        .comparingLong(StatsStorageService.StatProfile::playtimeSeconds)
-                        .reversed()
-                        .thenComparing(profile -> profile.name() == null ? "" : profile.name(), String.CASE_INSENSITIVE_ORDER))
-                .limit(limit)
-                .toList();
+        return storage.topPlaytime(limit);
     }
 
     public int rankKills(UUID uuid) {
-        return rank(uuid, topKills(Integer.MAX_VALUE));
+        flushAllSessions();
+        return storage.rankKills(uuid);
     }
 
     public int rankDeaths(UUID uuid) {
-        return rank(uuid, topDeaths(Integer.MAX_VALUE));
+        flushAllSessions();
+        return storage.rankDeaths(uuid);
     }
 
     public int rankPlaytime(UUID uuid) {
-        return rank(uuid, topPlaytime(Integer.MAX_VALUE));
+        flushAllSessions();
+        return storage.rankPlaytime(uuid);
     }
 
-    private int rank(UUID uuid, List<StatsStorageService.StatProfile> profiles) {
-        for (int i = 0; i < profiles.size(); i++) {
-            if (profiles.get(i).uuid().equals(uuid)) {
-                return i + 1;
-            }
-        }
-
-        return 0;
+    public org.bukkit.OfflinePlayer offline(UUID uuid) {
+        return storage.offline(uuid);
     }
 
     public int mobsKilled(UUID uuid) {
@@ -209,11 +165,13 @@ public final class StatsService {
 
     public int blocksPlaced(UUID uuid) {
         Player player = Bukkit.getPlayer(uuid);
+
         if (player == null) {
             return 0;
         }
 
         int total = 0;
+
         for (Material material : Material.values()) {
             if (!material.isBlock() || !material.isItem()) {
                 continue;
@@ -230,11 +188,13 @@ public final class StatsService {
 
     public int blocksBroken(UUID uuid) {
         Player player = Bukkit.getPlayer(uuid);
+
         if (player == null) {
             return 0;
         }
 
         int total = 0;
+
         for (Material material : Material.values()) {
             if (!material.isBlock()) {
                 continue;
@@ -275,8 +235,9 @@ public final class StatsService {
             return false;
         }
 
-        return enabledWorlds("stats.playtime.enabled-worlds")
+        return core.getConfig().getStringList("stats.playtime.enabled-worlds")
                 .stream()
+                .map(value -> value.toLowerCase(Locale.ROOT))
                 .anyMatch(value -> value.equals(world.getName().toLowerCase(Locale.ROOT)));
     }
 
@@ -285,13 +246,15 @@ public final class StatsService {
             return false;
         }
 
-        return enabledWorlds("stats.combat.enabled-worlds")
+        return core.getConfig().getStringList("stats.combat.enabled-worlds")
                 .stream()
+                .map(value -> value.toLowerCase(Locale.ROOT))
                 .anyMatch(value -> value.equals(world.getName().toLowerCase(Locale.ROOT)));
     }
 
     public int statistic(UUID uuid, Statistic statistic) {
         Player player = Bukkit.getPlayer(uuid);
+
         if (player == null) {
             return 0;
         }
@@ -301,44 +264,5 @@ public final class StatsService {
         } catch (Exception ignored) {
             return 0;
         }
-    }
-
-    public OfflinePlayer offline(UUID uuid) {
-        return Bukkit.getOfflinePlayer(uuid);
-    }
-
-    private void seedExistingPlaytime(Player player) {
-        if (!core.getConfig().getBoolean("stats.playtime.import-vanilla-on-first-seen", true)) {
-            return;
-        }
-
-        long currentNative = storage.playtimeSeconds(player.getUniqueId());
-        if (currentNative > 0L) {
-            return;
-        }
-
-        long vanillaSeconds;
-        try {
-            vanillaSeconds = Math.max(0L, player.getStatistic(Statistic.PLAY_ONE_MINUTE) / 20L);
-        } catch (Exception ignored) {
-            vanillaSeconds = 0L;
-        }
-
-        if (vanillaSeconds > 0L) {
-            storage.setPlaytimeSeconds(player.getUniqueId(), vanillaSeconds);
-        }
-    }
-
-    private List<String> enabledWorlds(String path) {
-        List<String> configured = core.getConfig().getStringList(path);
-
-        if (configured == null || configured.isEmpty()) {
-            return List.of("origins", "origins_nether", "origins_the_end");
-        }
-
-        return configured.stream()
-                .filter(value -> value != null && !value.isBlank())
-                .map(value -> value.toLowerCase(Locale.ROOT))
-                .toList();
     }
 }
