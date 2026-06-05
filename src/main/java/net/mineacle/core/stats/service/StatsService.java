@@ -230,6 +230,10 @@ public final class StatsService {
         storage.save();
     }
 
+    public void autosave() {
+        save();
+    }
+
     public boolean isPlaytimeWorld(World world) {
         if (world == null) {
             return false;
