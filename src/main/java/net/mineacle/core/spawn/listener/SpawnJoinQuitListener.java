@@ -1,10 +1,8 @@
 package net.mineacle.core.spawn.listener;
 
-import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.spawn.model.SpawnPoint;
 import net.mineacle.core.spawn.service.SpawnService;
 import org.bukkit.Location;
-import org.bukkit.World;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.spigotmc.event.player.PlayerSpawnLocationEvent;
@@ -41,10 +39,6 @@ public final class SpawnJoinQuitListener implements Listener {
             return;
         }
 
-        World world = location.getWorld();
-        world.getChunkAtAsync(location).thenRun(() -> spawnService.core().getServer().getScheduler().runTask(
-                spawnService.core(),
-                () -> event.setSpawnLocation(location)
-        ));
+        event.setSpawnLocation(location);
     }
 }
