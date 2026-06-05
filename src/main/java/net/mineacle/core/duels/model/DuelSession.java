@@ -9,16 +9,11 @@ public final class DuelSession {
     private final UUID id;
     private final Set<UUID> players;
     private final long createdAt;
-    private final long fightStartsAt;
-    private final long expiresAt;
-    private boolean released;
 
-    public DuelSession(UUID id, Set<UUID> players, long createdAt, long fightStartsAt, long expiresAt) {
+    public DuelSession(UUID id, Set<UUID> players, long createdAt) {
         this.id = id;
         this.players = new HashSet<>(players);
         this.createdAt = createdAt;
-        this.fightStartsAt = fightStartsAt;
-        this.expiresAt = expiresAt;
     }
 
     public UUID id() {
@@ -33,31 +28,7 @@ public final class DuelSession {
         return createdAt;
     }
 
-    public long fightStartsAt() {
-        return fightStartsAt;
-    }
-
-    public long expiresAt() {
-        return expiresAt;
-    }
-
-    public boolean released() {
-        return released;
-    }
-
-    public void release() {
-        this.released = true;
-    }
-
     public boolean contains(UUID playerId) {
         return players.contains(playerId);
-    }
-
-    public boolean expired() {
-        return System.currentTimeMillis() > expiresAt;
-    }
-
-    public boolean frozen() {
-        return !released && System.currentTimeMillis() < fightStartsAt;
     }
 }

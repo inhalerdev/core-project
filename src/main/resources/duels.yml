@@ -8,27 +8,12 @@ queue:
 duel-request:
   timeout-seconds: 60
 
-# Duels are loose survival PvP matchmaking.
-# Players are matched, RTP'd together into Origins, briefly held for a fair start,
-# then released into normal survival PvP.
-loose-tracking-seconds: 180
-
 destination:
   world: origins
   min-radius: 250
   max-radius: 0
   find-location-attempts: 80
 
-fair-start:
-  enabled: true
-  countdown-seconds: 5
-  freeze-movement: true
-  prevent-damage: true
-  prevent-interact: true
-
-# Admin setup:
-# Stand in the center of the duel circle and run /duel zone set <id> [radius]
-# Example: /duel zone set spawn1 9
 queue-zones:
   spawn1:
     world: spawn1
@@ -64,7 +49,12 @@ messages:
   no-arena: "&cCould not find a safe duel location"
 
   invite-sent: "&#bbbbbbDuel request &asent &#bbbbbbto &c%target%"
-  invite-received: "&#bbbbbb%player% &asent &#bbbbbbyou a duel request. Type &d/duel accept"
+  invite-received-header: "&#bbbbbb%player% &asent &#bbbbbbyou a duel request"
+  invite-buttons-prefix: ""
+  accept-button: "&a&l[ACCEPT]"
+  accept-hover: "&#bbbbbbAccept duel request"
+  deny-button: "&c&l[DENY]"
+  deny-hover: "&#bbbbbbDeny duel request"
   invite-denied: "&#bbbbbb%player% &cdenied &#bbbbbbyour duel request"
   denied: "&#bbbbbbDuel request &cdenied"
   no-invite: "&cYou do not have a pending duel request"
@@ -72,15 +62,6 @@ messages:
   inviter-offline: "&cThat player is no longer online"
   cancelled: "&#bbbbbbDuel request &ccancelled"
 
-  queue-left: "&#bbbbbbNo longer queued"
-  queue-waiting-actionbar: "&#bbbbbbQueue: &#ff88ffWaiting for an opponent"
-  queue-actionbar: "&#bbbbbbQueue: &#ff88ff%queued%/%max%&#bbbbbb teleporting in &d%seconds%s"
+  queue-waiting-actionbar: "&#bbbbbbQueue: &eWaiting for an opponent"
+  queue-actionbar: "&#bbbbbbQueue: &a%queued%/%max% teleporting in &d%seconds%s"
   queue-left-actionbar: "&#bbbbbbNo longer queued"
-
-  matched: "&#bbbbbbMatched into &dOrigins&#bbbbbb. Prepare to fight"
-  teleported-actionbar: "&#bbbbbbMatched into &dOrigins"
-  fight-countdown-actionbar: "&#bbbbbbFight begins in &d%seconds%"
-  released-actionbar: "&aFight"
-  started: "&#bbbbbbFight"
-  winner: "&a%winner% &#bbbbbbdefeated &c%loser%"
-  winner-actionbar: "&a%winner% &#bbbbbbwon the duel"

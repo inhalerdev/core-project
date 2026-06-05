@@ -59,11 +59,6 @@ public final class DuelCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (sub.equals("leave")) {
-            duelService.removeFromQueue(player);
-            return true;
-        }
-
         if (sub.equals("reload")) {
             if (!player.hasPermission("mineacleduels.admin")) {
                 player.sendMessage(core.getMessage("general.no-permission"));
@@ -158,10 +153,6 @@ public final class DuelCommand implements CommandExecutor, TabCompleter {
     private void sendUsage(Player player, String label) {
         player.sendMessage(TextColor.color("&dMineacle &8» &#bbbbbbUse &d/" + label + " <player>"));
         player.sendMessage(TextColor.color("&#bbbbbbOr stand in the duel queue circle with another player"));
-
-        if (player.hasPermission("mineacleduels.admin")) {
-            player.sendMessage(TextColor.color("&#bbbbbbAdmin: &d/" + label + " zone set <id> [radius]"));
-        }
     }
 
     @Override
@@ -171,17 +162,17 @@ public final class DuelCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 1) {
-            List<String> options = new ArrayList<>(List.of("accept", "deny", "cancel", "leave"));
-
-            if (player.hasPermission("mineacleduels.admin")) {
-                options.add("reload");
-                options.add("zone");
-            }
+            List<String> options = new ArrayList<>();
 
             for (Player online : Bukkit.getOnlinePlayers()) {
                 if (!online.equals(player)) {
                     options.add(online.getName());
                 }
+            }
+
+            if (player.hasPermission("mineacleduels.admin")) {
+                options.add("zone");
+                options.add("reload");
             }
 
             return PlayerTabComplete.options(args[0], options);

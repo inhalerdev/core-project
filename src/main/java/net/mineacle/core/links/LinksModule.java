@@ -19,6 +19,9 @@ public final class LinksModule extends Module {
     public void enable(Core core) {
         command = new LinksCommand(core);
 
+        register(core, "links");
+        register(core, "guide");
+        register(core, "rules");
         register(core, "discord");
         register(core, "store");
         register(core, "x");

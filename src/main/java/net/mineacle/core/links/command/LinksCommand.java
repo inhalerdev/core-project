@@ -79,7 +79,9 @@ public final class LinksCommand implements CommandExecutor, TabCompleter {
 
     public void sendAllLinks(Player player) {
         player.sendMessage(Component.empty());
-        player.sendMessage(legacy("&#ff88ffMineacle Links"));
+        player.sendMessage(legacy("&#ff88ffMineacle"));
+        sendCompactLine(player, "guide");
+        sendCompactLine(player, "rules");
         sendCompactLine(player, "store");
         sendCompactLine(player, "discord");
         sendCompactLine(player, "x");
@@ -94,15 +96,15 @@ public final class LinksCommand implements CommandExecutor, TabCompleter {
         }
 
         if (!config.contains("links." + key)) {
-            player.sendMessage(TextColor.color("&cThat link is not configured"));
+            player.sendMessage(TextColor.color("&cThat page is not configured"));
             SoundService.guiError(player, core);
             return;
         }
 
-        String title = config.getString("links." + key + ".title", "&dMineacle Link");
+        String title = config.getString("links." + key + ".title", "&dMineacle");
         String url = config.getString("links." + key + ".url", "");
-        String buttonLine = config.getString("links." + key + ".button-line", "&dClick here");
-        String hover = config.getString("links." + key + ".hover", "Open link");
+        String buttonLine = config.getString("links." + key + ".button-line", "");
+        String hover = config.getString("links." + key + ".hover", "Open");
         List<String> lines = config.getStringList("links." + key + ".lines");
 
         player.sendMessage(Component.empty());
@@ -112,26 +114,38 @@ public final class LinksCommand implements CommandExecutor, TabCompleter {
             player.sendMessage(legacy(line));
         }
 
-        player.sendMessage(Component.empty());
+        if (url != null && !url.isBlank() && buttonLine != null && !buttonLine.isBlank()) {
+            player.sendMessage(Component.empty());
 
-        Component clickLine = legacy(buttonLine)
-                .clickEvent(ClickEvent.openUrl(url))
-                .hoverEvent(HoverEvent.showText(legacy(hover)));
+            Component clickLine = legacy(buttonLine)
+                    .clickEvent(ClickEvent.openUrl(url))
+                    .hoverEvent(HoverEvent.showText(legacy(hover)));
 
-        player.sendMessage(clickLine);
+            player.sendMessage(clickLine);
+        }
+
         SoundService.guiClick(player, core);
     }
 
     private void sendCompactLine(Player player, String key) {
+        if (!config.contains("links." + key)) {
+            return;
+        }
+
         String title = config.getString("links." + key + ".title", key);
         String button = config.getString("links." + key + ".button", "&d[OPEN]");
         String url = config.getString("links." + key + ".url", "");
-        String hover = config.getString("links." + key + ".hover", "Open link");
+        String hover = config.getString("links." + key + ".hover", "Open");
 
-        Component line = legacy("&#bbbbbb- " + title + " ")
-                .append(legacy(button)
-                        .clickEvent(ClickEvent.openUrl(url))
-                        .hoverEvent(HoverEvent.showText(legacy(hover))));
+        Component line = legacy("&#bbbbbb- " + title + " ");
+
+        if (url != null && !url.isBlank()) {
+            line = line.append(legacy(button)
+                    .clickEvent(ClickEvent.openUrl(url))
+                    .hoverEvent(HoverEvent.showText(legacy(hover))));
+        } else {
+            line = line.append(legacy(button));
+        }
 
         player.sendMessage(line);
     }

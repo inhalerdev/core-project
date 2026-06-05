@@ -17,6 +17,8 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.HashSet;
@@ -48,7 +50,10 @@ public final class SellGuiListener implements Listener {
             return;
         }
 
-        SaleResult result = sellService.sellInventory(player.getUniqueId(), event.getInventory());
+        Inventory inventory = event.getInventory();
+        inventory.setItem(SellGui.SUMMARY_SLOT, null);
+
+        SaleResult result = sellService.sellInventory(player.getUniqueId(), inventory);
 
         for (ItemStack returned : result.returnedItems()) {
             returnItem(player, returned);
@@ -69,7 +74,56 @@ public final class SellGuiListener implements Listener {
         player.sendMessage(chat);
         player.sendActionBar(actionBar(actionbar));
         SoundService.economyReceive(player, core);
+
         processingSellClose.remove(player.getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    public void onSellClick(InventoryClickEvent event) {
+        if (!isSellMenu(event.getView().getTitle())) {
+            return;
+        }
+
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+
+        int rawSlot = event.getRawSlot();
+
+        if (rawSlot == SellGui.SUMMARY_SLOT) {
+            event.setCancelled(true);
+            event.setResult(org.bukkit.event.Event.Result.DENY);
+            return;
+        }
+
+        core.getServer().getScheduler().runTask(core, () -> {
+            if (player.isOnline() && isSellMenu(player.getOpenInventory().getTitle())) {
+                SellGui.updateSummary(player, player.getOpenInventory().getTopInventory(), sellService);
+            }
+        });
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    public void onSellDrag(InventoryDragEvent event) {
+        if (!isSellMenu(event.getView().getTitle())) {
+            return;
+        }
+
+        if (event.getRawSlots().contains(SellGui.SUMMARY_SLOT)) {
+            event.setCancelled(true);
+            event.setResult(org.bukkit.event.Event.Result.DENY);
+            return;
+        }
+
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+
+        core.getServer().getScheduler().runTask(core, () -> {
+            if (player.isOnline() && isSellMenu(player.getOpenInventory().getTitle())) {
+                SellGui.updateSummary(player, player.getOpenInventory().getTopInventory(), sellService);
+            }
+        });
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
@@ -118,7 +172,6 @@ public final class SellGuiListener implements Listener {
     private boolean isSellMenu(String rawTitle) {
         String title = ChatColor.stripColor(rawTitle);
         String sellTitle = ChatColor.stripColor(SellGui.title(core));
-
         return title != null && sellTitle != null && title.equals(sellTitle);
     }
 

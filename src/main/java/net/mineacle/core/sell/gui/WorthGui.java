@@ -240,7 +240,7 @@ public final class WorthGui {
             lore.add("&#bbbbbbCurrent: &#ff88ff" + search);
         }
 
-        return toolbarItem(Material.SPYGLASS, "&dSearch", lore);
+        return toolbarItem(Material.OAK_SIGN, "&dSearch", lore);
     }
 
     private static ItemStack toolbarItem(Material material, String name, List<String> lore) {

@@ -1,14 +1,13 @@
 package net.mineacle.core.spawn.listener;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.spawn.model.SpawnPoint;
 import net.mineacle.core.spawn.service.SpawnService;
-import org.bukkit.entity.Player;
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerJoinEvent;
+import org.spigotmc.event.player.PlayerSpawnLocationEvent;
 
 public final class SpawnJoinQuitListener implements Listener {
 
@@ -19,101 +18,33 @@ public final class SpawnJoinQuitListener implements Listener {
     }
 
     @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
+    public void onPlayerSpawnLocation(PlayerSpawnLocationEvent event) {
+        SpawnPoint point = null;
 
-        if (!player.hasPlayedBefore() && spawnService.firstJoinEnabled()) {
-            spawnService.core().getServer().getScheduler().runTaskLater(
-                    spawnService.core(),
-                    () -> forceFirstJoinSpawn(player),
-                    spawnService.firstJoinDelayTicks()
-            );
+        if (!event.getPlayer().hasPlayedBefore() && spawnService.firstJoinEnabled()) {
+            point = spawnService.selectFirstJoinTarget();
+        } else if (spawnService.loginRerouteEnabled()) {
+            Location current = event.getSpawnLocation();
+
+            if (current.getWorld() != null && spawnService.isSpawnWorld(current.getWorld().getName())) {
+                point = spawnService.selectRandomPoint();
+            }
+        }
+
+        if (point == null) {
             return;
         }
 
-        if (!spawnService.loginRerouteEnabled()) {
+        Location location = spawnService.location(point);
+
+        if (location == null || location.getWorld() == null) {
             return;
         }
 
-        spawnService.core().getServer().getScheduler().runTaskLater(
+        World world = location.getWorld();
+        world.getChunkAtAsync(location).thenRun(() -> spawnService.core().getServer().getScheduler().runTask(
                 spawnService.core(),
-                () -> rerouteIfNeeded(player),
-                spawnService.loginRerouteDelayTicks()
-        );
-    }
-
-    private void forceFirstJoinSpawn(Player player) {
-        if (!player.isOnline()) {
-            return;
-        }
-
-        SpawnPoint point = spawnService.selectFirstJoinTarget();
-
-        if (point == null) {
-            if (spawnService.firstJoinSendMessage()) {
-                sendBoth(player, spawnService.message("first-join-missing"));
-            }
-            return;
-        }
-
-        if (!spawnService.teleport(player, point)) {
-            if (spawnService.firstJoinSendMessage()) {
-                String message = spawnService.message("world-missing")
-                        .replace("%world%", point.worldName())
-                        .replace("%spawn%", TextColor.color(point.displayName()));
-                sendBoth(player, message);
-            }
-            return;
-        }
-
-        if (spawnService.firstJoinSendMessage()) {
-            String message = spawnService.message("first-join-rerouted")
-                    .replace("%spawn%", TextColor.color(point.displayName()));
-            sendBoth(player, message);
-        }
-    }
-
-    private void rerouteIfNeeded(Player player) {
-        if (!player.isOnline()) {
-            return;
-        }
-
-        if (!spawnService.isSpawnWorld(player.getWorld().getName())) {
-            return;
-        }
-
-        SpawnPoint point = spawnService.selectRandomPoint();
-
-        if (point == null) {
-            if (spawnService.loginRerouteSendMessage()) {
-                sendBoth(player, spawnService.message("login-reroute-missing"));
-            }
-            return;
-        }
-
-        if (!spawnService.teleport(player, point)) {
-            if (spawnService.loginRerouteSendMessage()) {
-                String message = spawnService.message("world-missing")
-                        .replace("%world%", point.worldName())
-                        .replace("%spawn%", TextColor.color(point.displayName()));
-                sendBoth(player, message);
-            }
-            return;
-        }
-
-        if (spawnService.loginRerouteSendMessage()) {
-            String message = spawnService.message("login-rerouted")
-                    .replace("%spawn%", TextColor.color(point.displayName()));
-            sendBoth(player, message);
-        }
-    }
-
-    private void sendBoth(Player player, String message) {
-        player.sendMessage(TextColor.color(message));
-        player.sendActionBar(actionBar(message));
-    }
-
-    private Component actionBar(String message) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
+                () -> event.setSpawnLocation(location)
+        ));
     }
 }

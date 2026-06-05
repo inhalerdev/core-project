@@ -1,6 +1,31 @@
 enabled: true
 
 links:
+  guide:
+    url: ""
+    title: "&#ff88ffMineacle Guide"
+    lines:
+      - "&#bbbbbbUse &d/spawn &#bbbbbbto move between spawn worlds"
+      - "&#bbbbbbUse &d/warp &#bbbbbbto reach Crates, Duels, Market, and Stats"
+      - "&#bbbbbbUse &d/team &#bbbbbbto manage your team"
+      - "&#bbbbbbUse &d/sell &#bbbbbbto sell items into the server economy"
+      - "&#bbbbbbUse &d/duel <player> &#bbbbbbto RTP together into Origins for PvP"
+    button: ""
+    button-line: ""
+    hover: ""
+
+  rules:
+    url: ""
+    title: "&cMineacle Rules"
+    lines:
+      - "&#bbbbbbPlay fair and respect the survival economy"
+      - "&#bbbbbbNo cheating, hacked clients, macros, dupes, or exploit abuse"
+      - "&#bbbbbbNo harassment, threats, doxxing, or targeted toxicity"
+      - "&#bbbbbbUse common sense. Staff decisions protect server quality"
+    button: ""
+    button-line: ""
+    hover: ""
+
   store:
     url: "https://store.mineacle.net"
     title: "&#ff88ffMineacle Store"
@@ -12,14 +37,14 @@ links:
     hover: "&#bbbbbbClick to open &#ff88ffstore.mineacle.net"
 
   discord:
-    url: "https://discord.gg/qmpJ4xMguT"
-    title: "&#7289daMineacle Discord"
+    url: "https://discord.gg/4xrYFxdSWg"
+    title: "&#ff88ffMineacle Discord"
     lines:
       - "&#bbbbbbJoin the community and stay updated"
       - "&#bbbbbbGet support, announcements, events, and tickets"
-    button: "&#9aabe5› &#bbbbbbdiscord.gg/mineacle"
-    button-line: "&#9aabe5› &#bbbbbbdiscord.gg/mineacle"
-    hover: "&#bbbbbbClick to open the &#7289daMineacle Discord"
+    button: "&#ff88ff› &#bbbbbbdiscord.gg/mineacle"
+    button-line: "&#ff88ff› &#bbbbbbdiscord.gg/mineacle"
+    hover: "&#bbbbbbClick to open the &#ff88ffMineacle Discord"
 
   x:
     url: "https://x.com/mineaclenetwork"
