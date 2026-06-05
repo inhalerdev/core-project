@@ -1,6 +1,6 @@
 package net.mineacle.core.spawn.listener;
 
-import io.papermc.paper.event.player.AsyncPlayerSpawnLocationEvent;
+import com.destroystokyo.paper.event.player.AsyncPlayerSpawnLocationEvent;
 import net.mineacle.core.spawn.model.SpawnPoint;
 import net.mineacle.core.spawn.service.SpawnService;
 import org.bukkit.Location;
