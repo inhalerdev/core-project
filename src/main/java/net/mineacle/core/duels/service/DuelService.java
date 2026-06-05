@@ -203,8 +203,8 @@ public final class DuelService {
         long expiresAt = System.currentTimeMillis() + (inviteTimeoutSeconds() * 1000L);
         invitesByTarget.put(target.getUniqueId(), new DuelInvite(challenger.getUniqueId(), target.getUniqueId(), expiresAt));
 
-        challenger.sendMessage(message("messages.invite-sent", "&#bbbbbbDuel request &asent &#bbbbbbto &c%target%")
-                .replace("%target%", displayName(target)));
+        challenger.sendMessage(message("messages.invite-sent", "&#bbbbbbDuel request sent to %target%")
+                .replace("%target%", DisplayNames.prefixedDisplayName(target)));
 
         String challengerName = DisplayNames.prefixedDisplayName(challenger);
         String mainLine = config.getString("messages.invite-received-header", "%player% &#bbbbbbsent you a duel request")
@@ -330,7 +330,7 @@ public final class DuelService {
         List<Player> players = pending.onlinePlayers();
         clearPendingTeleport(pending);
 
-        String movedName = DisplayNames.displayName(moved);
+        String movedName = DisplayNames.prefixedDisplayName(moved);
         String moverMessage = config.getString("messages.teleport-cancelled-moved", "&cTeleport cancelled — you moved");
         String otherMessage = config.getString("messages.teleport-cancelled-other-moved", "&cDuel cancelled — %player% moved")
                 .replace("%player%", movedName);

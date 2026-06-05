@@ -48,10 +48,10 @@ public final class DisplayNames {
         Core core = Core.instance();
 
         if (player != null && player.isOp()) {
-            return core == null ? "#ff88ff" : core.getConfig().getString("nickname.op-name-color", "#ff88ff");
+            return core == null ? "#ff55ff" : core.getConfig().getString("nickname.op-name-color", "#ff55ff");
         }
 
-        return core == null ? "#ffffff" : core.getConfig().getString("nickname.default-name-color", "#ffffff");
+        return core == null ? "#bbbbbb" : core.getConfig().getString("nickname.default-name-color", "#bbbbbb");
     }
 
     public static String coloredDisplayName(OfflinePlayer player) {

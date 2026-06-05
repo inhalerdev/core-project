@@ -67,23 +67,24 @@ public final class ChatFormatListener implements Listener {
 
     private Component hoverStats(Player player) {
         String displayName = DisplayNames.prefixedDisplayName(player);
-        String money = placeholder(player, "%mineacle_balance%", "$0");
+        String money = placeholder(player, "%mineacle_balance_formatted%", "0");
+        String playtime = placeholder(player, "%mineacle_stats_playtime%", playtime(player));
         String kills = placeholder(player, "%mineacle_stats_kills%", String.valueOf(stat(player, Statistic.PLAYER_KILLS)));
         String deaths = placeholder(player, "%mineacle_stats_deaths%", String.valueOf(stat(player, Statistic.DEATHS)));
-        String playtime = placeholder(player, "%playtime_time%", playtime(player));
         String teamName = placeholder(player, "%mineacleteams_name%", "");
 
         StringBuilder hover = new StringBuilder();
+
         hover.append(displayName).append("\n");
 
         if (hasTeam(teamName)) {
-            hover.append("&#ff88ff🔥 &#bbbbbbTeam &#ff88ff").append(teamName).append("\n");
+            hover.append("&#ff88ff♦ &#bbbbbbTeam &#ff88ff").append(teamName).append("\n");
         }
 
-        hover.append("&#ff88ff$ &#bbbbbbMoney &#ff88ff").append(money).append("\n")
-                .append("&#ff88ff🗡 &#bbbbbbKills &#ff88ff").append(kills).append("\n")
-                .append("&#ff88ff☠ &#bbbbbbDeaths &#ff88ff").append(deaths).append("\n")
-                .append("&#ff88ff⌚ &#bbbbbbPlaytime &#ff88ff").append(playtime);
+        hover.append("&a$ &#bbbbbbMoney &a").append(money).append("\n")
+                .append("&e⌚ &#bbbbbbPlaytime &e").append(playtime).append("\n")
+                .append("&c🗡 &#bbbbbbKills &c").append(kills).append("\n")
+                .append("&#ffa033☠ &#bbbbbbDeaths &#ffa033").append(deaths);
 
         return legacy(hover.toString());
     }
