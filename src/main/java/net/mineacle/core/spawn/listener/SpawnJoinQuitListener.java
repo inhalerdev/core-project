@@ -1,11 +1,11 @@
 package net.mineacle.core.spawn.listener;
 
+import io.papermc.paper.event.player.AsyncPlayerSpawnLocationEvent;
 import net.mineacle.core.spawn.model.SpawnPoint;
 import net.mineacle.core.spawn.service.SpawnService;
 import org.bukkit.Location;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.spigotmc.event.player.PlayerSpawnLocationEvent;
 
 public final class SpawnJoinQuitListener implements Listener {
 
@@ -16,10 +16,10 @@ public final class SpawnJoinQuitListener implements Listener {
     }
 
     @EventHandler
-    public void onPlayerSpawnLocation(PlayerSpawnLocationEvent event) {
+    public void onAsyncPlayerSpawnLocation(AsyncPlayerSpawnLocationEvent event) {
         SpawnPoint point = null;
 
-        if (!event.getPlayer().hasPlayedBefore() && spawnService.firstJoinEnabled()) {
+        if (event.isNewPlayer() && spawnService.firstJoinEnabled()) {
             point = spawnService.selectFirstJoinTarget();
         } else if (spawnService.loginRerouteEnabled()) {
             Location current = event.getSpawnLocation();
