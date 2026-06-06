@@ -30,6 +30,7 @@ public final class WorthGuiListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onInventoryClick(InventoryClickEvent event) {
         String title = ChatColor.stripColor(event.getView().getTitle());
+
         if (!WorthGui.isTitle(title)) {
             return;
         }
@@ -70,17 +71,18 @@ public final class WorthGuiListener implements Listener {
             return;
         }
 
-        if (slot == WorthGui.REFRESH_SLOT) {
-            SoundService.guiClick(player, core);
-            WorthGui.open(core, player, sellService, page);
-            return;
-        }
-
         if (slot == WorthGui.SEARCH_SLOT) {
             SoundService.guiClick(player, core);
             player.setMetadata(WorthGui.META_SEARCHING, new FixedMetadataValue(core, true));
             player.closeInventory();
             player.sendMessage(TextColor.color("&dMineacle &8» &#bbbbbbType an item name to search, &dclear &#bbbbbbto clear, or &dcancel &#bbbbbbto cancel"));
+            return;
+        }
+
+        if (slot == WorthGui.REFRESH_SLOT) {
+            SoundService.guiClick(player, core);
+            WorthGui.clearCatalogCache();
+            WorthGui.open(core, player, sellService, page);
             return;
         }
 
