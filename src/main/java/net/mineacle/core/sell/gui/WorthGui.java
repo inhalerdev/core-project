@@ -25,12 +25,10 @@ public final class WorthGui {
 
     public static final int SIZE = 54;
     public static final int PREVIOUS_SLOT = 45;
-    public static final int SORT_SLOT = 49;
-    public static final int FILTER_SLOT = 50;
-    public static final int SEARCH_SLOT = 51;
-    public static final int REFRESH_SLOT = 52;
+    public static final int SORT_SLOT = 48;
+    public static final int FILTER_SLOT = 49;
+    public static final int REFRESH_SLOT = 50;
     public static final int NEXT_SLOT = 53;
-    public static final String META_SEARCHING = "mineacle_worth_searching";
 
     private static final int CONTENT_SLOTS = 45;
     private static final long CACHE_TTL_MILLIS = 300000L;
@@ -38,7 +36,6 @@ public final class WorthGui {
     private static final Map<UUID, Integer> PAGES = new HashMap<>();
     private static final Map<UUID, SortMode> SORTS = new HashMap<>();
     private static final Map<UUID, FilterMode> FILTERS = new HashMap<>();
-    private static final Map<UUID, String> SEARCHES = new HashMap<>();
 
     private static final List<Material> CATALOG = new ArrayList<>();
     private static long catalogBuiltAt = 0L;
@@ -65,33 +62,19 @@ public final class WorthGui {
             inventory.setItem(index - start, item(player, sellService, material));
         }
 
-        inventory.setItem(PREVIOUS_SLOT, toolbar(Material.ARROW, "&#bbbbbbPrevious Page", safePage > 0
+        inventory.setItem(PREVIOUS_SLOT, toolbar(Material.ARROW, "&dPrevious Page", safePage > 0
                 ? List.of("&#bbbbbbPage &#ff88ff" + safePage)
                 : List.of("&cNo previous page")));
 
-        inventory.setItem(SORT_SLOT, toolbar(Material.ANVIL, "&#bbbbbbSort", List.of(
-                "&#bbbbbbCurrent: &#ff88ff" + sort(player).display(),
-                "",
-                "&#bbbbbbClick to change sort"
-        )));
+        inventory.setItem(SORT_SLOT, sortToolbar(sort(player)));
+        inventory.setItem(FILTER_SLOT, filterToolbar(filter(player)));
 
-        inventory.setItem(FILTER_SLOT, toolbar(Material.HOPPER, "&#bbbbbbFilter", List.of(
-                "&#bbbbbbCurrent: &#ff88ff" + filter(player).display(),
-                "",
-                "&#bbbbbbClick to change category"
-        )));
-
-        String search = SEARCHES.getOrDefault(player.getUniqueId(), "");
-        inventory.setItem(SEARCH_SLOT, toolbar(Material.OAK_SIGN, "&#bbbbbbSearch", search.isBlank()
-                ? List.of("&#bbbbbbCurrent: &#ff88ffNone", "", "&#bbbbbbClick to search item prices")
-                : List.of("&#bbbbbbCurrent: &#ff88ff" + search, "", "&#bbbbbbType &#ff88ffclear &#bbbbbbto clear")));
-
-        inventory.setItem(REFRESH_SLOT, toolbar(Material.PAPER, "&#bbbbbbRefresh", List.of(
+        inventory.setItem(REFRESH_SLOT, toolbar(Material.PAPER, "&dRefresh", List.of(
                 "&#bbbbbbRebuilds the cached worth catalog",
                 "&#bbbbbbUse after sell reloads"
         )));
 
-        inventory.setItem(NEXT_SLOT, toolbar(Material.ARROW, "&#bbbbbbNext Page", safePage < maxPage
+        inventory.setItem(NEXT_SLOT, toolbar(Material.ARROW, "&dNext Page", safePage < maxPage
                 ? List.of("&#bbbbbbPage &#ff88ff" + (safePage + 2))
                 : List.of("&cNo next page")));
 
@@ -112,19 +95,6 @@ public final class WorthGui {
 
     public static void cycleFilter(Player player) {
         FILTERS.put(player.getUniqueId(), filter(player).next());
-    }
-
-    public static void setSearch(Player player, String search) {
-        if (search == null || search.isBlank()) {
-            clearSearch(player);
-            return;
-        }
-
-        SEARCHES.put(player.getUniqueId(), search.trim());
-    }
-
-    public static void clearSearch(Player player) {
-        SEARCHES.remove(player.getUniqueId());
     }
 
     public static void clearCatalogCache() {
@@ -150,7 +120,7 @@ public final class WorthGui {
                 continue;
             }
 
-            if (sellService.baseWorthCents(material) <= 0L) {
+            if (sellService.baseWorthCents(material) <= 0L && material != Material.DRAGON_EGG) {
                 continue;
             }
 
@@ -161,21 +131,11 @@ public final class WorthGui {
     }
 
     private static List<Material> filtered(Player player, SellService sellService) {
-        String search = SEARCHES.getOrDefault(player.getUniqueId(), "").toLowerCase(Locale.ROOT);
         FilterMode filter = filter(player);
         SortMode sort = sort(player);
         List<Material> result = new ArrayList<>();
 
         for (Material material : CATALOG) {
-            if (!search.isBlank()) {
-                String itemName = sellService.pretty(material).toLowerCase(Locale.ROOT);
-                String rawName = material.name().toLowerCase(Locale.ROOT);
-
-                if (!itemName.contains(search) && !rawName.contains(search.replace(" ", "_"))) {
-                    continue;
-                }
-            }
-
             if (!filter.matches(sellService, material)) {
                 continue;
             }
@@ -195,21 +155,29 @@ public final class WorthGui {
             return item;
         }
 
-        long base = sellService.baseWorthCents(material);
-        long unit = sellService.unitWorthCents(player, material);
-        double demand = sellService.demandMultiplier(material);
+        long base = material == Material.DRAGON_EGG
+                ? Math.max(sellService.baseWorthCents(material), 1000000L)
+                : sellService.baseWorthCents(material);
+        long unit = material == Material.DRAGON_EGG
+                ? base
+                : sellService.unitWorthCents(player, material);
+        double demand = material == Material.DRAGON_EGG ? 1.0D : sellService.demandMultiplier(material);
 
         List<String> lore = new ArrayList<>();
         lore.add("&#bbbbbbValue: &a" + sellService.format(unit));
         lore.add("&#bbbbbbBase: &a" + sellService.format(base));
         lore.add("&#bbbbbbCategory: &#ff88ff" + sellService.categoryDisplay(material));
 
-        if (Math.abs(demand - 1.0D) >= 0.01D) {
+        if (material == Material.DRAGON_EGG) {
+            lore.add("");
+            lore.add("&cNot sellable");
+            lore.add("&#bbbbbbUnique server trophy item");
+        } else if (Math.abs(demand - 1.0D) >= 0.01D) {
             lore.add("&#bbbbbbDemand: &#ff88ff" + SellService.formatMultiplier(demand) + "x");
             lore.add("&#bbbbbbTier: &#ff88ff" + sellService.demandTierDisplay(material));
         }
 
-        long sold = sellService.demandWindowAmount(material);
+        long sold = material == Material.DRAGON_EGG ? 0L : sellService.demandWindowAmount(material);
 
         if (sold > 0L) {
             lore.add("&#bbbbbbSold This Cycle: &#ff88ff" + sold);
@@ -220,6 +188,30 @@ public final class WorthGui {
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
+    }
+
+    private static ItemStack sortToolbar(SortMode current) {
+        List<String> lore = new ArrayList<>();
+        lore.add("&#bbbbbbCurrent: &#ff88ff" + current.display());
+        lore.add("");
+        for (SortMode mode : SortMode.values()) {
+            lore.add(mode == current ? "&#ff88ff" + mode.display() : "&#bbbbbb" + mode.display());
+        }
+        lore.add("");
+        lore.add("&#bbbbbbClick to change sort");
+        return toolbar(Material.ANVIL, "&dSort", lore);
+    }
+
+    private static ItemStack filterToolbar(FilterMode current) {
+        List<String> lore = new ArrayList<>();
+        lore.add("&#bbbbbbCurrent: &#ff88ff" + current.display());
+        lore.add("");
+        for (FilterMode mode : FilterMode.values()) {
+            lore.add(mode == current ? "&#ff88ff" + mode.display() : "&#bbbbbb" + mode.display());
+        }
+        lore.add("");
+        lore.add("&#bbbbbbClick to change filter");
+        return toolbar(Material.HOPPER, "&dFilter", lore);
     }
 
     private static ItemStack toolbar(Material material, String name, List<String> lore) {
@@ -287,11 +279,15 @@ public final class WorthGui {
         public Comparator<Material> comparator(Player player, SellService sellService) {
             return switch (this) {
                 case VALUE_DESC -> Comparator
-                        .comparingLong((Material material) -> sellService.unitWorthCents(player, material))
+                        .comparingLong((Material material) -> material == Material.DRAGON_EGG
+                                ? Math.max(sellService.baseWorthCents(material), 1000000L)
+                                : sellService.unitWorthCents(player, material))
                         .reversed()
                         .thenComparing(material -> sellService.pretty(material), String.CASE_INSENSITIVE_ORDER);
                 case VALUE_ASC -> Comparator
-                        .comparingLong((Material material) -> sellService.unitWorthCents(player, material))
+                        .comparingLong((Material material) -> material == Material.DRAGON_EGG
+                                ? Math.max(sellService.baseWorthCents(material), 1000000L)
+                                : sellService.unitWorthCents(player, material))
                         .thenComparing(material -> sellService.pretty(material), String.CASE_INSENSITIVE_ORDER);
                 case NAME -> Comparator.comparing(material -> sellService.pretty(material), String.CASE_INSENSITIVE_ORDER);
                 case CATEGORY -> Comparator
@@ -332,7 +328,7 @@ public final class WorthGui {
                 return true;
             }
 
-            String category = sellService.category(material);
+            String category = material == Material.DRAGON_EGG ? "rare" : sellService.category(material);
 
             return switch (this) {
                 case FARMING -> category.equals("farming");
@@ -365,7 +361,6 @@ public final class WorthGui {
             "TRIAL_SPAWNER",
             "VAULT",
             "END_PORTAL_FRAME",
-            "DRAGON_EGG",
             "FARMLAND",
             "FROGSPAWN",
             "REINFORCED_DEEPSLATE",

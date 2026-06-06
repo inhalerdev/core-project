@@ -161,7 +161,6 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
         if (args.length < 2) {
             Component prompt = legacy("&#bbbbbbType &d/team create &#bbbbbbto create a team")
                     .clickEvent(ClickEvent.suggestCommand("/team create "));
-
             player.sendMessage(prompt);
             player.sendActionBar(actionBar("&#bbbbbbType &d/team create &#bbbbbbto create a team"));
             return true;

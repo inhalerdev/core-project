@@ -151,6 +151,7 @@ prices:
   ELYTRA: { price: 2500.00, category: end }
   DRAGON_BREATH: { price: 12.00, category: end }
 
+  DRAGON_EGG: { price: 10000.00, category: rare }
   ECHO_SHARD: { price: 45.00, category: rare }
   DISC_FRAGMENT_5: { price: 28.00, category: rare }
   HEART_OF_THE_SEA: { price: 90.00, category: rare }
