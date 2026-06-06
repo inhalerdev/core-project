@@ -9,7 +9,6 @@ import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -36,69 +35,58 @@ public final class PlayerStatisticsGui implements Listener {
 
     private final StatsService statsService;
 
-    public PlayerStatisticsGui() {
-        this.statsService = null;
-    }
-
     public PlayerStatisticsGui(StatsService statsService) {
         this.statsService = statsService;
     }
 
     public void open(Player viewer, UUID targetId) {
-        StatsService stats = stats();
-        if (stats == null) {
-            viewer.sendMessage(color("&cStats are not ready"));
-            return;
-        }
-
         OfflinePlayer target = Bukkit.getOfflinePlayer(targetId);
-
         Inventory inventory = Bukkit.createInventory(
                 null,
                 SIZE,
-                DisplayNames.displayName(target) + " Stats"
+                TextColor.color(DisplayNames.displayName(target) + " &#bbbbbbStats")
         );
 
         inventory.setItem(SLOT_MONEY, statItem(
                 Material.EMERALD,
-                "&aMoney",
-                "&a$" + stats.money(targetId)
+                "&#bbbbbbMoney",
+                "&a$" + statsService.money(targetId)
         ));
 
         inventory.setItem(SLOT_PLAYTIME, statItem(
                 Material.CLOCK,
-                "&ePlaytime",
-                "&e" + stats.playtime(targetId)
+                "&#bbbbbbPlaytime",
+                "&#ff88ff" + statsService.playtime(targetId)
         ));
 
         inventory.setItem(SLOT_PLAYER_KILLS, statItem(
                 Material.DIAMOND_SWORD,
-                "&cKills",
-                "&c" + stats.kills(targetId)
+                "&#bbbbbbKills",
+                "&#ff88ff" + statsService.kills(targetId)
         ));
 
         inventory.setItem(SLOT_DEATHS, statItem(
                 Material.SKELETON_SKULL,
-                "&#ffa033Deaths",
-                "&#ffa033" + stats.deaths(targetId)
+                "&#bbbbbbDeaths",
+                "&#ff88ff" + statsService.deaths(targetId)
         ));
 
         inventory.setItem(SLOT_BLOCKS_PLACED, statItem(
                 Material.GRASS_BLOCK,
-                "&dBlocks Placed",
-                "&#bbbbbb" + stats.blocksPlaced(targetId)
+                "&#bbbbbbBlocks Placed",
+                "&#ff88ff" + statsService.blocksPlaced(targetId)
         ));
 
         inventory.setItem(SLOT_BLOCKS_BROKEN, statItem(
                 Material.COBBLESTONE,
-                "&dBlocks Broken",
-                "&#bbbbbb" + stats.blocksBroken(targetId)
+                "&#bbbbbbBlocks Broken",
+                "&#ff88ff" + statsService.blocksBroken(targetId)
         ));
 
         inventory.setItem(SLOT_MOBS_KILLED, statItem(
                 Material.ZOMBIE_HEAD,
-                "&dMobs Killed",
-                "&#bbbbbb" + stats.mobsKilled(targetId)
+                "&#bbbbbbMobs Killed",
+                "&#ff88ff" + statsService.mobsKilled(targetId)
         ));
 
         viewer.openInventory(inventory);
@@ -107,34 +95,29 @@ public final class PlayerStatisticsGui implements Listener {
     @EventHandler
     public void onClick(InventoryClickEvent event) {
         HumanEntity clicker = event.getWhoClicked();
+
         if (!(clicker instanceof Player)) {
             return;
         }
 
         String title = ChatColor.stripColor(event.getView().getTitle());
+
         if (title == null || !title.endsWith(" Stats")) {
             return;
         }
 
         event.setCancelled(true);
-        event.setResult(Event.Result.DENY);
+        event.setResult(org.bukkit.event.Event.Result.DENY);
     }
 
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
         String title = ChatColor.stripColor(event.getView().getTitle());
+
         if (title != null && title.endsWith(" Stats")) {
             event.setCancelled(true);
-            event.setResult(Event.Result.DENY);
+            event.setResult(org.bukkit.event.Event.Result.DENY);
         }
-    }
-
-    private StatsService stats() {
-        if (statsService != null) {
-            return statsService;
-        }
-
-        return StatsModule.statsService();
     }
 
     private ItemStack statItem(Material material, String name, String value) {

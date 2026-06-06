@@ -78,7 +78,7 @@ public final class ChatFormatListener implements Listener {
         hover.append(displayName).append("\n");
 
         if (hasTeam(teamName)) {
-            hover.append("&#ff88ff♦ &#bbbbbbTeam &#ff88ff").append(teamName).append("\n");
+            hover.append("&d🔥&#bbbbbb Team &#ff88ff").append(teamName).append("\n");
         }
 
         hover.append("&a$ &#bbbbbbMoney &a").append(money).append("\n")
