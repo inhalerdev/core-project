@@ -1,6 +1,7 @@
 package net.mineacle.core.stats.service;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -100,7 +101,13 @@ public final class StatsService {
     }
 
     public String money(UUID uuid) {
-        return economyService == null ? "0" : economyService.format(economyService.getBalanceCents(uuid)).replace("$", "");
+        EconomyService service = economyService != null ? economyService : EconomyModule.economyService();
+
+        if (service == null) {
+            return "0";
+        }
+
+        return service.format(service.getBalanceCents(uuid)).replace("$", "");
     }
 
     public long kills(UUID uuid) {

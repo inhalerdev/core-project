@@ -27,9 +27,9 @@ public final class PlayerStatisticsGui implements Listener {
     private static final int SIZE = 27;
 
     private static final int SLOT_MONEY = 10;
-    private static final int SLOT_PLAYER_KILLS = 11;
-    private static final int SLOT_DEATHS = 12;
-    private static final int SLOT_PLAYTIME = 13;
+    private static final int SLOT_PLAYTIME = 11;
+    private static final int SLOT_PLAYER_KILLS = 12;
+    private static final int SLOT_DEATHS = 13;
     private static final int SLOT_BLOCKS_PLACED = 14;
     private static final int SLOT_BLOCKS_BROKEN = 15;
     private static final int SLOT_MOBS_KILLED = 16;
@@ -61,26 +61,26 @@ public final class PlayerStatisticsGui implements Listener {
 
         inventory.setItem(SLOT_MONEY, statItem(
                 Material.EMERALD,
-                "&dMoney",
-                "&#bbbbbb" + stats.money(targetId)
-        ));
-
-        inventory.setItem(SLOT_PLAYER_KILLS, statItem(
-                Material.DIAMOND_SWORD,
-                "&dKills",
-                "&#bbbbbb" + stats.kills(targetId)
-        ));
-
-        inventory.setItem(SLOT_DEATHS, statItem(
-                Material.SKELETON_SKULL,
-                "&dDeaths",
-                "&#bbbbbb" + stats.deaths(targetId)
+                "&aMoney",
+                "&a$" + stats.money(targetId)
         ));
 
         inventory.setItem(SLOT_PLAYTIME, statItem(
                 Material.CLOCK,
-                "&dPlaytime",
-                "&#bbbbbb" + stats.playtime(targetId)
+                "&ePlaytime",
+                "&e" + stats.playtime(targetId)
+        ));
+
+        inventory.setItem(SLOT_PLAYER_KILLS, statItem(
+                Material.DIAMOND_SWORD,
+                "&cKills",
+                "&c" + stats.kills(targetId)
+        ));
+
+        inventory.setItem(SLOT_DEATHS, statItem(
+                Material.SKELETON_SKULL,
+                "&#ffa033Deaths",
+                "&#ffa033" + stats.deaths(targetId)
         ));
 
         inventory.setItem(SLOT_BLOCKS_PLACED, statItem(

@@ -129,8 +129,8 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
 
             case "stats_kills", "stats_player_kills", "kills" -> String.valueOf(statsService.kills(uuid));
             case "stats_deaths", "deaths" -> String.valueOf(statsService.deaths(uuid));
-            case "stats_playtime" -> statsService.playtime(uuid);
-            case "stats_playtime_seconds" -> String.valueOf(statsService.playtimeSeconds(uuid));
+            case "stats_playtime", "playtime", "playtime_time" -> statsService.playtime(uuid);
+            case "stats_playtime_seconds", "playtime_seconds" -> String.valueOf(statsService.playtimeSeconds(uuid));
             case "stats_blocks_placed", "blocks_placed" -> String.valueOf(statsService.blocksPlaced(uuid));
             case "stats_blocks_broken", "blocks_broken" -> String.valueOf(statsService.blocksBroken(uuid));
             case "stats_mobs_killed", "mobs_killed" -> String.valueOf(statsService.mobsKilled(uuid));
@@ -191,7 +191,7 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
             case "name", "username", "player", "player_name" -> username(statPlayer);
             case "displayname", "display_name", "player_displayname", "player_display_name" -> displayName(statPlayer);
             case "nickname", "nick" -> emptyIfBlank(nickname(statPlayer));
-            case "value" -> rawStatValue(type, profile);
+            case "value" -> type.equals("playtime") ? statsService.formatPlaytime(profile.playtimeSeconds()) : rawStatValue(type, profile);
             case "kills" -> type.equals("kills") ? String.valueOf(profile.kills()) : null;
             case "deaths" -> type.equals("deaths") ? String.valueOf(profile.deaths()) : null;
             case "time", "playtime" -> type.equals("playtime") ? statsService.formatPlaytime(profile.playtimeSeconds()) : null;
