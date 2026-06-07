@@ -4,6 +4,7 @@ import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
+import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.hide.HideModule;
 import net.mineacle.core.hide.HideService;
@@ -74,6 +75,7 @@ public final class NametagService {
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!enabled() || !enabledInWorld(player)) {
+                clearPlayerCustomName(player);
                 removeFromMineacleTeams(player, scoreboard);
                 continue;
             }
@@ -86,6 +88,7 @@ public final class NametagService {
         Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
 
         if (!enabled() || !enabledInWorld(player)) {
+            clearPlayerCustomName(player);
             removeFromMineacleTeams(player, scoreboard);
             return;
         }
@@ -110,6 +113,7 @@ public final class NametagService {
         HideService hideService = HideModule.service();
 
         if (hideService != null && hideService.shouldHideRealNametag(player)) {
+            clearPlayerCustomName(player);
             team.prefix(Component.empty());
             team.suffix(Component.empty());
             team.setColor(ChatColor.WHITE);
@@ -117,23 +121,17 @@ public final class NametagService {
             return;
         }
 
-        team.prefix(prefix(player));
+        team.prefix(Component.empty());
         team.suffix(Component.empty());
         team.setColor(player.isOp() ? ChatColor.LIGHT_PURPLE : ChatColor.WHITE);
-        team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
+        team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
+
+        player.customName(displayNameComponent(player));
+        player.setCustomNameVisible(true);
     }
 
-    private Component prefix(Player player) {
-        StringBuilder builder = new StringBuilder();
-        String rank = rankPrefix(player);
-
-        if (!rank.isBlank()) {
-            builder.append(rank);
-        }
-
-        builder.append(player.isOp() ? config.getString("colors.op", "#ff88ff") : config.getString("colors.default", "#ffffff"));
-
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(builder.toString()));
+    private Component displayNameComponent(Player player) {
+        return legacy(DisplayNames.prefixedDisplayName(player));
     }
 
     private String rankPrefix(Player player) {
@@ -199,8 +197,21 @@ public final class NametagService {
         }
     }
 
+    private void clearPlayerCustomName(Player player) {
+        player.customName(null);
+        player.setCustomNameVisible(false);
+    }
+
+    private Component legacy(String message) {
+        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
+    }
+
     public void clear() {
         Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            clearPlayerCustomName(player);
+        }
 
         for (Team team : scoreboard.getTeams()) {
             if (!team.getName().startsWith("mn")) {

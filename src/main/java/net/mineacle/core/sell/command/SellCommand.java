@@ -47,6 +47,11 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
         }
 
         if (commandName.equals("worth")) {
+            if (args.length > 0) {
+                sendNamedWorth(player, args);
+                return true;
+            }
+
             WorthGui.open(core, player, sellService, 0);
             return true;
         }
@@ -57,6 +62,11 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length > 0 && args[0].equalsIgnoreCase("worth")) {
+            if (args.length > 1) {
+                sendNamedWorth(player, dropFirst(args));
+                return true;
+            }
+
             WorthGui.open(core, player, sellService, 0);
             return true;
         }
@@ -79,6 +89,7 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
             }
 
             sellService.reload();
+            WorthGui.clearCatalogCache();
             player.sendMessage(TextColor.color("&#bbbbbbSell system reloaded"));
             SoundService.guiConfirm(player, core);
             return true;
@@ -91,6 +102,40 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
 
         SellGui.open(core, player);
         return true;
+    }
+
+    private void sendNamedWorth(Player player, String[] args) {
+        Material material = material(String.join("_", args));
+
+        if (material == null || !material.isItem()) {
+            player.sendMessage(TextColor.color("&cUnknown item"));
+            SoundService.guiError(player, core);
+            return;
+        }
+
+        boolean dragonEgg = material == Material.DRAGON_EGG;
+        long unit = dragonEgg ? Math.max(sellService.baseWorthCents(material), 1000000L) : sellService.unitWorthCents(player, material);
+
+        if (unit <= 0L && !dragonEgg) {
+            player.sendMessage(TextColor.color("&cThat item has no worth"));
+            SoundService.guiError(player, core);
+            return;
+        }
+
+        int stackSize = Math.max(1, material.getMaxStackSize());
+        long stackPrice = dragonEgg ? unit : unit * stackSize;
+
+        player.sendMessage(TextColor.color("&#bbbbbbItem: &#ff88ff" + sellService.pretty(material)));
+        player.sendMessage(TextColor.color("&#bbbbbbWorth: &a" + sellService.format(unit)));
+
+        if (!dragonEgg) {
+            player.sendMessage(TextColor.color("&#bbbbbbStack Price: &a" + sellService.format(stackPrice)));
+        } else {
+            player.sendMessage(TextColor.color("&cNot sellable"));
+            player.sendMessage(TextColor.color("&#bbbbbbUnique server trophy item"));
+        }
+
+        SoundService.economyBalance(player, core);
     }
 
     private void handleDemandCommand(Player player, String[] args) {
@@ -108,6 +153,7 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
 
         if (args[1].equalsIgnoreCase("recalc") || args[1].equalsIgnoreCase("rotate")) {
             sellService.recalculateDemand();
+            WorthGui.clearCatalogCache();
             player.sendMessage(TextColor.color("&#bbbbbbSell demand rotated"));
             SoundService.guiConfirm(player, core);
             return;
@@ -115,6 +161,7 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
 
         if (args[1].equalsIgnoreCase("reset")) {
             sellService.resetDemandData();
+            WorthGui.clearCatalogCache();
             player.sendMessage(TextColor.color("&#bbbbbbSell demand data reset"));
             SoundService.guiConfirm(player, core);
             return;
@@ -166,22 +213,13 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        long cents = sellService.stackWorthCents(player, item);
+        long stack = sellService.stackWorthCents(player, item);
+        long unit = sellService.unitWorthCents(player, item.getType());
         Material material = item.getType();
-        double demand = sellService.demandMultiplier(material);
 
-        player.sendMessage(TextColor.color(
-                "&#bbbbbbWorth: &a" + sellService.format(cents)
-                        + " &#bbbbbbfor &#ff88ff" + item.getAmount()
-                        + "x " + sellService.pretty(material)
-        ));
-
-        player.sendMessage(TextColor.color("&#bbbbbbUnit Price: &a" + sellService.format(sellService.unitWorthCents(player, material))));
-
-        if (Math.abs(demand - 1.0D) >= 0.01D) {
-            player.sendMessage(TextColor.color("&#bbbbbbServer Demand: &#ff88ff" + SellService.formatMultiplier(demand) + "x"));
-        }
-
+        player.sendMessage(TextColor.color("&#bbbbbbItem: &#ff88ff" + item.getAmount() + "x " + sellService.pretty(material)));
+        player.sendMessage(TextColor.color("&#bbbbbbWorth: &a" + sellService.format(unit)));
+        player.sendMessage(TextColor.color("&#bbbbbbStack Price: &a" + sellService.format(stack)));
         SoundService.economyBalance(player, core);
     }
 
@@ -190,20 +228,39 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
             return null;
         }
 
+        String normalized = raw.trim()
+                .toUpperCase(Locale.ROOT)
+                .replace(" ", "_")
+                .replace("-", "_");
+
         try {
-            return Material.valueOf(raw.toUpperCase(Locale.ROOT));
+            return Material.valueOf(normalized);
         } catch (IllegalArgumentException ignored) {
             return null;
         }
     }
 
+    private String[] dropFirst(String[] args) {
+        String[] updated = new String[Math.max(0, args.length - 1)];
+        if (updated.length > 0) {
+            System.arraycopy(args, 1, updated, 0, updated.length);
+        }
+        return updated;
+    }
+
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!command.getName().equalsIgnoreCase("sell")) {
+        String commandName = command.getName().toLowerCase(Locale.ROOT);
+
+        if (!(sender instanceof Player player) || !player.hasPermission("mineaclesell.use")) {
             return List.of();
         }
 
-        if (!(sender instanceof Player player) || !player.hasPermission("mineaclesell.use")) {
+        if (commandName.equals("worth")) {
+            return itemCompletions(args);
+        }
+
+        if (!commandName.equals("sell")) {
             return List.of();
         }
 
@@ -218,6 +275,10 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
             return PlayerTabComplete.options(args[0], options);
         }
 
+        if (args.length >= 2 && args[0].equalsIgnoreCase("worth")) {
+            return itemCompletions(dropFirst(args));
+        }
+
         if (args.length == 2 && args[0].equalsIgnoreCase("demand") && player.hasPermission("mineaclesell.admin")) {
             List<String> completions = new ArrayList<>(List.of("recalc", "rotate", "reset"));
             String partial = args[1] == null ? "" : args[1].toLowerCase(Locale.ROOT);
@@ -228,6 +289,7 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
                 }
 
                 String name = material.name().toLowerCase(Locale.ROOT);
+
                 if (partial.isEmpty() || name.startsWith(partial)) {
                     completions.add(name);
                 }
@@ -237,5 +299,28 @@ public final class SellCommand implements CommandExecutor, TabCompleter {
         }
 
         return List.of();
+    }
+
+    private List<String> itemCompletions(String[] args) {
+        String partial = String.join("_", args).toLowerCase(Locale.ROOT);
+        List<String> completions = new ArrayList<>();
+
+        for (Material material : Material.values()) {
+            if (!material.isItem() || material == Material.AIR || material.name().endsWith("_SPAWN_EGG")) {
+                continue;
+            }
+
+            String name = material.name().toLowerCase(Locale.ROOT);
+
+            if (partial.isBlank() || name.startsWith(partial)) {
+                completions.add(name);
+            }
+
+            if (completions.size() >= 80) {
+                break;
+            }
+        }
+
+        return completions;
     }
 }

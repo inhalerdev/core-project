@@ -198,7 +198,7 @@ commands:
 
   worth:
     description: Open item prices menu
-    usage: /worth
+    usage: /worth [item]
     permission: mineaclesell.use
 
   bounty:
@@ -267,17 +267,44 @@ commands:
     usage: /enchantinfo <enchantment>
     permission: mineacleenchant.admin
 
-  duel:
-    description: Challenge players or join Mineacle duels
-    aliases: [duels]
-    usage: /duel <player|accept|deny|cancel|leave>
-    permission: mineacleduels.use
+  mineacleservermessages:
+    description: Reload Mineacle server messages
+    aliases: [servermessages]
+    usage: /mineacleservermessages reload
+    permission: mineacleservermessages.admin
+
+  mineaclemaintenance:
+    description: Toggle Mineacle maintenance mode
+    aliases: [maintenance]
+    usage: /mineaclemaintenance <on|off>
+    permission: mineacleservermessages.admin
+
+  mrestart:
+    description: Restart the server with Mineacle branding
+    usage: /mrestart
+    permission: mineacleservermessages.admin
+
+  mstop:
+    description: Stop the server with Mineacle branding
+    usage: /mstop
+    permission: mineacleservermessages.admin
 
   mineacleworldmaintenance:
     description: Control world maintenance groups
     aliases: [worldmaintenance, wm]
     usage: /mineacleworldmaintenance <group> <on|off>
-    permission: mineacleworldmaintenance.admin
+    permission: mineacleservermessages.admin
+
+  invsee:
+    description: Inspect an online player's inventory
+    usage: /invsee <player>
+    permission: mineacleadmin.invsee
+
+  echest:
+    description: Inspect an online player's ender chest
+    aliases: [enderchest, ecsee]
+    usage: /echest <player>
+    permission: mineacleadmin.echest
 
 permissions:
   mineacleguide.use:
@@ -394,12 +421,17 @@ permissions:
   mineacleenchant.admin:
     default: op
 
-  mineacleworldmaintenance.admin:
+  mineacleservermessages.admin:
     default: op
-  mineacleworldmaintenance.bypass:
+  mineacleservermessages.bypass:
     default: op
 
-  mineacleduels.use:
-    default: true
-  mineacleduels.admin:
+  mineacleadmin.invsee:
     default: op
+  mineacleadmin.invsee.self:
+    default: op
+  mineacleadmin.echest:
+    default: op
+  mineacleadmin.echest.self:
+    default: op
+

@@ -62,21 +62,24 @@ public final class WorthGui {
             inventory.setItem(index - start, item(player, sellService, material));
         }
 
-        inventory.setItem(PREVIOUS_SLOT, toolbar(Material.ARROW, "&dPrevious Page", safePage > 0
-                ? List.of("&#bbbbbbPage &#ff88ff" + safePage)
-                : List.of("&cNo previous page")));
+        if (safePage > 0) {
+            inventory.setItem(PREVIOUS_SLOT, toolbar(Material.ARROW, "&dPrevious Page", List.of(
+                    "&#bbbbbbPage &#ff88ff" + safePage
+            )));
+        }
 
         inventory.setItem(SORT_SLOT, sortToolbar(sort(player)));
         inventory.setItem(FILTER_SLOT, filterToolbar(filter(player)));
-
         inventory.setItem(REFRESH_SLOT, toolbar(Material.PAPER, "&dRefresh", List.of(
                 "&#bbbbbbRebuilds the cached worth catalog",
                 "&#bbbbbbUse after sell reloads"
         )));
 
-        inventory.setItem(NEXT_SLOT, toolbar(Material.ARROW, "&dNext Page", safePage < maxPage
-                ? List.of("&#bbbbbbPage &#ff88ff" + (safePage + 2))
-                : List.of("&cNo next page")));
+        if (safePage < maxPage) {
+            inventory.setItem(NEXT_SLOT, toolbar(Material.ARROW, "&dNext Page", List.of(
+                    "&#bbbbbbPage &#ff88ff" + (safePage + 2)
+            )));
+        }
 
         player.openInventory(inventory);
     }
@@ -158,29 +161,27 @@ public final class WorthGui {
         long base = material == Material.DRAGON_EGG
                 ? Math.max(sellService.baseWorthCents(material), 1000000L)
                 : sellService.baseWorthCents(material);
+
         long unit = material == Material.DRAGON_EGG
                 ? base
                 : sellService.unitWorthCents(player, material);
+
         double demand = material == Material.DRAGON_EGG ? 1.0D : sellService.demandMultiplier(material);
 
+        int stackSize = Math.max(1, material.getMaxStackSize());
+        long stackPrice = material == Material.DRAGON_EGG ? unit : unit * stackSize;
+
         List<String> lore = new ArrayList<>();
-        lore.add("&#bbbbbbValue: &a" + sellService.format(unit));
-        lore.add("&#bbbbbbBase: &a" + sellService.format(base));
-        lore.add("&#bbbbbbCategory: &#ff88ff" + sellService.categoryDisplay(material));
+        lore.add("&#bbbbbbWorth: &a" + sellService.format(unit));
+
+        if (material != Material.DRAGON_EGG) {
+            lore.add("&#bbbbbbStack Price: &a" + sellService.format(stackPrice));
+        }
 
         if (material == Material.DRAGON_EGG) {
             lore.add("");
             lore.add("&cNot sellable");
             lore.add("&#bbbbbbUnique server trophy item");
-        } else if (Math.abs(demand - 1.0D) >= 0.01D) {
-            lore.add("&#bbbbbbDemand: &#ff88ff" + SellService.formatMultiplier(demand) + "x");
-            lore.add("&#bbbbbbTier: &#ff88ff" + sellService.demandTierDisplay(material));
-        }
-
-        long sold = material == Material.DRAGON_EGG ? 0L : sellService.demandWindowAmount(material);
-
-        if (sold > 0L) {
-            lore.add("&#bbbbbbSold This Cycle: &#ff88ff" + sold);
         }
 
         meta.setDisplayName(TextColor.color("&#bbbbbb" + sellService.pretty(material)));
@@ -194,9 +195,11 @@ public final class WorthGui {
         List<String> lore = new ArrayList<>();
         lore.add("&#bbbbbbCurrent: &#ff88ff" + current.display());
         lore.add("");
+
         for (SortMode mode : SortMode.values()) {
             lore.add(mode == current ? "&#ff88ff" + mode.display() : "&#bbbbbb" + mode.display());
         }
+
         lore.add("");
         lore.add("&#bbbbbbClick to change sort");
         return toolbar(Material.ANVIL, "&dSort", lore);
@@ -206,9 +209,11 @@ public final class WorthGui {
         List<String> lore = new ArrayList<>();
         lore.add("&#bbbbbbCurrent: &#ff88ff" + current.display());
         lore.add("");
+
         for (FilterMode mode : FilterMode.values()) {
             lore.add(mode == current ? "&#ff88ff" + mode.display() : "&#bbbbbb" + mode.display());
         }
+
         lore.add("");
         lore.add("&#bbbbbbClick to change filter");
         return toolbar(Material.HOPPER, "&dFilter", lore);
@@ -291,7 +296,7 @@ public final class WorthGui {
                         .thenComparing(material -> sellService.pretty(material), String.CASE_INSENSITIVE_ORDER);
                 case NAME -> Comparator.comparing(material -> sellService.pretty(material), String.CASE_INSENSITIVE_ORDER);
                 case CATEGORY -> Comparator
-                        .comparing((Material material) -> sellService.categoryDisplay(material), String.CASE_INSENSITIVE_ORDER)
+                        .comparing((Material material) -> material == Material.DRAGON_EGG ? "Rare" : sellService.categoryDisplay(material), String.CASE_INSENSITIVE_ORDER)
                         .thenComparing(material -> sellService.pretty(material), String.CASE_INSENSITIVE_ORDER);
             };
         }

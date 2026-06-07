@@ -184,17 +184,13 @@ groups:
       - "lobby"
       - "money"
       - "orders"
-      - "originrtp"
       - "renamehome"
       - "reply"
       - "r"
-      - "sellmulti"
       - "teams"
       - "tell"
       - "tpadeny"
       - "tphere"
-      - "tpno"
-      - "tpyes"
       - "warps"
       - "w"
       - "wild"
@@ -208,7 +204,6 @@ groups:
       - "fly"
       - "hide"
       - "nick"
-    hidden-commands: []
 
   admin:
     permission: "mineaclesecurity.group.admin"
@@ -218,7 +213,6 @@ groups:
     visible-commands:
       - "ban"
       - "delwarp"
-      - "doublejump"
       - "eco"
       - "enchant"
       - "enchantinfo"
@@ -243,6 +237,10 @@ groups:
       - "warn"
       - "wm"
       - "worldmaintenance"
+      - "invsee"
+      - "echest"
+      - "enderchest"
+      - "ecsee"
     hidden-commands:
       - "money"
       - "w"

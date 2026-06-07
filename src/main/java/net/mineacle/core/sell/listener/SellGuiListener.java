@@ -96,11 +96,7 @@ public final class SellGuiListener implements Listener {
             return;
         }
 
-        core.getServer().getScheduler().runTask(core, () -> {
-            if (player.isOnline() && isSellMenu(player.getOpenInventory().getTitle())) {
-                SellGui.updateSummary(player, player.getOpenInventory().getTopInventory(), sellService);
-            }
-        });
+        refreshSellGui(player);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
@@ -119,10 +115,17 @@ public final class SellGuiListener implements Listener {
             return;
         }
 
+        refreshSellGui(player);
+    }
+
+    private void refreshSellGui(Player player) {
         core.getServer().getScheduler().runTask(core, () -> {
-            if (player.isOnline() && isSellMenu(player.getOpenInventory().getTitle())) {
-                SellGui.updateSummary(player, player.getOpenInventory().getTopInventory(), sellService);
+            if (!player.isOnline() || !isSellMenu(player.getOpenInventory().getTitle())) {
+                return;
             }
+
+            SellGui.updateSummary(player, player.getOpenInventory().getTopInventory(), sellService);
+            player.updateInventory();
         });
     }
 
@@ -172,6 +175,7 @@ public final class SellGuiListener implements Listener {
     private boolean isSellMenu(String rawTitle) {
         String title = ChatColor.stripColor(rawTitle);
         String sellTitle = ChatColor.stripColor(SellGui.title(core));
+
         return title != null && sellTitle != null && title.equals(sellTitle);
     }
 

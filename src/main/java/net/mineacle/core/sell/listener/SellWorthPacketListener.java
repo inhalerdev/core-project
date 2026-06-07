@@ -7,6 +7,7 @@ import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.reflect.StructureModifier;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.sell.gui.SellGui;
 import net.mineacle.core.sell.gui.WorthGui;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.ChatColor;
@@ -36,10 +37,12 @@ public final class SellWorthPacketListener extends PacketAdapter {
 
     private static final int MAX_CONTAINER_DEPTH = 3;
 
+    private final Core core;
     private final SellService sellService;
 
     public SellWorthPacketListener(Core core, SellService sellService) {
         super(core, ListenerPriority.NORMAL, PacketType.Play.Server.SET_SLOT, PacketType.Play.Server.WINDOW_ITEMS);
+        this.core = core;
         this.sellService = sellService;
     }
 
@@ -48,10 +51,6 @@ public final class SellWorthPacketListener extends PacketAdapter {
         Player player = event.getPlayer();
 
         if (player == null || isUnsafeInventoryMode(player)) {
-            return;
-        }
-
-        if (isWorthMenu(player)) {
             return;
         }
 
@@ -135,31 +134,43 @@ public final class SellWorthPacketListener extends PacketAdapter {
     private ItemStack displayItem(Player player, ItemStack original, int rawSlot) {
         ItemStack clean = stripWorthLore(original);
 
-        if (!shouldShowWorth(player, rawSlot)) {
+        if (!shouldShowWorth(player, clean, rawSlot)) {
             return clean;
         }
 
         return withWorthLore(player, clean);
     }
 
-    private boolean shouldShowWorth(Player player, int rawSlot) {
+    private boolean shouldShowWorth(Player player, ItemStack item, int rawSlot) {
+        if (item == null || item.getType().isAir() || item.getType() == Material.BLACK_STAINED_GLASS_PANE) {
+            return false;
+        }
+
+        if (isWorthMenu(player) || isSellMenu(player)) {
+            return sellService.canSell(item);
+        }
+
         InventoryView view = player.getOpenInventory();
 
         if (view == null) {
-            return true;
+            return sellService.canSell(item);
         }
 
         Inventory top = view.getTopInventory();
 
         if (top == null) {
-            return true;
+            return sellService.canSell(item);
         }
 
         if (rawSlot >= 0 && rawSlot < top.getSize()) {
-            return isRealStorageTop(top);
+            if (isPhoenixCrateRewardsMenu(view)) {
+                return sellService.canSell(item);
+            }
+
+            return isRealStorageTop(top) && sellService.canSell(item);
         }
 
-        return true;
+        return sellService.canSell(item);
     }
 
     private boolean isWorthMenu(Player player) {
@@ -171,6 +182,44 @@ public final class SellWorthPacketListener extends PacketAdapter {
 
         String title = ChatColor.stripColor(view.getTitle());
         return WorthGui.isTitle(title);
+    }
+
+    private boolean isSellMenu(Player player) {
+        InventoryView view = player.getOpenInventory();
+
+        if (view == null) {
+            return false;
+        }
+
+        String title = ChatColor.stripColor(view.getTitle());
+        String sellTitle = ChatColor.stripColor(SellGui.title(core));
+
+        return title != null && sellTitle != null && title.equals(sellTitle);
+    }
+
+    private boolean isPhoenixCrateRewardsMenu(InventoryView view) {
+        Inventory top = view.getTopInventory();
+
+        if (top == null || isRealStorageTop(top)) {
+            return false;
+        }
+
+        String title = ChatColor.stripColor(view.getTitle());
+
+        if (title == null) {
+            title = "";
+        }
+
+        String lowerTitle = title.toLowerCase(Locale.ROOT);
+        String holderName = top.getHolder(false) == null ? "" : top.getHolder(false).getClass().getName().toLowerCase(Locale.ROOT);
+
+        return holderName.contains("phoenix")
+                || holderName.contains("pcrates")
+                || holderName.contains("crate")
+                || lowerTitle.contains("crate reward")
+                || lowerTitle.contains("crate preview")
+                || lowerTitle.contains("rewards")
+                || lowerTitle.contains("preview");
     }
 
     private boolean isRealStorageTop(Inventory inventory) {
@@ -200,13 +249,14 @@ public final class SellWorthPacketListener extends PacketAdapter {
     }
 
     private ItemStack withWorthLore(Player player, ItemStack original) {
-        if (original == null || original.getType().isAir()) {
+        if (original == null || original.getType().isAir() || original.getType() == Material.BLACK_STAINED_GLASS_PANE) {
             return original;
         }
 
-        long totalWorth = visualWorthCents(player, original, 0);
+        long unitWorth = sellService.unitWorthCents(player, original.getType());
+        long stackWorth = visualWorthCents(player, original, 0);
 
-        if (totalWorth <= 0L) {
+        if (unitWorth <= 0L || stackWorth <= 0L) {
             return original;
         }
 
@@ -218,7 +268,10 @@ public final class SellWorthPacketListener extends PacketAdapter {
         }
 
         List<String> lore = meta.hasLore() && meta.getLore() != null ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
-        lore.add(0, TextColor.color("&#bbbbbbWorth: &a" + sellService.format(totalWorth)));
+
+        lore.add(0, TextColor.color("&#bbbbbbStack Price: &a" + sellService.format(stackWorth)));
+        lore.add(0, TextColor.color("&#bbbbbbWorth: &a" + sellService.format(unitWorth)));
+
         meta.setLore(lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
@@ -284,9 +337,15 @@ public final class SellWorthPacketListener extends PacketAdapter {
         String lower = stripped.toLowerCase(Locale.ROOT);
 
         return lower.startsWith("worth:")
+                || lower.startsWith("price:")
+                || lower.startsWith("base:")
+                || lower.startsWith("stack:")
+                || lower.startsWith("stack price:")
                 || lower.startsWith("stack worth:")
                 || lower.startsWith("enchant value:")
-                || lower.startsWith("demand:");
+                || lower.startsWith("demand:")
+                || lower.startsWith("category:")
+                || lower.startsWith("sold this cycle:");
     }
 
     private int setSlotRawSlot(PacketEvent event) {
