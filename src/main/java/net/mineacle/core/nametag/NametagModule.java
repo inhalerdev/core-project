@@ -11,6 +11,7 @@ public final class NametagModule extends Module {
 
     private static NametagService service;
     private BukkitTask refreshTask;
+    private BukkitTask cleanupTask;
 
     @Override
     public String name() {
@@ -26,8 +27,9 @@ public final class NametagModule extends Module {
 
         core.getServer().getPluginManager().registerEvents(new NametagListener(core, service), core);
 
-        long interval = Math.max(5L, service.updateIntervalTicks());
+        long interval = Math.max(2L, service.updateIntervalTicks());
         refreshTask = core.getServer().getScheduler().runTaskTimer(core, service::refreshAll, 5L, interval);
+        cleanupTask = core.getServer().getScheduler().runTaskTimer(core, service::removeOrphanDisplays, 100L, 200L);
 
         service.refreshAll();
     }
@@ -37,6 +39,11 @@ public final class NametagModule extends Module {
         if (refreshTask != null) {
             refreshTask.cancel();
             refreshTask = null;
+        }
+
+        if (cleanupTask != null) {
+            cleanupTask.cancel();
+            cleanupTask = null;
         }
 
         if (service != null) {

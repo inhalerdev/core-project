@@ -1,13 +1,12 @@
 package net.mineacle.core.nametag;
 
 import net.mineacle.core.Core;
-import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.server.ServerCommandEvent;
 
 import java.util.Locale;
@@ -23,11 +22,6 @@ public final class NametagListener implements Listener {
     }
 
     @EventHandler
-    public void onJoin(PlayerJoinEvent event) {
-        scheduleRefreshBurst();
-    }
-
-    @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         service.removeDisplay(event.getPlayer());
         scheduleRefreshBurst();
@@ -35,6 +29,20 @@ public final class NametagListener implements Listener {
 
     @EventHandler
     public void onWorldChange(PlayerChangedWorldEvent event) {
+        service.removeDisplay(event.getPlayer());
+        scheduleRefreshBurst();
+    }
+
+    @EventHandler
+    public void onTeleport(PlayerTeleportEvent event) {
+        if (event.getFrom().getWorld() == null || event.getTo() == null || event.getTo().getWorld() == null) {
+            return;
+        }
+
+        if (!event.getFrom().getWorld().equals(event.getTo().getWorld())) {
+            service.removeDisplay(event.getPlayer());
+        }
+
         scheduleRefreshBurst();
     }
 

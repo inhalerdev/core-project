@@ -20,9 +20,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
+import org.bukkit.util.Transformation;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
-import org.bukkit.util.Transformation;
 
 import java.io.File;
 import java.util.HashMap;
@@ -61,15 +61,15 @@ public final class NametagService {
     }
 
     public long updateIntervalSeconds() {
-        return Math.max(1L, config.getLong("update-interval-seconds", 2L));
+        return Math.max(1L, config.getLong("update-interval-seconds", 1L));
     }
 
     public long updateIntervalTicks() {
         if (config.contains("update-interval-ticks")) {
-            return Math.max(1L, config.getLong("update-interval-ticks", 5L));
+            return Math.max(1L, config.getLong("update-interval-ticks", 2L));
         }
 
-        return Math.max(5L, updateIntervalSeconds() * 20L);
+        return Math.max(2L, updateIntervalSeconds() * 20L);
     }
 
     public boolean enabledInWorld(Player player) {
@@ -143,13 +143,15 @@ public final class NametagService {
         team.prefix(Component.empty());
         team.suffix(Component.empty());
         team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
+
         updateDisplay(player);
     }
 
     private void updateDisplay(Player player) {
         TextDisplay display = display(player);
 
-        if (display == null) {
+        if (display == null || !display.getWorld().equals(player.getWorld())) {
+            removeDisplay(player);
             display = createDisplay(player);
         }
 
@@ -159,13 +161,15 @@ public final class NametagService {
 
         display.text(legacy(DisplayNames.prefixedDisplayName(player)));
 
-        if (!display.getPassengers().isEmpty()) {
-            display.eject();
+        Location target = player.getLocation().clone().add(0.0D, yOffset(), 0.0D);
+
+        if (!display.getWorld().equals(target.getWorld())) {
+            removeDisplay(player);
+            createDisplay(player);
+            return;
         }
 
-        if (!player.getPassengers().contains(display)) {
-            player.addPassenger(display);
-        }
+        display.teleport(target);
     }
 
     private TextDisplay display(Player player) {
@@ -186,7 +190,7 @@ public final class NametagService {
     }
 
     private TextDisplay createDisplay(Player player) {
-        Location location = player.getLocation().clone();
+        Location location = player.getLocation().clone().add(0.0D, yOffset(), 0.0D);
 
         TextDisplay display = player.getWorld().spawn(location, TextDisplay.class, entity -> {
             entity.setPersistent(false);
@@ -198,19 +202,18 @@ public final class NametagService {
             entity.setShadowed(true);
             entity.setDefaultBackground(false);
             entity.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
-            entity.setLineWidth(160);
-            entity.setViewRange(32.0F);
+            entity.setLineWidth(config.getInt("display.line-width", 160));
+            entity.setViewRange((float) config.getDouble("display.view-range", 32.0D));
             entity.setTransformation(new Transformation(
-                    new Vector3f(0.0F, 0.72F, 0.0F),
+                    new Vector3f(0.0F, 0.0F, 0.0F),
                     new Quaternionf(),
-                    new Vector3f(1.0F, 1.0F, 1.0F),
+                    new Vector3f((float) config.getDouble("display.scale", 1.0D)),
                     new Quaternionf()
             ));
             entity.text(legacy(DisplayNames.prefixedDisplayName(player)));
         });
 
         displays.put(player.getUniqueId(), display.getUniqueId());
-        player.addPassenger(display);
         return display;
     }
 
@@ -226,6 +229,28 @@ public final class NametagService {
         if (entity != null) {
             entity.remove();
         }
+    }
+
+    public void removeOrphanDisplays() {
+        for (UUID id : List.copyOf(displays.values())) {
+            Entity entity = Bukkit.getEntity(id);
+
+            if (entity != null && entity.isValid()) {
+                boolean ownerOnline = displays.entrySet()
+                        .stream()
+                        .anyMatch(entry -> entry.getValue().equals(id) && Bukkit.getPlayer(entry.getKey()) != null);
+
+                if (!ownerOnline) {
+                    entity.remove();
+                }
+            }
+        }
+
+        displays.entrySet().removeIf(entry -> Bukkit.getPlayer(entry.getKey()) == null);
+    }
+
+    private double yOffset() {
+        return config.getDouble("display.y-offset", 2.35D);
     }
 
     private String rankPrefix(Player player) {
