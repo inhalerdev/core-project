@@ -1,6 +1,6 @@
 enabled: true
 update-interval-seconds: 1
-update-interval-ticks: 5
+update-interval-ticks: 2
 
 worlds:
   enabled: false
@@ -17,12 +17,12 @@ rank:
   use-placeholderapi: true
   placeholder: "%luckperms_prefix%"
   fallback: ""
-  space-after-prefix: true
+  space-after-prefix: false
 
 name-color:
   enabled: true
   default: "&f"
-  op: "&f"
+  op: "&d"
 
 suffix: ""
 

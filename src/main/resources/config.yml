@@ -98,7 +98,7 @@ baltop:
 
 nickname:
   enabled: true
-  prefix: ""
+  prefix: "."
   max-length: 15
   allowed-regex: "^[a-zA-Z_0-9&§]+$"
   default-name-color: "#bbbbbb"
@@ -402,11 +402,11 @@ fly:
     - spawn2
     - spawn3
   messages:
-    enabled: "&aFlight Enabled"
-    disabled: "&cFlight disabled"
+    enabled: "&#bbbbbbFlight &aEnabled&#bbbbbb in &#ff88ff%world%"
+    disabled: "&#bbbbbbFlight &cDisabled&#bbbbbb in &#ff88ff%world%"
     blocked-world: "&cFlight is only available in spawn"
-    upgrade-line-1: "&fElevate your gameplay experience with &dMineacle+"
-    upgrade-line-2: "&dâ™¦ &fhttps://store.mineacle.net"
+    upgrade-line-1: "&fThis feature requires &dMineacle+"
+    upgrade-line-2: "&dhttps://store.mineacle.net"
 
 spawn-restrictions:
   enabled: true

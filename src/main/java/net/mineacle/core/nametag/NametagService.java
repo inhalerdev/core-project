@@ -53,10 +53,10 @@ public final class NametagService {
 
     public long updateIntervalTicks() {
         if (config.contains("update-interval-ticks")) {
-            return Math.max(5L, config.getLong("update-interval-ticks", 5L));
+            return Math.max(1L, config.getLong("update-interval-ticks", 2L));
         }
 
-        return Math.max(10L, config.getLong("update-interval-seconds", 1L) * 20L);
+        return Math.max(2L, config.getLong("update-interval-seconds", 1L) * 20L);
     }
 
     public boolean enabledInWorld(Player player) {
@@ -126,7 +126,7 @@ public final class NametagService {
         }
 
         team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
-        team.color(NamedTextColor.WHITE);
+        team.color(teamTextColor(player));
         team.prefix(legacy(buildPrefix(player)));
         team.suffix(legacy(buildSuffix()));
     }
@@ -135,12 +135,12 @@ public final class NametagService {
         StringBuilder prefix = new StringBuilder();
 
         if (config.getBoolean("rank.enabled", true)) {
-            String rank = rankPrefix(player);
+            String rank = stripTrailingSpaces(rankPrefix(player));
 
             if (rank != null && !rank.isBlank()) {
                 prefix.append(rank);
 
-                if (config.getBoolean("rank.space-after-prefix", true) && !rank.endsWith(" ")) {
+                if (config.getBoolean("rank.space-after-prefix", false)) {
                     prefix.append(" ");
                 }
             }
@@ -161,10 +161,18 @@ public final class NametagService {
         }
 
         if (player != null && player.isOp()) {
-            return normalizeColor(config.getString("name-color.op", "&f"));
+            return normalizeColor(config.getString("name-color.op", "&d"));
         }
 
         return normalizeColor(config.getString("name-color.default", "&f"));
+    }
+
+    private NamedTextColor teamTextColor(OfflinePlayer player) {
+        if (player != null && player.isOp()) {
+            return NamedTextColor.LIGHT_PURPLE;
+        }
+
+        return NamedTextColor.WHITE;
     }
 
     private String rankPrefix(Player player) {
@@ -284,6 +292,14 @@ public final class NametagService {
         }
 
         return cleaned;
+    }
+
+    private String stripTrailingSpaces(String input) {
+        if (input == null || input.isEmpty()) {
+            return "";
+        }
+
+        return input.replaceFirst("\\s+$", "");
     }
 
     private String limitTeamPart(String input, boolean prefix) {

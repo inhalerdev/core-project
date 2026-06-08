@@ -55,7 +55,7 @@ public final class PlayerStatisticsGui implements Listener {
         Inventory inventory = Bukkit.createInventory(
                 null,
                 SIZE,
-                TextColor.color(DisplayNames.displayName(target) + " &#bbbbbbStats")
+                TextColor.color(DisplayNames.displayName(target) + " &8Stats")
         );
 
         inventory.setItem(SLOT_MONEY, statItem(
