@@ -10,21 +10,33 @@ import net.mineacle.core.hide.HideModule;
 import net.mineacle.core.hide.HideService;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Color;
+import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Display;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TextDisplay;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
+import org.bukkit.util.Transformation;
 
 import java.io.File;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
 
 public final class NametagService {
 
     private final Core core;
     private final File file;
     private FileConfiguration config;
+    private final Map<UUID, UUID> displays = new HashMap<>();
 
     public NametagService(Core core) {
         this.core = core;
@@ -49,7 +61,7 @@ public final class NametagService {
     }
 
     public long updateIntervalSeconds() {
-        return Math.max(1L, config.getLong("update-interval-seconds", 5L));
+        return Math.max(1L, config.getLong("update-interval-seconds", 2L));
     }
 
     public boolean enabledInWorld(Player player) {
@@ -75,7 +87,7 @@ public final class NametagService {
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!enabled() || !enabledInWorld(player)) {
-                clearPlayerCustomName(player);
+                removeDisplay(player);
                 removeFromMineacleTeams(player, scoreboard);
                 continue;
             }
@@ -88,7 +100,7 @@ public final class NametagService {
         Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
 
         if (!enabled() || !enabledInWorld(player)) {
-            clearPlayerCustomName(player);
+            removeDisplay(player);
             removeFromMineacleTeams(player, scoreboard);
             return;
         }
@@ -113,25 +125,99 @@ public final class NametagService {
         HideService hideService = HideModule.service();
 
         if (hideService != null && hideService.shouldHideRealNametag(player)) {
-            clearPlayerCustomName(player);
             team.prefix(Component.empty());
             team.suffix(Component.empty());
-            team.setColor(ChatColor.WHITE);
             team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
+            removeDisplay(player);
             return;
         }
 
         team.prefix(Component.empty());
         team.suffix(Component.empty());
-        team.setColor(player.isOp() ? ChatColor.LIGHT_PURPLE : ChatColor.WHITE);
         team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
-
-        player.customName(displayNameComponent(player));
-        player.setCustomNameVisible(true);
+        updateDisplay(player);
     }
 
-    private Component displayNameComponent(Player player) {
-        return legacy(DisplayNames.prefixedDisplayName(player));
+    private void updateDisplay(Player player) {
+        TextDisplay display = display(player);
+
+        if (display == null) {
+            display = createDisplay(player);
+        }
+
+        if (display == null) {
+            return;
+        }
+
+        display.text(legacy(DisplayNames.prefixedDisplayName(player)));
+
+        if (!display.getPassengers().isEmpty()) {
+            display.eject();
+        }
+
+        if (!player.getPassengers().contains(display)) {
+            player.addPassenger(display);
+        }
+    }
+
+    private TextDisplay display(Player player) {
+        UUID id = displays.get(player.getUniqueId());
+
+        if (id == null) {
+            return null;
+        }
+
+        Entity entity = Bukkit.getEntity(id);
+
+        if (!(entity instanceof TextDisplay display) || !display.isValid()) {
+            displays.remove(player.getUniqueId());
+            return null;
+        }
+
+        return display;
+    }
+
+    private TextDisplay createDisplay(Player player) {
+        Location location = player.getLocation().clone();
+
+        TextDisplay display = player.getWorld().spawn(location, TextDisplay.class, entity -> {
+            entity.setPersistent(false);
+            entity.setInvulnerable(true);
+            entity.setGravity(false);
+            entity.setSilent(true);
+            entity.setBillboard(Display.Billboard.CENTER);
+            entity.setSeeThrough(false);
+            entity.setShadowed(true);
+            entity.setDefaultBackground(false);
+            entity.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
+            entity.setLineWidth(160);
+            entity.setViewRange(32.0F);
+            entity.setTransformation(new Transformation(
+                    new Vector3f(0.0F, 0.72F, 0.0F),
+                    new Quaternionf(),
+                    new Vector3f(1.0F, 1.0F, 1.0F),
+                    new Quaternionf()
+            ));
+            entity.text(legacy(DisplayNames.prefixedDisplayName(player)));
+        });
+
+        displays.put(player.getUniqueId(), display.getUniqueId());
+        player.addPassenger(display);
+        return display;
+    }
+
+    public void removeDisplay(Player player) {
+        UUID id = displays.remove(player.getUniqueId());
+
+        if (id == null) {
+            return;
+        }
+
+        Entity entity = Bukkit.getEntity(id);
+
+        if (entity != null) {
+            entity.remove();
+        }
     }
 
     private String rankPrefix(Player player) {
@@ -197,11 +283,6 @@ public final class NametagService {
         }
     }
 
-    private void clearPlayerCustomName(Player player) {
-        player.customName(null);
-        player.setCustomNameVisible(false);
-    }
-
     private Component legacy(String message) {
         return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
     }
@@ -210,7 +291,7 @@ public final class NametagService {
         Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
 
         for (Player player : Bukkit.getOnlinePlayers()) {
-            clearPlayerCustomName(player);
+            removeDisplay(player);
         }
 
         for (Team team : scoreboard.getTeams()) {
@@ -220,5 +301,7 @@ public final class NametagService {
 
             team.unregister();
         }
+
+        displays.clear();
     }
 }

@@ -8,10 +8,9 @@ import net.mineacle.core.chat.ChatModule;
 import net.mineacle.core.common.gui.MenuCloseListener;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.doublejump.DoubleJumpModule;
+import net.mineacle.core.duels.DuelsModule;
 import net.mineacle.core.economy.EconomyModule;
-import net.mineacle.core.enchant.EnchantModule;
 import net.mineacle.core.gamemode.GamemodeModule;
-import net.mineacle.core.guide.GuideModule;
 import net.mineacle.core.homes.HomesModule;
 import net.mineacle.core.hide.HideModule;
 import net.mineacle.core.links.LinksModule;
@@ -27,6 +26,7 @@ import net.mineacle.core.stats.StatsModule;
 import net.mineacle.core.teams.TeamsModule;
 import net.mineacle.core.tpa.TpaModule;
 import net.mineacle.core.warp.WarpModule;
+import net.mineacle.core.worldmaintenance.WorldMaintenanceModule;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -71,31 +71,38 @@ public final class Core extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(new MenuCloseListener(this), this);
 
-        enableModule(new HomesModule());
-        enableModule(new TeamsModule());
-        enableModule(new TpaModule());
-        enableModule(new StatsModule());
-        enableModule(new EconomyModule());
-        enableModule(new BalTopModule());
-        enableModule(new ChatModule());
-        enableModule(new LinksModule());
-        enableModule(new GuideModule());
-        enableModule(new SecurityModule());
-        enableModule(new NametagModule());
-        enableModule(new HideModule());
-        enableModule(new PlaceholdersModule());
-        enableModule(new SpawnModule());
-        enableModule(new WarpModule());
-        enableModule(new SpawnProtectionModule());
-        enableModule(new DoubleJumpModule());
-        enableModule(new RtpModule());
-        enableModule(new OrdersModule());
-        enableModule(new SellModule());
-        enableModule(new BountyModule());
-        enableModule(new GamemodeModule());
-        enableModule(new EnchantModule());
+        try {
+            registerModule(new HomesModule());
+            registerModule(new TeamsModule());
+            registerModule(new TpaModule());
+            registerModule(new StatsModule());
+            registerModule(new EconomyModule());
+            registerModule(new BalTopModule());
+            registerModule(new ChatModule());
+            registerModule(new LinksModule());
+            registerModule(new SecurityModule());
+            registerModule(new AdminInspectModule());
+            registerModule(new NametagModule());
+            registerModule(new HideModule());
+            registerModule(new PlaceholdersModule());
+            registerModule(new SpawnModule());
+            registerModule(new WarpModule());
+            registerModule(new SpawnProtectionModule());
+            registerModule(new DoubleJumpModule());
+            registerModule(new RtpModule());
+            registerModule(new WorldMaintenanceModule());
+            registerModule(new DuelsModule());
+            registerModule(new OrdersModule());
+            registerModule(new SellModule());
+            registerModule(new BountyModule());
+            registerModule(new GamemodeModule());
 
-        getLogger().info("MineacleCore enabled with " + modules.size() + " modules");
+            getLogger().info("MineacleCore enabled successfully");
+        } catch (Exception exception) {
+            getLogger().severe("Failed to enable MineacleCore: " + exception.getMessage());
+            exception.printStackTrace();
+            getServer().getPluginManager().disablePlugin(this);
+        }
     }
 
     @Override
@@ -113,15 +120,6 @@ public final class Core extends JavaPlugin {
         module.enable(this);
         modules.add(module);
         getLogger().info("Enabled module: " + module.name());
-    }
-
-    private void enableModule(Module module) {
-        try {
-            registerModule(module);
-        } catch (Exception exception) {
-            getLogger().severe("Failed to enable module " + module.name() + ": " + exception.getMessage());
-            exception.printStackTrace();
-        }
     }
 
     private void disableModules() {

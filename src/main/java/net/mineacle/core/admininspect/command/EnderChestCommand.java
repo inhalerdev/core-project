@@ -64,7 +64,6 @@ public final class EnderChestCommand implements CommandExecutor, TabCompleter {
         }
 
         viewer.openInventory(target.getEnderChest());
-
         core.getLogger().info(viewer.getName() + " opened " + target.getName() + "'s ender chest with /echest");
         return true;
     }

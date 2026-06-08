@@ -64,7 +64,6 @@ public final class InvSeeCommand implements CommandExecutor, TabCompleter {
         }
 
         viewer.openInventory(target.getInventory());
-
         core.getLogger().info(viewer.getName() + " opened " + target.getName() + "'s inventory with /invsee");
         return true;
     }

@@ -267,33 +267,17 @@ commands:
     usage: /enchantinfo <enchantment>
     permission: mineacleenchant.admin
 
-  mineacleservermessages:
-    description: Reload Mineacle server messages
-    aliases: [servermessages]
-    usage: /mineacleservermessages reload
-    permission: mineacleservermessages.admin
-
-  mineaclemaintenance:
-    description: Toggle Mineacle maintenance mode
-    aliases: [maintenance]
-    usage: /mineaclemaintenance <on|off>
-    permission: mineacleservermessages.admin
-
-  mrestart:
-    description: Restart the server with Mineacle branding
-    usage: /mrestart
-    permission: mineacleservermessages.admin
-
-  mstop:
-    description: Stop the server with Mineacle branding
-    usage: /mstop
-    permission: mineacleservermessages.admin
+  duel:
+    description: Challenge players or join Mineacle duels
+    aliases: [duels]
+    usage: /duel <player>
+    permission: mineacleduels.use
 
   mineacleworldmaintenance:
     description: Control world maintenance groups
     aliases: [worldmaintenance, wm]
     usage: /mineacleworldmaintenance <group> <on|off>
-    permission: mineacleservermessages.admin
+    permission: mineacleworldmaintenance.admin
 
   invsee:
     description: Inspect an online player's inventory
@@ -421,9 +405,14 @@ permissions:
   mineacleenchant.admin:
     default: op
 
-  mineacleservermessages.admin:
+  mineacleworldmaintenance.admin:
     default: op
-  mineacleservermessages.bypass:
+  mineacleworldmaintenance.bypass:
+    default: op
+
+  mineacleduels.use:
+    default: true
+  mineacleduels.admin:
     default: op
 
   mineacleadmin.invsee:
@@ -434,4 +423,3 @@ permissions:
     default: op
   mineacleadmin.echest.self:
     default: op
-
