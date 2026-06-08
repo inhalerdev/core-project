@@ -2,9 +2,9 @@ package net.mineacle.core.nametag;
 
 import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
-import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.hide.HideModule;
 import net.mineacle.core.hide.HideService;
@@ -122,19 +122,16 @@ public final class NametagService {
         if (hideService != null && hideService.shouldHideRealNametag(player)) {
             team.prefix(Component.empty());
             team.suffix(Component.empty());
-            team.color(ChatColor.WHITE);
+            team.color(NamedTextColor.WHITE);
             team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
             return;
         }
 
         team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
-        team.color(ChatColor.WHITE);
+        team.color(NamedTextColor.WHITE);
 
-        String prefix = buildPrefix(player);
-        String suffix = buildSuffix(player);
-
-        team.prefix(legacy(prefix));
-        team.suffix(legacy(suffix));
+        team.prefix(legacy(buildPrefix(player)));
+        team.suffix(legacy(""));
     }
 
     private String buildPrefix(Player player) {
@@ -155,10 +152,6 @@ public final class NametagService {
         prefix.append(nameColor(player));
 
         return limitTeamPart(prefix.toString(), true);
-    }
-
-    private String buildSuffix(Player player) {
-        return "";
     }
 
     private String nameColor(OfflinePlayer player) {
