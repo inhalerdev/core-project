@@ -113,8 +113,10 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
 
         sendBoth(requester, "&aTeleport request sent to " + targetName);
         SoundService.teleportRequest(requester, core);
+
         sendRequestMessage(requester, target, requesterName, type);
         SoundService.teleportReceived(target, core);
+
         scheduleExpiration(requester, target, targetName);
         return true;
     }
@@ -127,8 +129,12 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
         target.sendActionBar(legacy(mainLine));
         target.sendMessage(legacy(mainLine));
 
-        Component accept = legacy("&d[Accept]").clickEvent(ClickEvent.runCommand("/tpaccept"));
-        Component deny = legacy("&d[Deny]").clickEvent(ClickEvent.runCommand("/tpadeny"));
+        Component accept = legacy("&a[Accept]")
+                .clickEvent(ClickEvent.runCommand("/tpaccept"));
+
+        Component deny = legacy("&c[Deny]")
+                .clickEvent(ClickEvent.runCommand("/tpadeny"));
+
         Component buttons = legacy("&#bbbbbbRespond ")
                 .append(accept)
                 .append(Component.space())
@@ -223,6 +229,7 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
 
     private boolean handleAuto(Player player) {
         boolean enabled = tpaService.toggleAutoAccept(player.getUniqueId());
+
         sendBoth(player, enabled ? "&#bbbbbbTPA auto accept enabled" : "&#bbbbbbTPA auto accept disabled");
 
         if (enabled) {
@@ -250,8 +257,7 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
                 || commandName.equals("tpask")
                 || commandName.equals("tpahere")
                 || commandName.equals("tphere")
-                || commandName.equals("tpah"))
-                && args.length == 1) {
+                || commandName.equals("tpah")) && args.length == 1) {
             return PlayerTabComplete.onlinePlayers(player, args[0]);
         }
 
