@@ -18,8 +18,10 @@ import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
 import java.io.File;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public final class NametagService {
 
@@ -49,16 +51,12 @@ public final class NametagService {
         return config.getBoolean("enabled", true);
     }
 
-    public long updateIntervalSeconds() {
-        return Math.max(1L, config.getLong("update-interval-seconds", 1L));
-    }
-
     public long updateIntervalTicks() {
         if (config.contains("update-interval-ticks")) {
-            return Math.max(1L, config.getLong("update-interval-ticks", 10L));
+            return Math.max(5L, config.getLong("update-interval-ticks", 5L));
         }
 
-        return Math.max(10L, updateIntervalSeconds() * 20L);
+        return Math.max(10L, config.getLong("update-interval-seconds", 1L) * 20L);
     }
 
     public boolean enabledInWorld(Player player) {
@@ -129,9 +127,8 @@ public final class NametagService {
 
         team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
         team.color(NamedTextColor.WHITE);
-
         team.prefix(legacy(buildPrefix(player)));
-        team.suffix(legacy(""));
+        team.suffix(legacy(buildSuffix()));
     }
 
     private String buildPrefix(Player player) {
@@ -152,6 +149,10 @@ public final class NametagService {
         prefix.append(nameColor(player));
 
         return limitTeamPart(prefix.toString(), true);
+    }
+
+    private String buildSuffix() {
+        return limitTeamPart(config.getString("suffix", ""), false);
     }
 
     private String nameColor(OfflinePlayer player) {
@@ -191,23 +192,18 @@ public final class NametagService {
     }
 
     private String teamName(Player player) {
-        int priority = player.isOp() ? 0 : 50;
         String clean = ChatColor.stripColor(player.getName()).toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_]", "");
 
-        if (clean.length() > 10) {
-            clean = clean.substring(0, 10);
+        if (clean.length() > 12) {
+            clean = clean.substring(0, 12);
         }
 
-        return String.format("mn%02d_%s", priority, clean);
+        return "mn_" + clean;
     }
 
     private void removeFromOtherMineacleTeams(Player player, Scoreboard scoreboard, String currentTeamName) {
         for (Team team : scoreboard.getTeams()) {
-            if (team.getName().equals(currentTeamName)) {
-                continue;
-            }
-
-            if (!team.getName().startsWith("mn")) {
+            if (team.getName().equals(currentTeamName) || !team.getName().startsWith("mn_")) {
                 continue;
             }
 
@@ -219,7 +215,7 @@ public final class NametagService {
 
     private void removeFromMineacleTeams(Player player, Scoreboard scoreboard) {
         for (Team team : scoreboard.getTeams()) {
-            if (!team.getName().startsWith("mn")) {
+            if (!team.getName().startsWith("mn_")) {
                 continue;
             }
 
@@ -239,25 +235,36 @@ public final class NametagService {
 
     public void removeOrphanDisplays() {
         Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        Set<String> onlineNames = new HashSet<>();
 
-        for (Team team : scoreboard.getTeams()) {
-            if (!team.getName().startsWith("mn")) {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            onlineNames.add(player.getName());
+        }
+
+        for (Team team : Set.copyOf(scoreboard.getTeams())) {
+            if (!team.getName().startsWith("mn_")) {
                 continue;
             }
 
-            team.getEntries().removeIf(entry -> Bukkit.getPlayerExact(entry) == null);
+            for (String entry : Set.copyOf(team.getEntries())) {
+                if (!onlineNames.contains(entry)) {
+                    team.removeEntry(entry);
+                }
+            }
+
+            if (team.getEntries().isEmpty()) {
+                team.unregister();
+            }
         }
     }
 
     public void clear() {
         Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
 
-        for (Team team : List.copyOf(scoreboard.getTeams())) {
-            if (!team.getName().startsWith("mn")) {
-                continue;
+        for (Team team : Set.copyOf(scoreboard.getTeams())) {
+            if (team.getName().startsWith("mn_")) {
+                team.unregister();
             }
-
-            team.unregister();
         }
     }
 

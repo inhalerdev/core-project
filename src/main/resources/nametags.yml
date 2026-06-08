@@ -1,22 +1,31 @@
 enabled: true
-update-interval-seconds: 5
-update-interval-ticks: 2
+update-interval-seconds: 1
+update-interval-ticks: 5
 
 worlds:
   enabled: false
-  list: []
-
-colors:
-  op: "#ff88ff"
-  default: "#bbbbbb"
+  list:
+    - spawn1
+    - spawn2
+    - spawn3
+    - origins
+    - origins_nether
+    - origins_the_end
 
 rank:
+  enabled: true
   use-placeholderapi: true
   placeholder: "%luckperms_prefix%"
   fallback: ""
+  space-after-prefix: true
 
-display:
-  y-offset: 2.35
-  scale: 1.0
-  line-width: 160
-  view-range: 32
+name-color:
+  enabled: true
+  default: "&f"
+  op: "&f"
+
+suffix: ""
+
+limits:
+  prefix: 64
+  suffix: 64

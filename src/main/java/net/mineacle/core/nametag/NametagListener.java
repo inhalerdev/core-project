@@ -87,5 +87,6 @@ public final class NametagListener implements Listener {
         core.getServer().getScheduler().runTaskLater(core, service::refreshAll, 1L);
         core.getServer().getScheduler().runTaskLater(core, service::refreshAll, 5L);
         core.getServer().getScheduler().runTaskLater(core, service::refreshAll, 20L);
+        core.getServer().getScheduler().runTaskLater(core, service::refreshAll, 60L);
     }
 }
