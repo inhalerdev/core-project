@@ -64,6 +64,14 @@ public final class NametagService {
         return Math.max(1L, config.getLong("update-interval-seconds", 2L));
     }
 
+    public long updateIntervalTicks() {
+        if (config.contains("update-interval-ticks")) {
+            return Math.max(1L, config.getLong("update-interval-ticks", 5L));
+        }
+
+        return Math.max(5L, updateIntervalSeconds() * 20L);
+    }
+
     public boolean enabledInWorld(Player player) {
         if (player == null) {
             return false;

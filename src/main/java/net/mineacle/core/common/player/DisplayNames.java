@@ -9,8 +9,12 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 public final class DisplayNames {
+
+    private static final Pattern HEX_ONLY = Pattern.compile("(?i)^#[a-f0-9]{6}$");
+    private static final Pattern AMP_HEX = Pattern.compile("(?i)^&#[a-f0-9]{6}$");
 
     private DisplayNames() {
     }
@@ -47,11 +51,14 @@ public final class DisplayNames {
     public static String nameColor(OfflinePlayer player) {
         Core core = Core.instance();
 
+        String color;
         if (player != null && player.isOp()) {
-            return core == null ? "#ff55ff" : core.getConfig().getString("nickname.op-name-color", "#ff55ff");
+            color = core == null ? "#ff55ff" : core.getConfig().getString("nickname.op-name-color", "#ff55ff");
+        } else {
+            color = core == null ? "#bbbbbb" : core.getConfig().getString("nickname.default-name-color", "#bbbbbb");
         }
 
-        return core == null ? "#bbbbbb" : core.getConfig().getString("nickname.default-name-color", "#bbbbbb");
+        return normalizeColor(color);
     }
 
     public static String coloredDisplayName(OfflinePlayer player) {
@@ -145,6 +152,24 @@ public final class DisplayNames {
         } catch (Throwable ignored) {
             return "";
         }
+    }
+
+    private static String normalizeColor(String input) {
+        if (input == null || input.isBlank()) {
+            return "&#bbbbbb";
+        }
+
+        String cleaned = input.trim();
+
+        if (AMP_HEX.matcher(cleaned).matches()) {
+            return cleaned;
+        }
+
+        if (HEX_ONLY.matcher(cleaned).matches()) {
+            return "&" + cleaned;
+        }
+
+        return cleaned;
     }
 
     private static String normalize(String input) {

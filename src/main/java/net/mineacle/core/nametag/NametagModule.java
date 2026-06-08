@@ -5,10 +5,12 @@ import net.mineacle.core.bootstrap.Module;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.scheduler.BukkitTask;
 
 public final class NametagModule extends Module {
 
     private static NametagService service;
+    private BukkitTask refreshTask;
 
     @Override
     public String name() {
@@ -24,13 +26,19 @@ public final class NametagModule extends Module {
 
         core.getServer().getPluginManager().registerEvents(new NametagListener(core, service), core);
 
-        long interval = Math.max(20L, service.updateIntervalSeconds() * 20L);
-        core.getServer().getScheduler().runTaskTimer(core, service::refreshAll, 20L, interval);
+        long interval = Math.max(5L, service.updateIntervalTicks());
+        refreshTask = core.getServer().getScheduler().runTaskTimer(core, service::refreshAll, 5L, interval);
+
         service.refreshAll();
     }
 
     @Override
     public void disable() {
+        if (refreshTask != null) {
+            refreshTask.cancel();
+            refreshTask = null;
+        }
+
         if (service != null) {
             service.clear();
         }

@@ -203,8 +203,8 @@ public final class DuelService {
         long expiresAt = System.currentTimeMillis() + (inviteTimeoutSeconds() * 1000L);
         invitesByTarget.put(target.getUniqueId(), new DuelInvite(challenger.getUniqueId(), target.getUniqueId(), expiresAt));
 
-        challenger.sendMessage(message("messages.invite-sent", "&#bbbbbbDuel request sent to %target%")
-                .replace("%target%", DisplayNames.prefixedDisplayName(target)));
+        challenger.sendMessage(legacy(config.getString("messages.invite-sent", "&#bbbbbbDuel request sent to &#ff88ff%target%")
+                .replace("%target%", DisplayNames.displayName(target))));
 
         String challengerName = DisplayNames.prefixedDisplayName(challenger);
         String mainLine = config.getString("messages.invite-received-header", "%player% &#bbbbbbsent you a duel request")
@@ -213,11 +213,11 @@ public final class DuelService {
         target.sendActionBar(legacy(mainLine));
         target.sendMessage(legacy(mainLine));
 
-        Component accept = legacy(config.getString("messages.accept-button", "&d[Accept]"))
+        Component accept = legacy(config.getString("messages.accept-button", "&a[Accept]"))
                 .clickEvent(ClickEvent.runCommand("/duel accept"))
                 .hoverEvent(HoverEvent.showText(legacy(config.getString("messages.accept-hover", "&#bbbbbbAccept duel request"))));
 
-        Component deny = legacy(config.getString("messages.deny-button", "&d[Deny]"))
+        Component deny = legacy(config.getString("messages.deny-button", "&c[Deny]"))
                 .clickEvent(ClickEvent.runCommand("/duel deny"))
                 .hoverEvent(HoverEvent.showText(legacy(config.getString("messages.deny-hover", "&#bbbbbbDeny duel request"))));
 
@@ -258,11 +258,11 @@ public final class DuelService {
         Player challenger = Bukkit.getPlayer(invite.challengerId());
 
         if (challenger != null) {
-            challenger.sendMessage(message("messages.invite-denied", "&#bbbbbb%player% &cdenied &#bbbbbbyour duel request")
-                    .replace("%player%", displayName(target)));
+            challenger.sendMessage(legacy(config.getString("messages.invite-denied", "&#ff88ff%player% &#bbbbbbdenied your duel request")
+                    .replace("%player%", DisplayNames.displayName(target))));
         }
 
-        target.sendMessage(message("messages.denied", "&#bbbbbbDuel request &cdenied"));
+        target.sendMessage(message("messages.denied", "&#bbbbbbDuel request denied"));
     }
 
     public void cancel(Player challenger) {

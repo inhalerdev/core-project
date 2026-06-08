@@ -61,7 +61,7 @@ messages:
   accept-hover: "&#bbbbbbAccept duel request"
   deny-button: "&c[Deny]"
   deny-hover: "&#bbbbbbDeny duel request"
-  invite-denied: "%player% &#bbbbbbdenied your duel request"
+  invite-denied: "&#ff88ff%player% &#bbbbbbdenied your duel request"
   denied: "&#bbbbbbDuel request denied"
   no-invite: "&cYou do not have a pending duel request"
   no-outgoing: "&cYou do not have an outgoing duel request"
