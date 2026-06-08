@@ -1,5 +1,6 @@
 enabled: true
 update-interval-seconds: 5
+update-interval-ticks: 2
 
 worlds:
   enabled: false
@@ -13,3 +14,9 @@ rank:
   use-placeholderapi: true
   placeholder: "%luckperms_prefix%"
   fallback: ""
+
+display:
+  y-offset: 2.35
+  scale: 1.0
+  line-width: 160
+  view-range: 32
