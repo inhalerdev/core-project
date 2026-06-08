@@ -27,9 +27,9 @@ public final class NametagModule extends Module {
 
         core.getServer().getPluginManager().registerEvents(new NametagListener(core, service), core);
 
-        long interval = Math.max(2L, service.updateIntervalTicks());
-        refreshTask = core.getServer().getScheduler().runTaskTimer(core, service::refreshAll, 5L, interval);
-        cleanupTask = core.getServer().getScheduler().runTaskTimer(core, service::removeOrphanDisplays, 100L, 200L);
+        long interval = Math.max(10L, service.updateIntervalTicks());
+        refreshTask = core.getServer().getScheduler().runTaskTimer(core, service::refreshAll, 20L, interval);
+        cleanupTask = core.getServer().getScheduler().runTaskTimer(core, service::removeOrphanDisplays, 200L, 600L);
 
         service.refreshAll();
     }

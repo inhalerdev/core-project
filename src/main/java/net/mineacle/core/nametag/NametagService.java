@@ -10,33 +10,22 @@ import net.mineacle.core.hide.HideModule;
 import net.mineacle.core.hide.HideService;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.Color;
-import org.bukkit.Location;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.entity.Display;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.TextDisplay;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
-import org.bukkit.util.Transformation;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
 
 import java.io.File;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.UUID;
 
 public final class NametagService {
 
     private final Core core;
     private final File file;
     private FileConfiguration config;
-    private final Map<UUID, UUID> displays = new HashMap<>();
 
     public NametagService(Core core) {
         this.core = core;
@@ -66,10 +55,10 @@ public final class NametagService {
 
     public long updateIntervalTicks() {
         if (config.contains("update-interval-ticks")) {
-            return Math.max(1L, config.getLong("update-interval-ticks", 2L));
+            return Math.max(1L, config.getLong("update-interval-ticks", 10L));
         }
 
-        return Math.max(2L, updateIntervalSeconds() * 20L);
+        return Math.max(10L, updateIntervalSeconds() * 20L);
     }
 
     public boolean enabledInWorld(Player player) {
@@ -95,7 +84,6 @@ public final class NametagService {
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!enabled() || !enabledInWorld(player)) {
-                removeDisplay(player);
                 removeFromMineacleTeams(player, scoreboard);
                 continue;
             }
@@ -108,7 +96,6 @@ public final class NametagService {
         Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
 
         if (!enabled() || !enabledInWorld(player)) {
-            removeDisplay(player);
             removeFromMineacleTeams(player, scoreboard);
             return;
         }
@@ -135,122 +122,55 @@ public final class NametagService {
         if (hideService != null && hideService.shouldHideRealNametag(player)) {
             team.prefix(Component.empty());
             team.suffix(Component.empty());
+            team.color(ChatColor.WHITE);
             team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
-            removeDisplay(player);
             return;
         }
 
-        team.prefix(Component.empty());
-        team.suffix(Component.empty());
-        team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
+        team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
+        team.color(ChatColor.WHITE);
 
-        updateDisplay(player);
+        String prefix = buildPrefix(player);
+        String suffix = buildSuffix(player);
+
+        team.prefix(legacy(prefix));
+        team.suffix(legacy(suffix));
     }
 
-    private void updateDisplay(Player player) {
-        TextDisplay display = display(player);
+    private String buildPrefix(Player player) {
+        StringBuilder prefix = new StringBuilder();
 
-        if (display == null || !display.getWorld().equals(player.getWorld())) {
-            removeDisplay(player);
-            display = createDisplay(player);
-        }
+        if (config.getBoolean("rank.enabled", true)) {
+            String rank = rankPrefix(player);
 
-        if (display == null) {
-            return;
-        }
+            if (rank != null && !rank.isBlank()) {
+                prefix.append(rank);
 
-        display.text(legacy(DisplayNames.prefixedDisplayName(player)));
-
-        Location target = player.getLocation().clone().add(0.0D, yOffset(), 0.0D);
-
-        if (!display.getWorld().equals(target.getWorld())) {
-            removeDisplay(player);
-            createDisplay(player);
-            return;
-        }
-
-        display.teleport(target);
-    }
-
-    private TextDisplay display(Player player) {
-        UUID id = displays.get(player.getUniqueId());
-
-        if (id == null) {
-            return null;
-        }
-
-        Entity entity = Bukkit.getEntity(id);
-
-        if (!(entity instanceof TextDisplay display) || !display.isValid()) {
-            displays.remove(player.getUniqueId());
-            return null;
-        }
-
-        return display;
-    }
-
-    private TextDisplay createDisplay(Player player) {
-        Location location = player.getLocation().clone().add(0.0D, yOffset(), 0.0D);
-
-        TextDisplay display = player.getWorld().spawn(location, TextDisplay.class, entity -> {
-            entity.setPersistent(false);
-            entity.setInvulnerable(true);
-            entity.setGravity(false);
-            entity.setSilent(true);
-            entity.setBillboard(Display.Billboard.CENTER);
-            entity.setSeeThrough(false);
-            entity.setShadowed(true);
-            entity.setDefaultBackground(false);
-            entity.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
-            entity.setLineWidth(config.getInt("display.line-width", 160));
-            entity.setViewRange((float) config.getDouble("display.view-range", 32.0D));
-            entity.setTransformation(new Transformation(
-                    new Vector3f(0.0F, 0.0F, 0.0F),
-                    new Quaternionf(),
-                    new Vector3f((float) config.getDouble("display.scale", 1.0D)),
-                    new Quaternionf()
-            ));
-            entity.text(legacy(DisplayNames.prefixedDisplayName(player)));
-        });
-
-        displays.put(player.getUniqueId(), display.getUniqueId());
-        return display;
-    }
-
-    public void removeDisplay(Player player) {
-        UUID id = displays.remove(player.getUniqueId());
-
-        if (id == null) {
-            return;
-        }
-
-        Entity entity = Bukkit.getEntity(id);
-
-        if (entity != null) {
-            entity.remove();
-        }
-    }
-
-    public void removeOrphanDisplays() {
-        for (UUID id : List.copyOf(displays.values())) {
-            Entity entity = Bukkit.getEntity(id);
-
-            if (entity != null && entity.isValid()) {
-                boolean ownerOnline = displays.entrySet()
-                        .stream()
-                        .anyMatch(entry -> entry.getValue().equals(id) && Bukkit.getPlayer(entry.getKey()) != null);
-
-                if (!ownerOnline) {
-                    entity.remove();
+                if (config.getBoolean("rank.space-after-prefix", true) && !rank.endsWith(" ")) {
+                    prefix.append(" ");
                 }
             }
         }
 
-        displays.entrySet().removeIf(entry -> Bukkit.getPlayer(entry.getKey()) == null);
+        prefix.append(nameColor(player));
+
+        return limitTeamPart(prefix.toString(), true);
     }
 
-    private double yOffset() {
-        return config.getDouble("display.y-offset", 2.35D);
+    private String buildSuffix(Player player) {
+        return "";
+    }
+
+    private String nameColor(OfflinePlayer player) {
+        if (!config.getBoolean("name-color.enabled", true)) {
+            return "";
+        }
+
+        if (player != null && player.isOp()) {
+            return normalizeColor(config.getString("name-color.op", "&f"));
+        }
+
+        return normalizeColor(config.getString("name-color.default", "&f"));
     }
 
     private String rankPrefix(Player player) {
@@ -316,25 +236,67 @@ public final class NametagService {
         }
     }
 
-    private Component legacy(String message) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
+    public void removeDisplay(Player player) {
+        if (player == null) {
+            return;
+        }
+
+        removeFromMineacleTeams(player, Bukkit.getScoreboardManager().getMainScoreboard());
     }
 
-    public void clear() {
+    public void removeOrphanDisplays() {
         Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
-
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            removeDisplay(player);
-        }
 
         for (Team team : scoreboard.getTeams()) {
             if (!team.getName().startsWith("mn")) {
                 continue;
             }
 
+            team.getEntries().removeIf(entry -> Bukkit.getPlayerExact(entry) == null);
+        }
+    }
+
+    public void clear() {
+        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+
+        for (Team team : List.copyOf(scoreboard.getTeams())) {
+            if (!team.getName().startsWith("mn")) {
+                continue;
+            }
+
             team.unregister();
         }
+    }
 
-        displays.clear();
+    private Component legacy(String message) {
+        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message == null ? "" : message));
+    }
+
+    private String normalizeColor(String input) {
+        if (input == null || input.isBlank()) {
+            return "&f";
+        }
+
+        String cleaned = input.trim();
+
+        if (cleaned.matches("(?i)^#[a-f0-9]{6}$")) {
+            return "&" + cleaned;
+        }
+
+        return cleaned;
+    }
+
+    private String limitTeamPart(String input, boolean prefix) {
+        if (input == null) {
+            return "";
+        }
+
+        int max = Math.max(16, config.getInt(prefix ? "limits.prefix" : "limits.suffix", 64));
+
+        if (input.length() <= max) {
+            return input;
+        }
+
+        return input.substring(0, max);
     }
 }
