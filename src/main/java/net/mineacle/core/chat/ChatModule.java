@@ -12,6 +12,7 @@ import net.mineacle.core.chat.listener.ChatFormatListener;
 import net.mineacle.core.chat.listener.JoinQuitMessageListener;
 import net.mineacle.core.chat.service.ChatService;
 import net.mineacle.core.chat.service.NicknameService;
+import net.mineacle.core.chat.service.NicknameSettings;
 import net.mineacle.core.teams.TeamsModule;
 import net.mineacle.core.teams.service.TeamService;
 import org.bukkit.command.CommandExecutor;
@@ -22,6 +23,7 @@ public final class ChatModule extends Module {
 
     private static NicknameService nicknameService;
     private static ChatService chatService;
+    private static NicknameSettings nicknameSettings;
 
     public static NicknameService nicknameService() {
         return nicknameService;
@@ -29,6 +31,10 @@ public final class ChatModule extends Module {
 
     public static ChatService chatService() {
         return chatService;
+    }
+
+    public static NicknameSettings nicknameSettings() {
+        return nicknameSettings;
     }
 
     @Override
@@ -39,6 +45,7 @@ public final class ChatModule extends Module {
     @Override
     public void enable(Core core) {
         nicknameService = new NicknameService(core);
+        nicknameSettings = new NicknameSettings(core);
         chatService = new ChatService(core, nicknameService);
 
         TeamService teamService = TeamsModule.teamService();
@@ -47,14 +54,18 @@ public final class ChatModule extends Module {
         ReplyCommand replyCommand = new ReplyCommand(core, chatService);
         IgnoreCommand ignoreCommand = new IgnoreCommand(core, chatService);
         IgnoreListCommand ignoreListCommand = new IgnoreListCommand(core, chatService);
-        NickCommand nickCommand = new NickCommand(core, nicknameService);
         RealNameCommand realNameCommand = new RealNameCommand(core, nicknameService);
 
         register(core, "msg", messageCommand);
         register(core, "r", replyCommand);
         register(core, "ignore", ignoreCommand);
         register(core, "ignorelist", ignoreListCommand);
-        register(core, "nick", nickCommand);
+
+        if (nicknameSettings.registerCommand()) {
+            NickCommand nickCommand = new NickCommand(core, nicknameService, nicknameSettings);
+            register(core, "nick", nickCommand);
+        }
+
         register(core, "realname", realNameCommand);
 
         core.getServer().getPluginManager().registerEvents(
@@ -80,6 +91,7 @@ public final class ChatModule extends Module {
 
         chatService = null;
         nicknameService = null;
+        nicknameSettings = null;
     }
 
     private void register(Core core, String commandName, CommandExecutor executor) {

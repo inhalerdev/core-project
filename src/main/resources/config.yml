@@ -97,12 +97,13 @@ baltop:
   entries-per-page: 45
 
 nickname:
-  enabled: true
-  prefix: "."
+  enabled: false
+  show-command-when-disabled: false
+  prefix: ""
   max-length: 15
   allowed-regex: "^[a-zA-Z_0-9&§]+$"
-  default-name-color: "#bbbbbb"
-  op-name-color: "#ff55ff"
+  default-name-color: "&f"
+  op-name-color: "&d"
 
 chat:
   enabled: true

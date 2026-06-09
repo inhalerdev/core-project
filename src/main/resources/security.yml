@@ -207,7 +207,7 @@ groups:
     visible-commands:
       - "fly"
       - "hide"
-      - "nick"
+      #- "nick"
     hidden-commands: []
 
   admin:

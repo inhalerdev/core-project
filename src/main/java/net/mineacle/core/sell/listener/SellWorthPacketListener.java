@@ -138,7 +138,27 @@ public final class SellWorthPacketListener extends PacketAdapter {
             return clean;
         }
 
-        return withWorthLore(player, clean);
+        return withWorthLore(player, clean, shouldShowStackPrice(player, rawSlot));
+    }
+
+    private boolean shouldShowStackPrice(Player player, int rawSlot) {
+        InventoryView view = player.getOpenInventory();
+
+        if (view == null) {
+            return true;
+        }
+
+        Inventory top = view.getTopInventory();
+
+        if (top == null) {
+            return true;
+        }
+
+        if (rawSlot >= 0 && rawSlot < top.getSize() && isPhoenixCrateRewardsMenu(view)) {
+            return false;
+        }
+
+        return true;
     }
 
     private boolean shouldShowWorth(Player player, ItemStack item, int rawSlot) {
@@ -248,7 +268,7 @@ public final class SellWorthPacketListener extends PacketAdapter {
                 || type == InventoryType.ENDER_CHEST;
     }
 
-    private ItemStack withWorthLore(Player player, ItemStack original) {
+    private ItemStack withWorthLore(Player player, ItemStack original, boolean showStackPrice) {
         if (original == null || original.getType().isAir() || original.getType() == Material.BLACK_STAINED_GLASS_PANE) {
             return original;
         }
@@ -269,7 +289,10 @@ public final class SellWorthPacketListener extends PacketAdapter {
 
         List<String> lore = meta.hasLore() && meta.getLore() != null ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
 
-        lore.add(0, TextColor.color("&#bbbbbbStack Price: &a" + sellService.format(stackWorth)));
+        if (showStackPrice) {
+            lore.add(0, TextColor.color("&#bbbbbbStack Price: &a" + sellService.format(stackWorth)));
+        }
+
         lore.add(0, TextColor.color("&#bbbbbbWorth: &a" + sellService.format(unitWorth)));
 
         meta.setLore(lore);

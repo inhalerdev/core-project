@@ -77,8 +77,6 @@ public final class NametagListener implements Listener {
                 || command.startsWith("perm ")
                 || command.startsWith("permissions ")
                 || command.startsWith("pex ")
-                || command.startsWith("nick")
-                || command.startsWith("nickname")
                 || command.startsWith("mineaclenametags ")
                 || command.equals("mineaclenametags");
     }

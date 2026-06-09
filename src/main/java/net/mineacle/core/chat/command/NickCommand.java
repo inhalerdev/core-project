@@ -1,8 +1,16 @@
 package net.mineacle.core.chat.command;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.chat.service.NicknameService;
-import org.bukkit.command.*;
+import net.mineacle.core.chat.service.NicknameSettings;
+import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.nametag.NametagModule;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
 import java.util.List;
@@ -11,10 +19,12 @@ public final class NickCommand implements CommandExecutor, TabCompleter {
 
     private final Core core;
     private final NicknameService nicknameService;
+    private final NicknameSettings nicknameSettings;
 
-    public NickCommand(Core core, NicknameService nicknameService) {
+    public NickCommand(Core core, NicknameService nicknameService, NicknameSettings nicknameSettings) {
         this.core = core;
         this.nicknameService = nicknameService;
+        this.nicknameSettings = nicknameSettings;
     }
 
     @Override
@@ -24,8 +34,13 @@ public final class NickCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (!player.hasPermission("mineaclechat.nick")) {
-            player.sendMessage(core.getMessage("general.no-permission"));
+        if (!nicknameSettings.enabled()) {
+            player.sendMessage(TextColor.color("&cNicknames are currently disabled"));
+            return true;
+        }
+
+        if (!nicknameSettings.canUse(player)) {
+            player.sendActionBar(legacy("&cThis is a Mineacle+ feature"));
             return true;
         }
 
@@ -34,9 +49,10 @@ public final class NickCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (args[0].equalsIgnoreCase("reset") || args[0].equalsIgnoreCase("off")) {
+        if (args[0].equalsIgnoreCase("reset") || args[0].equalsIgnoreCase("off") || args[0].equalsIgnoreCase("clear")) {
             nicknameService.clearNickname(player);
             player.sendMessage(core.getMessage("chat.nick-reset"));
+            NametagModule.refreshAll();
             return true;
         }
 
@@ -49,15 +65,32 @@ public final class NickCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(core.getMessage("chat.nick-set")
                 .replace("%nickname%", nicknameService.displayName(player)));
 
+        NametagModule.refreshAll();
         return true;
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (!(sender instanceof Player player)) {
+            return List.of();
+        }
+
+        if (!nicknameSettings.enabled()) {
+            return List.of();
+        }
+
+        if (!nicknameSettings.canUse(player)) {
+            return List.of();
+        }
+
         if (args.length == 1 && "reset".startsWith(args[0].toLowerCase())) {
             return List.of("reset");
         }
 
         return List.of();
+    }
+
+    private Component legacy(String message) {
+        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
     }
 }
