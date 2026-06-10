@@ -8,6 +8,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 
+import java.util.Locale;
+
 public final class GuideRulesGuiListener implements Listener {
 
     private final Core core;
@@ -24,8 +26,11 @@ public final class GuideRulesGuiListener implements Listener {
             return;
         }
 
-        boolean guide = GuideRulesGui.GUIDE_TITLE.equalsIgnoreCase(title) || "Guide".equalsIgnoreCase(title);
-        boolean rules = GuideRulesGui.RULES_TITLE.equalsIgnoreCase(title) || "Rules".equalsIgnoreCase(title);
+        String guideTitle = ChatColor.stripColor(GuideRulesGui.configuredTitle(GuideRulesGui.GUIDE_KEY));
+        String rulesTitle = ChatColor.stripColor(GuideRulesGui.configuredTitle(GuideRulesGui.RULES_KEY));
+
+        boolean guide = title.equalsIgnoreCase(guideTitle) || title.equalsIgnoreCase("Guide") || title.equalsIgnoreCase("Mineacle Guide");
+        boolean rules = title.equalsIgnoreCase(rulesTitle) || title.equalsIgnoreCase("Rules") || title.equalsIgnoreCase("Server Rules");
 
         if (!guide && !rules) {
             return;
@@ -41,53 +46,63 @@ public final class GuideRulesGuiListener implements Listener {
             return;
         }
 
-        int slot = event.getRawSlot();
+        String menuKey = guide ? GuideRulesGui.GUIDE_KEY : GuideRulesGui.RULES_KEY;
+        String action = GuideRulesGui.action(menuKey, event.getRawSlot());
 
-        if (guide) {
-            handleGuide(player, slot);
-            return;
-        }
-
-        handleRules(player, slot);
+        runAction(player, menuKey, action);
     }
 
-    private void handleGuide(Player player, int slot) {
-        if (slot == 10) {
-            player.closeInventory();
-            player.performCommand("rtp");
+    private void runAction(Player player, String currentMenu, String rawAction) {
+        if (rawAction == null || rawAction.isBlank()) {
             return;
         }
 
-        if (slot == 12) {
+        String action = rawAction.trim();
+        String lower = action.toLowerCase(Locale.ROOT);
+
+        if (lower.equals("close")) {
             player.closeInventory();
-            player.performCommand("home");
             return;
         }
 
-        if (slot == 14) {
-            player.closeInventory();
-            player.performCommand("worth");
-            return;
-        }
-
-        if (slot == 16) {
-            player.closeInventory();
-            player.performCommand("discord");
-            return;
-        }
-
-        if (slot == 22) {
+        if (lower.equals("guide") || lower.equals("open:guide")) {
             MenuHistory.openChild(core, player,
-                    () -> GuideRulesGui.openGuide(player),
-                    () -> GuideRulesGui.openRules(player));
-        }
-    }
-
-    private void handleRules(Player player, int slot) {
-        if (slot == 22) {
-            MenuHistory.openChild(core, player,
-                    () -> GuideRulesGui.openRules(player),
+                    () -> openCurrent(player, currentMenu),
                     () -> GuideRulesGui.openGuide(player));
+            return;
         }
+
+        if (lower.equals("rules") || lower.equals("open:rules")) {
+            MenuHistory.openChild(core, player,
+                    () -> openCurrent(player, currentMenu),
+                    () -> GuideRulesGui.openRules(player));
+            return;
+        }
+
+        if (lower.startsWith("command:")) {
+            String command = action.substring("command:".length()).trim();
+
+            if (command.startsWith("/")) {
+                command = command.substring(1);
+            }
+
+            player.closeInventory();
+            player.performCommand(command);
+            return;
+        }
+
+        if (action.startsWith("/")) {
+            player.closeInventory();
+            player.performCommand(action.substring(1));
+        }
+    }
+
+    private void openCurrent(Player player, String currentMenu) {
+        if (GuideRulesGui.RULES_KEY.equalsIgnoreCase(currentMenu)) {
+            GuideRulesGui.openRules(player);
+            return;
+        }
+
+        GuideRulesGui.openGuide(player);
     }
 }

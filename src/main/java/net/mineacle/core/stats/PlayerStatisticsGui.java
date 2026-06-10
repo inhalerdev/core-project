@@ -60,44 +60,44 @@ public final class PlayerStatisticsGui implements Listener {
 
         inventory.setItem(SLOT_MONEY, statItem(
                 Material.EMERALD,
-                "&#bbbbbbMoney",
-                "&a$" + service.money(targetId)
+                "&aMoney",
+                "&#bbbbbb$" + service.money(targetId)
         ));
 
         inventory.setItem(SLOT_PLAYTIME, statItem(
                 Material.CLOCK,
-                "&#bbbbbbPlaytime",
-                "&e" + service.playtime(targetId)
+                "&ePlaytime",
+                "&#bbbbbb" + service.playtime(targetId)
         ));
 
         inventory.setItem(SLOT_PLAYER_KILLS, statItem(
                 Material.DIAMOND_SWORD,
-                "&#bbbbbbKills",
-                "&c" + service.kills(targetId)
+                "&cKills",
+                "&#bbbbbb" + service.kills(targetId)
         ));
 
         inventory.setItem(SLOT_DEATHS, statItem(
                 Material.SKELETON_SKULL,
-                "&#bbbbbbDeaths",
-                "&#ffa033" + service.deaths(targetId)
+                "&#ffa033Deaths",
+                "&#bbbbbb" + service.deaths(targetId)
         ));
 
         inventory.setItem(SLOT_BLOCKS_PLACED, statItem(
                 Material.GRASS_BLOCK,
-                "&#bbbbbbBlocks Placed",
-                "&d" + service.blocksPlaced(targetId)
+                "&dBlocks Placed",
+                "&#bbbbbb" + service.blocksPlaced(targetId)
         ));
 
         inventory.setItem(SLOT_BLOCKS_BROKEN, statItem(
                 Material.COBBLESTONE,
-                "&#bbbbbbBlocks Broken",
-                "&d" + service.blocksBroken(targetId)
+                "&dBlocks Broken",
+                "&#bbbbbb" + service.blocksBroken(targetId)
         ));
 
         inventory.setItem(SLOT_MOBS_KILLED, statItem(
                 Material.ZOMBIE_HEAD,
-                "&#bbbbbbMobs Killed",
-                "&d" + service.mobsKilled(targetId)
+                "&dMobs Killed",
+                "&#bbbbbb" + service.mobsKilled(targetId)
         ));
 
         viewer.openInventory(inventory);

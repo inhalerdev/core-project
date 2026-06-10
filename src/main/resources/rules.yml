@@ -1,59 +1,78 @@
-menu_title: "Rules"
-size: 27
+title: "Rules"
+size: 36
+
 items:
-  respect:
-    material: PLAYER_HEAD
+  survival:
     slot: 10
-    display_name: "&dRule 1 &8┃ &#ffffffRespect Players"
+    material: GRASS_BLOCK
+    name: "&dOrigins Survival"
     lore:
-      - "&#bbbbbbNo harassment, hate speech, threats, or targeted toxicity"
-      - "&#bbbbbbKeep chat playable for everyone"
-  cheating:
-    material: DIAMOND_SWORD
-    slot: 11
-    display_name: "&dRule 2 &8┃ &#ffffffNo Cheating"
-    lore:
-      - "&#bbbbbbNo hacked clients, macros, x-ray, autoclickers, or unfair mods"
-      - "&#bbbbbbAnything giving an unfair advantage is not allowed"
-  exploits:
-    material: REDSTONE
+      - "&#bbbbbbRespect the survival world"
+      - "&#bbbbbband keep progression fair"
+      - ""
+      - "&#bbbbbbNo griefing protected areas"
+      - "&#bbbbbbNo stealing from protected systems"
+      - "&#bbbbbbNo intentional server disruption"
+
+  fair-play:
     slot: 12
-    display_name: "&dRule 3 &8┃ &#ffffffNo Exploits"
+    material: SHIELD
+    name: "&dFair Play"
     lore:
-      - "&#bbbbbbDo not abuse bugs, dupes, lag machines, or bypasses"
-      - "&#bbbbbbReport serious issues to staff"
+      - "&#bbbbbbNo hacked clients, xray, macros,"
+      - "&#bbbbbbdupes, exploits, or unfair advantages"
+      - ""
+      - "&#bbbbbbReport bugs instead of abusing them"
+
   economy:
-    material: EMERALD
-    slot: 13
-    display_name: "&dRule 4 &8┃ &#ffffffFair Economy"
-    lore:
-      - "&#bbbbbbNo scamming through bugs, chargeback abuse, or alt abuse"
-      - "&#bbbbbbPlayer trading is allowed when done fairly"
-  griefing:
-    material: TNT
     slot: 14
-    display_name: "&dRule 5 &8┃ &#ffffffNo Malicious Grief"
+    material: EMERALD
+    name: "&dEconomy Rules"
     lore:
-      - "&#bbbbbbDo not intentionally destroy spawn, public areas, or protected spaces"
-      - "&#bbbbbbWorld PvP and raiding rules may change by season"
-  advertising:
-    material: OAK_SIGN
-    slot: 15
-    display_name: "&dRule 6 &8┃ &#ffffffNo Advertising"
-    lore:
-      - "&#bbbbbbDo not advertise other servers, scams, or unsafe links"
-      - "&#bbbbbbMineacle links are available through &d/guide"
-  staff:
-    material: NETHER_STAR
+      - "&#bbbbbbDo not abuse prices, alts,"
+      - "&#bbbbbbdupes, or broken sell values"
+      - ""
+      - "&#bbbbbbNo IRL trading"
+      - "&#bbbbbbNo economy exploit abuse"
+
+  community:
     slot: 16
-    display_name: "&dRule 7 &8┃ &#ffffffRespect Staff Decisions"
+    material: PLAYER_HEAD
+    name: "&dCommunity"
     lore:
-      - "&#bbbbbbStaff may act to protect server stability and fairness"
-      - "&#bbbbbbAppeals and disputes should be handled properly, not in public chat"
-  common_sense:
+      - "&#bbbbbbKeep chat and gameplay respectful"
+      - ""
+      - "&#bbbbbbNo harassment"
+      - "&#bbbbbbNo hate speech"
+      - "&#bbbbbbNo threats, spam, or impersonation"
+
+  pvp:
+    slot: 21
+    material: DIAMOND_SWORD
+    name: "&dPvP & Duels"
+    lore:
+      - "&#bbbbbbPvP is part of Origins survival"
+      - "&#bbbbbbDo not abuse bugs or safe-zone edges"
+      - ""
+      - "&#bbbbbbDuel outcomes are final"
+      - "&#bbbbbbItems risked in combat may be lost"
+
+  staff:
+    slot: 23
+    material: BOOK
+    name: "&dStaff Decisions"
+    lore:
+      - "&#bbbbbbPunishments are handled case by case"
+      - "&#bbbbbbbased on evidence and server impact"
+      - ""
+      - "&#bbbbbbAppeal through official support"
+
+  back:
+    slot: 31
     material: COMPASS
-    slot: 22
-    display_name: "&dRule 8 &8┃ &#ffffffUse Common Sense"
+    name: "&dBack to Guide"
     lore:
-      - "&#bbbbbbRules cannot cover every edge case"
-      - "&#bbbbbbIf something clearly hurts the server, do not do it"
+      - "&#bbbbbbReturn to the main guide menu"
+      - ""
+      - "&dClick to go back"
+    action: "open:guide"

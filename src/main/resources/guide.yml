@@ -1,93 +1,126 @@
-menu_title: "Guide"
-size: 27
+title: "Guide"
+size: 36
+
 items:
-  homes:
-    material: RED_BED
+  origins:
     slot: 10
-    display_name: "&dHomes"
+    material: GRASS_BLOCK
+    name: "&dOrigins Survival"
     lore:
-      - "&#bbbbbbSave and teleport to personal homes"
+      - "&#bbbbbbThe main survival world for Mineacle"
+      - "&#bbbbbbBuild a base, progress, trade, and fight"
       - ""
-      - "&#bbbbbbCommands: &d/home&7, &d/sethome"
-      - "&#bbbbbbClick to open Homes"
-    left_click_commands:
-      - "[player] home"
-  teams:
-    material: SHIELD
+      - "&#bbbbbbPvP: &cEnabled"
+      - "&#bbbbbbDrops: &cEnabled"
+      - "&#bbbbbbEconomy: &aEnabled"
+      - ""
+      - "&dClick to start with RTP"
+    action: "command:/rtp"
+
+  economy:
     slot: 11
-    display_name: "&dTeams"
+    material: GOLD_INGOT
+    name: "&dEconomy"
     lore:
-      - "&#bbbbbbCreate a team, invite friends, and manage team homes"
+      - "&#bbbbbbEarn money by selling items"
+      - "&#bbbbbband checking market values"
+      - ""
+      - "&#bbbbbbCommands:"
+      - "&d/sell &#bbbbbbSell items"
+      - "&d/worth &#bbbbbbView item prices"
+      - "&d/ah &#bbbbbbAuction House coming later"
+      - ""
+      - "&dClick to open Worth"
+    action: "command:/worth"
+
+  rules:
+    slot: 12
+    material: BOOK
+    name: "&dRules"
+    lore:
+      - "&#bbbbbbRead the core Mineacle rules"
+      - "&#bbbbbbbefore building, trading, or fighting"
+      - ""
+      - "&dClick to view rules"
+    action: "open:rules"
+
+  leaderboards:
+    slot: 13
+    material: CLOCK
+    name: "&dLeaderboards"
+    lore:
+      - "&#bbbbbbView the top players"
+      - "&#bbbbbband compete for the highest balance"
+      - ""
+      - "&#bbbbbbCommand: &d/baltop"
+      - ""
+      - "&dClick to open Balance Top"
+    action: "command:/baltop"
+
+  random-teleport:
+    slot: 14
+    material: ENDER_PEARL
+    name: "&dRandom Teleport"
+    lore:
+      - "&#bbbbbbTeleport far away from spawn"
+      - "&#bbbbbband begin survival progression"
+      - ""
+      - "&#bbbbbbDefault: &d5s"
+      - "&#bbbbbbMineacle+: &d3s"
+      - ""
+      - "&dClick to teleport"
+    action: "command:/rtp"
+
+  homes:
+    slot: 15
+    material: RED_BED
+    name: "&dHomes"
+    lore:
+      - "&#bbbbbbSave and manage safe return points"
+      - ""
+      - "&#bbbbbbDefault homes: &d3"
+      - "&#bbbbbbMineacle+ homes: &d5"
+      - ""
+      - "&dClick to open Homes"
+    action: "command:/home"
+
+  teams:
+    slot: 16
+    material: SHIELD
+    name: "&dTeams"
+    lore:
+      - "&#bbbbbbCreate or join a team"
+      - "&#bbbbbbManage members, invites, and team home"
       - ""
       - "&#bbbbbbCommand: &d/team"
-      - "&#bbbbbbClick to open Teams"
-    left_click_commands:
-      - "[player] team"
-  warps:
-    material: ENDER_PEARL
-    slot: 12
-    display_name: "&dWarps"
-    lore:
-      - "&#bbbbbbTravel to public spawn locations"
       - ""
-      - "&#bbbbbbCommand: &d/warp <location>"
-      - "&#bbbbbbClick to view available warps"
-    left_click_commands:
-      - "[message] &#bbbbbbUse &d/warp <location> &#bbbbbbto travel"
-      - "[message] &#bbbbbbExample: &d/warp spawn"
-      - "[close]"
-  rtp:
-    material: GRASS_BLOCK
-    slot: 13
-    display_name: "&dRandom Teleport"
+      - "&dClick to open Teams"
+    action: "command:/team"
+
+  duels:
+    slot: 21
+    material: DIAMOND_SWORD
+    name: "&dDuels"
     lore:
-      - "&#bbbbbbFind a random place to begin playing"
+      - "&#bbbbbbChallenge another player into Origins"
+      - "&#bbbbbbBoth players risk their inventory"
       - ""
-      - "&#bbbbbbCommand: &d/rtp"
-      - "&#bbbbbbClick to open RTP"
-    left_click_commands:
-      - "[player] rtp"
-  economy:
-    material: EMERALD
-    slot: 14
-    display_name: "&dEconomy"
+      - "&#bbbbbbCommands:"
+      - "&d/duel <player> &#bbbbbbSend a challenge"
+      - "&d/duel accept &#bbbbbbAccept a challenge"
+      - "&d/duel deny &#bbbbbbDeny a challenge"
+      - "&d/duel cancel &#bbbbbbCancel your request"
+      - ""
+      - "&dClick to type /duel"
+    action: "command:/duel"
+
+  support:
+    slot: 23
+    material: WRITABLE_BOOK
+    name: "&dSupport"
     lore:
-      - "&#bbbbbbCheck money, pay players, and view top balances"
+      - "&#bbbbbbNeed help or want updates?"
+      - "&#bbbbbbJoin the Mineacle Discord"
       - ""
-      - "&#bbbbbbCommands: &d/bal&7, &d/pay&7, &d/baltop"
-      - "&#bbbbbbClick to view Balance Top"
-    left_click_commands:
-      - "[player] baltop"
-  selling:
-    material: GOLD_INGOT
-    slot: 15
-    display_name: "&dSell & Worth"
-    lore:
-      - "&#bbbbbbSell items and browse item prices"
-      - ""
-      - "&#bbbbbbCommands: &d/sell&7, &d/worth"
-      - "&#bbbbbbClick to open Item Prices"
-    left_click_commands:
-      - "[player] worth"
-  links:
-    material: PAPER
-    slot: 16
-    display_name: "&dLinks"
-    lore:
-      - "&#bbbbbbFind Mineacle's store, Discord, and X"
-      - ""
-      - "&#bbbbbbCommands: &d/store&7, &d/discord&7, &d/x"
-      - "&#bbbbbbClick to view Discord"
-    left_click_commands:
-      - "[player] discord"
-  rules:
-    material: BOOK
-    slot: 22
-    display_name: "&dServer Rules"
-    lore:
-      - "&#bbbbbbSimple server-wide rules for Mineacle SMP"
-      - ""
-      - "&#bbbbbbCommand: &d/rules"
-      - "&#bbbbbbClick to open Rules"
-    left_click_commands:
-      - "[player] rules"
+      - "&dClick to send the Discord link"
+    action: "command:/discord"
