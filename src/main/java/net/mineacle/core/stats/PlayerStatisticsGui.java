@@ -67,37 +67,37 @@ public final class PlayerStatisticsGui implements Listener {
         inventory.setItem(SLOT_PLAYTIME, statItem(
                 Material.CLOCK,
                 "&#bbbbbbPlaytime",
-                "&#ff88ff" + service.playtime(targetId)
+                "&e" + service.playtime(targetId)
         ));
 
         inventory.setItem(SLOT_PLAYER_KILLS, statItem(
                 Material.DIAMOND_SWORD,
                 "&#bbbbbbKills",
-                "&#ff88ff" + service.kills(targetId)
+                "&c" + service.kills(targetId)
         ));
 
         inventory.setItem(SLOT_DEATHS, statItem(
                 Material.SKELETON_SKULL,
                 "&#bbbbbbDeaths",
-                "&#ff88ff" + service.deaths(targetId)
+                "&#ffa033" + service.deaths(targetId)
         ));
 
         inventory.setItem(SLOT_BLOCKS_PLACED, statItem(
                 Material.GRASS_BLOCK,
                 "&#bbbbbbBlocks Placed",
-                "&#ff88ff" + service.blocksPlaced(targetId)
+                "&b" + service.blocksPlaced(targetId)
         ));
 
         inventory.setItem(SLOT_BLOCKS_BROKEN, statItem(
                 Material.COBBLESTONE,
                 "&#bbbbbbBlocks Broken",
-                "&#ff88ff" + service.blocksBroken(targetId)
+                "&b" + service.blocksBroken(targetId)
         ));
 
         inventory.setItem(SLOT_MOBS_KILLED, statItem(
                 Material.ZOMBIE_HEAD,
                 "&#bbbbbbMobs Killed",
-                "&#ff88ff" + service.mobsKilled(targetId)
+                "&b" + service.mobsKilled(targetId)
         ));
 
         viewer.openInventory(inventory);
