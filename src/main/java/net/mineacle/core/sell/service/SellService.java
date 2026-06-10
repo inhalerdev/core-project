@@ -1,7 +1,6 @@
 package net.mineacle.core.sell.service;
 
 import net.mineacle.core.Core;
-import net.mineacle.core.common.format.MoneyFormatter;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
@@ -19,16 +18,20 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.Damageable;
+import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -88,7 +91,7 @@ public final class SellService {
     }
 
     public String format(long cents) {
-        return MoneyFormatter.moneyFromCents(cents);
+        return formatMoneyCents(cents);
     }
 
     public SaleResult sellInventory(UUID playerId, Inventory inventory) {
@@ -271,6 +274,7 @@ public final class SellService {
                     || lower.startsWith("base:")
                     || lower.startsWith("stack:")
                     || lower.startsWith("stack worth:")
+                    || lower.startsWith("stack price:")
                     || lower.startsWith("enchant value:")
                     || lower.startsWith("demand:")
                     || lower.startsWith("category:")
@@ -314,26 +318,41 @@ public final class SellService {
             return 0L;
         }
 
+        if (!sellConfig.getBoolean("enchant-values.enabled", true)) {
+            return 0L;
+        }
+
         ItemMeta meta = item.getItemMeta();
 
-        if (meta == null || !meta.hasEnchants()) {
+        if (meta == null) {
+            return 0L;
+        }
+
+        Map<Enchantment, Integer> enchants = new LinkedHashMap<>();
+
+        if (meta.hasEnchants()) {
+            enchants.putAll(meta.getEnchants());
+        }
+
+        if (meta instanceof EnchantmentStorageMeta storageMeta && storageMeta.hasStoredEnchants()) {
+            enchants.putAll(storageMeta.getStoredEnchants());
+        }
+
+        if (enchants.isEmpty()) {
             return 0L;
         }
 
         long total = 0L;
-        long perLevel = Math.max(0L, sellConfig.getLong("enchant-values.default-per-level-cents", 2500L));
+        long perLevel = Math.max(0L, sellConfig.getLong("enchant-values.default-per-level-cents", 25000L));
         double treasureMultiplier = Math.max(0.0D, sellConfig.getDouble("enchant-values.treasure-multiplier", 2.0D));
         double unsafeMultiplier = Math.max(0.0D, sellConfig.getDouble("enchant-values.unsafe-multiplier", 1.25D));
 
-        for (Map.Entry<Enchantment, Integer> entry : meta.getEnchants().entrySet()) {
+        for (Map.Entry<Enchantment, Integer> entry : enchants.entrySet()) {
             Enchantment enchantment = entry.getKey();
             int level = Math.max(1, entry.getValue());
+            String key = enchantment.getKey().getKey().toUpperCase(Locale.ROOT);
 
-            long enchantBase = sellConfig.getLong(
-                    "enchant-values.enchants." + enchantment.getKey().getKey().toUpperCase(Locale.ROOT),
-                    perLevel
-            );
-
+            long enchantBase = sellConfig.getLong("enchant-values.enchants." + key, perLevel);
             double multiplier = 1.0D;
 
             if (enchantment.isTreasure()) {
@@ -547,6 +566,22 @@ public final class SellService {
                 .setScale(2, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100L))
                 .longValue();
+    }
+
+    private String formatMoneyCents(long cents) {
+        boolean negative = cents < 0L;
+        long absolute = Math.abs(cents);
+        long dollars = absolute / 100L;
+        long pennies = absolute % 100L;
+
+        DecimalFormat wholeFormat = new DecimalFormat("#,##0", DecimalFormatSymbols.getInstance(Locale.US));
+        String prefix = negative ? "-$" : "$";
+
+        if (pennies == 0L) {
+            return prefix + wholeFormat.format(dollars);
+        }
+
+        return prefix + wholeFormat.format(dollars) + "." + String.format(Locale.US, "%02d", pennies);
     }
 
     private Material material(String raw) {
@@ -967,16 +1002,17 @@ public final class SellService {
         sellConfig.addDefault("demand.pool.end", List.of("ENDER_PEARL", "SHULKER_SHELL"));
         sellConfig.addDefault("demand.pool.utility", List.of("ENDER_CHEST", "ANVIL", "NAME_TAG", "SADDLE"));
 
-        sellConfig.addDefault("enchant-values.default-per-level-cents", 2500L);
+        sellConfig.addDefault("enchant-values.enabled", true);
+        sellConfig.addDefault("enchant-values.default-per-level-cents", 25000L);
         sellConfig.addDefault("enchant-values.treasure-multiplier", 2.0D);
         sellConfig.addDefault("enchant-values.unsafe-multiplier", 1.25D);
-        sellConfig.addDefault("enchant-values.enchants.MENDING", 10000L);
-        sellConfig.addDefault("enchant-values.enchants.PROTECTION", 3500L);
-        sellConfig.addDefault("enchant-values.enchants.SHARPNESS", 3500L);
-        sellConfig.addDefault("enchant-values.enchants.EFFICIENCY", 3000L);
-        sellConfig.addDefault("enchant-values.enchants.UNBREAKING", 2500L);
-        sellConfig.addDefault("enchant-values.enchants.FORTUNE", 5000L);
-        sellConfig.addDefault("enchant-values.enchants.SILK_TOUCH", 7500L);
+        sellConfig.addDefault("enchant-values.enchants.MENDING", 150000L);
+        sellConfig.addDefault("enchant-values.enchants.PROTECTION", 45000L);
+        sellConfig.addDefault("enchant-values.enchants.SHARPNESS", 45000L);
+        sellConfig.addDefault("enchant-values.enchants.EFFICIENCY", 40000L);
+        sellConfig.addDefault("enchant-values.enchants.UNBREAKING", 35000L);
+        sellConfig.addDefault("enchant-values.enchants.FORTUNE", 75000L);
+        sellConfig.addDefault("enchant-values.enchants.SILK_TOUCH", 125000L);
 
         sellConfig.addDefault("messages.sold-chat", "&#bbbbbbSold &#ff88ff%amount%x items &#bbbbbbfor &a+%money%");
         sellConfig.addDefault("messages.sold-actionbar", "&a+%money%");

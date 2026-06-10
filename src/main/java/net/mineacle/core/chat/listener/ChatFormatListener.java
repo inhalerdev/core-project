@@ -55,7 +55,7 @@ public final class ChatFormatListener implements Listener {
     }
 
     private Component chatComponent(Player sender, Player recipient, String message) {
-        Component base = legacy(DisplayNames.prefixedDisplayName(sender) + "&#bbbbbb: &#bbbbbb" + message)
+        Component base = legacy(chatName(sender) + "&#bbbbbb: &#bbbbbb" + message)
                 .hoverEvent(HoverEvent.showText(hoverStats(sender)));
 
         if (!sender.getUniqueId().equals(recipient.getUniqueId())) {
@@ -65,8 +65,11 @@ public final class ChatFormatListener implements Listener {
         return base;
     }
 
+    private String chatName(Player player) {
+        return DisplayNames.luckPermsPrefix(player) + "&#bbbbbb" + DisplayNames.displayName(player);
+    }
+
     private Component hoverStats(Player player) {
-        String displayName = DisplayNames.prefixedDisplayName(player);
         String money = placeholder(player, "%mineacle_balance_formatted%", "0");
         String playtime = placeholder(player, "%mineacle_stats_playtime%", playtime(player));
         String kills = placeholder(player, "%mineacle_stats_kills%", String.valueOf(stat(player, Statistic.PLAYER_KILLS)));
@@ -75,7 +78,7 @@ public final class ChatFormatListener implements Listener {
 
         StringBuilder hover = new StringBuilder();
 
-        hover.append(displayName).append("\n");
+        hover.append(chatName(player)).append("\n");
 
         if (hasTeam(teamName)) {
             hover.append("&d🔥&#bbbbbb Team &#ff88ff").append(teamName).append("\n");

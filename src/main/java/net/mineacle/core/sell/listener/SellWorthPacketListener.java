@@ -275,8 +275,10 @@ public final class SellWorthPacketListener extends PacketAdapter {
 
         long unitWorth = sellService.unitWorthCents(player, original.getType());
         long stackWorth = visualWorthCents(player, original, 0);
+        long enchantWorth = sellService.enchantWorthCents(original);
+        long displayedWorth = original.getAmount() <= 1 ? stackWorth : unitWorth;
 
-        if (unitWorth <= 0L || stackWorth <= 0L) {
+        if (displayedWorth <= 0L || stackWorth <= 0L) {
             return original;
         }
 
@@ -293,7 +295,11 @@ public final class SellWorthPacketListener extends PacketAdapter {
             lore.add(0, TextColor.color("&#bbbbbbStack Price: &a" + sellService.format(stackWorth)));
         }
 
-        lore.add(0, TextColor.color("&#bbbbbbWorth: &a" + sellService.format(unitWorth)));
+        if (enchantWorth > 0L) {
+            lore.add(0, TextColor.color("&#bbbbbbEnchant Value: &a+" + sellService.format(enchantWorth)));
+        }
+
+        lore.add(0, TextColor.color("&#bbbbbbWorth: &a" + sellService.format(displayedWorth)));
 
         meta.setLore(lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);

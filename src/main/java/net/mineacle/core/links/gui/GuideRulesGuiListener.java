@@ -24,8 +24,8 @@ public final class GuideRulesGuiListener implements Listener {
             return;
         }
 
-        boolean guide = GuideRulesGui.GUIDE_TITLE.equalsIgnoreCase(title);
-        boolean rules = GuideRulesGui.RULES_TITLE.equalsIgnoreCase(title);
+        boolean guide = GuideRulesGui.GUIDE_TITLE.equalsIgnoreCase(title) || "Guide".equalsIgnoreCase(title);
+        boolean rules = GuideRulesGui.RULES_TITLE.equalsIgnoreCase(title) || "Rules".equalsIgnoreCase(title);
 
         if (!guide && !rules) {
             return;
@@ -43,14 +43,48 @@ public final class GuideRulesGuiListener implements Listener {
 
         int slot = event.getRawSlot();
 
-        if (guide && slot == 22) {
-            MenuHistory.openChild(core, player,
-                    () -> GuideRulesGui.openGuide(player),
-                    () -> GuideRulesGui.openRules(player));
+        if (guide) {
+            handleGuide(player, slot);
             return;
         }
 
-        if (rules && slot == 22) {
+        handleRules(player, slot);
+    }
+
+    private void handleGuide(Player player, int slot) {
+        if (slot == 10) {
+            player.closeInventory();
+            player.performCommand("rtp");
+            return;
+        }
+
+        if (slot == 12) {
+            player.closeInventory();
+            player.performCommand("home");
+            return;
+        }
+
+        if (slot == 14) {
+            player.closeInventory();
+            player.performCommand("worth");
+            return;
+        }
+
+        if (slot == 16) {
+            player.closeInventory();
+            player.performCommand("discord");
+            return;
+        }
+
+        if (slot == 22) {
+            MenuHistory.openChild(core, player,
+                    () -> GuideRulesGui.openGuide(player),
+                    () -> GuideRulesGui.openRules(player));
+        }
+    }
+
+    private void handleRules(Player player, int slot) {
+        if (slot == 22) {
             MenuHistory.openChild(core, player,
                     () -> GuideRulesGui.openRules(player),
                     () -> GuideRulesGui.openGuide(player));
