@@ -85,19 +85,19 @@ public final class PlayerStatisticsGui implements Listener {
         inventory.setItem(SLOT_BLOCKS_PLACED, statItem(
                 Material.GRASS_BLOCK,
                 "&#bbbbbbBlocks Placed",
-                "&b" + service.blocksPlaced(targetId)
+                "&d" + service.blocksPlaced(targetId)
         ));
 
         inventory.setItem(SLOT_BLOCKS_BROKEN, statItem(
                 Material.COBBLESTONE,
                 "&#bbbbbbBlocks Broken",
-                "&b" + service.blocksBroken(targetId)
+                "&d" + service.blocksBroken(targetId)
         ));
 
         inventory.setItem(SLOT_MOBS_KILLED, statItem(
                 Material.ZOMBIE_HEAD,
                 "&#bbbbbbMobs Killed",
-                "&b" + service.mobsKilled(targetId)
+                "&d" + service.mobsKilled(targetId)
         ));
 
         viewer.openInventory(inventory);
