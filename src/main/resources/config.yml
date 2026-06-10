@@ -107,7 +107,7 @@ nickname:
 
 chat:
   enabled: true
-  format: "%luckperms_prefix%%mineacle_chat_displayname%&#bbbbbb: &#bbbbbb%message%"
+  format: "%luckperms_prefix%&#bbbbbb%mineacle_chat_displayname%: %message%"
   worlds:
     mode: grouped
     groups:

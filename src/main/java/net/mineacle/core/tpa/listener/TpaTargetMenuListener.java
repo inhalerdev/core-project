@@ -146,9 +146,9 @@ public final class TpaTargetMenuListener implements Listener {
         return Component.text()
                 .append(legacy(message))
                 .append(Component.newline())
-                .append(legacy("&dAccept").clickEvent(ClickEvent.runCommand("/tpaccept")))
+                .append(legacy("&a[Accept]").clickEvent(ClickEvent.runCommand("/tpaccept")))
                 .append(legacy(" &#bbbbbb/ "))
-                .append(legacy("&dDeny").clickEvent(ClickEvent.runCommand("/tpdeny")))
+                .append(legacy("&c[Deny]").clickEvent(ClickEvent.runCommand("/tpdeny")))
                 .append(legacy(" &#bbbbbb/ "))
                 .append(legacy("&dView").clickEvent(ClickEvent.runCommand("/tpamenu " + DisplayNames.commandDisplayName(requester))))
                 .build();
