@@ -1,6 +1,7 @@
 package net.mineacle.core.links.gui;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
@@ -166,6 +167,8 @@ public final class GuideRulesGui {
     }
 
     private static Component legacy(String text) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(text == null ? "" : text));
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(TextColor.color(text == null ? "" : text))
+                .decoration(TextDecoration.ITALIC, false);
     }
 }

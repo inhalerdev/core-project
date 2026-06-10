@@ -2,73 +2,64 @@ title: "Rules"
 size: 36
 
 items:
-  survival:
-    slot: 10
-    material: GRASS_BLOCK
-    name: "&dOrigins Survival"
+  server-rules:
+    slot: 11
+    material: BOOK
+    name: "&dServer Rules"
     lore:
-      - "&#bbbbbbRespect the survival world"
-      - "&#bbbbbband keep progression fair"
-      - ""
-      - "&#bbbbbbNo griefing protected areas"
-      - "&#bbbbbbNo stealing from protected systems"
-      - "&#bbbbbbNo intentional server disruption"
+      - "&#bbbbbbNo hacked clients"
+      - "&#bbbbbbNo movement mods"
+      - "&#bbbbbbNo inventory mods"
+      - "&#bbbbbbNo radar, freecam, or xray"
+      - "&#bbbbbbNo macros or scripts"
+      - "&#bbbbbbNo abusing bugs or dupes"
+      - "&#bbbbbbNo alt abuse"
+      - "&#bbbbbbNo IRL trading"
+      - "&#bbbbbbNo invite rewards abuse"
+      - "&#bbbbbbNo cross-server trading"
+      - "&#bbbbbbNo seed finding"
+      - "&#bbbbbbNo staff impersonation"
+      - "&#bbbbbbNo external gambling"
 
-  fair-play:
-    slot: 12
-    material: SHIELD
-    name: "&dFair Play"
+  chat-rules:
+    slot: 13
+    material: PAPER
+    name: "&dChat Rules"
     lore:
-      - "&#bbbbbbNo hacked clients, xray, macros,"
-      - "&#bbbbbbdupes, exploits, or unfair advantages"
-      - ""
-      - "&#bbbbbbReport bugs instead of abusing them"
+      - "&#bbbbbbNo spam or spam baiting"
+      - "&#bbbbbbNo harassment"
+      - "&#bbbbbbNo advertising or promotion"
+      - "&#bbbbbbNo discrimination or hate speech"
+      - "&#bbbbbbNo threats"
+      - "&#bbbbbbNo sharing private information"
+      - "&#bbbbbbNo pretending to be someone else"
+      - "&#bbbbbbNo ban evasion"
+      - "&#bbbbbbNo lying to staff"
 
-  economy:
-    slot: 14
+  economy-rules:
+    slot: 15
     material: EMERALD
     name: "&dEconomy Rules"
     lore:
-      - "&#bbbbbbDo not abuse prices, alts,"
-      - "&#bbbbbbdupes, or broken sell values"
-      - ""
-      - "&#bbbbbbNo IRL trading"
-      - "&#bbbbbbNo economy exploit abuse"
+      - "&#bbbbbbNo price exploit abuse"
+      - "&#bbbbbbNo duped item trading"
+      - "&#bbbbbbNo alt-based farming"
+      - "&#bbbbbbNo market manipulation exploits"
+      - "&#bbbbbbReport broken prices immediately"
 
-  community:
-    slot: 16
-    material: PLAYER_HEAD
-    name: "&dCommunity"
-    lore:
-      - "&#bbbbbbKeep chat and gameplay respectful"
-      - ""
-      - "&#bbbbbbNo harassment"
-      - "&#bbbbbbNo hate speech"
-      - "&#bbbbbbNo threats, spam, or impersonation"
-
-  pvp:
+  pvp-rules:
     slot: 21
     material: DIAMOND_SWORD
     name: "&dPvP & Duels"
     lore:
-      - "&#bbbbbbPvP is part of Origins survival"
-      - "&#bbbbbbDo not abuse bugs or safe-zone edges"
-      - ""
+      - "&#bbbbbbPvP is enabled in Origins"
+      - "&#bbbbbbLoot can be lost in combat"
+      - "&#bbbbbbDo not abuse safe-zone edges"
+      - "&#bbbbbbDo not abuse combat bugs"
       - "&#bbbbbbDuel outcomes are final"
-      - "&#bbbbbbItems risked in combat may be lost"
-
-  staff:
-    slot: 23
-    material: BOOK
-    name: "&dStaff Decisions"
-    lore:
-      - "&#bbbbbbPunishments are handled case by case"
-      - "&#bbbbbbbased on evidence and server impact"
-      - ""
-      - "&#bbbbbbAppeal through official support"
 
   back:
-    slot: 31
+    slot: 23
     material: COMPASS
     name: "&dBack to Guide"
     lore:

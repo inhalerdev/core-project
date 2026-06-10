@@ -7,14 +7,14 @@ items:
     material: GRASS_BLOCK
     name: "&dOrigins Survival"
     lore:
-      - "&#bbbbbbThe main survival world for Mineacle"
-      - "&#bbbbbbBuild a base, progress, trade, and fight"
+      - "&#bbbbbbBuild, trade, fight, and progress"
+      - "&#bbbbbbin the main Mineacle survival world"
       - ""
       - "&#bbbbbbPvP: &cEnabled"
-      - "&#bbbbbbDrops: &cEnabled"
+      - "&#bbbbbbLoot Drops: &cEnabled"
       - "&#bbbbbbEconomy: &aEnabled"
       - ""
-      - "&dClick to start with RTP"
+      - "&dClick to random teleport"
     action: "command:/rtp"
 
   economy:
@@ -22,10 +22,9 @@ items:
     material: GOLD_INGOT
     name: "&dEconomy"
     lore:
-      - "&#bbbbbbEarn money by selling items"
-      - "&#bbbbbband checking market values"
+      - "&#bbbbbbSell items, check worth,"
+      - "&#bbbbbband climb the balance top"
       - ""
-      - "&#bbbbbbCommands:"
       - "&d/sell &#bbbbbbSell items"
       - "&d/worth &#bbbbbbView item prices"
       - "&d/ah &#bbbbbbAuction House coming later"
@@ -38,10 +37,10 @@ items:
     material: BOOK
     name: "&dRules"
     lore:
-      - "&#bbbbbbRead the core Mineacle rules"
+      - "&#bbbbbbView the server and chat rules"
       - "&#bbbbbbbefore building, trading, or fighting"
       - ""
-      - "&dClick to view rules"
+      - "&dClick to view Rules"
     action: "open:rules"
 
   leaderboards:
@@ -49,8 +48,8 @@ items:
     material: CLOCK
     name: "&dLeaderboards"
     lore:
-      - "&#bbbbbbView the top players"
-      - "&#bbbbbband compete for the highest balance"
+      - "&#bbbbbbCompete for top balance"
+      - "&#bbbbbband server progression"
       - ""
       - "&#bbbbbbCommand: &d/baltop"
       - ""
@@ -62,8 +61,8 @@ items:
     material: ENDER_PEARL
     name: "&dRandom Teleport"
     lore:
-      - "&#bbbbbbTeleport far away from spawn"
-      - "&#bbbbbband begin survival progression"
+      - "&#bbbbbbTeleport far from spawn"
+      - "&#bbbbbband start survival safely"
       - ""
       - "&#bbbbbbDefault: &d5s"
       - "&#bbbbbbMineacle+: &d3s"
@@ -76,10 +75,11 @@ items:
     material: RED_BED
     name: "&dHomes"
     lore:
-      - "&#bbbbbbSave and manage safe return points"
+      - "&#bbbbbbSave return points"
+      - "&#bbbbbband manage them from a GUI"
       - ""
-      - "&#bbbbbbDefault homes: &d3"
-      - "&#bbbbbbMineacle+ homes: &d5"
+      - "&#bbbbbbDefault: &d3 homes"
+      - "&#bbbbbbMineacle+: &d5 homes"
       - ""
       - "&dClick to open Homes"
     action: "command:/home"
@@ -90,7 +90,7 @@ items:
     name: "&dTeams"
     lore:
       - "&#bbbbbbCreate or join a team"
-      - "&#bbbbbbManage members, invites, and team home"
+      - "&#bbbbbbwith invites and team home"
       - ""
       - "&#bbbbbbCommand: &d/team"
       - ""
@@ -102,14 +102,13 @@ items:
     material: DIAMOND_SWORD
     name: "&dDuels"
     lore:
-      - "&#bbbbbbChallenge another player into Origins"
-      - "&#bbbbbbBoth players risk their inventory"
+      - "&#bbbbbbChallenge another player"
+      - "&#bbbbbband teleport into Origins"
       - ""
-      - "&#bbbbbbCommands:"
-      - "&d/duel <player> &#bbbbbbSend a challenge"
-      - "&d/duel accept &#bbbbbbAccept a challenge"
-      - "&d/duel deny &#bbbbbbDeny a challenge"
-      - "&d/duel cancel &#bbbbbbCancel your request"
+      - "&d/duel <player> &#bbbbbbChallenge"
+      - "&d/duel accept &#bbbbbbAccept"
+      - "&d/duel deny &#bbbbbbDeny"
+      - "&d/duel cancel &#bbbbbbCancel"
       - ""
       - "&dClick to type /duel"
     action: "command:/duel"
@@ -119,8 +118,8 @@ items:
     material: WRITABLE_BOOK
     name: "&dSupport"
     lore:
-      - "&#bbbbbbNeed help or want updates?"
+      - "&#bbbbbbNeed help or updates?"
       - "&#bbbbbbJoin the Mineacle Discord"
       - ""
-      - "&dClick to send the Discord link"
+      - "&dClick to send Discord link"
     action: "command:/discord"
