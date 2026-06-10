@@ -5,14 +5,14 @@ items:
   origins:
     slot: 10
     material: GRASS_BLOCK
-    name: "&dOrigins Survival"
+    name: "&dRandom Teleport"
     lore:
       - "&#bbbbbbBuild, trade, fight, and progress"
       - "&#bbbbbbin the main Mineacle survival world"
       - ""
-      - "&#bbbbbbPvP: &cEnabled"
-      - "&#bbbbbbLoot Drops: &cEnabled"
-      - "&#bbbbbbEconomy: &aEnabled"
+      - "&#ff88ffPVP: &cEnabled"
+      - "&#ff88ffDifficulty: &cHard"
+      - "&#ff88ffKeep Inventory: &cDisabled"
       - ""
       - "&dClick to random teleport"
     action: "command:/rtp"

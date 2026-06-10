@@ -10,7 +10,7 @@ menus:
         slot: 11
         material: GRASS_BLOCK
         destination: "origins"
-        name: "&aOrigins &#bbbbbb(&a%player_ping%ms&#bbbbbb)"
+        name: "&aOverworld &#bbbbbb(&a%player_ping%ms&#bbbbbb)"
         lore:
           - "&#bbbbbbExplore the main survival world"
           - "&#bbbbbb%server_online_origins%/300"
