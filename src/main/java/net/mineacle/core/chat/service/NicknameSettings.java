@@ -15,17 +15,39 @@ public final class NicknameSettings {
         return core.getConfig().getBoolean("nickname.enabled", true);
     }
 
-    public boolean showCommandWhenDisabled() {
-        return core.getConfig().getBoolean("nickname.show-command-when-disabled", false);
+    public boolean allowDefault() {
+        return core.getConfig().getBoolean("nickname.allow-default", false);
     }
 
-    public boolean registerCommand() {
-        return enabled() || showCommandWhenDisabled();
+    public String plusPermission() {
+        return core.getConfig().getString("nickname.plus-permission", "mineacle.plus");
+    }
+
+    public String permission() {
+        return core.getConfig().getString("nickname.permission", "mineaclechat.nick");
     }
 
     public boolean canUse(Player player) {
-        return player != null
-                && enabled()
-                && (player.hasPermission("mineacle.plus") || player.hasPermission("mineaclechat.nick"));
+        if (player == null || !enabled()) {
+            return false;
+        }
+
+        if (allowDefault()) {
+            return true;
+        }
+
+        return player.hasPermission(plusPermission()) || player.hasPermission(permission());
+    }
+
+    public String commandPermission() {
+        if (!enabled()) {
+            return "mineacle.disabled.nick";
+        }
+
+        if (allowDefault()) {
+            return "";
+        }
+
+        return plusPermission();
     }
 }

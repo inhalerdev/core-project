@@ -339,6 +339,8 @@ permissions:
     default: true
   mineaclechat.nick:
     default: false
+  mineacle.disabled.nick:
+    default: false
   mineaclechat.realname:
     default: true
   mineaclechat.admin:
@@ -422,4 +424,8 @@ permissions:
   mineacleadmin.echest:
     default: op
   mineacleadmin.echest.self:
+    default: op
+  mineacleshulkerpreview.use:
+    default: false
+  mineacleshulkerpreview.admin:
     default: op

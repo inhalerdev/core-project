@@ -567,3 +567,26 @@ stats:
       - spawn1
       - spawn2
       - spawn3
+
+shulker-preview:
+  enabled: true
+  allow-default: false
+  plus-permission: mineacle.plus
+  permission: mineacleshulkerpreview.use
+  gui-title: "Shulker Box"
+  blocked-title-contains:
+    - "phoenix"
+    - "crate"
+  messages:
+    no-permission: "&cThis is a Mineacle+ feature"
+
+nickname:
+  enabled: false
+  allow-default: false
+  plus-permission: mineacle.plus
+  permission: mineaclechat.nick
+  prefix: ""
+  max-length: 15
+  allowed-regex: "^[a-zA-Z_0-9&§]+$"
+  default-name-color: "&f"
+  op-name-color: "&d"

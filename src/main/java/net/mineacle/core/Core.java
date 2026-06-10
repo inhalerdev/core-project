@@ -19,6 +19,7 @@ import net.mineacle.core.orders.OrdersModule;
 import net.mineacle.core.placeholders.PlaceholdersModule;
 import net.mineacle.core.rtp.RtpModule;
 import net.mineacle.core.sell.SellModule;
+import net.mineacle.core.shulkerpreview.ShulkerPreviewModule;
 import net.mineacle.core.security.SecurityModule;
 import net.mineacle.core.spawn.SpawnModule;
 import net.mineacle.core.spawnprotection.SpawnProtectionModule;
@@ -94,6 +95,7 @@ public final class Core extends JavaPlugin {
             registerModule(new DuelsModule());
             registerModule(new OrdersModule());
             registerModule(new SellModule());
+            registerModule(new ShulkerPreviewModule());
             registerModule(new BountyModule());
             registerModule(new GamemodeModule());
 

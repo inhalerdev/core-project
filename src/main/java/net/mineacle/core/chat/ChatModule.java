@@ -55,17 +55,13 @@ public final class ChatModule extends Module {
         IgnoreCommand ignoreCommand = new IgnoreCommand(core, chatService);
         IgnoreListCommand ignoreListCommand = new IgnoreListCommand(core, chatService);
         RealNameCommand realNameCommand = new RealNameCommand(core, nicknameService);
+        NickCommand nickCommand = new NickCommand(core, nicknameService, nicknameSettings);
 
         register(core, "msg", messageCommand);
         register(core, "r", replyCommand);
         register(core, "ignore", ignoreCommand);
         register(core, "ignorelist", ignoreListCommand);
-
-        if (nicknameSettings.registerCommand()) {
-            NickCommand nickCommand = new NickCommand(core, nicknameService, nicknameSettings);
-            register(core, "nick", nickCommand);
-        }
-
+        registerNick(core, nickCommand);
         register(core, "realname", realNameCommand);
 
         core.getServer().getPluginManager().registerEvents(
@@ -92,6 +88,28 @@ public final class ChatModule extends Module {
         chatService = null;
         nicknameService = null;
         nicknameSettings = null;
+    }
+
+    private void registerNick(Core core, NickCommand executor) {
+        PluginCommand command = core.getCommand("nick");
+
+        if (command == null) {
+            core.getLogger().warning("Missing command in plugin.yml: nick");
+            return;
+        }
+
+        String permission = nicknameSettings.commandPermission();
+
+        if (permission == null || permission.isBlank()) {
+            command.setPermission(null);
+        } else {
+            command.setPermission(permission);
+        }
+
+        command.setPermissionMessage("§cNicknames are currently disabled");
+        command.setUsage("/nick <name|reset>");
+        command.setExecutor(executor);
+        command.setTabCompleter(executor);
     }
 
     private void register(Core core, String commandName, CommandExecutor executor) {

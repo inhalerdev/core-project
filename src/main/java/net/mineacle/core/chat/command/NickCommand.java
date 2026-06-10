@@ -1,7 +1,5 @@
 package net.mineacle.core.chat.command;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.chat.service.NicknameService;
 import net.mineacle.core.chat.service.NicknameSettings;
@@ -14,6 +12,7 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
 import java.util.List;
+import java.util.Locale;
 
 public final class NickCommand implements CommandExecutor, TabCompleter {
 
@@ -40,7 +39,7 @@ public final class NickCommand implements CommandExecutor, TabCompleter {
         }
 
         if (!nicknameSettings.canUse(player)) {
-            player.sendActionBar(legacy("&cThis is a Mineacle+ feature"));
+            player.sendActionBar(TextColor.color("&cThis is a Mineacle+ feature"));
             return true;
         }
 
@@ -75,22 +74,18 @@ public final class NickCommand implements CommandExecutor, TabCompleter {
             return List.of();
         }
 
-        if (!nicknameSettings.enabled()) {
+        if (!nicknameSettings.enabled() || !nicknameSettings.canUse(player)) {
             return List.of();
         }
 
-        if (!nicknameSettings.canUse(player)) {
-            return List.of();
-        }
+        if (args.length == 1) {
+            String partial = args[0].toLowerCase(Locale.ROOT);
 
-        if (args.length == 1 && "reset".startsWith(args[0].toLowerCase())) {
-            return List.of("reset");
+            if ("reset".startsWith(partial) || "clear".startsWith(partial) || "off".startsWith(partial)) {
+                return List.of("reset");
+            }
         }
 
         return List.of();
-    }
-
-    private Component legacy(String message) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
     }
 }
