@@ -3,6 +3,7 @@ package net.mineacle.core.links;
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.links.command.LinksCommand;
+import net.mineacle.core.links.gui.GuideRulesGuiListener;
 import net.mineacle.core.links.listener.LinksCommandListener;
 import org.bukkit.command.PluginCommand;
 
@@ -26,6 +27,7 @@ public final class LinksModule extends Module {
         register(core, "x");
 
         core.getServer().getPluginManager().registerEvents(new LinksCommandListener(command), core);
+        core.getServer().getPluginManager().registerEvents(new GuideRulesGuiListener(core), core);
     }
 
     @Override

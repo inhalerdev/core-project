@@ -5,8 +5,10 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
+import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.links.gui.GuideRulesGui;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -73,15 +75,23 @@ public final class LinksCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        if (used.equals("guide") || used.equals("help") || used.equals("mineacle")) {
+            MenuHistory.openRoot(core, player, () -> GuideRulesGui.openGuide(player));
+            return true;
+        }
+
+        if (used.equals("rules")) {
+            MenuHistory.openRoot(core, player, () -> GuideRulesGui.openRules(player));
+            return true;
+        }
+
         sendConfiguredLink(player, used);
         return true;
     }
 
     public void sendAllLinks(Player player) {
         player.sendMessage(Component.empty());
-        player.sendMessage(legacy("&#ff88ffMineacle"));
-        sendCompactLine(player, "guide");
-        sendCompactLine(player, "rules");
+        player.sendMessage(legacy("&#ff88ffMineacle Links"));
         sendCompactLine(player, "store");
         sendCompactLine(player, "discord");
         sendCompactLine(player, "x");
@@ -96,15 +106,15 @@ public final class LinksCommand implements CommandExecutor, TabCompleter {
         }
 
         if (!config.contains("links." + key)) {
-            player.sendMessage(TextColor.color("&cThat page is not configured"));
+            player.sendMessage(TextColor.color("&cThat link is not configured"));
             SoundService.guiError(player, core);
             return;
         }
 
-        String title = config.getString("links." + key + ".title", "&dMineacle");
+        String title = config.getString("links." + key + ".title", "&dMineacle Link");
         String url = config.getString("links." + key + ".url", "");
-        String buttonLine = config.getString("links." + key + ".button-line", "");
-        String hover = config.getString("links." + key + ".hover", "Open");
+        String buttonLine = config.getString("links." + key + ".button-line", "&dClick here");
+        String hover = config.getString("links." + key + ".hover", "Open link");
         List<String> lines = config.getStringList("links." + key + ".lines");
 
         player.sendMessage(Component.empty());
@@ -114,38 +124,26 @@ public final class LinksCommand implements CommandExecutor, TabCompleter {
             player.sendMessage(legacy(line));
         }
 
-        if (url != null && !url.isBlank() && buttonLine != null && !buttonLine.isBlank()) {
-            player.sendMessage(Component.empty());
+        player.sendMessage(Component.empty());
 
-            Component clickLine = legacy(buttonLine)
-                    .clickEvent(ClickEvent.openUrl(url))
-                    .hoverEvent(HoverEvent.showText(legacy(hover)));
+        Component clickLine = legacy(buttonLine)
+                .clickEvent(ClickEvent.openUrl(url))
+                .hoverEvent(HoverEvent.showText(legacy(hover)));
 
-            player.sendMessage(clickLine);
-        }
-
+        player.sendMessage(clickLine);
         SoundService.guiClick(player, core);
     }
 
     private void sendCompactLine(Player player, String key) {
-        if (!config.contains("links." + key)) {
-            return;
-        }
-
         String title = config.getString("links." + key + ".title", key);
         String button = config.getString("links." + key + ".button", "&d[OPEN]");
         String url = config.getString("links." + key + ".url", "");
-        String hover = config.getString("links." + key + ".hover", "Open");
+        String hover = config.getString("links." + key + ".hover", "Open link");
 
-        Component line = legacy("&#bbbbbb- " + title + " ");
-
-        if (url != null && !url.isBlank()) {
-            line = line.append(legacy(button)
-                    .clickEvent(ClickEvent.openUrl(url))
-                    .hoverEvent(HoverEvent.showText(legacy(hover))));
-        } else {
-            line = line.append(legacy(button));
-        }
+        Component line = legacy("&#bbbbbb- " + title + " ")
+                .append(legacy(button)
+                        .clickEvent(ClickEvent.openUrl(url))
+                        .hoverEvent(HoverEvent.showText(legacy(hover))));
 
         player.sendMessage(line);
     }
