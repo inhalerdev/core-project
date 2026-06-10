@@ -29,7 +29,7 @@ public final class GuideRulesGui {
                 "&#bbbbbbUse &d/rtp &#bbbbbbto begin survival",
                 "&#bbbbbbUse &d/sethome <name> &#bbbbbbto save a home"));
 
-        inventory.setItem(12, item(Material.OAK_BED, "&dHomes",
+        inventory.setItem(12, item(Material.RED_BED, "&dHomes",
                 "&#bbbbbbDefault players can set 3 homes",
                 "&#bbbbbbMineacle+ players can set 5 homes",
                 "&#bbbbbbUse &d/home &#bbbbbbto manage homes"));
@@ -79,6 +79,10 @@ public final class GuideRulesGui {
     private static ItemStack item(Material material, String name, String... loreLines) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
+
+        if (meta == null) {
+            return item;
+        }
 
         meta.displayName(legacy(name));
 

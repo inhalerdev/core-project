@@ -20,7 +20,14 @@ public final class GuideRulesGuiListener implements Listener {
     public void onClick(InventoryClickEvent event) {
         String title = ChatColor.stripColor(event.getView().getTitle());
 
-        if (!GuideRulesGui.GUIDE_TITLE.equalsIgnoreCase(title) && !GuideRulesGui.RULES_TITLE.equalsIgnoreCase(title)) {
+        if (title == null) {
+            return;
+        }
+
+        boolean guide = GuideRulesGui.GUIDE_TITLE.equalsIgnoreCase(title);
+        boolean rules = GuideRulesGui.RULES_TITLE.equalsIgnoreCase(title);
+
+        if (!guide && !rules) {
             return;
         }
 
@@ -36,16 +43,17 @@ public final class GuideRulesGuiListener implements Listener {
 
         int slot = event.getRawSlot();
 
-        if (GuideRulesGui.GUIDE_TITLE.equalsIgnoreCase(title)) {
-            if (slot == 22) {
-                MenuHistory.openChild(core, player, GuideRulesGui::openGuide, () -> GuideRulesGui.openRules(player));
-            }
-
+        if (guide && slot == 22) {
+            MenuHistory.openChild(core, player,
+                    () -> GuideRulesGui.openGuide(player),
+                    () -> GuideRulesGui.openRules(player));
             return;
         }
 
-        if (slot == 22) {
-            MenuHistory.openChild(core, player, GuideRulesGui::openRules, () -> GuideRulesGui.openGuide(player));
+        if (rules && slot == 22) {
+            MenuHistory.openChild(core, player,
+                    () -> GuideRulesGui.openRules(player),
+                    () -> GuideRulesGui.openGuide(player));
         }
     }
 }
