@@ -1,5 +1,7 @@
 package net.mineacle.core.auctionhouse.gui;
 
+import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.model.AuctionHouseListing;
 import net.mineacle.core.auctionhouse.service.AuctionHouseService;
@@ -9,12 +11,15 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class AuctionHouseGuiListener implements Listener {
 
     private final Core core;
     private final AuctionHouseService service;
+    private final Map<UUID, SearchPrompt> searchPrompts = new ConcurrentHashMap<>();
 
     public AuctionHouseGuiListener(Core core, AuctionHouseService service) {
         this.core = core;
@@ -40,6 +45,36 @@ public final class AuctionHouseGuiListener implements Listener {
         if (event.getInventory().getHolder() instanceof AuctionHouseGui.ConfirmBuyHolder holder) {
             handleConfirmBuy(event, player, holder);
         }
+    }
+
+    @EventHandler
+    public void onChat(AsyncChatEvent event) {
+        Player player = event.getPlayer();
+        SearchPrompt prompt = searchPrompts.remove(player.getUniqueId());
+
+        if (prompt == null) {
+            return;
+        }
+
+        event.setCancelled(true);
+
+        String query = PlainTextComponentSerializer.plainText().serialize(event.message()).trim();
+
+        core.getServer().getScheduler().runTask(core, () -> {
+            if (query.equalsIgnoreCase("cancel") || query.equalsIgnoreCase("cancelled")) {
+                player.sendMessage(TextColor.color("&#bbbbbbAuction search cancelled"));
+                AuctionHouseGui.openBrowse(player, service, prompt.page(), prompt.sortMode(), prompt.query());
+                return;
+            }
+
+            if (query.isBlank()) {
+                player.sendMessage(TextColor.color("&cSearch cannot be empty"));
+                AuctionHouseGui.openBrowse(player, service, prompt.page(), prompt.sortMode(), prompt.query());
+                return;
+            }
+
+            AuctionHouseGui.openBrowse(player, service, 0, prompt.sortMode(), query);
+        });
     }
 
     private void handleBrowse(InventoryClickEvent event, Player player, AuctionHouseGui.BrowseHolder holder) {
@@ -80,9 +115,11 @@ public final class AuctionHouseGuiListener implements Listener {
         }
 
         if (slot == 48) {
+            searchPrompts.put(player.getUniqueId(), new SearchPrompt(holder.page, holder.sortMode, holder.query));
             player.closeInventory();
-            player.sendMessage(TextColor.color("&#bbbbbbSearch with &d/ah <item>"));
-            player.sendMessage(TextColor.color("&#bbbbbbExample: &d/ah mending"));
+            player.sendMessage(TextColor.color("&#bbbbbbType an item name to search the auction house"));
+            player.sendMessage(TextColor.color("&#bbbbbbExamples: &dmending&#bbbbbb, &dcobble&#bbbbbb, &dnetherite chestplate"));
+            player.sendMessage(TextColor.color("&#bbbbbbType &ccancel &#bbbbbbto return"));
             return;
         }
 
@@ -173,5 +210,8 @@ public final class AuctionHouseGuiListener implements Listener {
                 AuctionHouseGui.openBrowse(player, service, 0, AuctionHouseService.SortMode.LOWEST_PRICE, "");
             }
         }
+    }
+
+    private record SearchPrompt(int page, AuctionHouseService.SortMode sortMode, String query) {
     }
 }

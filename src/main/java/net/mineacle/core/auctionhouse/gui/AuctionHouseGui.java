@@ -64,9 +64,9 @@ public final class AuctionHouseGui {
                 "&#bbbbbbClick to refresh"));
 
         inventory.setItem(48, item(Material.OAK_SIGN, "&dSearch",
-                "&#bbbbbbSearch using &d/ah <item>",
-                "&#bbbbbbExample: &d/ah mending",
-                "&#bbbbbbExample: &d/ah cobble"));
+                "&#bbbbbbClick to type an item name",
+                "&#bbbbbbExamples: &dmending&#bbbbbb, &dcobble",
+                "&#bbbbbbSearches items and enchants"));
 
         inventory.setItem(49, item(Material.CHEST, "&dYour Items",
                 "&#bbbbbbView and cancel your listings"));
