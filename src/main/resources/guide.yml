@@ -3,7 +3,7 @@ size: 27
 
 items:
   origins:
-    slot: 11
+    slot: 10
     material: GRASS_BLOCK
     name: "&dOrigins"
     lore:
@@ -17,7 +17,7 @@ items:
     action: "command:/rtp"
 
   economy:
-    slot: 12
+    slot: 11
     material: GOLD_INGOT
     name: "&dEconomy"
     lore:
@@ -33,7 +33,7 @@ items:
     action: "command:/worth"
 
   rules:
-    slot: 13
+    slot: 12
     material: BOOK
     name: "&dRules"
     lore:
@@ -44,7 +44,7 @@ items:
     action: "open:rules"
 
   leaderboards:
-    slot: 14
+    slot: 13
     material: CLOCK
     name: "&dLeaderboards"
     lore:
@@ -57,7 +57,7 @@ items:
     action: "command:/baltop"
 
   homes:
-    slot: 15
+    slot: 14
     material: RED_BED
     name: "&dHomes"
     lore:
@@ -71,7 +71,7 @@ items:
     action: "command:/home"
 
   teams:
-    slot: 16
+    slot: 15
     material: SHIELD
     name: "&dTeams"
     lore:
@@ -84,7 +84,7 @@ items:
     action: "command:/team"
 
   duels:
-    slot: 17
+    slot: 16
     material: DIAMOND_SWORD
     name: "&dDuels"
     lore:
