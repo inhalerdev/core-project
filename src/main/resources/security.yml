@@ -151,6 +151,7 @@ groups:
       - "discord"
       - "duel"
       - "guide"
+      - "auction"
       - "home"
       - "ignore"
       - "ignorelist"
@@ -184,17 +185,13 @@ groups:
       - "lobby"
       - "money"
       - "orders"
-      - "originrtp"
       - "renamehome"
       - "reply"
       - "r"
-      - "sellmulti"
       - "teams"
       - "tell"
       - "tpadeny"
       - "tphere"
-      - "tpno"
-      - "tpyes"
       - "warps"
       - "w"
       - "wild"
@@ -207,8 +204,7 @@ groups:
     visible-commands:
       - "fly"
       - "hide"
-      #- "nick"
-    hidden-commands: []
+      - "nick"
 
   admin:
     permission: "mineaclesecurity.group.admin"
@@ -218,19 +214,14 @@ groups:
     visible-commands:
       - "ban"
       - "delwarp"
-      - "doublejump"
       - "eco"
-      - "echest"
-      - "ecsee"
       - "enchant"
       - "enchantinfo"
-      - "enderchest"
       - "gamemode"
       - "gma"
       - "gmc"
       - "gmsp"
       - "gms"
-      - "invsee"
       - "kick"
       - "mineaclehomes"
       - "mineaclenametags"
@@ -250,4 +241,3 @@ groups:
     hidden-commands:
       - "money"
       - "w"
-

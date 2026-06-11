@@ -1,6 +1,7 @@
 package net.mineacle.core;
 
 import net.mineacle.core.admininspect.AdminInspectModule;
+import net.mineacle.core.auctionhouse.AuctionHouseModule;
 import net.mineacle.core.baltop.BalTopModule;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.bounty.BountyModule;
@@ -95,6 +96,7 @@ public final class Core extends JavaPlugin {
             registerModule(new DuelsModule());
             registerModule(new OrdersModule());
             registerModule(new SellModule());
+            registerModule(new AuctionHouseModule());
             registerModule(new ShulkerPreviewModule());
             registerModule(new BountyModule());
             registerModule(new GamemodeModule());

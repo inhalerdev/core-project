@@ -7,6 +7,12 @@ softdepend: [Vault, PlaceholderAPI, ProtocolLib, NuVotifier, Votifier]
 loadbefore: [ajLeaderboards, DeluxeMenus, TAB]
 
 commands:
+  auction:
+    description: Open the auction house
+    aliases: [ah, auctionhouse]
+    usage: /auction
+    permission: mineacleauctionhouse.use
+
   guide:
     description: Open the Mineacle guide
     aliases: [help, mineacle]
@@ -339,8 +345,6 @@ permissions:
     default: true
   mineaclechat.nick:
     default: false
-  mineacle.disabled.nick:
-    default: false
   mineaclechat.realname:
     default: true
   mineaclechat.admin:
@@ -428,4 +432,11 @@ permissions:
   mineacleshulkerpreview.use:
     default: false
   mineacleshulkerpreview.admin:
+    default: op
+
+  mineacleauctionhouse.use:
+    default: true
+  mineacleauctionhouse.sell:
+    default: false
+  mineacleauctionhouse.admin:
     default: op

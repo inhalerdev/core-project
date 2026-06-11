@@ -1,0 +1,27 @@
+enabled: true
+
+listing:
+  allow-default: true
+  default-slots: 3
+  plus-slots: 12
+  admin-slots: 999
+  plus-permission: mineacle.plus
+  min-price: 1.0
+  max-price: 1000000000.0
+
+search-aliases:
+  cobble: cobblestone
+  cobblestone: cobblestone
+  stonebrick: stone bricks
+  gapple: golden apple
+  egap: enchanted golden apple
+  epearl: ender pearl
+  xp: experience bottle
+  exp: experience bottle
+  prot: protection
+  sharp: sharpness
+  eff: efficiency
+  unb: unbreaking
+  mend: mending
+  netherite: netherite
+  dia: diamond
