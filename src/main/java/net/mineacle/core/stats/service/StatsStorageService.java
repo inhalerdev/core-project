@@ -140,24 +140,30 @@ public final class StatsStorageService {
     }
 
     public List<StatProfile> topKills(int limit) {
-        return top(limit, Comparator
-                .comparingLong(StatProfile::kills)
-                .thenComparingLong(StatProfile::playtimeSeconds)
-                .reversed());
+        return top(limit,
+                profile -> profile.kills() > 0L,
+                Comparator
+                        .comparingLong(StatProfile::kills)
+                        .thenComparingLong(StatProfile::playtimeSeconds)
+                        .reversed());
     }
 
     public List<StatProfile> topDeaths(int limit) {
-        return top(limit, Comparator
-                .comparingLong(StatProfile::deaths)
-                .thenComparingLong(StatProfile::playtimeSeconds)
-                .reversed());
+        return top(limit,
+                profile -> profile.deaths() > 0L,
+                Comparator
+                        .comparingLong(StatProfile::deaths)
+                        .thenComparingLong(StatProfile::playtimeSeconds)
+                        .reversed());
     }
 
     public List<StatProfile> topPlaytime(int limit) {
-        return top(limit, Comparator
-                .comparingLong(StatProfile::playtimeSeconds)
-                .thenComparingLong(StatProfile::kills)
-                .reversed());
+        return top(limit,
+                profile -> profile.playtimeSeconds() > 0L,
+                Comparator
+                        .comparingLong(StatProfile::playtimeSeconds)
+                        .thenComparingLong(StatProfile::kills)
+                        .reversed());
     }
 
     public int rankKills(UUID uuid) {
@@ -172,9 +178,9 @@ public final class StatsStorageService {
         return rank(uuid, topPlaytime(Integer.MAX_VALUE));
     }
 
-    private List<StatProfile> top(int limit, Comparator<StatProfile> comparator) {
+    private List<StatProfile> top(int limit, java.util.function.Predicate<StatProfile> filter, Comparator<StatProfile> comparator) {
         List<StatProfile> profiles = new ArrayList<>(profiles());
-        profiles.removeIf(profile -> profile.kills() <= 0L && profile.deaths() <= 0L && profile.playtimeSeconds() <= 0L);
+        profiles.removeIf(filter.negate());
         profiles.sort(comparator);
 
         if (limit <= 0 || profiles.size() <= limit) {

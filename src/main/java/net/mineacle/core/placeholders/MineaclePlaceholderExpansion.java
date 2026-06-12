@@ -113,10 +113,10 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
             case "baltop_value", "baltop_value_formatted", "baltop_balance", "baltop_balance_formatted" -> compactMoney(economyService.getBalanceCents(uuid));
             case "baltop_value_raw", "baltop_balance_raw" -> MoneyFormatter.rawFromCents(economyService.getBalanceCents(uuid));
 
-            case "kills_rank" -> formattedRank(statsService.rankKills(uuid));
-            case "kills_rank_raw" -> String.valueOf(statsService.rankKills(uuid));
-            case "deaths_rank" -> formattedRank(statsService.rankDeaths(uuid));
-            case "deaths_rank_raw" -> String.valueOf(statsService.rankDeaths(uuid));
+            case "kills_rank" -> statsService.kills(uuid) <= 0L ? "Unranked" : formattedRank(statsService.rankKills(uuid));
+            case "kills_rank_raw" -> statsService.kills(uuid) <= 0L ? "0" : String.valueOf(statsService.rankKills(uuid));
+            case "deaths_rank" -> statsService.deaths(uuid) <= 0L ? "Unranked" : formattedRank(statsService.rankDeaths(uuid));
+            case "deaths_rank_raw" -> statsService.deaths(uuid) <= 0L ? "0" : String.valueOf(statsService.rankDeaths(uuid));
             case "playtime_rank" -> formattedRank(statsService.rankPlaytime(uuid));
             case "playtime_rank_raw" -> String.valueOf(statsService.rankPlaytime(uuid));
 
@@ -290,7 +290,10 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
     }
 
     private BalTopEntry balTopEntry(int position) {
-        List<Map.Entry<UUID, Long>> entries = economyService.topBalances(position);
+        List<Map.Entry<UUID, Long>> entries = economyService.topBalances(Integer.MAX_VALUE)
+                .stream()
+                .filter(entry -> entry.getValue() != null && entry.getValue() > 0L)
+                .toList();
 
         if (entries.size() < position) {
             return null;
@@ -302,7 +305,14 @@ public final class MineaclePlaceholderExpansion extends PlaceholderExpansion {
     }
 
     private int rawBalTopRank(UUID playerId) {
-        List<Map.Entry<UUID, Long>> entries = economyService.topBalances(Integer.MAX_VALUE);
+        if (economyService.getBalanceCents(playerId) <= 0L) {
+            return 0;
+        }
+
+        List<Map.Entry<UUID, Long>> entries = economyService.topBalances(Integer.MAX_VALUE)
+                .stream()
+                .filter(entry -> entry.getValue() != null && entry.getValue() > 0L)
+                .toList();
 
         for (int i = 0; i < entries.size(); i++) {
             if (entries.get(i).getKey().equals(playerId)) {
