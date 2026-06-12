@@ -49,32 +49,27 @@ public final class AuctionHouseGui {
             holder.slotListings.put(slot, listing.id());
         }
 
-        inventory.setItem(45, item(Material.HOPPER, "&dFilter",
-                "&#bbbbbbCurrent: &d" + sortMode.label(),
-                "",
-                "&#bbbbbbClick to change",
-                "&dLowest Price",
-                "&dHighest Price",
-                "&dRecently Listed"));
-
-        inventory.setItem(46, item(Material.AMETHYST_SHARD, "&dWorth",
-                "&#bbbbbbClick to open item prices"));
-
-        inventory.setItem(47, item(Material.EMERALD, "&dRefresh",
-                "&#bbbbbbClick to refresh"));
-
-        inventory.setItem(48, item(Material.OAK_SIGN, "&dSearch",
-                "&#bbbbbbClick to type an item name",
-                "&#bbbbbbExamples: &dmending&#bbbbbb, &dcobble",
-                "&#bbbbbbSearches items and enchants"));
-
-        inventory.setItem(49, item(Material.CHEST, "&dYour Items",
-                "&#bbbbbbView and cancel your listings"));
-
         if (page > 0) {
-            inventory.setItem(51, item(Material.ARROW, "&dPrevious Page",
+            inventory.setItem(45, item(Material.ARROW, "&dPrevious Page",
                     "&#bbbbbbClick to view previous page"));
         }
+
+        inventory.setItem(46, item(Material.HOPPER, "&dFilter",
+                "&#bbbbbbCurrent: &d" + sortMode.label(),
+                "",
+                "&#bbbbbbClick to change filter"));
+
+        inventory.setItem(47, item(Material.AMETHYST_SHARD, "&dWorth",
+                "&#bbbbbbClick to open Worth"));
+
+        inventory.setItem(49, item(Material.EMERALD, "&dRefresh",
+                "&#bbbbbbClick to refresh"));
+
+        inventory.setItem(51, item(Material.OAK_SIGN, "&dSearch",
+                "&#bbbbbbClick to search auctions"));
+
+        inventory.setItem(52, item(Material.CHEST, "&dYour Items",
+                "&#bbbbbbClick to view your listings"));
 
         if ((page + 1) * service.pageSize() < listings.size()) {
             inventory.setItem(53, item(Material.ARROW, "&dNext Page",
@@ -110,21 +105,17 @@ public final class AuctionHouseGui {
                     "&#bbbbbbfor more auction slots"));
         }
 
-        inventory.setItem(45, item(Material.HOPPER, "&dFilter",
-                "&#bbbbbbClick to return to auction"));
-
         inventory.setItem(46, item(Material.AMETHYST_SHARD, "&dWorth",
-                "&#bbbbbbClick to open item prices"));
+                "&#bbbbbbClick to open Worth"));
 
-        inventory.setItem(47, item(Material.EMERALD, "&dRefresh",
+        inventory.setItem(49, item(Material.EMERALD, "&dRefresh",
                 "&#bbbbbbClick to refresh"));
 
-        inventory.setItem(49, item(Material.OAK_SIGN, "&dList Item",
-                "&#bbbbbbHold an item and use",
-                "&d/ah sell <price>"));
+        inventory.setItem(51, item(Material.OAK_SIGN, "&dList Item",
+                "&#bbbbbbHold an item and use &d/ah sell <price>"));
 
         inventory.setItem(53, item(Material.ARROW, "&dBack",
-                "&#bbbbbbReturn to auction"));
+                "&#bbbbbbClick to return"));
 
         player.openInventory(inventory);
     }

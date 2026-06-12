@@ -98,38 +98,37 @@ public final class AuctionHouseGuiListener implements Listener {
             return;
         }
 
-        if (slot == 45) {
-            AuctionHouseGui.openBrowse(player, service, 0, holder.sortMode.next(), holder.query);
+        if (slot == 45 && holder.page > 0) {
+            AuctionHouseGui.openBrowse(player, service, holder.page - 1, holder.sortMode, holder.query);
             return;
         }
 
         if (slot == 46) {
+            AuctionHouseGui.openBrowse(player, service, 0, holder.sortMode.next(), holder.query);
+            return;
+        }
+
+        if (slot == 47) {
             player.closeInventory();
             player.performCommand("worth");
             return;
         }
 
-        if (slot == 47) {
+        if (slot == 49) {
             AuctionHouseGui.openBrowse(player, service, holder.page, holder.sortMode, holder.query);
             return;
         }
 
-        if (slot == 48) {
+        if (slot == 51) {
             searchPrompts.put(player.getUniqueId(), new SearchPrompt(holder.page, holder.sortMode, holder.query));
             player.closeInventory();
-            player.sendMessage(TextColor.color("&#bbbbbbType an item name to search the auction house"));
-            player.sendMessage(TextColor.color("&#bbbbbbExamples: &dmending&#bbbbbb, &dcobble&#bbbbbb, &dnetherite chestplate"));
+            player.sendMessage(TextColor.color("&#bbbbbbType an item name to search auctions"));
             player.sendMessage(TextColor.color("&#bbbbbbType &ccancel &#bbbbbbto return"));
             return;
         }
 
-        if (slot == 49) {
+        if (slot == 52) {
             AuctionHouseGui.openOwn(player, service);
-            return;
-        }
-
-        if (slot == 51 && holder.page > 0) {
-            AuctionHouseGui.openBrowse(player, service, holder.page - 1, holder.sortMode, holder.query);
             return;
         }
 
@@ -160,19 +159,19 @@ public final class AuctionHouseGuiListener implements Listener {
             return;
         }
 
-        if (slot == 45 || slot == 53) {
-            AuctionHouseGui.openBrowse(player, service, 0, AuctionHouseService.SortMode.LOWEST_PRICE, "");
-            return;
-        }
-
         if (slot == 46) {
             player.closeInventory();
             player.performCommand("worth");
             return;
         }
 
-        if (slot == 47) {
+        if (slot == 49) {
             AuctionHouseGui.openOwn(player, service);
+            return;
+        }
+
+        if (slot == 53) {
+            AuctionHouseGui.openBrowse(player, service, 0, AuctionHouseService.SortMode.LOWEST_PRICE, "");
         }
     }
 
