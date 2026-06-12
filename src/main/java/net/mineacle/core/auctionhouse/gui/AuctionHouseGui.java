@@ -54,21 +54,21 @@ public final class AuctionHouseGui {
                     "&#bbbbbbClick to view previous page"));
         }
 
-        inventory.setItem(46, item(Material.HOPPER, "&dFilter",
+        inventory.setItem(47, item(Material.HOPPER, "&dFilter",
                 "&#bbbbbbCurrent: &d" + sortMode.label(),
                 "",
                 "&#bbbbbbClick to change filter"));
 
-        inventory.setItem(47, item(Material.AMETHYST_SHARD, "&dWorth",
+        inventory.setItem(48, item(Material.AMETHYST_SHARD, "&dWorth",
                 "&#bbbbbbClick to open Worth"));
 
         inventory.setItem(49, item(Material.EMERALD, "&dRefresh",
                 "&#bbbbbbClick to refresh"));
 
-        inventory.setItem(51, item(Material.OAK_SIGN, "&dSearch",
+        inventory.setItem(50, item(Material.OAK_SIGN, "&dSearch",
                 "&#bbbbbbClick to search auctions"));
 
-        inventory.setItem(52, item(Material.CHEST, "&dYour Items",
+        inventory.setItem(51, item(Material.CHEST, "&dYour Items",
                 "&#bbbbbbClick to view your listings"));
 
         if ((page + 1) * service.pageSize() < listings.size()) {
