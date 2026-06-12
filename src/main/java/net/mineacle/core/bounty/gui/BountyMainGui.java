@@ -27,9 +27,9 @@ public final class BountyMainGui {
     public static final int ENTRIES_PER_PAGE = 45;
 
     public static final int PREVIOUS_SLOT = 45;
-    public static final int SORT_SLOT = 48;
+    public static final int SORT_SLOT = 47;
     public static final int REFRESH_SLOT = 49;
-    public static final int SEARCH_SLOT = 50;
+    public static final int SEARCH_SLOT = 51;
     public static final int NEXT_SLOT = 53;
 
     public static final String META_PAGE = "mineacle_bounty_page";
@@ -46,6 +46,7 @@ public final class BountyMainGui {
         int safePage = Math.max(0, Math.min(page, totalPages - 1));
 
         Inventory inventory = Bukkit.createInventory(null, SIZE, TITLE_PREFIX + (safePage + 1) + ")");
+
         player.setMetadata(META_PAGE, new FixedMetadataValue(core, safePage));
 
         int start = safePage * ENTRIES_PER_PAGE;
@@ -60,10 +61,9 @@ public final class BountyMainGui {
                     Material.SKELETON_SKULL,
                     "&dNo Bounties",
                     List.of(
-                            "&#bbbbbbNo one has a bounty right now",
+                            "&#bbbbbbThe board is clear",
                             "",
-                            "&#bbbbbbPlace one with:",
-                            "&#ff88ff/bounty add <player> <amount>"
+                            "&d/bounty add <player> <amount>"
                     )
             ));
         }
@@ -71,8 +71,8 @@ public final class BountyMainGui {
         if (safePage > 0) {
             inventory.setItem(PREVIOUS_SLOT, item(
                     Material.ARROW,
-                    "&dBack",
-                    List.of("&#bbbbbbPrevious page")
+                    "&dPrevious Page",
+                    List.of("&#bbbbbbClick to go back")
             ));
         }
 
@@ -80,26 +80,21 @@ public final class BountyMainGui {
 
         inventory.setItem(REFRESH_SLOT, item(
                 Material.EMERALD,
-                "&dBounties",
-                List.of(
-                        "&#bbbbbbDefeat bounty targets",
-                        "&#bbbbbbto claim their reward",
-                        "",
-                        "&#ff88ffClick to refresh"
-                )
+                "&dRefresh",
+                List.of("&#bbbbbbClick to refresh")
         ));
 
         inventory.setItem(SEARCH_SLOT, item(
                 Material.OAK_SIGN,
                 "&dSearch",
-                List.of("&#bbbbbbSearch for a bounty target")
+                List.of("&#bbbbbbClick to search")
         ));
 
         if (safePage < totalPages - 1) {
             inventory.setItem(NEXT_SLOT, item(
                     Material.ARROW,
-                    "&dNext",
-                    List.of("&#bbbbbbNext page")
+                    "&dNext Page",
+                    List.of("&#bbbbbbClick to continue")
             ));
         }
 
@@ -197,14 +192,15 @@ public final class BountyMainGui {
             return item;
         }
 
+        String name = DisplayNames.displayName(target);
         meta.setOwningPlayer(target);
-        meta.setDisplayName(TextColor.color("&d" + DisplayNames.displayName(target)));
+        meta.setDisplayName(TextColor.color("&dWanted: &#bbbbbb" + name));
         meta.setLore(List.of(
-                TextColor.color("&#bbbbbbTarget: &#ff88ff" + DisplayNames.displayName(target)),
-                TextColor.color("&#bbbbbbReward: &a" + bountyService.format(record.amountCents())),
-                TextColor.color("&#bbbbbbClaim: &#ff88ffDefeat this player"),
+                TextColor.color("&#ff88ffReward: &a" + bountyService.format(record.amountCents())),
+                TextColor.color("&#ff88ffStatus: &#bbbbbbWanted"),
                 "",
-                TextColor.color("&#bbbbbbClick to view stats")
+                TextColor.color("&#bbbbbbDefeat to claim"),
+                TextColor.color("&dClick to view stats")
         ));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
@@ -212,15 +208,11 @@ public final class BountyMainGui {
     }
 
     private static ItemStack sortItem(BountySortMode current) {
-        List<String> lore = new ArrayList<>();
-        lore.add("&#bbbbbbClick to sort");
-        lore.add("");
-
-        for (BountySortMode mode : BountySortMode.values()) {
-            lore.add((mode == current ? "&#ff88ff" : "&#bbbbbb") + mode.displayName());
-        }
-
-        return item(Material.HOPPER, "&dSort", lore);
+        return item(Material.HOPPER, "&dSort", List.of(
+                "&#ff88ffCurrent: &#bbbbbb" + current.displayName(),
+                "",
+                "&dClick to change"
+        ));
     }
 
     private static ItemStack item(Material material, String name, List<String> lore) {
@@ -233,7 +225,7 @@ public final class BountyMainGui {
 
         meta.setDisplayName(TextColor.color(name));
         meta.setLore(lore.stream().map(TextColor::color).toList());
-        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_UNBREAKABLE);
         item.setItemMeta(meta);
         return item;
     }
