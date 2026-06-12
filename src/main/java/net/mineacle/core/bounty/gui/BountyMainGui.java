@@ -27,9 +27,9 @@ public final class BountyMainGui {
     public static final int ENTRIES_PER_PAGE = 45;
 
     public static final int PREVIOUS_SLOT = 45;
-    public static final int SORT_SLOT = 47;
+    public static final int SORT_SLOT = 48;
     public static final int REFRESH_SLOT = 49;
-    public static final int SEARCH_SLOT = 51;
+    public static final int SEARCH_SLOT = 50;
     public static final int NEXT_SLOT = 53;
 
     public static final String META_PAGE = "mineacle_bounty_page";
@@ -61,9 +61,10 @@ public final class BountyMainGui {
                     Material.SKELETON_SKULL,
                     "&dNo Bounties",
                     List.of(
-                            "&#bbbbbbThe board is clear",
+                            "&#bbbbbbNo one has a bounty right now",
                             "",
-                            "&d/bounty add <player> <amount>"
+                            "&#bbbbbbPlace one with:",
+                            "&#ff88ff/bounty add <player> <amount>"
                     )
             ));
         }
@@ -71,8 +72,8 @@ public final class BountyMainGui {
         if (safePage > 0) {
             inventory.setItem(PREVIOUS_SLOT, item(
                     Material.ARROW,
-                    "&dPrevious Page",
-                    List.of("&#bbbbbbClick to go back")
+                    "&dBack",
+                    List.of("&#bbbbbbPrevious page")
             ));
         }
 
@@ -87,14 +88,14 @@ public final class BountyMainGui {
         inventory.setItem(SEARCH_SLOT, item(
                 Material.OAK_SIGN,
                 "&dSearch",
-                List.of("&#bbbbbbClick to search")
+                List.of("&#bbbbbbSearch for a bounty target")
         ));
 
         if (safePage < totalPages - 1) {
             inventory.setItem(NEXT_SLOT, item(
                     Material.ARROW,
-                    "&dNext Page",
-                    List.of("&#bbbbbbClick to continue")
+                    "&dNext",
+                    List.of("&#bbbbbbNext page")
             ));
         }
 
@@ -192,15 +193,14 @@ public final class BountyMainGui {
             return item;
         }
 
-        String name = DisplayNames.displayName(target);
         meta.setOwningPlayer(target);
-        meta.setDisplayName(TextColor.color("&dWanted: &#bbbbbb" + name));
+        meta.setDisplayName(TextColor.color("&d" + DisplayNames.displayName(target)));
         meta.setLore(List.of(
-                TextColor.color("&#ff88ffReward: &a" + bountyService.format(record.amountCents())),
-                TextColor.color("&#ff88ffStatus: &#bbbbbbWanted"),
+                TextColor.color("&#bbbbbbTarget: &#ff88ff" + DisplayNames.displayName(target)),
+                TextColor.color("&#bbbbbbReward: &a" + bountyService.format(record.amountCents())),
+                TextColor.color("&#bbbbbbClaim: &#ff88ffDefeat this player"),
                 "",
-                TextColor.color("&#bbbbbbDefeat to claim"),
-                TextColor.color("&dClick to view stats")
+                TextColor.color("&#bbbbbbClick to view stats")
         ));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
@@ -208,11 +208,16 @@ public final class BountyMainGui {
     }
 
     private static ItemStack sortItem(BountySortMode current) {
-        return item(Material.HOPPER, "&dSort", List.of(
-                "&#ff88ffCurrent: &#bbbbbb" + current.displayName(),
-                "",
-                "&dClick to change"
-        ));
+        List<String> lore = new ArrayList<>();
+
+        lore.add("&#bbbbbbClick to sort");
+        lore.add("");
+
+        for (BountySortMode mode : BountySortMode.values()) {
+            lore.add((mode == current ? "&#ff88ff" : "&#bbbbbb") + mode.displayName());
+        }
+
+        return item(Material.HOPPER, "&dSort", lore);
     }
 
     private static ItemStack item(Material material, String name, List<String> lore) {
@@ -225,7 +230,7 @@ public final class BountyMainGui {
 
         meta.setDisplayName(TextColor.color(name));
         meta.setLore(lore.stream().map(TextColor::color).toList());
-        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_UNBREAKABLE);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
     }
