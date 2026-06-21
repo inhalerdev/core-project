@@ -48,33 +48,34 @@ queue-zones:
     max-y: 81.0
 
 messages:
-  disabled: "&cDuels are disabled"
-  self: "&cYou cannot duel yourself"
-  invalid-player: "&cThat player cannot duel right now"
-  already-teleporting: "&cThat player is already preparing for a duel"
-  no-arena: "&cCould not find a safe duel location"
+  disabled: '&cDuels are disabled'
+  self: '&cYou cannot duel yourself'
+  invalid-player: '&cThat player cannot duel right now'
+  already-teleporting: '&cThat player is already preparing for a duel'
+  no-arena: '&cCould not find a safe duel location'
 
-  invite-sent: "&#bbbbbbDuel request sent to &#ff88ff%target%"
-  invite-received-header: "%player% &#bbbbbbsent you a duel request"
-  respond-prefix: "&#bbbbbbRespond "
-  accept-button: "&a[Accept]"
-  accept-hover: "&#bbbbbbAccept duel request"
-  deny-button: "&c[Deny]"
-  deny-hover: "&#bbbbbbDeny duel request"
-  invite-denied: "&#ff88ff%player% &#bbbbbbdenied your duel request"
-  denied: "&#bbbbbbDuel request denied"
-  no-invite: "&cYou do not have a pending duel request"
-  no-outgoing: "&cYou do not have an outgoing duel request"
-  inviter-offline: "&cThat player is no longer online"
-  cancelled: "&#bbbbbbDuel request cancelled"
+  invite-sent: '&#bbbbbbDuel request sent to &#ff88ff%target%'
+  invite-received-header: '%player% &#bbbbbbsent you a duel request'
+  respond-prefix: '&#bbbbbbRespond '
+  accept-button: '&a[Accept]'
+  accept-hover: '&#bbbbbbAccept duel request'
+  deny-button: '&c[Deny]'
+  deny-hover: '&#bbbbbbDeny duel request'
+  invite-denied: '&#ff88ff%player% &#bbbbbbdenied your duel request'
+  denied: '&#bbbbbbDuel request denied'
+  no-invite: '&cYou do not have a pending duel request'
+  no-outgoing: '&cYou do not have an outgoing duel request'
+  inviter-offline: '&cThat player is no longer online'
+  cancelled: '&#bbbbbbDuel request cancelled'
 
-  teleport-started: "&#bbbbbbDuel teleport started. Do not move"
-  teleport-countdown-actionbar: "&#bbbbbbDuel teleport in &d%seconds%s"
-  teleport-cancelled: "&cTeleport cancelled"
-  teleport-cancelled-moved: "&cTeleport cancelled — you moved"
-  teleport-cancelled-other-moved: "&cDuel cancelled — %player% moved"
-  teleported-actionbar: ""
+  teleport-started: '&#bbbbbbDuel teleport started. Do not move'
+  teleport-countdown-actionbar: '&#bbbbbbDuel teleport in &d%seconds%s'
+  teleport-cancelled: '&cTeleport cancelled'
+  teleport-cancelled-moved: '&cTeleport cancelled — you moved'
+  teleport-cancelled-other-moved: '&cDuel cancelled — %player% moved'
+  teleported-actionbar: ''
 
-  queue-waiting-actionbar: "&#ff88ffQueue&#bbbbbb: Waiting for an opponent"
-  queue-actionbar: "&#ff88ffQueue&#bbbbbb: &a%queued%&#bbbbbb/&a%max%&#bbbbbb teleporting in &d%seconds%s"
-  queue-left-actionbar: "&cNo longer in the duels queue"
+  queue-waiting-actionbar: '&#ff88ffQueue&#bbbbbb: Waiting for an opponent'
+  queue-actionbar: '&#ff88ffQueue&#bbbbbb: &a%queued%&#bbbbbb/&e%max%&#bbbbbb teleporting
+    in &d%seconds%s'
+  queue-left-actionbar: '&cNo longer in the duels queue'
