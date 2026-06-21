@@ -75,6 +75,6 @@ messages:
   teleport-cancelled-other-moved: "&cDuel cancelled — %player% moved"
   teleported-actionbar: ""
 
-  queue-waiting-actionbar: "&eQueue&#bbbbbb: Waiting for an opponent"
-  queue-actionbar: "&eQueue&#bbbbbb: &#ff88ff%queued%/%max%&#bbbbbb teleporting in &d%seconds%s"
-  queue-left-actionbar: "&#bbbbbbNo longer in the duels queue"
+  queue-waiting-actionbar: "&#ff88ffQueue&#bbbbbb: Waiting for an opponent"
+  queue-actionbar: "&#ff88ffQueue&#bbbbbb: &a%queued%&#bbbbbb/&a%max%&#bbbbbb teleporting in &d%seconds%s"
+  queue-left-actionbar: "&cNo longer in the duels queue"
