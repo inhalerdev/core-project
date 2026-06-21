@@ -14,6 +14,7 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
 import java.util.List;
+import java.util.Locale;
 
 public final class FlyCommand implements CommandExecutor, TabCompleter {
 
@@ -40,9 +41,9 @@ public final class FlyCommand implements CommandExecutor, TabCompleter {
         }
 
         String permission = core.getConfig().getString("fly.permission", "mineacle.plus");
-        boolean bypass = player.hasPermission("mineaclefly.admin");
+        boolean adminBypass = player.hasPermission("mineaclefly.admin");
 
-        if (!player.hasPermission(permission) && !bypass) {
+        if (!player.hasPermission(permission) && !adminBypass) {
             listener.dropOutOfFly(player);
             sendUpgrade(player);
             SoundService.guiError(player, core);
@@ -57,9 +58,10 @@ public final class FlyCommand implements CommandExecutor, TabCompleter {
         }
 
         boolean enabled = listener.toggleFly(player);
+
         String message = enabled
-                ? core.getConfig().getString("fly.messages.enabled", "&dMineacle+ &#bbbbbbFlight enabled")
-                : core.getConfig().getString("fly.messages.disabled", "&dMineacle+ &#bbbbbbFlight disabled");
+                ? core.getConfig().getString("fly.messages.enabled", "&#bbbbbbFlight &aEnabled")
+                : core.getConfig().getString("fly.messages.disabled", "&#bbbbbbFlight &cDisabled");
 
         send(player, message);
 
@@ -77,25 +79,61 @@ public final class FlyCommand implements CommandExecutor, TabCompleter {
                 "fly.messages.upgrade-line-1",
                 "&#bbbbbbUnlock flight in spawn with &dMineacle+"
         );
+
         String lineTwo = core.getConfig().getString(
                 "fly.messages.upgrade-line-2",
                 "&d♦ &#bbbbbbhttps://store.mineacle.net"
         );
 
         player.sendMessage(" ");
-        player.sendMessage(TextColor.color(lineOne));
+        player.sendMessage(TextColor.color(placeholders(player, lineOne)));
 
-        Component store = legacy(lineTwo)
+        Component store = legacy(placeholders(player, lineTwo))
                 .clickEvent(ClickEvent.openUrl("https://store.mineacle.net"));
-        player.sendMessage(store);
 
+        player.sendMessage(store);
         player.sendMessage(" ");
-        player.sendActionBar(actionBar(lineOne));
+        player.sendActionBar(actionBar(placeholders(player, lineOne)));
     }
 
     private void send(Player player, String message) {
-        player.sendMessage(TextColor.color(message));
-        player.sendActionBar(actionBar(message));
+        String formatted = placeholders(player, message);
+
+        player.sendMessage(TextColor.color(formatted));
+        player.sendActionBar(actionBar(formatted));
+    }
+
+    private String placeholders(Player player, String message) {
+        if (message == null || message.isBlank()) {
+            return "";
+        }
+
+        boolean flying = player.getAllowFlight();
+        String world = player.getWorld().getName();
+        String displayWorld = displayWorld(world);
+
+        return message
+                .replace("%world%", world)
+                .replace("%world_display%", displayWorld)
+                .replace("%display_world%", displayWorld)
+                .replace("%player%", player.getName())
+                .replace("%status%", flying ? "Enabled" : "Disabled")
+                .replace("%status_lower%", flying ? "enabled" : "disabled");
+    }
+
+    private String displayWorld(String world) {
+        String configured = core.getConfig().getString("fly.world-display-names." + world);
+
+        if (configured != null && !configured.isBlank()) {
+            return configured;
+        }
+
+        return switch (world.toLowerCase(Locale.ROOT)) {
+            case "spawn1" -> "Spawn 1";
+            case "spawn2" -> "Spawn 2";
+            case "spawn3" -> "Spawn 3";
+            default -> world;
+        };
     }
 
     private Component actionBar(String message) {

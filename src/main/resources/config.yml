@@ -402,6 +402,10 @@ fly:
     - spawn1
     - spawn2
     - spawn3
+  world-display-names:
+    spawn1: "Spawn 1"
+    spawn2: "Spawn 2"
+    spawn3: "Spawn 3"
   messages:
     enabled: "&#bbbbbbFlight &aEnabled&#bbbbbb in &#ff88ff%world%"
     disabled: "&#bbbbbbFlight &cDisabled&#bbbbbb in &#ff88ff%world%"
@@ -582,9 +586,7 @@ shulker-preview:
 
 nickname:
   enabled: false
-  allow-default: false
-  plus-permission: mineacle.plus
-  permission: mineaclechat.nick
+  show-command-when-disabled: false
   prefix: ""
   max-length: 15
   allowed-regex: "^[a-zA-Z_0-9&§]+$"
