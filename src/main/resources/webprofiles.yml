@@ -1,0 +1,35 @@
+enabled: true
+
+database:
+  # Use the same MySQL/MariaDB server the website can read from.
+  # The website should use a separate SELECT-only user later.
+  driver-class: "com.mysql.cj.jdbc.Driver"
+  jdbc-url: "jdbc:mysql://127.0.0.1:3306/mineacle?useSSL=false&serverTimezone=UTC"
+  username: "mineacle_core"
+  password: "change-me"
+  table: "mineacle_web_profiles"
+
+sync:
+  interval-seconds: 120
+  leaderboard-pull-limit: 500
+  mark-offline-on-disable: true
+
+rank:
+  default-name: "Member"
+  permission-ranks:
+    owner:
+      name: "Owner"
+      permission: "mineacle.rank.owner"
+      weight: 1000
+    admin:
+      name: "Admin"
+      permission: "mineacle.rank.admin"
+      weight: 900
+    moderator:
+      name: "Moderator"
+      permission: "mineacle.rank.mod"
+      weight: 700
+    plus:
+      name: "Mineacle+"
+      permission: "mineacle.plus"
+      weight: 100

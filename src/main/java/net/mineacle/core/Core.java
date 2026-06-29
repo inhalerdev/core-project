@@ -28,6 +28,7 @@ import net.mineacle.core.stats.StatsModule;
 import net.mineacle.core.teams.TeamsModule;
 import net.mineacle.core.tpa.TpaModule;
 import net.mineacle.core.warp.WarpModule;
+import net.mineacle.core.webprofiles.WebProfilesModule;
 import net.mineacle.core.worldmaintenance.WorldMaintenanceModule;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -87,6 +88,7 @@ public final class Core extends JavaPlugin {
             registerModule(new NametagModule());
             registerModule(new HideModule());
             registerModule(new PlaceholdersModule());
+            registerModule(new WebProfilesModule());
             registerModule(new SpawnModule());
             registerModule(new WarpModule());
             registerModule(new SpawnProtectionModule());
