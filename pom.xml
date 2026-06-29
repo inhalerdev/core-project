@@ -88,6 +88,7 @@
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>3.6.0</version>
                 <configuration>
+                    <outputFile>${project.build.directory}/${project.build.finalName}.jar</outputFile>
                     <createDependencyReducedPom>false</createDependencyReducedPom>
                     <filters>
                         <filter>
