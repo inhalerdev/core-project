@@ -1,12 +1,11 @@
 enabled: true
 
 database:
-  # Use the same MySQL/MariaDB server the website can read from.
-  # The website should use a separate SELECT-only user later.
+  # Wasmer MySQL database shared by LiteBans, MineacleCore WebProfiles, and later the website.
   driver-class: "com.mysql.cj.jdbc.Driver"
-  jdbc-url: "jdbc:mysql://127.0.0.1:3306/mineacle?useSSL=false&serverTimezone=UTC"
-  username: "mineacle_core"
-  password: "change-me"
+  jdbc-url: "jdbc:mysql://db.fr-pari1.bengt.wasmernet.com:10272/litebans_mineacle?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+  username: "user_9ca32e8a"
+  password: "pw_5597bf11"
   table: "mineacle_web_profiles"
 
 sync:
