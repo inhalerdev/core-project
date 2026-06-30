@@ -3,6 +3,7 @@ package net.mineacle.core.spawn;
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.spawn.command.SpawnCommand;
+import net.mineacle.core.spawn.listener.OriginsVoidListener;
 import net.mineacle.core.spawn.listener.SpawnGuiListener;
 import net.mineacle.core.spawn.listener.SpawnJoinQuitListener;
 import net.mineacle.core.spawn.listener.SpawnVoidListener;
@@ -52,6 +53,11 @@ public final class SpawnModule extends Module {
 
         core.getServer().getPluginManager().registerEvents(
                 new SpawnVoidListener(spawnService),
+                core
+        );
+
+        core.getServer().getPluginManager().registerEvents(
+                new OriginsVoidListener(spawnService),
                 core
         );
 
