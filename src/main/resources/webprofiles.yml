@@ -4,7 +4,7 @@ database:
   driver-class: "com.mysql.cj.jdbc.Driver"
   jdbc-url: "jdbc:mysql://127.0.0.1:3306/mineacle?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
   username: "mineacle_core"
-  password: "change-me"
+  password: "pw_5597bf11"
   table: "mineacle_web_profiles"
 
 sync:
