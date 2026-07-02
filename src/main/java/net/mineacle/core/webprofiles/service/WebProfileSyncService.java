@@ -6,6 +6,10 @@ import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.stats.StatsModule;
 import net.mineacle.core.stats.service.StatsService;
+import net.mineacle.core.teams.TeamsModule;
+import net.mineacle.core.teams.model.TeamMemberRecord;
+import net.mineacle.core.teams.model.TeamRecord;
+import net.mineacle.core.teams.service.TeamService;
 import net.mineacle.core.webprofiles.model.WebProfileRecord;
 import net.mineacle.core.webprofiles.storage.WebProfileRepository;
 import org.bukkit.Bukkit;
@@ -18,6 +22,7 @@ import org.bukkit.scheduler.BukkitTask;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -73,6 +78,20 @@ public final class WebProfileSyncService {
             ids.add(player.getUniqueId());
         }
 
+        if (config.getBoolean("sync.include-known-offline-players", true)) {
+            int limit = Math.max(1, config.getInt("sync.offline-player-pull-limit", 10000));
+            int count = 0;
+
+            for (OfflinePlayer player : Bukkit.getOfflinePlayers()) {
+                ids.add(player.getUniqueId());
+                count++;
+
+                if (count >= limit) {
+                    break;
+                }
+            }
+        }
+
         int leaderboardPull = Math.max(100, config.getInt("sync.leaderboard-pull-limit", 500));
 
         for (Map.Entry<UUID, Long> entry : economy.topBalances(leaderboardPull)) {
@@ -108,7 +127,8 @@ public final class WebProfileSyncService {
             return;
         }
 
-        WebProfileRecord record = record(player.getUniqueId(), stats, economy, online);
+        boolean actuallyOnline = online && player.isOnline();
+        WebProfileRecord record = record(player.getUniqueId(), stats, economy, actuallyOnline);
 
         if (record == null) {
             return;
@@ -140,12 +160,24 @@ public final class WebProfileSyncService {
         String displayName = player != null ? DisplayNames.displayName(player) : username;
         Rank rank = player != null ? rank(player) : new Rank(config.getString("rank.default-name", "Member"), 0);
 
+        TeamData team = teamData(uuid);
+        long firstJoinedAt = offline.getFirstPlayed() <= 0L ? now : offline.getFirstPlayed();
+        long lastSeen = online ? now : offline.getLastSeen();
+
+        if (lastSeen <= 0L) {
+            lastSeen = now;
+        }
+
         return new WebProfileRecord(
                 uuid,
                 username,
                 displayName,
                 rank.name(),
                 rank.weight(),
+                team.id(),
+                team.name(),
+                team.role(),
+                team.joinedAt(),
                 balance,
                 economy.format(balance),
                 playtime,
@@ -156,10 +188,50 @@ public final class WebProfileSyncService {
                 moneyRank,
                 killsRank,
                 playtimeRank,
-                offline.getLastSeen() <= 0L ? now : offline.getLastSeen(),
+                firstJoinedAt,
+                lastSeen,
                 online,
                 now
         );
+    }
+
+    private TeamData teamData(UUID uuid) {
+        TeamService teamService = TeamsModule.teamService();
+
+        if (teamService == null) {
+            return TeamData.none();
+        }
+
+        TeamRecord team = teamService.getTeamByPlayer(uuid);
+        TeamMemberRecord member = teamService.getMember(uuid);
+
+        if (team == null || member == null) {
+            return TeamData.none();
+        }
+
+        return new TeamData(
+                team.teamId(),
+                team.name(),
+                roleLabel(member.role().name()),
+                member.joinedAt()
+        );
+    }
+
+    private String roleLabel(String roleName) {
+        if (roleName == null || roleName.isBlank()) {
+            return "";
+        }
+
+        String normalized = roleName.toUpperCase(Locale.ROOT);
+
+        return switch (normalized) {
+            case "MVP" -> "MVP";
+            case "VIP" -> "VIP";
+            case "FOUNDER" -> "Founder";
+            case "ADMIN" -> "Admin";
+            case "MEMBER" -> "Member";
+            default -> normalized.charAt(0) + normalized.substring(1).toLowerCase(Locale.ROOT);
+        };
     }
 
     private int moneyRank(UUID uuid, EconomyService economy) {
@@ -210,5 +282,11 @@ public final class WebProfileSyncService {
     }
 
     private record Rank(String name, int weight) {
+    }
+
+    private record TeamData(String id, String name, String role, long joinedAt) {
+        private static TeamData none() {
+            return new TeamData("", "", "", 0L);
+        }
     }
 }

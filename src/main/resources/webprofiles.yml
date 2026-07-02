@@ -1,16 +1,17 @@
 enabled: true
 
 database:
-  # Wasmer MySQL database shared by LiteBans, MineacleCore WebProfiles, and later the website.
   driver-class: "com.mysql.cj.jdbc.Driver"
-  jdbc-url: "jdbc:mysql://db.fr-pari1.bengt.wasmernet.com:10272/litebans_mineacle?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
-  username: "user_9ca32e8a"
-  password: "pw_5597bf11"
+  jdbc-url: "jdbc:mysql://127.0.0.1:3306/mineacle?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+  username: "mineacle_core"
+  password: "change-me"
   table: "mineacle_web_profiles"
 
 sync:
   interval-seconds: 120
   leaderboard-pull-limit: 500
+  include-known-offline-players: true
+  offline-player-pull-limit: 10000
   mark-offline-on-disable: true
 
 rank:

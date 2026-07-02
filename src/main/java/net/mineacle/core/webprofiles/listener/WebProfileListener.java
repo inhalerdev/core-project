@@ -3,6 +3,7 @@ package net.mineacle.core.webprofiles.listener;
 import net.mineacle.core.Core;
 import net.mineacle.core.webprofiles.service.WebProfileSyncService;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -17,12 +18,18 @@ public final class WebProfileListener implements Listener {
         this.syncService = syncService;
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
-        core.getServer().getScheduler().runTaskLater(core, () -> syncService.syncPlayer(event.getPlayer(), true), 40L);
+        syncService.syncPlayer(event.getPlayer(), true);
+
+        core.getServer().getScheduler().runTaskLater(core, () -> {
+            if (event.getPlayer().isOnline()) {
+                syncService.syncPlayer(event.getPlayer(), true);
+            }
+        }, 40L);
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
         syncService.syncPlayer(event.getPlayer(), false);
     }

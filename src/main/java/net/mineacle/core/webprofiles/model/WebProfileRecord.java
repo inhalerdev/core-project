@@ -8,6 +8,10 @@ public record WebProfileRecord(
         String displayName,
         String rankName,
         int rankWeight,
+        String teamId,
+        String teamName,
+        String teamRole,
+        long teamJoinedAt,
         long balanceCents,
         String balanceFormatted,
         long playtimeSeconds,
@@ -18,6 +22,7 @@ public record WebProfileRecord(
         int moneyRank,
         int killsRank,
         int playtimeRank,
+        long firstJoinedAt,
         long lastSeen,
         boolean online,
         long updatedAt
