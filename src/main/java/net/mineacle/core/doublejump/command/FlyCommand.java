@@ -109,13 +109,15 @@ public final class FlyCommand implements CommandExecutor, TabCompleter {
         }
 
         boolean flightAllowed = player.getAllowFlight();
-        String world = player.getWorld().getName();
-        String displayWorld = displayWorld(world);
+        String rawWorld = player.getWorld().getName();
+        String displayWorld = displayWorld(rawWorld);
 
         return message
-                .replace("%world%", world)
+                .replace("%world%", displayWorld)
                 .replace("%world_display%", displayWorld)
                 .replace("%display_world%", displayWorld)
+                .replace("%world_folder%", rawWorld)
+                .replace("%raw_world%", rawWorld)
                 .replace("%player%", player.getName())
                 .replace("%status%", flightAllowed ? "Enabled" : "Disabled")
                 .replace("%status_lower%", flightAllowed ? "enabled" : "disabled");
