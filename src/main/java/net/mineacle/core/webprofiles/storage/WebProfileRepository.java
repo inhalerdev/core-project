@@ -12,6 +12,7 @@ import java.sql.Statement;
 import java.util.Collection;
 import java.util.Locale;
 
+@SuppressWarnings({"SqlNoDataSourceInspection", "SqlDialectInspection"})
 public final class WebProfileRepository {
 
     private final Core core;
@@ -255,7 +256,7 @@ public final class WebProfileRepository {
     private void loadDriver() throws ClassNotFoundException {
         String driver = config.getString("database.driver-class", "com.mysql.cj.jdbc.Driver");
 
-        if (driver != null && !driver.isBlank()) {
+        if (!driver.isBlank()) {
             Class.forName(driver);
         }
     }
