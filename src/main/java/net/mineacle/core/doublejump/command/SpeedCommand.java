@@ -17,13 +17,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-@SuppressWarnings({"NullableProblems", "BooleanMethodIsAlwaysInverted"})
+@SuppressWarnings("NullableProblems")
 public final class SpeedCommand implements CommandExecutor, TabCompleter {
 
     private static final int MIN_SPEED = -20;
     private static final int MAX_SPEED = 20;
+
     private static final float DEFAULT_WALK_SPEED = 0.20F;
     private static final float DEFAULT_FLY_SPEED = 0.10F;
+
+    private static final float MIN_WALK_SPEED = 0.01F;
+    private static final float MIN_FLY_SPEED = 0.005F;
 
     private final Core core;
 
@@ -38,13 +42,13 @@ public final class SpeedCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (!hasUsePermission(player)) {
+        if (lacksUsePermission(player)) {
             error(player, "&cYou do not have permission");
             return true;
         }
 
         if (args.length == 0) {
-            error(player, "&#bbbbbbUsage: &d/speed <1-20|-1--20> [player]");
+            error(player, "&#bbbbbbUsage: &d/speed <-20--1|1-20> [player]");
             return true;
         }
 
@@ -65,7 +69,7 @@ public final class SpeedCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            if (!found.getUniqueId().equals(player.getUniqueId()) && !hasOthersPermission(player)) {
+            if (!found.getUniqueId().equals(player.getUniqueId()) && lacksOthersPermission(player)) {
                 error(player, "&cYou do not have permission");
                 return true;
             }
@@ -89,30 +93,56 @@ public final class SpeedCommand implements CommandExecutor, TabCompleter {
     }
 
     private void apply(Player player, SpeedMode mode, int input) {
-        float speed = speedValue(mode, input);
+        if (input == 1) {
+            player.setWalkSpeed(DEFAULT_WALK_SPEED);
+            player.setFlySpeed(DEFAULT_FLY_SPEED);
+            return;
+        }
 
         if (mode == SpeedMode.FLY) {
-            player.setFlySpeed(speed);
+            player.setFlySpeed(speedValue(SpeedMode.FLY, input));
             player.setWalkSpeed(DEFAULT_WALK_SPEED);
-        } else {
-            player.setWalkSpeed(speed);
-            player.setFlySpeed(DEFAULT_FLY_SPEED);
+            return;
         }
+
+        player.setWalkSpeed(speedValue(SpeedMode.WALK, input));
+        player.setFlySpeed(DEFAULT_FLY_SPEED);
     }
 
     private float speedValue(SpeedMode mode, int input) {
         int magnitude = Math.abs(input);
-        float sign = input < 0 ? -1.0F : 1.0F;
-        float base = mode.defaultSpeed();
 
-        if (magnitude <= 1) {
-            return sign * base;
+        if (input < 0) {
+            return slowSpeedValue(mode, magnitude);
         }
 
-        float ratio = (magnitude - 1) / 19.0F;
-        float value = base + ((1.0F - base) * ratio);
+        return fastSpeedValue(mode, magnitude);
+    }
 
-        return sign * Math.min(1.0F, value);
+    private float slowSpeedValue(SpeedMode mode, int magnitude) {
+        float base = mode.defaultSpeed();
+        float minimum = mode.minimumSpeed();
+
+        if (magnitude >= 20) {
+            return minimum;
+        }
+
+        float progress = magnitude / 20.0F;
+        float value = base - ((base - minimum) * progress);
+
+        return Math.max(minimum, value);
+    }
+
+    private float fastSpeedValue(SpeedMode mode, int magnitude) {
+        if (magnitude <= 1) {
+            return mode.defaultSpeed();
+        }
+
+        float base = mode.defaultSpeed();
+        float progress = (magnitude - 1) / 19.0F;
+        float value = base + ((1.0F - base) * progress);
+
+        return Math.min(1.0F, value);
     }
 
     private Integer parseSpeed(String input) {
@@ -133,20 +163,20 @@ public final class SpeedCommand implements CommandExecutor, TabCompleter {
         }
     }
 
-    private boolean hasUsePermission(Player player) {
-        return player.hasPermission("mineaclespeed.use")
-                || player.hasPermission("mineaclespeed.admin")
-                || player.hasPermission("mineaclespeed.developer")
-                || player.hasPermission("mineaclefly.admin")
-                || player.hasPermission("mineaclefly.developer");
+    private boolean lacksUsePermission(Player player) {
+        return !player.hasPermission("mineaclespeed.use")
+                && !player.hasPermission("mineaclespeed.admin")
+                && !player.hasPermission("mineaclespeed.developer")
+                && !player.hasPermission("mineaclefly.admin")
+                && !player.hasPermission("mineaclefly.developer");
     }
 
-    private boolean hasOthersPermission(Player player) {
-        return player.hasPermission("mineaclespeed.others")
-                || player.hasPermission("mineaclespeed.admin")
-                || player.hasPermission("mineaclespeed.developer")
-                || player.hasPermission("mineaclefly.admin")
-                || player.hasPermission("mineaclefly.developer");
+    private boolean lacksOthersPermission(Player player) {
+        return !player.hasPermission("mineaclespeed.others")
+                && !player.hasPermission("mineaclespeed.admin")
+                && !player.hasPermission("mineaclespeed.developer")
+                && !player.hasPermission("mineaclefly.admin")
+                && !player.hasPermission("mineaclefly.developer");
     }
 
     private void success(Player player, String message) {
@@ -172,7 +202,7 @@ public final class SpeedCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> completions = new ArrayList<>();
 
-        if (!(sender instanceof Player player) || !hasUsePermission(player)) {
+        if (!(sender instanceof Player player) || lacksUsePermission(player)) {
             return completions;
         }
 
@@ -194,7 +224,7 @@ public final class SpeedCommand implements CommandExecutor, TabCompleter {
             return completions;
         }
 
-        if (args.length == 2 && hasOthersPermission(player)) {
+        if (args.length == 2 && !lacksOthersPermission(player)) {
             String partial = args[1].toLowerCase(Locale.ROOT);
 
             for (Player target : Bukkit.getOnlinePlayers()) {
@@ -208,15 +238,17 @@ public final class SpeedCommand implements CommandExecutor, TabCompleter {
     }
 
     private enum SpeedMode {
-        WALK("Walk", DEFAULT_WALK_SPEED),
-        FLY("Fly", DEFAULT_FLY_SPEED);
+        WALK("Walk", DEFAULT_WALK_SPEED, MIN_WALK_SPEED),
+        FLY("Fly", DEFAULT_FLY_SPEED, MIN_FLY_SPEED);
 
         private final String display;
         private final float defaultSpeed;
+        private final float minimumSpeed;
 
-        SpeedMode(String display, float defaultSpeed) {
+        SpeedMode(String display, float defaultSpeed, float minimumSpeed) {
             this.display = display;
             this.defaultSpeed = defaultSpeed;
+            this.minimumSpeed = minimumSpeed;
         }
 
         private String display() {
@@ -225,6 +257,10 @@ public final class SpeedCommand implements CommandExecutor, TabCompleter {
 
         private float defaultSpeed() {
             return defaultSpeed;
+        }
+
+        private float minimumSpeed() {
+            return minimumSpeed;
         }
     }
 }
