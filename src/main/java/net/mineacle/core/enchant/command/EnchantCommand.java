@@ -5,6 +5,7 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+@SuppressWarnings({"NullableProblems", "deprecation"})
 public final class EnchantCommand implements CommandExecutor, TabCompleter {
 
     private final Core core;
@@ -44,7 +46,7 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
 
         ItemStack item = player.getInventory().getItemInMainHand();
 
-        if (item == null || item.getType() == Material.AIR) {
+        if (item.getType() == Material.AIR) {
             error(player, "&cHold an item to enchant");
             return true;
         }
@@ -54,52 +56,66 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        if (looksLikeVanillaTargetSyntax(args)) {
+            error(player, "&cUsage: /enchant <enchantment> <level>");
+            return true;
+        }
+
         String sub = args[0].toLowerCase(Locale.ROOT);
 
-        if (sub.equals("clear") || sub.equals("removeall")) {
-            clear(player, item);
-            return true;
-        }
-
-        if (sub.equals("list")) {
-            list(player, item);
-            return true;
-        }
-
-        if (sub.equals("max")) {
-            boolean unsafe = args.length >= 2 && args[1].equalsIgnoreCase("unsafe");
-            max(player, item, unsafe);
-            return true;
-        }
-
-        if (sub.equals("remove")) {
-            if (args.length < 2) {
-                error(player, "&cUsage: /enchant remove <enchant>");
+        switch (sub) {
+            case "clear", "removeall" -> {
+                clear(player, item);
                 return true;
             }
-
-            Enchantment enchantment = enchantment(args[1]);
-
-            if (enchantment == null) {
-                error(player, "&cUnknown enchantment");
+            case "list" -> {
+                list(player, item);
                 return true;
             }
-
-            if (!item.containsEnchantment(enchantment)) {
-                error(player, "&cHeld item does not have that enchantment");
+            case "max" -> {
+                boolean unsafe = args.length >= 2 && args[1].equalsIgnoreCase("unsafe");
+                max(player, item, unsafe);
                 return true;
             }
+            case "remove" -> {
+                remove(player, item, args);
+                return true;
+            }
+            default -> {
+                apply(player, item, args);
+                return true;
+            }
+        }
+    }
 
-            item.removeEnchantment(enchantment);
-            success(player, "&#bbbbbbRemoved &#ff88ff" + pretty(enchantment) + " &#bbbbbbfrom held item");
-            return true;
+    private void remove(Player player, ItemStack item, String[] args) {
+        if (args.length < 2) {
+            error(player, "&cUsage: /enchant remove <enchantment>");
+            return;
         }
 
+        Enchantment enchantment = enchantment(args[1]);
+
+        if (enchantment == null) {
+            error(player, "&cUnknown enchantment");
+            return;
+        }
+
+        if (!item.containsEnchantment(enchantment)) {
+            error(player, "&cHeld item does not have that enchantment");
+            return;
+        }
+
+        item.removeEnchantment(enchantment);
+        success(player, "&#bbbbbbRemoved &#ff88ff" + pretty(enchantment) + " &#bbbbbbfrom held item");
+    }
+
+    private void apply(Player player, ItemStack item, String[] args) {
         Enchantment enchantment = enchantment(args[0]);
 
         if (enchantment == null) {
             error(player, "&cUnknown enchantment");
-            return true;
+            return;
         }
 
         int level = enchantment.getMaxLevel();
@@ -109,14 +125,14 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
                 level = Integer.parseInt(args[1]);
             } catch (NumberFormatException exception) {
                 error(player, "&cLevel must be a number");
-                return true;
+                return;
             }
         }
 
         if (level <= 0) {
             item.removeEnchantment(enchantment);
             success(player, "&#bbbbbbRemoved &#ff88ff" + pretty(enchantment) + " &#bbbbbbfrom held item");
-            return true;
+            return;
         }
 
         boolean unsafe = args.length >= 3 && args[2].equalsIgnoreCase("unsafe");
@@ -124,13 +140,13 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
         if (!unsafe && !enchantment.canEnchantItem(item)) {
             error(player, "&cThat enchantment cannot be applied to this item");
             player.sendMessage(color("&#bbbbbbUse &#ff88ff/enchant " + key(enchantment) + " " + level + " unsafe &#bbbbbbto force it"));
-            return true;
+            return;
         }
 
         if (!unsafe && level > enchantment.getMaxLevel()) {
             error(player, "&cThat level is too high");
             player.sendMessage(color("&#bbbbbbUse &#ff88ff/enchant " + key(enchantment) + " " + level + " unsafe &#bbbbbbto force it"));
-            return true;
+            return;
         }
 
         if (unsafe) {
@@ -140,7 +156,18 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
         }
 
         success(player, "&#bbbbbbAdded &#ff88ff" + pretty(enchantment) + " " + level + " &#bbbbbbto held item");
-        return true;
+    }
+
+    private boolean looksLikeVanillaTargetSyntax(String[] args) {
+        if (args.length < 2) {
+            return false;
+        }
+
+        if (enchantment(args[0]) != null) {
+            return false;
+        }
+
+        return Bukkit.getPlayerExact(args[0]) != null && enchantment(args[1]) != null;
     }
 
     private void clear(Player player, ItemStack item) {
@@ -206,14 +233,14 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
 
     private void help(Player player) {
         player.sendMessage(color("&#ff88ffEnchant Commands"));
-        player.sendMessage(color("&#bbbbbb/enchant <enchant> [level]"));
-        player.sendMessage(color("&#bbbbbb/enchant <enchant> <level> unsafe"));
-        player.sendMessage(color("&#bbbbbb/enchant remove <enchant>"));
+        player.sendMessage(color("&#bbbbbb/enchant <enchantment> <level>"));
+        player.sendMessage(color("&#bbbbbb/enchant <enchantment> <level> unsafe"));
+        player.sendMessage(color("&#bbbbbb/enchant remove <enchantment>"));
         player.sendMessage(color("&#bbbbbb/enchant clear"));
         player.sendMessage(color("&#bbbbbb/enchant max"));
         player.sendMessage(color("&#bbbbbb/enchant max unsafe"));
         player.sendMessage(color("&#bbbbbb/enchant list"));
-        player.sendMessage(color("&#bbbbbb/enchantinfo <enchant>"));
+        player.sendMessage(color("&#bbbbbb/enchantinfo <enchantment>"));
         SoundService.economyBalance(player, core);
     }
 
@@ -254,8 +281,7 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
     }
 
     private String key(Enchantment enchantment) {
-        NamespacedKey key = enchantment.getKey();
-        return key == null ? pretty(enchantment).toLowerCase(Locale.ROOT).replace(" ", "_") : key.getKey();
+        return enchantment.getKey().getKey();
     }
 
     private String pretty(Enchantment enchantment) {
