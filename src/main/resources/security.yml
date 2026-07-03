@@ -238,6 +238,9 @@ groups:
       - "warn"
       - "wm"
       - "worldmaintenance"
+      - "speed"
     hidden-commands:
       - "money"
       - "w"
+      - "walkspeed"
+      - "flyspeed"

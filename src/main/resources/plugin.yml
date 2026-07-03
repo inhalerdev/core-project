@@ -186,6 +186,12 @@ commands:
     usage: /fly
     permission: mineaclefly.command
 
+  speed:
+    description: Set walking or flying speed
+    aliases: [walkspeed, flyspeed]
+    usage: /speed <speed> [player]
+    permission: mineaclespeed.use
+
   order:
     description: Open player orders
     aliases: [orders]
@@ -373,6 +379,15 @@ permissions:
   mineaclefly.use:
     default: false
   mineaclefly.admin:
+    default: op
+
+  mineaclespeed.use:
+    default: op
+  mineaclespeed.others:
+    default: op
+  mineaclespeed.admin:
+    default: op
+  mineaclespeed.developer:
     default: op
 
   mineacleorders.use:
