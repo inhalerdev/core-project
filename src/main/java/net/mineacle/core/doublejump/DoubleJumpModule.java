@@ -4,6 +4,7 @@ import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.doublejump.command.DoubleJumpCommand;
 import net.mineacle.core.doublejump.command.FlyCommand;
+import net.mineacle.core.doublejump.command.SpeedCommand;
 import net.mineacle.core.doublejump.listener.DoubleJumpListener;
 import org.bukkit.command.PluginCommand;
 
@@ -27,6 +28,9 @@ public final class DoubleJumpModule extends Module {
 
         FlyCommand flyCommand = new FlyCommand(core, listener);
         register(core, "fly", flyCommand);
+
+        SpeedCommand speedCommand = new SpeedCommand(core);
+        register(core, "speed", speedCommand);
     }
 
     @Override

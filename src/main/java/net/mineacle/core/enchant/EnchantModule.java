@@ -4,6 +4,7 @@ import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.enchant.command.EnchantCommand;
 import net.mineacle.core.enchant.command.EnchantInfoCommand;
+import net.mineacle.core.enchant.listener.EnchantCommandListener;
 import org.bukkit.command.PluginCommand;
 
 public final class EnchantModule extends Module {
@@ -24,6 +25,8 @@ public final class EnchantModule extends Module {
             enchant.setExecutor(enchantCommand);
             enchant.setTabCompleter(enchantCommand);
         }
+
+        core.getServer().getPluginManager().registerEvents(new EnchantCommandListener(enchantCommand), core);
 
         EnchantInfoCommand enchantInfoCommand = new EnchantInfoCommand(core);
         PluginCommand enchantInfo = core.getCommand("enchantinfo");

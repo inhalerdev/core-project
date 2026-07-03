@@ -39,52 +39,44 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        execute(player, args);
+        return true;
+    }
+
+    public void execute(Player player, String[] args) {
         if (!player.hasPermission("mineacleenchant.admin")) {
             error(player, "&cYou do not have permission");
-            return true;
+            return;
         }
 
         ItemStack item = player.getInventory().getItemInMainHand();
 
         if (item.getType() == Material.AIR) {
             error(player, "&cHold an item to enchant");
-            return true;
+            return;
         }
 
         if (args.length == 0) {
             help(player);
-            return true;
+            return;
         }
 
         if (looksLikeVanillaTargetSyntax(args)) {
             error(player, "&cUsage: /enchant <enchantment> <level>");
-            return true;
+            return;
         }
 
         String sub = args[0].toLowerCase(Locale.ROOT);
 
         switch (sub) {
-            case "clear", "removeall" -> {
-                clear(player, item);
-                return true;
-            }
-            case "list" -> {
-                list(player, item);
-                return true;
-            }
+            case "clear", "removeall" -> clear(player, item);
+            case "list" -> list(player, item);
             case "max" -> {
                 boolean unsafe = args.length >= 2 && args[1].equalsIgnoreCase("unsafe");
                 max(player, item, unsafe);
-                return true;
             }
-            case "remove" -> {
-                remove(player, item, args);
-                return true;
-            }
-            default -> {
-                apply(player, item, args);
-                return true;
-            }
+            case "remove" -> remove(player, item, args);
+            default -> apply(player, item, args);
         }
     }
 
