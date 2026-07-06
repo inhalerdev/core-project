@@ -2,9 +2,6 @@ package net.mineacle.core.enchant;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
-import net.mineacle.core.enchant.command.EnchantCommand;
-import net.mineacle.core.enchant.command.EnchantInfoCommand;
-import net.mineacle.core.enchant.listener.EnchantCommandListener;
 import org.bukkit.command.PluginCommand;
 
 public final class EnchantModule extends Module {
@@ -17,26 +14,25 @@ public final class EnchantModule extends Module {
     @Override
     public void enable(Core core) {
         EnchantCommand enchantCommand = new EnchantCommand(core);
-        PluginCommand enchant = core.getCommand("enchant");
+        EnchantInfoCommand enchantInfoCommand = new EnchantInfoCommand(core);
 
-        if (enchant == null) {
-            core.getLogger().warning("Missing command in plugin.yml: enchant");
-        } else {
+        PluginCommand enchant = core.getCommand("enchant");
+        if (enchant != null) {
             enchant.setExecutor(enchantCommand);
             enchant.setTabCompleter(enchantCommand);
+        } else {
+            core.getLogger().warning("Missing command in plugin.yml: enchant");
         }
 
-        core.getServer().getPluginManager().registerEvents(new EnchantCommandListener(enchantCommand), core);
-
-        EnchantInfoCommand enchantInfoCommand = new EnchantInfoCommand(core);
         PluginCommand enchantInfo = core.getCommand("enchantinfo");
-
-        if (enchantInfo == null) {
-            core.getLogger().warning("Missing command in plugin.yml: enchantinfo");
-        } else {
+        if (enchantInfo != null) {
             enchantInfo.setExecutor(enchantInfoCommand);
             enchantInfo.setTabCompleter(enchantInfoCommand);
+        } else {
+            core.getLogger().warning("Missing command in plugin.yml: enchantinfo");
         }
+
+        core.getServer().getPluginManager().registerEvents(new EnchantCommandListener(enchantCommand, enchantInfoCommand), core);
     }
 
     @Override
