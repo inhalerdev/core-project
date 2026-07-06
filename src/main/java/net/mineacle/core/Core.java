@@ -11,6 +11,7 @@ import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.doublejump.DoubleJumpModule;
 import net.mineacle.core.duels.DuelsModule;
 import net.mineacle.core.economy.EconomyModule;
+import net.mineacle.core.enchant.EnchantModule;
 import net.mineacle.core.gamemode.GamemodeModule;
 import net.mineacle.core.homes.HomesModule;
 import net.mineacle.core.hide.HideModule;
@@ -85,6 +86,7 @@ public final class Core extends JavaPlugin {
             registerModule(new LinksModule());
             registerModule(new SecurityModule());
             registerModule(new AdminInspectModule());
+            registerModule(new EnchantModule());
             registerModule(new NametagModule());
             registerModule(new HideModule());
             registerModule(new PlaceholdersModule());

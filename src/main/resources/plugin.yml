@@ -271,7 +271,7 @@ commands:
 
   enchant:
     description: Enchant your held item
-    usage: /enchant <enchantment> [level]
+    usage: /enchant <enchantment> <level>
     permission: mineacleenchant.admin
 
   enchantinfo:

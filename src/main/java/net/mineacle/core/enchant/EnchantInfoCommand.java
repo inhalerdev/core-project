@@ -47,6 +47,7 @@ public final class EnchantInfoCommand implements CommandExecutor, TabCompleter {
         }
 
         Enchantment enchantment = EnchantmentNames.find(args[0]);
+
         if (enchantment == null) {
             error(player, "&cUnknown enchantment");
             return;

@@ -78,6 +78,7 @@ public final class EnchantmentNames {
 
         for (Enchantment enchantment : Registry.ENCHANTMENT) {
             String key = key(enchantment);
+
             if (normalize(key).equals(alias)) {
                 return enchantment;
             }
@@ -132,6 +133,7 @@ public final class EnchantmentNames {
             }
 
             builder.append(Character.toUpperCase(part.charAt(0)));
+
             if (part.length() > 1) {
                 builder.append(part.substring(1));
             }
@@ -140,18 +142,18 @@ public final class EnchantmentNames {
         return builder.toString();
     }
 
-    private static Enchantment byKey(String key) {
-        NamespacedKey namespacedKey = NamespacedKey.fromString(key);
-        if (namespacedKey == null) {
-            namespacedKey = NamespacedKey.minecraft(key);
+    private static Enchantment byKey(String rawKey) {
+        NamespacedKey directKey = NamespacedKey.fromString(rawKey);
+
+        if (directKey != null) {
+            Enchantment enchantment = Registry.ENCHANTMENT.get(directKey);
+
+            if (enchantment != null) {
+                return enchantment;
+            }
         }
 
-        Enchantment enchantment = Registry.ENCHANTMENT.get(namespacedKey);
-        if (enchantment != null) {
-            return enchantment;
-        }
-
-        return Registry.ENCHANTMENT.get(NamespacedKey.minecraft(key));
+        return Registry.ENCHANTMENT.get(NamespacedKey.minecraft(rawKey));
     }
 
     private static void alias(String vanillaKey, String... aliases) {

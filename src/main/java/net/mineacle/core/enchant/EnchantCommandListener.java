@@ -28,6 +28,7 @@ public final class EnchantCommandListener implements Listener {
         }
 
         String withoutSlash = raw.substring(1).trim();
+
         if (withoutSlash.isBlank()) {
             return;
         }
@@ -41,13 +42,13 @@ public final class EnchantCommandListener implements Listener {
 
         CommandSender sender = event.getPlayer();
 
-        if (command.equals("enchant") || command.equals("mineaclecore:enchant")) {
+        if (command.equals("enchant") || command.equals("mineaclecore:enchant") || command.equals("mineacle:enchant")) {
             event.setCancelled(true);
             enchantCommand.run(sender, args);
             return;
         }
 
-        if (command.equals("enchantinfo") || command.equals("mineaclecore:enchantinfo")) {
+        if (command.equals("enchantinfo") || command.equals("mineaclecore:enchantinfo") || command.equals("mineacle:enchantinfo")) {
             event.setCancelled(true);
             enchantInfoCommand.run(sender, args);
         }

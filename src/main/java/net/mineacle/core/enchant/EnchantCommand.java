@@ -50,12 +50,14 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
         }
 
         Enchantment enchantment = EnchantmentNames.find(args[0]);
+
         if (enchantment == null) {
             error(player, "&cUnknown enchantment");
             return;
         }
 
         Integer level = parseLevel(args[1]);
+
         if (level == null) {
             error(player, "&cLevel must be a number from 1 to " + enchantment.getMaxLevel());
             return;
@@ -67,6 +69,7 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
         }
 
         ItemStack item = player.getInventory().getItemInMainHand();
+
         if (item.getType() == Material.AIR) {
             error(player, "&cHold an item first");
             return;
@@ -128,13 +131,16 @@ public final class EnchantCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 2) {
             Enchantment enchantment = EnchantmentNames.find(args[0]);
+
             if (enchantment == null) {
                 return completions;
             }
 
             String partial = args[1].toLowerCase(Locale.ROOT);
+
             for (int level = enchantment.getStartLevel(); level <= enchantment.getMaxLevel(); level++) {
                 String option = String.valueOf(level);
+
                 if (option.startsWith(partial)) {
                     completions.add(option);
                 }

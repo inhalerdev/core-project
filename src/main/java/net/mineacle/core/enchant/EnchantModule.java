@@ -17,6 +17,7 @@ public final class EnchantModule extends Module {
         EnchantInfoCommand enchantInfoCommand = new EnchantInfoCommand(core);
 
         PluginCommand enchant = core.getCommand("enchant");
+
         if (enchant != null) {
             enchant.setExecutor(enchantCommand);
             enchant.setTabCompleter(enchantCommand);
@@ -25,6 +26,7 @@ public final class EnchantModule extends Module {
         }
 
         PluginCommand enchantInfo = core.getCommand("enchantinfo");
+
         if (enchantInfo != null) {
             enchantInfo.setExecutor(enchantInfoCommand);
             enchantInfo.setTabCompleter(enchantInfoCommand);
