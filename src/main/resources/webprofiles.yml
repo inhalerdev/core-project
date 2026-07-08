@@ -6,6 +6,7 @@ database:
   username: "user_9ca32e8a"
   password: "pw_5597bf11"
   table: "mineacle_web_profiles"
+  teams-table: "mineacle_web_teams"
 
 sync:
   interval-seconds: 120
@@ -33,3 +34,9 @@ rank:
       name: "Mineacle+"
       permission: "mineacle.plus"
       weight: 100
+
+web-teams:
+  enabled: true
+  interval-seconds: 120
+  min-members: 1
+  min-kills: 0
