@@ -2,9 +2,9 @@ enabled: true
 
 database:
   driver-class: "com.mysql.cj.jdbc.Driver"
-  jdbc-url: "jdbc:mysql://db.fr-pari1.bengt.wasmernet.com:10272/litebans_mineacle?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&connectTimeout=10000&socketTimeout=10000"
-  username: "user_9ca32e8a"
-  password: "pw_5597bf11"
+  jdbc-url: "jdbc:mysql://mysql.mineacle.net:3306/mineacle_core?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&connectTimeout=10000&socketTimeout=10000"
+  username: "mineacle_core_user"
+  password: "*nidnarB2025"
   table: "mineacle_web_profiles"
   teams-table: "mineacle_web_teams"
 
