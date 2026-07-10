@@ -41,6 +41,7 @@ public final class WebTeamRepository {
                             team_name VARCHAR(32) NOT NULL,
                             founder_uuid CHAR(36) NOT NULL DEFAULT '',
                             member_count INT NOT NULL DEFAULT 0,
+                            online_members INT NOT NULL DEFAULT 0,
                             total_balance_cents BIGINT NOT NULL DEFAULT 0,
                             total_balance_formatted VARCHAR(32) NOT NULL DEFAULT '$0',
                             total_kills BIGINT NOT NULL DEFAULT 0,
@@ -50,6 +51,8 @@ public final class WebTeamRepository {
                             kd_rank INT NOT NULL DEFAULT 0,
                             updated_at BIGINT NOT NULL DEFAULT 0,
                             INDEX idx_team_name (team_name),
+                            INDEX idx_member_count (member_count),
+                            INDEX idx_online_members (online_members),
                             INDEX idx_total_balance (total_balance_cents),
                             INDEX idx_kd_ratio (kd_ratio),
                             INDEX idx_capital_rank (capital_rank),
@@ -84,6 +87,7 @@ public final class WebTeamRepository {
                                 team_name,
                                 founder_uuid,
                                 member_count,
+                                online_members,
                                 total_balance_cents,
                                 total_balance_formatted,
                                 total_kills,
@@ -92,7 +96,7 @@ public final class WebTeamRepository {
                                 capital_rank,
                                 kd_rank,
                                 updated_at
-                             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                              """.formatted(table))) {
                     delete.executeUpdate("DELETE FROM " + table);
 
@@ -119,6 +123,7 @@ public final class WebTeamRepository {
         try (Connection connection = connection()) {
             ensureColumn(connection, "founder_uuid", "CHAR(36) NOT NULL DEFAULT ''");
             ensureColumn(connection, "member_count", "INT NOT NULL DEFAULT 0");
+            ensureColumn(connection, "online_members", "INT NOT NULL DEFAULT 0");
             ensureColumn(connection, "total_balance_cents", "BIGINT NOT NULL DEFAULT 0");
             ensureColumn(connection, "total_balance_formatted", "VARCHAR(32) NOT NULL DEFAULT '$0'");
             ensureColumn(connection, "total_kills", "BIGINT NOT NULL DEFAULT 0");
@@ -129,6 +134,8 @@ public final class WebTeamRepository {
             ensureColumn(connection, "updated_at", "BIGINT NOT NULL DEFAULT 0");
 
             ensureIndex(connection, "idx_team_name", "team_name");
+            ensureIndex(connection, "idx_member_count", "member_count");
+            ensureIndex(connection, "idx_online_members", "online_members");
             ensureIndex(connection, "idx_total_balance", "total_balance_cents");
             ensureIndex(connection, "idx_kd_ratio", "kd_ratio");
             ensureIndex(connection, "idx_capital_rank", "capital_rank");
@@ -182,14 +189,15 @@ public final class WebTeamRepository {
         statement.setString(2, limit(team.teamName(), 32));
         statement.setString(3, limit(team.founderUuid(), 36));
         statement.setInt(4, team.memberCount());
-        statement.setLong(5, team.totalBalanceCents());
-        statement.setString(6, limit(team.totalBalanceFormatted(), 32));
-        statement.setLong(7, team.totalKills());
-        statement.setLong(8, team.totalDeaths());
-        statement.setDouble(9, team.kdRatio());
-        statement.setInt(10, team.capitalRank());
-        statement.setInt(11, team.kdRank());
-        statement.setLong(12, team.updatedAt());
+        statement.setInt(5, team.onlineMembers());
+        statement.setLong(6, team.totalBalanceCents());
+        statement.setString(7, limit(team.totalBalanceFormatted(), 32));
+        statement.setLong(8, team.totalKills());
+        statement.setLong(9, team.totalDeaths());
+        statement.setDouble(10, team.kdRatio());
+        statement.setInt(11, team.capitalRank());
+        statement.setInt(12, team.kdRank());
+        statement.setLong(13, team.updatedAt());
     }
 
     private Connection connection() throws Exception {

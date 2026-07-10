@@ -9,6 +9,7 @@ import net.mineacle.core.webprofiles.model.WebTeamRecord;
 import net.mineacle.core.webprofiles.storage.WebTeamRepository;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
@@ -107,6 +108,7 @@ public final class WebTeamSyncService {
             }
 
             int memberCount = 0;
+            int onlineMembers = 0;
             long totalBalance = 0L;
             long totalKills = 0L;
             long totalDeaths = 0L;
@@ -121,6 +123,11 @@ public final class WebTeamSyncService {
                 }
 
                 memberCount++;
+
+                if (isOnline(memberId)) {
+                    onlineMembers++;
+                }
+
                 totalBalance += economy.getBalanceCents(memberId);
                 totalKills += stats.kills(memberId);
                 totalDeaths += stats.deaths(memberId);
@@ -137,6 +144,7 @@ public final class WebTeamSyncService {
                     teamName,
                     founderUuid,
                     memberCount,
+                    onlineMembers,
                     totalBalance,
                     economy.format(totalBalance),
                     totalKills,
@@ -175,6 +183,7 @@ public final class WebTeamSyncService {
                     record.teamName(),
                     record.founderUuid(),
                     record.memberCount(),
+                    record.onlineMembers(),
                     record.totalBalanceCents(),
                     record.totalBalanceFormatted(),
                     record.totalKills(),
@@ -197,6 +206,11 @@ public final class WebTeamSyncService {
         }
 
         return 0;
+    }
+
+    private boolean isOnline(UUID uuid) {
+        Player player = core.getServer().getPlayer(uuid);
+        return player != null && player.isOnline();
     }
 
     private double kdRatio(long kills, long deaths) {

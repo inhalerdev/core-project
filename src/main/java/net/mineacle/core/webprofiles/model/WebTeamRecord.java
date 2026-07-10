@@ -5,6 +5,7 @@ public record WebTeamRecord(
         String teamName,
         String founderUuid,
         int memberCount,
+        int onlineMembers,
         long totalBalanceCents,
         String totalBalanceFormatted,
         long totalKills,
