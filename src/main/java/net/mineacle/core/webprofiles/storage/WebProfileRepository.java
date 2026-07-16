@@ -11,6 +11,8 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Collection;
 import java.util.Locale;
+import java.util.Optional;
+import java.util.UUID;
 
 @SuppressWarnings({"SqlNoDataSourceInspection", "SqlDialectInspection"})
 public final class WebProfileRepository {
@@ -159,6 +161,41 @@ public final class WebProfileRepository {
         }
     }
 
+
+    public Optional<StoredRank> findRank(UUID uuid) {
+        if (!config.getBoolean("enabled", true) || uuid == null) {
+            return Optional.empty();
+        }
+
+        try {
+            loadDriver();
+
+            try (Connection connection = connection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "SELECT rank_key, rank_name, rank_prefix, rank_color, rank_weight FROM " + table + " WHERE uuid = ? LIMIT 1"
+                 )) {
+                statement.setString(1, uuid.toString());
+
+                try (ResultSet result = statement.executeQuery()) {
+                    if (!result.next()) {
+                        return Optional.empty();
+                    }
+
+                    return Optional.of(new StoredRank(
+                            result.getString("rank_key"),
+                            result.getString("rank_name"),
+                            result.getString("rank_prefix"),
+                            result.getString("rank_color"),
+                            result.getInt("rank_weight")
+                    ));
+                }
+            }
+        } catch (Exception exception) {
+            core.getLogger().warning("Could not read stored web profile rank for " + uuid + ": " + exception.getMessage());
+            return Optional.empty();
+        }
+    }
+
     public void markOffline() {
         if (!config.getBoolean("enabled", true)) {
             return;
@@ -296,6 +333,9 @@ public final class WebProfileRepository {
         }
 
         return value.toLowerCase(Locale.ROOT);
+    }
+
+    public record StoredRank(String key, String name, String prefix, String color, int weight) {
     }
 
     private String limit(String value, int max) {

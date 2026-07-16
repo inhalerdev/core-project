@@ -157,7 +157,7 @@ public final class WebProfileSyncService {
         int playtimeRank = playtime <= 0L ? 0 : stats.rankPlaytime(uuid);
 
         String displayName = player != null ? DisplayNames.displayName(player) : username;
-        Rank rank = player != null ? rank(player) : defaultRank();
+        Rank rank = rank(uuid, player);
         TeamData team = teamData(uuid);
 
         long firstJoinedAt = offline.getFirstPlayed() <= 0L ? now : offline.getFirstPlayed();
@@ -251,6 +251,16 @@ public final class WebProfileSyncService {
         return 0;
     }
 
+    private Rank rank(UUID uuid, Player player) {
+        if (player != null) {
+            return rank(player);
+        }
+
+        return repository.findRank(uuid)
+                .map(this::storedRank)
+                .orElseGet(this::defaultRank);
+    }
+
     private Rank rank(Player player) {
         ConfigurationSection ranks = config.getConfigurationSection("rank.permission-ranks");
 
@@ -287,6 +297,16 @@ public final class WebProfileSyncService {
         }
 
         return best;
+    }
+
+    private Rank storedRank(WebProfileRepository.StoredRank stored) {
+        Rank fallback = defaultRank();
+        String key = stored.key() == null || stored.key().isBlank() ? fallback.key() : stored.key();
+        String name = stored.name() == null || stored.name().isBlank() ? fallback.name() : stored.name();
+        String prefix = stored.prefix() == null ? fallback.prefix() : stored.prefix();
+        String color = stored.color() == null || stored.color().isBlank() ? fallback.color() : normalizeHex(stored.color());
+
+        return new Rank(key, name, prefix, color, stored.weight());
     }
 
     private Rank defaultRank() {
