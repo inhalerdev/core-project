@@ -4,7 +4,7 @@ database:
   driver-class: "com.mysql.cj.jdbc.Driver"
   jdbc-url: "jdbc:mysql://mysql.mineacle.net:3306/mineacle_core?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&connectTimeout=10000&socketTimeout=10000"
   username: "mineacle_core_user"
-  password: "*nidnarB2025"
+  password: "*nidnarB2026"
   table: "mineacle_web_profiles"
   teams-table: "mineacle_web_teams"
 
