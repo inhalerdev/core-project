@@ -16,22 +16,30 @@ sync:
   mark-offline-on-disable: true
 
 rank:
+  default-key: "default"
   default-name: "Member"
+  default-prefix: ""
+  default-color: "#bbbbbb"
+
   permission-ranks:
-    owner:
-      name: "Owner"
-      permission: "mineacle.rank.owner"
+    developer:
+      name: "Developer"
+      prefix: "Developer"
+      color: "#ffaa00"
+      permission: "mineacle.rank.developer"
       weight: 1000
+
     admin:
       name: "Admin"
+      prefix: "Admin"
+      color: "#ff5555"
       permission: "mineacle.rank.admin"
       weight: 900
-    moderator:
-      name: "Moderator"
-      permission: "mineacle.rank.mod"
-      weight: 700
+
     plus:
       name: "Mineacle+"
+      prefix: "Mineacle+"
+      color: "#ff55ff"
       permission: "mineacle.plus"
       weight: 100
 

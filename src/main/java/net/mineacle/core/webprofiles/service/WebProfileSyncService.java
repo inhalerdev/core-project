@@ -46,9 +46,7 @@ public final class WebProfileSyncService {
         }
 
         repository.initialize();
-
         long intervalTicks = Math.max(20L, config.getLong("sync.interval-seconds", 120L) * 20L);
-
         syncTask = core.getServer().getScheduler().runTaskTimer(core, this::syncAll, 80L, intervalTicks);
         core.getLogger().info("Web profile sync enabled");
     }
@@ -84,9 +82,8 @@ public final class WebProfileSyncService {
 
             for (OfflinePlayer player : Bukkit.getOfflinePlayers()) {
                 ids.add(player.getUniqueId());
-                count++;
 
-                if (count >= limit) {
+                if (++count >= limit) {
                     break;
                 }
             }
@@ -112,11 +109,9 @@ public final class WebProfileSyncService {
             }
         }
 
-        if (records.isEmpty()) {
-            return;
+        if (!records.isEmpty()) {
+            core.getServer().getScheduler().runTaskAsynchronously(core, () -> repository.upsertAll(records));
         }
-
-        core.getServer().getScheduler().runTaskAsynchronously(core, () -> repository.upsertAll(records));
     }
 
     public void syncPlayer(Player player, boolean online) {
@@ -127,14 +122,19 @@ public final class WebProfileSyncService {
             return;
         }
 
-        boolean actuallyOnline = online && player.isOnline();
-        WebProfileRecord record = record(player.getUniqueId(), stats, economy, actuallyOnline);
+        WebProfileRecord record = record(
+                player.getUniqueId(),
+                stats,
+                economy,
+                online && player.isOnline()
+        );
 
-        if (record == null) {
-            return;
+        if (record != null) {
+            core.getServer().getScheduler().runTaskAsynchronously(
+                    core,
+                    () -> repository.upsertAll(List.of(record))
+            );
         }
-
-        core.getServer().getScheduler().runTaskAsynchronously(core, () -> repository.upsertAll(List.of(record)));
     }
 
     private WebProfileRecord record(UUID uuid, StatsService stats, EconomyService economy, boolean online) {
@@ -147,7 +147,6 @@ public final class WebProfileSyncService {
 
         Player player = Bukkit.getPlayer(uuid);
         long now = System.currentTimeMillis();
-
         long balance = economy.getBalanceCents(uuid);
         long kills = stats.kills(uuid);
         long deaths = stats.deaths(uuid);
@@ -158,9 +157,9 @@ public final class WebProfileSyncService {
         int playtimeRank = playtime <= 0L ? 0 : stats.rankPlaytime(uuid);
 
         String displayName = player != null ? DisplayNames.displayName(player) : username;
-        Rank rank = player != null ? rank(player) : new Rank(config.getString("rank.default-name", "Member"), 0);
-
+        Rank rank = player != null ? rank(player) : defaultRank();
         TeamData team = teamData(uuid);
+
         long firstJoinedAt = offline.getFirstPlayed() <= 0L ? now : offline.getFirstPlayed();
         long lastSeen = online ? now : offline.getLastSeen();
 
@@ -172,7 +171,10 @@ public final class WebProfileSyncService {
                 uuid,
                 username,
                 displayName,
+                rank.key(),
                 rank.name(),
+                rank.prefix(),
+                rank.color(),
                 rank.weight(),
                 team.id(),
                 team.name(),
@@ -253,10 +255,10 @@ public final class WebProfileSyncService {
         ConfigurationSection ranks = config.getConfigurationSection("rank.permission-ranks");
 
         if (ranks == null) {
-            return new Rank(config.getString("rank.default-name", "Member"), 0);
+            return defaultRank();
         }
 
-        Rank best = new Rank(config.getString("rank.default-name", "Member"), 0);
+        Rank best = defaultRank();
 
         for (String key : ranks.getKeys(false)) {
             ConfigurationSection section = ranks.getConfigurationSection(key);
@@ -274,14 +276,62 @@ public final class WebProfileSyncService {
             int weight = section.getInt("weight", 0);
 
             if (weight > best.weight()) {
-                best = new Rank(section.getString("name", key), weight);
+                best = new Rank(
+                        key.toLowerCase(Locale.ROOT),
+                        section.getString("name", key),
+                        section.getString("prefix", ""),
+                        normalizeHex(section.getString("color", "#bbbbbb")),
+                        weight
+                );
             }
         }
 
         return best;
     }
 
-    private record Rank(String name, int weight) {
+    private Rank defaultRank() {
+        return new Rank(
+                config.getString("rank.default-key", "default"),
+                config.getString("rank.default-name", "Member"),
+                config.getString("rank.default-prefix", ""),
+                normalizeHex(config.getString("rank.default-color", "#bbbbbb")),
+                0
+        );
+    }
+
+    private String normalizeHex(String color) {
+        if (color == null || color.isBlank()) {
+            return "#bbbbbb";
+        }
+
+        String value = color.trim();
+
+        if (value.matches("(?i)^#[0-9a-f]{6}$")) {
+            return value.toLowerCase(Locale.ROOT);
+        }
+
+        return switch (value.toLowerCase(Locale.ROOT)) {
+            case "&0" -> "#000000";
+            case "&1" -> "#0000aa";
+            case "&2" -> "#00aa00";
+            case "&3" -> "#00aaaa";
+            case "&4" -> "#aa0000";
+            case "&5" -> "#aa00aa";
+            case "&6" -> "#ffaa00";
+            case "&7" -> "#aaaaaa";
+            case "&8" -> "#555555";
+            case "&9" -> "#5555ff";
+            case "&a" -> "#55ff55";
+            case "&b" -> "#55ffff";
+            case "&c" -> "#ff5555";
+            case "&d" -> "#ff55ff";
+            case "&e" -> "#ffff55";
+            case "&f" -> "#ffffff";
+            default -> "#bbbbbb";
+        };
+    }
+
+    private record Rank(String key, String name, String prefix, String color, int weight) {
     }
 
     private record TeamData(String id, String name, String role, long joinedAt) {
