@@ -14,6 +14,7 @@ import net.mineacle.core.webprofiles.model.WebProfileRecord;
 import net.mineacle.core.webprofiles.storage.WebProfileRepository;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
@@ -102,7 +103,8 @@ public final class WebProfileSyncService {
         List<WebProfileRecord> records = new ArrayList<>();
 
         for (UUID id : ids) {
-            WebProfileRecord record = record(id, stats, economy, Bukkit.getPlayer(id) != null);
+            Player player = Bukkit.getPlayer(id);
+            WebProfileRecord record = record(id, player, stats, economy, player != null);
 
             if (record != null) {
                 records.add(record);
@@ -124,6 +126,7 @@ public final class WebProfileSyncService {
 
         WebProfileRecord record = record(
                 player.getUniqueId(),
+                player,
                 stats,
                 economy,
                 online && player.isOnline()
@@ -137,7 +140,13 @@ public final class WebProfileSyncService {
         }
     }
 
-    private WebProfileRecord record(UUID uuid, StatsService stats, EconomyService economy, boolean online) {
+    private WebProfileRecord record(
+            UUID uuid,
+            Player player,
+            StatsService stats,
+            EconomyService economy,
+            boolean online
+    ) {
         OfflinePlayer offline = Bukkit.getOfflinePlayer(uuid);
         String username = offline.getName();
 
@@ -145,7 +154,6 @@ public final class WebProfileSyncService {
             return null;
         }
 
-        Player player = Bukkit.getPlayer(uuid);
         long now = System.currentTimeMillis();
         long balance = economy.getBalanceCents(uuid);
         long kills = stats.kills(uuid);
@@ -158,6 +166,7 @@ public final class WebProfileSyncService {
 
         String displayName = player != null ? DisplayNames.displayName(player) : username;
         Rank rank = rank(uuid, player);
+        WorldData world = player != null ? worldData(player.getWorld()) : WorldData.none();
         TeamData team = teamData(uuid);
 
         long firstJoinedAt = offline.getFirstPlayed() <= 0L ? now : offline.getFirstPlayed();
@@ -176,6 +185,9 @@ public final class WebProfileSyncService {
                 rank.prefix(),
                 rank.color(),
                 rank.weight(),
+                world.key(),
+                world.name(),
+                world.group(),
                 team.id(),
                 team.name(),
                 team.role(),
@@ -195,6 +207,35 @@ public final class WebProfileSyncService {
                 online,
                 now
         );
+    }
+
+    private WorldData worldData(World world) {
+        if (world == null) {
+            return WorldData.none();
+        }
+
+        String key = world.getName();
+        String path = "worlds.mappings." + key;
+        String name = config.getString(path + ".name");
+        String group = config.getString(path + ".group");
+
+        if (name != null && !name.isBlank()) {
+            return new WorldData(key, name, group == null ? "" : group);
+        }
+
+        return switch (key.toLowerCase(Locale.ROOT)) {
+            case "spawn1" -> new WorldData(key, "Spawn 1", "spawn");
+            case "spawn2" -> new WorldData(key, "Spawn 2", "spawn");
+            case "spawn3" -> new WorldData(key, "Spawn 3", "spawn");
+            case "origins" -> new WorldData(key, "Overworld", "survival");
+            case "world_nether", "origins_nether" -> new WorldData(key, "Nether", "survival");
+            case "world_the_end", "origins_the_end" -> new WorldData(key, "End", "survival");
+            default -> new WorldData(
+                    key,
+                    config.getString("worlds.default-name", key),
+                    config.getString("worlds.default-group", "other")
+            );
+        };
     }
 
     private TeamData teamData(UUID uuid) {
@@ -304,7 +345,9 @@ public final class WebProfileSyncService {
         String key = stored.key() == null || stored.key().isBlank() ? fallback.key() : stored.key();
         String name = stored.name() == null || stored.name().isBlank() ? fallback.name() : stored.name();
         String prefix = stored.prefix() == null ? fallback.prefix() : stored.prefix();
-        String color = stored.color() == null || stored.color().isBlank() ? fallback.color() : normalizeHex(stored.color());
+        String color = stored.color() == null || stored.color().isBlank()
+                ? fallback.color()
+                : normalizeHex(stored.color());
 
         return new Rank(key, name, prefix, color, stored.weight());
     }
@@ -352,6 +395,12 @@ public final class WebProfileSyncService {
     }
 
     private record Rank(String key, String name, String prefix, String color, int weight) {
+    }
+
+    private record WorldData(String key, String name, String group) {
+        private static WorldData none() {
+            return new WorldData("", "", "");
+        }
     }
 
     private record TeamData(String id, String name, String role, long joinedAt) {

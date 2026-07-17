@@ -47,6 +47,9 @@ public final class WebProfileRepository {
                             rank_prefix VARCHAR(64) NOT NULL DEFAULT '',
                             rank_color CHAR(7) NOT NULL DEFAULT '#bbbbbb',
                             rank_weight INT NOT NULL DEFAULT 0,
+                            world_key VARCHAR(64) NOT NULL DEFAULT '',
+                            world_name VARCHAR(32) NOT NULL DEFAULT '',
+                            world_group VARCHAR(24) NOT NULL DEFAULT '',
                             team_id VARCHAR(36) NOT NULL DEFAULT '',
                             team_name VARCHAR(32) NOT NULL DEFAULT '',
                             team_role VARCHAR(32) NOT NULL DEFAULT '',
@@ -70,6 +73,8 @@ public final class WebProfileRepository {
                             INDEX idx_kills (kills),
                             INDEX idx_rank (rank_weight),
                             INDEX idx_rank_key (rank_key),
+                            INDEX idx_world_key (world_key),
+                            INDEX idx_world_group (world_group),
                             INDEX idx_team_name (team_name),
                             INDEX idx_first_joined (first_joined_at),
                             INDEX idx_online (online),
@@ -103,6 +108,9 @@ public final class WebProfileRepository {
                             rank_prefix,
                             rank_color,
                             rank_weight,
+                            world_key,
+                            world_name,
+                            world_group,
                             team_id,
                             team_name,
                             team_role,
@@ -121,7 +129,7 @@ public final class WebProfileRepository {
                             last_seen,
                             online,
                             updated_at
-                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                          ON DUPLICATE KEY UPDATE
                             username = VALUES(username),
                             display_name = VALUES(display_name),
@@ -130,6 +138,9 @@ public final class WebProfileRepository {
                             rank_prefix = IF(VALUES(online) = 1, VALUES(rank_prefix), rank_prefix),
                             rank_color = IF(VALUES(online) = 1, VALUES(rank_color), rank_color),
                             rank_weight = IF(VALUES(online) = 1, VALUES(rank_weight), rank_weight),
+                            world_key = IF(VALUES(world_key) <> '', VALUES(world_key), world_key),
+                            world_name = IF(VALUES(world_name) <> '', VALUES(world_name), world_name),
+                            world_group = IF(VALUES(world_group) <> '', VALUES(world_group), world_group),
                             team_id = VALUES(team_id),
                             team_name = VALUES(team_name),
                             team_role = VALUES(team_role),
@@ -161,7 +172,6 @@ public final class WebProfileRepository {
         }
     }
 
-
     public Optional<StoredRank> findRank(UUID uuid) {
         if (!config.getBoolean("enabled", true) || uuid == null) {
             return Optional.empty();
@@ -172,7 +182,8 @@ public final class WebProfileRepository {
 
             try (Connection connection = connection();
                  PreparedStatement statement = connection.prepareStatement(
-                         "SELECT rank_key, rank_name, rank_prefix, rank_color, rank_weight FROM " + table + " WHERE uuid = ? LIMIT 1"
+                         "SELECT rank_key, rank_name, rank_prefix, rank_color, rank_weight FROM "
+                                 + table + " WHERE uuid = ? LIMIT 1"
                  )) {
                 statement.setString(1, uuid.toString());
 
@@ -191,7 +202,9 @@ public final class WebProfileRepository {
                 }
             }
         } catch (Exception exception) {
-            core.getLogger().warning("Could not read stored web profile rank for " + uuid + ": " + exception.getMessage());
+            core.getLogger().warning(
+                    "Could not read stored web profile rank for " + uuid + ": " + exception.getMessage()
+            );
             return Optional.empty();
         }
     }
@@ -220,6 +233,9 @@ public final class WebProfileRepository {
             ensureColumn(connection, "rank_prefix", "VARCHAR(64) NOT NULL DEFAULT ''");
             ensureColumn(connection, "rank_color", "CHAR(7) NOT NULL DEFAULT '#bbbbbb'");
             ensureColumn(connection, "rank_weight", "INT NOT NULL DEFAULT 0");
+            ensureColumn(connection, "world_key", "VARCHAR(64) NOT NULL DEFAULT ''");
+            ensureColumn(connection, "world_name", "VARCHAR(32) NOT NULL DEFAULT ''");
+            ensureColumn(connection, "world_group", "VARCHAR(24) NOT NULL DEFAULT ''");
             ensureColumn(connection, "team_id", "VARCHAR(36) NOT NULL DEFAULT ''");
             ensureColumn(connection, "team_name", "VARCHAR(32) NOT NULL DEFAULT ''");
             ensureColumn(connection, "team_role", "VARCHAR(32) NOT NULL DEFAULT ''");
@@ -228,6 +244,8 @@ public final class WebProfileRepository {
 
             ensureIndex(connection, "idx_rank", "rank_weight");
             ensureIndex(connection, "idx_rank_key", "rank_key");
+            ensureIndex(connection, "idx_world_key", "world_key");
+            ensureIndex(connection, "idx_world_group", "world_group");
             ensureIndex(connection, "idx_team_name", "team_name");
             ensureIndex(connection, "idx_first_joined", "first_joined_at");
         }
@@ -286,24 +304,27 @@ public final class WebProfileRepository {
         statement.setString(6, limit(record.rankPrefix(), 64));
         statement.setString(7, limit(record.rankColor(), 7));
         statement.setInt(8, record.rankWeight());
-        statement.setString(9, limit(record.teamId(), 36));
-        statement.setString(10, limit(record.teamName(), 32));
-        statement.setString(11, limit(record.teamRole(), 32));
-        statement.setLong(12, record.teamJoinedAt());
-        statement.setLong(13, record.balanceCents());
-        statement.setString(14, limit(record.balanceFormatted(), 32));
-        statement.setLong(15, record.playtimeSeconds());
-        statement.setString(16, limit(record.playtimeFormatted(), 32));
-        statement.setLong(17, record.kills());
-        statement.setLong(18, record.deaths());
-        statement.setDouble(19, record.kdRatio());
-        statement.setInt(20, record.moneyRank());
-        statement.setInt(21, record.killsRank());
-        statement.setInt(22, record.playtimeRank());
-        statement.setLong(23, record.firstJoinedAt());
-        statement.setLong(24, record.lastSeen());
-        statement.setBoolean(25, record.online());
-        statement.setLong(26, record.updatedAt());
+        statement.setString(9, limit(record.worldKey(), 64));
+        statement.setString(10, limit(record.worldName(), 32));
+        statement.setString(11, limit(record.worldGroup(), 24));
+        statement.setString(12, limit(record.teamId(), 36));
+        statement.setString(13, limit(record.teamName(), 32));
+        statement.setString(14, limit(record.teamRole(), 32));
+        statement.setLong(15, record.teamJoinedAt());
+        statement.setLong(16, record.balanceCents());
+        statement.setString(17, limit(record.balanceFormatted(), 32));
+        statement.setLong(18, record.playtimeSeconds());
+        statement.setString(19, limit(record.playtimeFormatted(), 32));
+        statement.setLong(20, record.kills());
+        statement.setLong(21, record.deaths());
+        statement.setDouble(22, record.kdRatio());
+        statement.setInt(23, record.moneyRank());
+        statement.setInt(24, record.killsRank());
+        statement.setInt(25, record.playtimeRank());
+        statement.setLong(26, record.firstJoinedAt());
+        statement.setLong(27, record.lastSeen());
+        statement.setBoolean(28, record.online());
+        statement.setLong(29, record.updatedAt());
     }
 
     private Connection connection() throws Exception {

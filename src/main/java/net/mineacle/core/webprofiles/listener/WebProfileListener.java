@@ -5,8 +5,10 @@ import net.mineacle.core.webprofiles.service.WebProfileSyncService;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 
 public final class WebProfileListener implements Listener {
 
@@ -27,6 +29,24 @@ public final class WebProfileListener implements Listener {
                 syncService.syncPlayer(event.getPlayer(), true);
             }
         }, 40L);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onChangedWorld(PlayerChangedWorldEvent event) {
+        core.getServer().getScheduler().runTask(core, () -> {
+            if (event.getPlayer().isOnline()) {
+                syncService.syncPlayer(event.getPlayer(), true);
+            }
+        });
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onRespawn(PlayerRespawnEvent event) {
+        core.getServer().getScheduler().runTask(core, () -> {
+            if (event.getPlayer().isOnline()) {
+                syncService.syncPlayer(event.getPlayer(), true);
+            }
+        });
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
