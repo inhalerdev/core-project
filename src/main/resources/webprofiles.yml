@@ -7,6 +7,7 @@ database:
   password: "CHANGE-ME-IN-plugins/MineacleCore/webprofiles.yml"
   table: "mineacle_web_profiles"
   teams-table: "mineacle_web_teams"
+  fights-table: "mineacle_web_fights"
 
 sync:
   interval-seconds: 120
@@ -72,6 +73,14 @@ worlds:
     origins_the_end:
       name: "End"
       group: "survival"
+
+web-fights:
+  enabled: true
+  combat-timeout-seconds: 60
+  allowed-worlds:
+    - "origins"
+    - "origins_nether"
+    - "origins_the_end"
 
 web-teams:
   enabled: true
