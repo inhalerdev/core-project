@@ -2,7 +2,7 @@ enabled: true
 
 database:
   driver-class: "com.mysql.cj.jdbc.Driver"
-  jdbc-url: "jdbc:mysql://mysql.mineacle.net:3306/mineacle_core?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&connectTimeout=10000&socketTimeout=10000"
+  jdbc-url: "jdbc:mysql://mysql.mineacle.net:3306/mineacle_core?sslMode=REQUIRED&tlsVersions=TLSv1.2,TLSv1.3&serverTimezone=UTC&allowPublicKeyRetrieval=true&connectTimeout=10000&socketTimeout=30000&tcpKeepAlive=true"
   username: "mineacle_core_user"
   password: "CHANGE-ME-IN-plugins/MineacleCore/webprofiles.yml"
   table: "mineacle_web_profiles"
