@@ -118,14 +118,7 @@ public final class AuctionHouseGui {
 
         inventory.setItem(
                 SLOT_FILTER,
-                item(
-                        Material.HOPPER,
-                        "&dFilter",
-                        "&#bbbbbbCurrent: &#ff88ff"
-                                + effectiveSort.label(),
-                        "",
-                        "&#bbbbbbClick to change the filter"
-                )
+                filterItem(effectiveSort)
         );
 
         inventory.setItem(
@@ -474,6 +467,32 @@ public final class AuctionHouseGui {
         meta.lore(noItalic(lore));
         item.setItemMeta(meta);
         return item;
+    }
+
+    private static ItemStack filterItem(
+            AuctionHouseService.SortMode current
+    ) {
+        List<String> lore = new ArrayList<>();
+        lore.add("&#bbbbbbCurrent: &#ff88ff" + current.label());
+        lore.add("");
+
+        for (AuctionHouseService.SortMode mode
+                : AuctionHouseService.SortMode.values()) {
+            lore.add(
+                    mode == current
+                            ? "&#ff88ff" + mode.label()
+                            : "&#bbbbbb" + mode.label()
+            );
+        }
+
+        lore.add("");
+        lore.add("&#bbbbbbClick to change the filter");
+
+        return item(
+                Material.HOPPER,
+                "&dFilter",
+                lore.toArray(String[]::new)
+        );
     }
 
     public static ItemStack item(
