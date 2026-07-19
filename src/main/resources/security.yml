@@ -176,6 +176,8 @@ groups:
       - "worth"
       - "x"
     hidden-commands:
+      - "ah"
+      - "auctionhouse"
       - "bal"
       - "balancetop"
       - "delhome"

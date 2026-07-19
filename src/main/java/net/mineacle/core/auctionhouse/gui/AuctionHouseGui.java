@@ -8,6 +8,7 @@ import net.mineacle.core.auctionhouse.service.AuctionHouseService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemFlag;
@@ -15,7 +16,9 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public final class AuctionHouseGui {
@@ -30,38 +33,57 @@ public final class AuctionHouseGui {
     private static final int SLOT_OWN_ITEMS = 51;
     private static final int SLOT_NEXT = 53;
 
-    private static final int SLOT_OWN_WORTH = 46;
+    private static final int SLOT_OWN_PREVIOUS = 45;
+    private static final int SLOT_OWN_BACK = 46;
+    private static final int SLOT_OWN_WORTH = 47;
     private static final int SLOT_OWN_REFRESH = 49;
     private static final int SLOT_OWN_LIST_ITEM = 51;
-    private static final int SLOT_OWN_BACK = 53;
+    private static final int SLOT_OWN_NEXT = 53;
 
     private static final int SLOT_CONFIRM_CANCEL = 11;
     private static final int SLOT_CONFIRM_ITEM = 13;
-    private static final int SLOT_CONFIRM_BUY = 15;
+    private static final int SLOT_CONFIRM_ACTION = 15;
 
     private AuctionHouseGui() {
     }
 
     public static void openBrowse(
-            org.bukkit.entity.Player player,
+            Player player,
             AuctionHouseService service,
             int page,
             AuctionHouseService.SortMode sortMode,
             String query
     ) {
-        List<AuctionHouseListing> listings = service.search(query, sortMode);
-        int maxPage = Math.max(0, (listings.size() - 1) / service.pageSize());
-        page = Math.max(0, Math.min(page, maxPage));
+        AuctionHouseService.SortMode effectiveSort = sortMode == null
+                ? AuctionHouseService.SortMode.LOWEST_PRICE
+                : sortMode;
+        String effectiveQuery = service.sanitizeSearchQuery(query);
 
-        BrowseHolder holder = new BrowseHolder(page, sortMode, query);
+        List<AuctionHouseListing> listings = service.search(
+                effectiveQuery,
+                effectiveSort
+        );
+
+        int maxPage = Math.max(
+                0,
+                (listings.size() - 1) / service.pageSize()
+        );
+        int effectivePage = Math.max(0, Math.min(page, maxPage));
+
+        BrowseHolder holder = new BrowseHolder(
+                effectivePage,
+                effectiveSort,
+                effectiveQuery
+        );
+
         Inventory inventory = Bukkit.createInventory(
                 holder,
                 SIZE,
-                legacy("Auction (Page " + (page + 1) + ")")
+                legacy("Auction (Page " + (effectivePage + 1) + ")")
         );
         holder.inventory = inventory;
 
-        int start = page * service.pageSize();
+        int start = effectivePage * service.pageSize();
 
         for (int slot = 0; slot < service.pageSize(); slot++) {
             int index = start + slot;
@@ -71,11 +93,19 @@ public final class AuctionHouseGui {
             }
 
             AuctionHouseListing listing = listings.get(index);
-            inventory.setItem(slot, listingItem(service, listing));
+
+            inventory.setItem(
+                    slot,
+                    listingItem(
+                            service,
+                            listing,
+                            "&dClick to buy"
+                    )
+            );
             holder.slotListings.put(slot, listing.id());
         }
 
-        if (page > 0) {
+        if (effectivePage > 0) {
             inventory.setItem(
                     SLOT_PREVIOUS,
                     item(
@@ -91,7 +121,8 @@ public final class AuctionHouseGui {
                 item(
                         Material.HOPPER,
                         "&dFilter",
-                        "&#bbbbbbCurrent: &#ff88ff" + sortMode.label(),
+                        "&#bbbbbbCurrent: &#ff88ff"
+                                + effectiveSort.label(),
                         "",
                         "&#bbbbbbClick to change the filter"
                 )
@@ -115,7 +146,7 @@ public final class AuctionHouseGui {
                 )
         );
 
-        if (query == null || query.isBlank()) {
+        if (effectiveQuery.isBlank()) {
             inventory.setItem(
                     SLOT_SEARCH,
                     item(
@@ -130,7 +161,8 @@ public final class AuctionHouseGui {
                     item(
                             Material.OAK_SIGN,
                             "&dSearch",
-                            "&#bbbbbbCurrent: &#ff88ff" + query,
+                            "&#bbbbbbCurrent: &#ff88ff"
+                                    + effectiveQuery,
                             "",
                             "&#bbbbbbClick to search again"
                     )
@@ -146,7 +178,8 @@ public final class AuctionHouseGui {
                 )
         );
 
-        if ((page + 1) * service.pageSize() < listings.size()) {
+        if ((effectivePage + 1) * service.pageSize()
+                < listings.size()) {
             inventory.setItem(
                     SLOT_NEXT,
                     item(
@@ -160,33 +193,79 @@ public final class AuctionHouseGui {
         player.openInventory(inventory);
     }
 
-    public static void openOwn(org.bukkit.entity.Player player, AuctionHouseService service) {
-        List<AuctionHouseListing> listings = service.ownerListings(player.getUniqueId());
+    public static void openOwn(
+            Player player,
+            AuctionHouseService service
+    ) {
+        openOwn(player, service, 0);
+    }
+
+    public static void openOwn(
+            Player player,
+            AuctionHouseService service,
+            int page
+    ) {
+        List<AuctionHouseListing> listings = service.ownerListings(
+                player.getUniqueId()
+        );
         int limit = service.listingLimit(player);
 
-        OwnHolder holder = new OwnHolder();
-        Inventory inventory = Bukkit.createInventory(holder, SIZE, legacy("Auction -> Your Items"));
+        int pageBasis = Math.max(
+                listings.size(),
+                Math.min(limit, service.pageSize())
+        );
+        int maxPage = Math.max(
+                0,
+                (pageBasis - 1) / service.pageSize()
+        );
+        int effectivePage = Math.max(0, Math.min(page, maxPage));
+
+        OwnHolder holder = new OwnHolder(effectivePage);
+
+        Inventory inventory = Bukkit.createInventory(
+                holder,
+                SIZE,
+                legacy(
+                        "Auction -> Your Items (Page "
+                                + (effectivePage + 1)
+                                + ")"
+                )
+        );
         holder.inventory = inventory;
 
-        for (int slot = 0; slot < Math.min(45, listings.size()); slot++) {
-            AuctionHouseListing listing = listings.get(slot);
-            inventory.setItem(slot, ownListingItem(service, listing));
-            holder.slotListings.put(slot, listing.id());
-        }
+        int start = effectivePage * service.pageSize();
 
-        for (int slot = listings.size(); slot < Math.min(45, limit); slot++) {
-            inventory.setItem(
-                    slot,
-                    item(
-                            Material.LIGHT_GRAY_STAINED_GLASS_PANE,
-                            "&dAvailable Slot",
-                            "&#bbbbbbUse &d/ah sell <price>",
-                            "&#bbbbbbwhile holding an item"
-                    )
-            );
-        }
+        for (int slot = 0; slot < service.pageSize(); slot++) {
+            int index = start + slot;
 
-        for (int slot = Math.max(0, limit); slot < 45; slot++) {
+            if (index < listings.size()) {
+                AuctionHouseListing listing = listings.get(index);
+
+                inventory.setItem(
+                        slot,
+                        listingItem(
+                                service,
+                                listing,
+                                "&cClick to cancel listing"
+                        )
+                );
+                holder.slotListings.put(slot, listing.id());
+                continue;
+            }
+
+            if (index < limit) {
+                inventory.setItem(
+                        slot,
+                        item(
+                                Material.LIGHT_GRAY_STAINED_GLASS_PANE,
+                                "&dAvailable Slot",
+                                "&#bbbbbbUse &d/ah sell <price>",
+                                "&#bbbbbbwhile holding an item"
+                        )
+                );
+                continue;
+            }
+
             inventory.setItem(
                     slot,
                     item(
@@ -197,6 +276,26 @@ public final class AuctionHouseGui {
                     )
             );
         }
+
+        if (effectivePage > 0) {
+            inventory.setItem(
+                    SLOT_OWN_PREVIOUS,
+                    item(
+                            Material.ARROW,
+                            "&dPrevious Page",
+                            "&#bbbbbbClick to view the previous page"
+                    )
+            );
+        }
+
+        inventory.setItem(
+                SLOT_OWN_BACK,
+                item(
+                        Material.ARROW,
+                        "&dBack",
+                        "&#bbbbbbClick to return to auctions"
+                )
+        );
 
         inventory.setItem(
                 SLOT_OWN_WORTH,
@@ -226,25 +325,41 @@ public final class AuctionHouseGui {
                 )
         );
 
-        inventory.setItem(
-                SLOT_OWN_BACK,
-                item(
-                        Material.ARROW,
-                        "&dBack",
-                        "&#bbbbbbClick to return"
-                )
-        );
+        if ((effectivePage + 1) * service.pageSize()
+                < listings.size()) {
+            inventory.setItem(
+                    SLOT_OWN_NEXT,
+                    item(
+                            Material.ARROW,
+                            "&dNext Page",
+                            "&#bbbbbbClick to view the next page"
+                    )
+            );
+        }
 
         player.openInventory(inventory);
     }
 
     public static void openConfirmBuy(
-            org.bukkit.entity.Player player,
+            Player player,
             AuctionHouseService service,
-            AuctionHouseListing listing
+            AuctionHouseListing listing,
+            int returnPage,
+            AuctionHouseService.SortMode returnSort,
+            String returnQuery
     ) {
-        ConfirmBuyHolder holder = new ConfirmBuyHolder(listing.id());
-        Inventory inventory = Bukkit.createInventory(holder, 27, legacy("Confirm Purchase"));
+        ConfirmBuyHolder holder = new ConfirmBuyHolder(
+                listing.id(),
+                returnPage,
+                returnSort,
+                returnQuery
+        );
+
+        Inventory inventory = Bukkit.createInventory(
+                holder,
+                27,
+                legacy("Confirm Purchase")
+        );
         holder.inventory = inventory;
 
         inventory.setItem(
@@ -252,18 +367,66 @@ public final class AuctionHouseGui {
                 item(
                         Material.RED_STAINED_GLASS_PANE,
                         "&cCancel",
-                        "&#bbbbbbClick to cancel"
+                        "&#bbbbbbClick to return"
                 )
         );
 
-        inventory.setItem(SLOT_CONFIRM_ITEM, listingItem(service, listing));
+        inventory.setItem(
+                SLOT_CONFIRM_ITEM,
+                listingItem(service, listing, null)
+        );
 
         inventory.setItem(
-                SLOT_CONFIRM_BUY,
+                SLOT_CONFIRM_ACTION,
                 item(
                         Material.LIME_STAINED_GLASS_PANE,
                         "&aConfirm",
-                        "&#bbbbbbBuy this item for &a" + service.format(listing.priceCents())
+                        "&#bbbbbbBuy this item for &a"
+                                + service.format(listing.priceCents())
+                )
+        );
+
+        player.openInventory(inventory);
+    }
+
+    public static void openConfirmCancel(
+            Player player,
+            AuctionHouseService service,
+            AuctionHouseListing listing,
+            int returnPage
+    ) {
+        ConfirmCancelHolder holder = new ConfirmCancelHolder(
+                listing.id(),
+                returnPage
+        );
+
+        Inventory inventory = Bukkit.createInventory(
+                holder,
+                27,
+                legacy("Confirm Cancellation")
+        );
+        holder.inventory = inventory;
+
+        inventory.setItem(
+                SLOT_CONFIRM_CANCEL,
+                item(
+                        Material.RED_STAINED_GLASS_PANE,
+                        "&cCancel",
+                        "&#bbbbbbClick to return"
+                )
+        );
+
+        inventory.setItem(
+                SLOT_CONFIRM_ITEM,
+                listingItem(service, listing, null)
+        );
+
+        inventory.setItem(
+                SLOT_CONFIRM_ACTION,
+                item(
+                        Material.LIME_STAINED_GLASS_PANE,
+                        "&aConfirm",
+                        "&#bbbbbbReturn this item to your inventory"
                 )
         );
 
@@ -272,9 +435,10 @@ public final class AuctionHouseGui {
 
     private static ItemStack listingItem(
             AuctionHouseService service,
-            AuctionHouseListing listing
+            AuctionHouseListing listing,
+            String actionLine
     ) {
-        ItemStack item = listing.item().clone();
+        ItemStack item = listing.item();
         ItemMeta meta = item.getItemMeta();
 
         if (meta == null) {
@@ -289,38 +453,34 @@ public final class AuctionHouseGui {
             lore.add(legacy(""));
         }
 
-        lore.add(legacy("&#bbbbbbPrice: &a" + service.format(listing.priceCents())));
-        lore.add(legacy("&#bbbbbbSeller: &#ff88ff" + listing.ownerName()));
-        lore.add(legacy(""));
-        lore.add(legacy("&dClick to buy"));
+        lore.add(
+                legacy(
+                        "&#bbbbbbPrice: &a"
+                                + service.format(listing.priceCents())
+                )
+        );
+        lore.add(
+                legacy(
+                        "&#bbbbbbSeller: &#bbbbbb"
+                                + service.sellerDisplayName(listing)
+                )
+        );
 
-        meta.lore(noItalic(lore));
-        item.setItemMeta(meta);
-        return item;
-    }
-
-    private static ItemStack ownListingItem(
-            AuctionHouseService service,
-            AuctionHouseListing listing
-    ) {
-        ItemStack item = listingItem(service, listing);
-        ItemMeta meta = item.getItemMeta();
-
-        if (meta == null) {
-            return item;
+        if (actionLine != null && !actionLine.isBlank()) {
+            lore.add(legacy(""));
+            lore.add(legacy(actionLine));
         }
 
-        List<Component> lore = meta.hasLore() && meta.lore() != null
-                ? new ArrayList<>(meta.lore())
-                : new ArrayList<>();
-
-        lore.add(legacy("&cClick to cancel listing"));
         meta.lore(noItalic(lore));
         item.setItemMeta(meta);
         return item;
     }
 
-    public static ItemStack item(Material material, String name, String... loreLines) {
+    public static ItemStack item(
+            Material material,
+            String name,
+            String... loreLines
+    ) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
 
@@ -343,6 +503,7 @@ public final class AuctionHouseGui {
                 ItemFlag.HIDE_ENCHANTS,
                 ItemFlag.HIDE_DYE
         );
+
         item.setItemMeta(meta);
         return item;
     }
@@ -375,6 +536,14 @@ public final class AuctionHouseGui {
         return SLOT_NEXT;
     }
 
+    public static int ownPreviousSlot() {
+        return SLOT_OWN_PREVIOUS;
+    }
+
+    public static int ownBackSlot() {
+        return SLOT_OWN_BACK;
+    }
+
     public static int ownWorthSlot() {
         return SLOT_OWN_WORTH;
     }
@@ -387,45 +556,74 @@ public final class AuctionHouseGui {
         return SLOT_OWN_LIST_ITEM;
     }
 
-    public static int ownBackSlot() {
-        return SLOT_OWN_BACK;
+    public static int ownNextSlot() {
+        return SLOT_OWN_NEXT;
     }
 
     public static int confirmCancelSlot() {
         return SLOT_CONFIRM_CANCEL;
     }
 
-    public static int confirmBuySlot() {
-        return SLOT_CONFIRM_BUY;
+    public static int confirmActionSlot() {
+        return SLOT_CONFIRM_ACTION;
     }
 
     private static List<Component> noItalic(List<Component> input) {
         List<Component> output = new ArrayList<>();
 
         for (Component component : input) {
-            output.add(component.decoration(TextDecoration.ITALIC, false));
+            output.add(
+                    component.decoration(
+                            TextDecoration.ITALIC,
+                            false
+                    )
+            );
         }
 
         return output;
     }
 
     private static Component legacy(String text) {
-        return LegacyComponentSerializer.legacySection()
-                .deserialize(TextColor.color(text == null ? "" : text))
+        return LegacyComponentSerializer
+                .legacySection()
+                .deserialize(
+                        TextColor.color(text == null ? "" : text)
+                )
                 .decoration(TextDecoration.ITALIC, false);
     }
 
     public static final class BrowseHolder implements InventoryHolder {
-        public final java.util.Map<Integer, UUID> slotListings = new java.util.HashMap<>();
-        public final int page;
-        public final AuctionHouseService.SortMode sortMode;
-        public final String query;
+
+        private final Map<Integer, UUID> slotListings = new HashMap<>();
+        private final int page;
+        private final AuctionHouseService.SortMode sortMode;
+        private final String query;
         private Inventory inventory;
 
-        public BrowseHolder(int page, AuctionHouseService.SortMode sortMode, String query) {
+        private BrowseHolder(
+                int page,
+                AuctionHouseService.SortMode sortMode,
+                String query
+        ) {
             this.page = page;
             this.sortMode = sortMode;
             this.query = query == null ? "" : query;
+        }
+
+        public UUID listingAt(int slot) {
+            return slotListings.get(slot);
+        }
+
+        public int page() {
+            return page;
+        }
+
+        public AuctionHouseService.SortMode sortMode() {
+            return sortMode;
+        }
+
+        public String query() {
+            return query;
         }
 
         @Override
@@ -435,8 +633,22 @@ public final class AuctionHouseGui {
     }
 
     public static final class OwnHolder implements InventoryHolder {
-        public final java.util.Map<Integer, UUID> slotListings = new java.util.HashMap<>();
+
+        private final Map<Integer, UUID> slotListings = new HashMap<>();
+        private final int page;
         private Inventory inventory;
+
+        private OwnHolder(int page) {
+            this.page = page;
+        }
+
+        public UUID listingAt(int slot) {
+            return slotListings.get(slot);
+        }
+
+        public int page() {
+            return page;
+        }
 
         @Override
         public Inventory getInventory() {
@@ -445,11 +657,69 @@ public final class AuctionHouseGui {
     }
 
     public static final class ConfirmBuyHolder implements InventoryHolder {
-        public final UUID listingId;
+
+        private final UUID listingId;
+        private final int returnPage;
+        private final AuctionHouseService.SortMode returnSort;
+        private final String returnQuery;
         private Inventory inventory;
 
-        public ConfirmBuyHolder(UUID listingId) {
+        private ConfirmBuyHolder(
+                UUID listingId,
+                int returnPage,
+                AuctionHouseService.SortMode returnSort,
+                String returnQuery
+        ) {
             this.listingId = listingId;
+            this.returnPage = returnPage;
+            this.returnSort = returnSort == null
+                    ? AuctionHouseService.SortMode.LOWEST_PRICE
+                    : returnSort;
+            this.returnQuery = returnQuery == null ? "" : returnQuery;
+        }
+
+        public UUID listingId() {
+            return listingId;
+        }
+
+        public int returnPage() {
+            return returnPage;
+        }
+
+        public AuctionHouseService.SortMode returnSort() {
+            return returnSort;
+        }
+
+        public String returnQuery() {
+            return returnQuery;
+        }
+
+        @Override
+        public Inventory getInventory() {
+            return inventory;
+        }
+    }
+
+    public static final class ConfirmCancelHolder implements InventoryHolder {
+
+        private final UUID listingId;
+        private final int returnPage;
+        private Inventory inventory;
+
+        private ConfirmCancelHolder(
+                UUID listingId,
+                int returnPage
+        ) {
+            this.listingId = listingId;
+            this.returnPage = returnPage;
+        }
+
+        public UUID listingId() {
+            return listingId;
+        }
+
+        public int returnPage() {
+            return returnPage;
         }
 
         @Override

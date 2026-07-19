@@ -1,6 +1,7 @@
 enabled: true
 
 listing:
+  # When true, every player with mineacleauctionhouse.use may list items
   allow-default: true
   default-slots: 3
   plus-slots: 12
@@ -8,6 +9,10 @@ listing:
   plus-permission: mineacle.plus
   min-price: 1.0
   max-price: 1000000000.0
+
+search:
+  prompt-timeout-seconds: 60
+  max-length: 48
 
 search-aliases:
   cobble: cobblestone

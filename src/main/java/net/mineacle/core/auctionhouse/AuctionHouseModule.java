@@ -1,15 +1,16 @@
 package net.mineacle.core.auctionhouse;
 
 import net.mineacle.core.Core;
-import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.auctionhouse.command.AuctionHouseCommand;
 import net.mineacle.core.auctionhouse.gui.AuctionHouseGuiListener;
 import net.mineacle.core.auctionhouse.service.AuctionHouseService;
+import net.mineacle.core.bootstrap.Module;
 import org.bukkit.command.PluginCommand;
 
 public final class AuctionHouseModule extends Module {
 
     private AuctionHouseService service;
+    private AuctionHouseGuiListener listener;
 
     @Override
     public String name() {
@@ -24,11 +25,17 @@ public final class AuctionHouseModule extends Module {
         AuctionHouseCommand command = new AuctionHouseCommand(core, service);
         register(core, "auction", command);
 
-        core.getServer().getPluginManager().registerEvents(new AuctionHouseGuiListener(core, service), core);
+        listener = new AuctionHouseGuiListener(core, service);
+        core.getServer().getPluginManager().registerEvents(listener, core);
     }
 
     @Override
     public void disable() {
+        if (listener != null) {
+            listener.shutdown();
+            listener = null;
+        }
+
         if (service != null) {
             service.save();
             service = null;
