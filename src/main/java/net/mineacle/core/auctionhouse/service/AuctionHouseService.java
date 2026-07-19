@@ -6,6 +6,7 @@ import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
 import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.model.AuctionHouseListing;
+import net.mineacle.core.common.format.MoneyFormatter;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
@@ -29,8 +30,6 @@ import java.math.RoundingMode;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -550,82 +549,11 @@ public final class AuctionHouseService {
     }
 
     public long parsePriceCents(String raw) {
-        if (raw == null) {
-            return -1L;
-        }
-
-        String cleaned = raw
-                .trim()
-                .toLowerCase(Locale.ROOT)
-                .replace(",", "")
-                .replace("$", "");
-
-        if (cleaned.isBlank()) {
-            return -1L;
-        }
-
-        BigDecimal multiplier = BigDecimal.ONE;
-
-        if (cleaned.endsWith("k")) {
-            multiplier = BigDecimal.valueOf(1_000L);
-            cleaned = cleaned.substring(0, cleaned.length() - 1);
-        } else if (cleaned.endsWith("m")) {
-            multiplier = BigDecimal.valueOf(1_000_000L);
-            cleaned = cleaned.substring(0, cleaned.length() - 1);
-        } else if (cleaned.endsWith("b")) {
-            multiplier = BigDecimal.valueOf(1_000_000_000L);
-            cleaned = cleaned.substring(0, cleaned.length() - 1);
-        }
-
-        try {
-            BigDecimal dollars = new BigDecimal(cleaned).multiply(multiplier);
-
-            if (dollars.signum() <= 0) {
-                return -1L;
-            }
-
-            return dollars
-                    .movePointRight(2)
-                    .setScale(0, RoundingMode.HALF_UP)
-                    .longValueExact();
-        } catch (NumberFormatException | ArithmeticException exception) {
-            return -1L;
-        }
+        return MoneyFormatter.parsePositiveCents(raw);
     }
 
     public String format(long cents) {
-        long abs = Math.abs(cents);
-        boolean negative = cents < 0L;
-        double dollars = abs / 100.0D;
-        String prefix = negative ? "-$" : "$";
-
-        if (dollars >= 1_000_000_000.0D) {
-            return prefix + trim(dollars / 1_000_000_000.0D) + "B";
-        }
-
-        if (dollars >= 1_000_000.0D) {
-            return prefix + trim(dollars / 1_000_000.0D) + "M";
-        }
-
-        if (dollars >= 1_000.0D) {
-            return prefix + trim(dollars / 1_000.0D) + "K";
-        }
-
-        long whole = abs / 100L;
-        long pennies = abs % 100L;
-        DecimalFormat wholeFormat = new DecimalFormat(
-                "#,##0",
-                DecimalFormatSymbols.getInstance(Locale.US)
-        );
-
-        if (pennies == 0L) {
-            return prefix + wholeFormat.format(whole);
-        }
-
-        return prefix
-                + wholeFormat.format(whole)
-                + "."
-                + String.format(Locale.US, "%02d", pennies);
+        return MoneyFormatter.moneyFromCents(cents);
     }
 
     public String itemName(ItemStack item) {
@@ -1075,8 +1003,4 @@ public final class AuctionHouseService {
                 .replace(" ", "");
     }
 
-    private String trim(double value) {
-        return String.format(Locale.US, "%.2f", value)
-                .replaceAll("\\.?0+$", "");
-    }
 }
