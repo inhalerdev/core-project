@@ -6,100 +6,26 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public final class MoneyFormatter {
 
-    private static final BigDecimal ONE_HUNDRED =
-            BigDecimal.valueOf(100L);
-    private static final BigDecimal THOUSAND =
-            BigDecimal.valueOf(1_000L);
+    private static final BigDecimal ONE_HUNDRED = BigDecimal.valueOf(100L);
+    private static final BigDecimal THOUSAND = BigDecimal.valueOf(1_000L);
 
     private static final String[] SUFFIXES = {
-            "",
-            "k",
-            "M",
-            "B",
-            "T",
-            "Q",
-            "Qi",
-            "Sx",
-            "Sp",
-            "Oc",
-            "No",
-            "Dc"
+            "", "k", "M", "B", "T", "Q", "Qi", "Sx", "Sp", "Oc", "No", "Dc"
     };
 
-    private static final Map<String, BigDecimal> INPUT_MULTIPLIERS =
-            Map.ofEntries(
-                    Map.entry("", BigDecimal.ONE),
-                    Map.entry("k", BigDecimal.valueOf(1_000L)),
-                    Map.entry("m", BigDecimal.valueOf(1_000_000L)),
-                    Map.entry(
-                            "b",
-                            BigDecimal.valueOf(1_000_000_000L)
-                    ),
-                    Map.entry(
-                            "t",
-                            BigDecimal.valueOf(1_000_000_000_000L)
-                    ),
-                    Map.entry(
-                            "q",
-                            BigDecimal.valueOf(
-                                    1_000_000_000_000_000L
-                            )
-                    ),
-                    Map.entry(
-                            "qi",
-                            new BigDecimal("1000000000000000000")
-                    ),
-                    Map.entry(
-                            "sx",
-                            new BigDecimal("1000000000000000000000")
-                    ),
-                    Map.entry(
-                            "sp",
-                            new BigDecimal("1000000000000000000000000")
-                    ),
-                    Map.entry(
-                            "oc",
-                            new BigDecimal(
-                                    "1000000000000000000000000000"
-                            )
-                    ),
-                    Map.entry(
-                            "no",
-                            new BigDecimal(
-                                    "1000000000000000000000000000000"
-                            )
-                    ),
-                    Map.entry(
-                            "dc",
-                            new BigDecimal(
-                                    "1000000000000000000000000000000000"
-                            )
-                    )
-            );
-
-    private static final Pattern INPUT_PATTERN = Pattern.compile(
-            "^([+-]?)\\$?"
-                    + "((?:\\d[\\d,_]*)(?:\\.\\d+)?|\\.\\d+)"
-                    + "([a-zA-Z]{0,2})$"
+    private static final Map<String, BigDecimal> INPUT_MULTIPLIERS = Map.of(
+            "k", BigDecimal.valueOf(1_000L),
+            "m", BigDecimal.valueOf(1_000_000L),
+            "b", BigDecimal.valueOf(1_000_000_000L),
+            "t", BigDecimal.valueOf(1_000_000_000_000L),
+            "q", BigDecimal.valueOf(1_000_000_000_000_000L)
     );
 
     private static final DecimalFormatSymbols SYMBOLS =
             DecimalFormatSymbols.getInstance(Locale.US);
-
-    private static final ThreadLocal<DecimalFormat> COMPACT_FORMAT =
-            ThreadLocal.withInitial(
-                    () -> decimalFormat("0.##")
-            );
-
-    private static final ThreadLocal<DecimalFormat> FULL_FORMAT =
-            ThreadLocal.withInitial(
-                    () -> decimalFormat("#,##0.##")
-            );
 
     private MoneyFormatter() {
     }
@@ -113,7 +39,7 @@ public final class MoneyFormatter {
     }
 
     public static String compact(BigDecimal value) {
-        if (value == null || value.signum() == 0) {
+        if (value == null) {
             return "0";
         }
 
@@ -123,18 +49,12 @@ public final class MoneyFormatter {
 
         while (number.compareTo(THOUSAND) >= 0
                 && suffixIndex < SUFFIXES.length - 1) {
-            number = number.divide(
-                    THOUSAND,
-                    12,
-                    RoundingMode.DOWN
-            );
+            number = number.divide(THOUSAND, 12, RoundingMode.DOWN);
             suffixIndex++;
         }
 
-        String formatted = formatCompact(number);
-
         return (negative ? "-" : "")
-                + formatted
+                + formatUpToTwoDecimals(number)
                 + SUFFIXES[suffixIndex];
     }
 
@@ -147,7 +67,7 @@ public final class MoneyFormatter {
     }
 
     public static String money(BigDecimal value) {
-        if (value == null || value.signum() == 0) {
+        if (value == null) {
             return "$0";
         }
 
@@ -165,7 +85,7 @@ public final class MoneyFormatter {
     }
 
     public static String moneyFull(BigDecimal value) {
-        if (value == null || value.signum() == 0) {
+        if (value == null) {
             return "$0";
         }
 
@@ -183,57 +103,54 @@ public final class MoneyFormatter {
     }
 
     public static String rawFromCents(long cents) {
-        return formatFull(centsToDollars(cents));
+        return formatUpToTwoDecimals(centsToDollars(cents));
     }
 
     /**
-     * Parses full or compact dollar input into integer cents.
+     * Parses a full or compact dollar amount into cents.
      *
      * Supported examples:
-     * 1550, 1,550, $1,550, 1.55k, 100k, 1M, 1.55B
+     * 1550, 1,550, $1550, 1.55k, 100k, 1M, 1.55B
      *
-     * @return cents, or -1 when the input is invalid or outside long range
+     * @return cents, or -1 when the value is invalid or exceeds long range
      */
     public static long parseCents(String raw) {
         if (raw == null) {
             return -1L;
         }
 
-        String input = raw.trim();
-
-        if (input.isEmpty() || containsWhitespace(input)) {
-            return -1L;
-        }
-
-        Matcher matcher = INPUT_PATTERN.matcher(input);
-
-        if (!matcher.matches()) {
-            return -1L;
-        }
-
-        String sign = matcher.group(1);
-        String numeric = matcher.group(2)
+        String input = raw
+                .trim()
                 .replace(",", "")
-                .replace("_", "");
-        String suffix = matcher.group(3)
-                .toLowerCase(Locale.ROOT);
+                .replace("_", "")
+                .replace("$", "")
+                .replace(" ", "");
 
-        BigDecimal multiplier = INPUT_MULTIPLIERS.get(suffix);
+        if (input.isBlank()) {
+            return -1L;
+        }
 
-        if (multiplier == null) {
+        BigDecimal multiplier = BigDecimal.ONE;
+        String lower = input.toLowerCase(Locale.ROOT);
+
+        for (Map.Entry<String, BigDecimal> entry : INPUT_MULTIPLIERS.entrySet()) {
+            if (!lower.endsWith(entry.getKey())) {
+                continue;
+            }
+
+            multiplier = entry.getValue();
+            input = input.substring(0, input.length() - entry.getKey().length());
+            break;
+        }
+
+        if (input.isBlank()) {
             return -1L;
         }
 
         try {
-            BigDecimal value = new BigDecimal(numeric)
+            return new BigDecimal(input)
                     .multiply(multiplier)
-                    .multiply(ONE_HUNDRED);
-
-            if ("-".equals(sign)) {
-                value = value.negate();
-            }
-
-            return value
+                    .multiply(ONE_HUNDRED)
                     .setScale(0, RoundingMode.HALF_UP)
                     .longValueExact();
         } catch (NumberFormatException | ArithmeticException exception) {
@@ -246,42 +163,20 @@ public final class MoneyFormatter {
         return cents > 0L ? cents : -1L;
     }
 
-    public static long parseNonNegativeCents(String raw) {
-        long cents = parseCents(raw);
-        return cents >= 0L ? cents : -1L;
-    }
-
     private static BigDecimal centsToDollars(long cents) {
         return BigDecimal.valueOf(cents)
-                .divide(ONE_HUNDRED, 2, RoundingMode.UNNECESSARY);
+                .divide(ONE_HUNDRED, 2, RoundingMode.DOWN);
     }
 
-    private static String formatCompact(BigDecimal value) {
-        return COMPACT_FORMAT.get().format(
-                value.setScale(2, RoundingMode.DOWN)
-        );
+    private static String formatUpToTwoDecimals(BigDecimal value) {
+        DecimalFormat format = new DecimalFormat("#,##0.##", SYMBOLS);
+        format.setRoundingMode(RoundingMode.DOWN);
+        return format.format(value.setScale(2, RoundingMode.DOWN));
     }
 
     private static String formatFull(BigDecimal value) {
-        return FULL_FORMAT.get().format(
-                value.setScale(2, RoundingMode.DOWN)
-        );
-    }
-
-    private static DecimalFormat decimalFormat(String pattern) {
-        DecimalFormat format = new DecimalFormat(pattern, SYMBOLS);
+        DecimalFormat format = new DecimalFormat("#,##0.##", SYMBOLS);
         format.setRoundingMode(RoundingMode.DOWN);
-        format.setParseBigDecimal(true);
-        return format;
-    }
-
-    private static boolean containsWhitespace(String input) {
-        for (int index = 0; index < input.length(); index++) {
-            if (Character.isWhitespace(input.charAt(index))) {
-                return true;
-            }
-        }
-
-        return false;
+        return format.format(value.setScale(2, RoundingMode.DOWN));
     }
 }

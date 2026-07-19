@@ -118,14 +118,7 @@ public final class AuctionHouseGui {
 
         inventory.setItem(
                 SLOT_FILTER,
-                item(
-                        Material.HOPPER,
-                        "&dFilter",
-                        "&#bbbbbbCurrent: &#ff88ff"
-                                + effectiveSort.label(),
-                        "",
-                        "&#bbbbbbClick to change the filter"
-                )
+                sortItem(effectiveSort)
         );
 
         inventory.setItem(
@@ -140,7 +133,7 @@ public final class AuctionHouseGui {
         inventory.setItem(
                 SLOT_REFRESH,
                 item(
-                        Material.EMERALD,
+                        Material.PAPER,
                         "&dRefresh",
                         "&#bbbbbbClick to refresh auctions"
                 )
@@ -164,7 +157,8 @@ public final class AuctionHouseGui {
                             "&#bbbbbbCurrent: &#ff88ff"
                                     + effectiveQuery,
                             "",
-                            "&#bbbbbbClick to search again"
+                            "&#bbbbbbLeft-click to search again",
+                            "&#bbbbbbRight-click to clear search"
                     )
             );
         }
@@ -309,7 +303,7 @@ public final class AuctionHouseGui {
         inventory.setItem(
                 SLOT_OWN_REFRESH,
                 item(
-                        Material.EMERALD,
+                        Material.PAPER,
                         "&dRefresh",
                         "&#bbbbbbClick to refresh your listings"
                 )
@@ -476,6 +470,36 @@ public final class AuctionHouseGui {
         return item;
     }
 
+    private static ItemStack sortItem(
+            AuctionHouseService.SortMode current
+    ) {
+        List<String> lore = new ArrayList<>();
+        lore.add(
+                "&#bbbbbbCurrent: &#ff88ff"
+                        + current.label()
+        );
+        lore.add("");
+
+        for (AuctionHouseService.SortMode mode
+                : AuctionHouseService.SortMode.values()) {
+            lore.add(
+                    (mode == current
+                            ? "&#ff88ff"
+                            : "&#bbbbbb")
+                            + mode.label()
+            );
+        }
+
+        lore.add("");
+        lore.add("&#bbbbbbClick to change sort");
+
+        return item(
+                Material.ANVIL,
+                "&dSort",
+                lore.toArray(String[]::new)
+        );
+    }
+
     public static ItemStack item(
             Material material,
             String name,
@@ -512,8 +536,15 @@ public final class AuctionHouseGui {
         return SLOT_PREVIOUS;
     }
 
-    public static int filterSlot() {
+    public static int sortSlot() {
         return SLOT_FILTER;
+    }
+
+    /**
+     * Compatibility alias for callers compiled against the former name.
+     */
+    public static int filterSlot() {
+        return sortSlot();
     }
 
     public static int worthSlot() {

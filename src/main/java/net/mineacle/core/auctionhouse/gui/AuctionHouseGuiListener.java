@@ -156,6 +156,7 @@ public final class AuctionHouseGuiListener implements Listener {
                                 "&#bbbbbbAuction search cleared"
                         )
                 );
+                SoundService.guiCancel(player, core);
                 AuctionHouseGui.openBrowse(
                         player,
                         service,
@@ -225,6 +226,7 @@ public final class AuctionHouseGuiListener implements Listener {
                 return;
             }
 
+            SoundService.guiClick(player, core);
             AuctionHouseGui.openConfirmBuy(
                     player,
                     service,
@@ -238,6 +240,7 @@ public final class AuctionHouseGuiListener implements Listener {
 
         if (slot == AuctionHouseGui.previousSlot()
                 && holder.page() > 0) {
+            SoundService.guiClick(player, core);
             AuctionHouseGui.openBrowse(
                     player,
                     service,
@@ -248,7 +251,8 @@ public final class AuctionHouseGuiListener implements Listener {
             return;
         }
 
-        if (slot == AuctionHouseGui.filterSlot()) {
+        if (slot == AuctionHouseGui.sortSlot()) {
+            SoundService.guiClick(player, core);
             AuctionHouseGui.openBrowse(
                     player,
                     service,
@@ -260,27 +264,50 @@ public final class AuctionHouseGuiListener implements Listener {
         }
 
         if (slot == AuctionHouseGui.worthSlot()) {
+            SoundService.guiClick(player, core);
             player.closeInventory();
             player.performCommand("worth");
             return;
         }
 
         if (slot == AuctionHouseGui.refreshSlot()) {
+            SoundService.guiClick(player, core);
             reopenBrowse(player, holder);
             return;
         }
 
         if (slot == AuctionHouseGui.searchSlot()) {
+            if (event.isRightClick()
+                    && !holder.query().isBlank()) {
+                player.sendMessage(
+                        TextColor.color(
+                                "&#bbbbbbAuction search cleared"
+                        )
+                );
+                SoundService.guiCancel(player, core);
+                AuctionHouseGui.openBrowse(
+                        player,
+                        service,
+                        0,
+                        holder.sortMode(),
+                        ""
+                );
+                return;
+            }
+
+            SoundService.guiClick(player, core);
             beginSearch(player, holder);
             return;
         }
 
         if (slot == AuctionHouseGui.ownItemsSlot()) {
+            SoundService.guiClick(player, core);
             AuctionHouseGui.openOwn(player, service);
             return;
         }
 
         if (slot == AuctionHouseGui.nextSlot()) {
+            SoundService.guiClick(player, core);
             AuctionHouseGui.openBrowse(
                     player,
                     service,
@@ -317,6 +344,7 @@ public final class AuctionHouseGuiListener implements Listener {
                 return;
             }
 
+            SoundService.guiClick(player, core);
             AuctionHouseGui.openConfirmCancel(
                     player,
                     service,
@@ -328,6 +356,7 @@ public final class AuctionHouseGuiListener implements Listener {
 
         if (slot == AuctionHouseGui.ownPreviousSlot()
                 && holder.page() > 0) {
+            SoundService.guiClick(player, core);
             AuctionHouseGui.openOwn(
                     player,
                     service,
@@ -337,6 +366,7 @@ public final class AuctionHouseGuiListener implements Listener {
         }
 
         if (slot == AuctionHouseGui.ownBackSlot()) {
+            SoundService.guiClick(player, core);
             AuctionHouseGui.openBrowse(
                     player,
                     service,
@@ -348,12 +378,14 @@ public final class AuctionHouseGuiListener implements Listener {
         }
 
         if (slot == AuctionHouseGui.ownWorthSlot()) {
+            SoundService.guiClick(player, core);
             player.closeInventory();
             player.performCommand("worth");
             return;
         }
 
         if (slot == AuctionHouseGui.ownRefreshSlot()) {
+            SoundService.guiClick(player, core);
             AuctionHouseGui.openOwn(
                     player,
                     service,
@@ -363,6 +395,7 @@ public final class AuctionHouseGuiListener implements Listener {
         }
 
         if (slot == AuctionHouseGui.ownListItemSlot()) {
+            SoundService.guiClick(player, core);
             player.closeInventory();
             player.sendMessage(
                     TextColor.color(
@@ -374,6 +407,7 @@ public final class AuctionHouseGuiListener implements Listener {
         }
 
         if (slot == AuctionHouseGui.ownNextSlot()) {
+            SoundService.guiClick(player, core);
             AuctionHouseGui.openOwn(
                     player,
                     service,

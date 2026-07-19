@@ -2,7 +2,9 @@ package net.mineacle.core.enchant;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.command.TabCompleter;
 
 public final class EnchantModule extends Module {
 
@@ -13,31 +15,44 @@ public final class EnchantModule extends Module {
 
     @Override
     public void enable(Core core) {
-        EnchantCommand enchantCommand = new EnchantCommand(core);
-        EnchantInfoCommand enchantInfoCommand = new EnchantInfoCommand(core);
+        EnchantCommand enchantCommand =
+                new EnchantCommand(core);
+        EnchantInfoCommand enchantInfoCommand =
+                new EnchantInfoCommand(core);
 
-        PluginCommand enchant = core.getCommand("enchant");
+        register(core, "enchant", enchantCommand);
+        register(core, "enchantinfo", enchantInfoCommand);
 
-        if (enchant != null) {
-            enchant.setExecutor(enchantCommand);
-            enchant.setTabCompleter(enchantCommand);
-        } else {
-            core.getLogger().warning("Missing command in plugin.yml: enchant");
-        }
-
-        PluginCommand enchantInfo = core.getCommand("enchantinfo");
-
-        if (enchantInfo != null) {
-            enchantInfo.setExecutor(enchantInfoCommand);
-            enchantInfo.setTabCompleter(enchantInfoCommand);
-        } else {
-            core.getLogger().warning("Missing command in plugin.yml: enchantinfo");
-        }
-
-        core.getServer().getPluginManager().registerEvents(new EnchantCommandListener(enchantCommand, enchantInfoCommand), core);
+        core.getServer().getPluginManager().registerEvents(
+                new EnchantCommandListener(
+                        enchantCommand,
+                        enchantInfoCommand
+                ),
+                core
+        );
     }
 
     @Override
     public void disable() {
+    }
+
+    private void register(
+            Core core,
+            String commandName,
+            CommandExecutor executor
+    ) {
+        PluginCommand command = core.getCommand(commandName);
+
+        if (command == null) {
+            throw new IllegalStateException(
+                    "Missing command in plugin.yml: " + commandName
+            );
+        }
+
+        command.setExecutor(executor);
+
+        if (executor instanceof TabCompleter completer) {
+            command.setTabCompleter(completer);
+        }
     }
 }

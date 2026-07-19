@@ -213,7 +213,7 @@ public final class AuctionHouseCommand implements CommandExecutor, TabCompleter 
                 && service.canList(player)) {
             return PlayerTabComplete.options(
                     args[1],
-                    List.of("100", "1k", "1.5k", "10k", "100k", "1M")
+                    List.of("100", "1k", "10k", "100k")
             );
         }
 
