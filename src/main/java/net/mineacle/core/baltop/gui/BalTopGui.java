@@ -9,110 +9,143 @@ import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
-import org.bukkit.metadata.FixedMetadataValue;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class BalTopGui {
 
-    public static final String META_PAGE = "mineacle_baltop_page";
-    public static final String TITLE_PREFIX = "Balance Top (Page ";
+    public static final int SIZE = 54;
+    public static final int ENTRIES_PER_PAGE = 45;
 
-    private static final int SIZE = 54;
-    private static final int ENTRIES_PER_PAGE = 45;
     private static final int SLOT_PREVIOUS = 45;
     private static final int SLOT_PLAYER_HEAD = 48;
     private static final int SLOT_REFRESH = 49;
     private static final int SLOT_SEARCH = 50;
     private static final int SLOT_NEXT = 53;
+    private static final int SLOT_EMPTY = 22;
 
-    private static final Map<UUID, String> SEARCHES = new HashMap<>();
+    private static final Map<UUID, SearchState> SEARCHES = new ConcurrentHashMap<>();
 
     private BalTopGui() {
     }
 
-    public static void open(Core core, Player player, EconomyService economyService, int page) {
-        List<Map.Entry<UUID, Long>> entries = filteredEntries(player, economyService);
-        int totalPages = Math.max(1, (int) Math.ceil(entries.size() / (double) ENTRIES_PER_PAGE));
-        int safePage = Math.max(0, Math.min(page, totalPages - 1));
+    public static void open(
+            Core core,
+            Player player,
+            EconomyService economyService,
+            int requestedPage
+    ) {
+        List<Map.Entry<UUID, Long>> leaderboard = snapshot(economyService);
+        Map<UUID, Integer> placements = placements(leaderboard);
+        SearchState search = SEARCHES.get(player.getUniqueId());
+        List<Map.Entry<UUID, Long>> visibleEntries = filter(leaderboard, search);
 
-        Inventory inventory = Bukkit.createInventory(
-                null,
-                SIZE,
-                "Balance Top (Page " + (safePage + 1) + ")"
+        int totalPages = Math.max(
+                1,
+                (int) Math.ceil(visibleEntries.size() / (double) ENTRIES_PER_PAGE)
         );
+        int page = Math.max(0, Math.min(requestedPage, totalPages - 1));
 
-        player.setMetadata(META_PAGE, new FixedMetadataValue(core, safePage));
+        BalTopHolder holder = new BalTopHolder(page);
+        Inventory inventory = Bukkit.createInventory(
+                holder,
+                SIZE,
+                "Balance Top (Page " + (page + 1) + ")"
+        );
+        holder.inventory = inventory;
 
-        int start = safePage * ENTRIES_PER_PAGE;
-        int end = Math.min(entries.size(), start + ENTRIES_PER_PAGE);
+        int start = page * ENTRIES_PER_PAGE;
+        int end = Math.min(visibleEntries.size(), start + ENTRIES_PER_PAGE);
 
         for (int index = start; index < end; index++) {
-            Map.Entry<UUID, Long> entry = entries.get(index);
+            Map.Entry<UUID, Long> entry = visibleEntries.get(index);
+            UUID targetId = entry.getKey();
+            OfflinePlayer target = Bukkit.getOfflinePlayer(targetId);
             int slot = index - start;
-            int placement = placementForEntry(economyService, entry.getKey());
-            OfflinePlayer target = Bukkit.getOfflinePlayer(entry.getKey());
-            String name = DisplayNames.prefixedDisplayName(target);
-            String balance = economyService.format(entry.getValue());
+            int placement = placements.getOrDefault(targetId, 0);
 
-            inventory.setItem(slot, playerEntry(target, name, balance, placement));
+            inventory.setItem(
+                    slot,
+                    playerEntry(
+                            target,
+                            economyService.format(entry.getValue()),
+                            placement
+                    )
+            );
+            holder.slotTargets.put(slot, targetId);
         }
 
-        if (safePage > 0) {
-            inventory.setItem(SLOT_PREVIOUS, item(
-                    Material.ARROW,
-                    "&dPrevious Page",
-                    List.of("&#bbbbbbClick to go to the previous page")
-            ));
+        if (visibleEntries.isEmpty()) {
+            inventory.setItem(SLOT_EMPTY, emptyItem(search != null));
         }
 
-        inventory.setItem(SLOT_PLAYER_HEAD, selfHead(player, economyService));
+        if (page > 0) {
+            inventory.setItem(
+                    SLOT_PREVIOUS,
+                    toolbar(
+                            Material.ARROW,
+                            "&dPrevious Page",
+                            List.of("&#bbbbbbPage &#ff88ff" + page)
+                    )
+            );
+        }
 
-        inventory.setItem(SLOT_REFRESH, item(
-                Material.EMERALD,
-                "&dRefresh",
-                List.of("&#bbbbbbClick to refresh Balance Top")
-        ));
+        inventory.setItem(
+                SLOT_PLAYER_HEAD,
+                selfHead(
+                        player,
+                        economyService,
+                        placements.getOrDefault(player.getUniqueId(), 0)
+                )
+        );
 
-        inventory.setItem(SLOT_SEARCH, searchItem(player));
+        inventory.setItem(
+                SLOT_REFRESH,
+                toolbar(
+                        Material.EMERALD,
+                        "&dRefresh",
+                        List.of("&#bbbbbbClick to refresh Balance Top")
+                )
+        );
 
-        if (safePage < totalPages - 1) {
-            inventory.setItem(SLOT_NEXT, item(
-                    Material.ARROW,
-                    "&dNext Page",
-                    List.of("&#bbbbbbClick to go to the next page")
-            ));
+        inventory.setItem(SLOT_SEARCH, searchItem(search));
+
+        if (page < totalPages - 1) {
+            inventory.setItem(
+                    SLOT_NEXT,
+                    toolbar(
+                            Material.ARROW,
+                            "&dNext Page",
+                            List.of("&#bbbbbbPage &#ff88ff" + (page + 2))
+                    )
+            );
         }
 
         player.openInventory(inventory);
     }
 
-    public static boolean isTitle(String strippedTitle) {
-        return strippedTitle != null && strippedTitle.startsWith(TITLE_PREFIX);
+    public static boolean isBalTopInventory(Inventory inventory) {
+        return inventory != null && inventory.getHolder() instanceof BalTopHolder;
     }
 
-    public static int currentPage(Player player) {
-        if (!player.hasMetadata(META_PAGE)) {
-            return 0;
+    public static BalTopHolder holder(Inventory inventory) {
+        if (inventory == null || !(inventory.getHolder() instanceof BalTopHolder holder)) {
+            return null;
         }
 
-        return player.getMetadata(META_PAGE).get(0).asInt();
-    }
-
-    public static int entriesPerPage() {
-        return ENTRIES_PER_PAGE;
-    }
-
-    public static boolean isEntrySlot(int slot) {
-        return slot >= 0 && slot < ENTRIES_PER_PAGE;
+        return holder;
     }
 
     public static int previousSlot() {
@@ -135,45 +168,84 @@ public final class BalTopGui {
         return SLOT_NEXT;
     }
 
-    public static void setSearch(Player player, String query) {
-        if (query == null || query.isBlank()) {
+    public static void setSearch(Player player, String query, String displayLabel) {
+        if (player == null || query == null || query.isBlank()) {
             clearSearch(player);
             return;
         }
 
-        SEARCHES.put(player.getUniqueId(), query.trim());
+        String label = displayLabel == null || displayLabel.isBlank()
+                ? query.trim()
+                : displayLabel.trim();
+
+        SEARCHES.put(
+                player.getUniqueId(),
+                new SearchState(query.trim(), label)
+        );
     }
 
     public static void clearSearch(Player player) {
-        SEARCHES.remove(player.getUniqueId());
-    }
-
-    public static String search(Player player) {
-        return SEARCHES.get(player.getUniqueId());
+        if (player != null) {
+            SEARCHES.remove(player.getUniqueId());
+        }
     }
 
     public static boolean hasSearch(Player player) {
-        String query = search(player);
-        return query != null && !query.isBlank();
+        return player != null && SEARCHES.containsKey(player.getUniqueId());
     }
 
-    public static List<Map.Entry<UUID, Long>> filteredEntries(Player player, EconomyService economyService) {
-        List<Map.Entry<UUID, Long>> entries = economyService.topBalances(Integer.MAX_VALUE);
-        String query = search(player);
+    public static void clearAllState() {
+        SEARCHES.clear();
+    }
 
-        if (query == null || query.isBlank()) {
-            return entries;
+    public static boolean hasMatches(Player player, EconomyService economyService) {
+        SearchState search = SEARCHES.get(player.getUniqueId());
+
+        if (search == null) {
+            return !economyService.topBalances(1).isEmpty();
         }
 
-        String lowerQuery = query.toLowerCase();
+        return !filter(snapshot(economyService), search).isEmpty();
+    }
+
+    private static List<Map.Entry<UUID, Long>> snapshot(EconomyService economyService) {
+        List<Map.Entry<UUID, Long>> snapshot = new ArrayList<>();
+
+        for (Map.Entry<UUID, Long> entry : economyService.topBalances(Integer.MAX_VALUE)) {
+            snapshot.add(Map.entry(entry.getKey(), entry.getValue()));
+        }
+
+        return List.copyOf(snapshot);
+    }
+
+    private static Map<UUID, Integer> placements(List<Map.Entry<UUID, Long>> leaderboard) {
+        Map<UUID, Integer> placements = new HashMap<>();
+
+        for (int index = 0; index < leaderboard.size(); index++) {
+            placements.put(leaderboard.get(index).getKey(), index + 1);
+        }
+
+        return placements;
+    }
+
+    private static List<Map.Entry<UUID, Long>> filter(
+            List<Map.Entry<UUID, Long>> leaderboard,
+            SearchState search
+    ) {
+        if (search == null || search.query().isBlank()) {
+            return leaderboard;
+        }
+
+        String query = search.query().toLowerCase(Locale.ROOT);
         List<Map.Entry<UUID, Long>> filtered = new ArrayList<>();
 
-        for (Map.Entry<UUID, Long> entry : entries) {
+        for (Map.Entry<UUID, Long> entry : leaderboard) {
             OfflinePlayer target = Bukkit.getOfflinePlayer(entry.getKey());
             String username = target.getName() == null ? "" : target.getName();
             String displayName = DisplayNames.displayName(target);
 
-            if (username.toLowerCase().contains(lowerQuery) || displayName.toLowerCase().contains(lowerQuery)) {
+            if (username.toLowerCase(Locale.ROOT).contains(query)
+                    || displayName.toLowerCase(Locale.ROOT).contains(query)) {
                 filtered.add(entry);
             }
         }
@@ -181,19 +253,11 @@ public final class BalTopGui {
         return filtered;
     }
 
-    private static int placementForEntry(EconomyService economyService, UUID targetId) {
-        List<Map.Entry<UUID, Long>> allEntries = economyService.topBalances(Integer.MAX_VALUE);
-
-        for (int index = 0; index < allEntries.size(); index++) {
-            if (allEntries.get(index).getKey().equals(targetId)) {
-                return index + 1;
-            }
-        }
-
-        return 0;
-    }
-
-    private static ItemStack playerEntry(OfflinePlayer owner, String name, String balance, int placement) {
+    private static ItemStack playerEntry(
+            OfflinePlayer target,
+            String balance,
+            int placement
+    ) {
         ItemStack item = new ItemStack(Material.PLAYER_HEAD);
         ItemMeta rawMeta = item.getItemMeta();
 
@@ -201,10 +265,12 @@ public final class BalTopGui {
             return item;
         }
 
-        meta.setOwningPlayer(owner);
-        meta.setDisplayName(color(name));
+        meta.setOwningPlayer(target);
+        meta.setDisplayName(color("&#bbbbbb" + DisplayNames.displayName(target)));
         meta.setLore(List.of(
-                color("&#bbbbbbBalance: &a" + balance + " &#ff88ff(#" + placement + ")"),
+                color("&#bbbbbbBalance: &a" + balance),
+                color("&#bbbbbbRank: &#ff88ff#" + placement),
+                "",
                 color("&#bbbbbbClick to view stats")
         ));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
@@ -212,11 +278,11 @@ public final class BalTopGui {
         return item;
     }
 
-    private static ItemStack selfHead(Player player, EconomyService economyService) {
-        long balanceCents = economyService.getBalanceCents(player.getUniqueId());
-        String balance = economyService.format(balanceCents);
-        int placement = placementForEntry(economyService, player.getUniqueId());
-
+    private static ItemStack selfHead(
+            Player player,
+            EconomyService economyService,
+            int placement
+    ) {
         ItemStack item = new ItemStack(Material.PLAYER_HEAD);
         ItemMeta rawMeta = item.getItemMeta();
 
@@ -225,40 +291,65 @@ public final class BalTopGui {
         }
 
         meta.setOwningPlayer(player);
-        meta.setDisplayName(color(DisplayNames.prefixedDisplayName(player)));
+        meta.setDisplayName(color("&#bbbbbb" + DisplayNames.displayName(player)));
         meta.setLore(List.of(
-                color("&#bbbbbbBalance: &a" + balance + " &#ff88ff(#" + placement + ")"),
-                color("&#bbbbbbClick to view stats")
+                color("&#bbbbbbBalance: &a"
+                        + economyService.format(
+                                economyService.getBalanceCents(player.getUniqueId())
+                        )),
+                color(
+                        placement <= 0
+                                ? "&#bbbbbbRank: &#ff88ffUnranked"
+                                : "&#bbbbbbRank: &#ff88ff#" + placement
+                ),
+                "",
+                color("&#bbbbbbClick to view your stats")
         ));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
     }
 
-    private static ItemStack searchItem(Player player) {
-        if (hasSearch(player)) {
-            return item(
-                    Material.OAK_SIGN,
-                    "&dSearch",
+    private static ItemStack searchItem(SearchState search) {
+        List<String> lore = new ArrayList<>();
+
+        if (search != null) {
+            lore.add("&#bbbbbbCurrent: &#ff88ff" + search.displayLabel());
+            lore.add("");
+            lore.add("&#bbbbbbLeft-click to search again");
+            lore.add("&#bbbbbbRight-click to clear search");
+        } else {
+            lore.add("&#bbbbbbClick to search Balance Top");
+            lore.add("&#bbbbbbType a player name in chat");
+        }
+
+        return toolbar(Material.OAK_SIGN, "&dSearch", lore);
+    }
+
+    private static ItemStack emptyItem(boolean searching) {
+        if (searching) {
+            return toolbar(
+                    Material.BARRIER,
+                    "&cNo Results",
                     List.of(
-                            "&#bbbbbbCurrent search: &#ff88ff" + search(player),
-                            "&#bbbbbbLeft-click to search again",
-                            "&#bbbbbbRight-click to clear search"
+                            "&#bbbbbbNo matching Balance Top players",
+                            "&#bbbbbbUse the Search button to try again"
                     )
             );
         }
 
-        return item(
-                Material.OAK_SIGN,
-                "&dSearch",
-                List.of(
-                        "&#bbbbbbClick to search Balance Top",
-                        "&#bbbbbbType a player name in chat"
-                )
+        return toolbar(
+                Material.BARRIER,
+                "&cNo Balances",
+                List.of("&#bbbbbbNo balances have been recorded yet")
         );
     }
 
-    private static ItemStack item(Material material, String name, List<String> lore) {
+    private static ItemStack toolbar(
+            Material material,
+            String name,
+            List<String> lore
+    ) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
 
@@ -267,14 +358,7 @@ public final class BalTopGui {
         }
 
         meta.setDisplayName(color(name));
-
-        List<String> coloredLore = new ArrayList<>();
-
-        for (String line : lore) {
-            coloredLore.add(color(line));
-        }
-
-        meta.setLore(coloredLore);
+        meta.setLore(lore.stream().map(BalTopGui::color).toList());
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
@@ -282,5 +366,32 @@ public final class BalTopGui {
 
     private static String color(String input) {
         return TextColor.color(input);
+    }
+
+    private record SearchState(String query, String displayLabel) {
+    }
+
+    public static final class BalTopHolder implements InventoryHolder {
+
+        private final Map<Integer, UUID> slotTargets = new LinkedHashMap<>();
+        private final int page;
+        private Inventory inventory;
+
+        private BalTopHolder(int page) {
+            this.page = page;
+        }
+
+        public int page() {
+            return page;
+        }
+
+        public UUID targetAt(int slot) {
+            return slotTargets.get(slot);
+        }
+
+        @Override
+        public Inventory getInventory() {
+            return inventory;
+        }
     }
 }

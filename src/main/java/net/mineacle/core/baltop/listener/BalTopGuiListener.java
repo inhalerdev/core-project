@@ -1,40 +1,42 @@
 package net.mineacle.core.baltop.listener;
 
+import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.baltop.gui.BalTopGui;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.DisplayNames;
-import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.stats.PlayerStatisticsGui;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.ClickType;
-import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.scheduler.BukkitTask;
 
-import java.util.HashSet;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 public final class BalTopGuiListener implements Listener {
 
+    private static final long SEARCH_TIMEOUT_TICKS = 20L * 30L;
+    private static final int MAX_SEARCH_LENGTH = 32;
+
     private final Core core;
     private final EconomyService economyService;
     private final PlayerStatisticsGui playerStatisticsGui;
-    private final Set<UUID> waitingForSearch = new HashSet<>();
+    private final Map<UUID, SearchPrompt> searchPrompts = new HashMap<>();
+    private final Map<UUID, BukkitTask> searchTimeouts = new HashMap<>();
 
     public BalTopGuiListener(Core core, EconomyService economyService) {
         this.core = core;
@@ -44,9 +46,11 @@ public final class BalTopGuiListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onInventoryClick(InventoryClickEvent event) {
-        String title = ChatColor.stripColor(event.getView().getTitle());
+        BalTopGui.BalTopHolder holder = BalTopGui.holder(
+                event.getView().getTopInventory()
+        );
 
-        if (!BalTopGui.isTitle(title)) {
+        if (holder == null) {
             return;
         }
 
@@ -57,12 +61,6 @@ public final class BalTopGuiListener implements Listener {
             return;
         }
 
-        if (event.getClick() == ClickType.DOUBLE_CLICK
-                || event.getAction() == InventoryAction.COLLECT_TO_CURSOR
-                || event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY) {
-            return;
-        }
-
         int rawSlot = event.getRawSlot();
         int topSize = event.getView().getTopInventory().getSize();
 
@@ -70,61 +68,48 @@ public final class BalTopGuiListener implements Listener {
             return;
         }
 
-        int page = BalTopGui.currentPage(player);
-
         if (rawSlot == BalTopGui.previousSlot()) {
-            SoundService.guiClick(player, core);
-            MenuHistory.openWithoutBackTrigger(core, player, () -> BalTopGui.open(core, player, economyService, page - 1));
+            reopen(player, holder.page() - 1);
             return;
         }
 
         if (rawSlot == BalTopGui.playerHeadSlot()) {
-            SoundService.guiClick(player, core);
-            openStatsFromBalTop(player, page, player.getUniqueId());
+            openStatsFromBalTop(player, holder.page(), player.getUniqueId());
             return;
         }
 
         if (rawSlot == BalTopGui.refreshSlot()) {
-            SoundService.guiClick(player, core);
-            MenuHistory.openWithoutBackTrigger(core, player, () -> BalTopGui.open(core, player, economyService, page));
+            reopen(player, holder.page());
             return;
         }
 
         if (rawSlot == BalTopGui.searchSlot()) {
-            SoundService.guiClick(player, core);
-            beginSearch(player);
+            if (event.isRightClick() && BalTopGui.hasSearch(player)) {
+                BalTopGui.clearSearch(player);
+                sendActionBar(player, "&#bbbbbbBalance Top search cleared");
+                reopen(player, 0);
+                return;
+            }
+
+            beginSearch(player, holder.page());
             return;
         }
 
         if (rawSlot == BalTopGui.nextSlot()) {
-            SoundService.guiClick(player, core);
-            MenuHistory.openWithoutBackTrigger(core, player, () -> BalTopGui.open(core, player, economyService, page + 1));
+            reopen(player, holder.page() + 1);
             return;
         }
 
-        if (!BalTopGui.isEntrySlot(rawSlot)) {
-            return;
+        UUID targetId = holder.targetAt(rawSlot);
+
+        if (targetId != null) {
+            openStatsFromBalTop(player, holder.page(), targetId);
         }
-
-        if (event.getCurrentItem() == null || event.getCurrentItem().getType().isAir()) {
-            return;
-        }
-
-        UUID targetId = targetIdAtSlot(player, page, rawSlot);
-
-        if (targetId == null) {
-            return;
-        }
-
-        SoundService.guiClick(player, core);
-        openStatsFromBalTop(player, page, targetId);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onInventoryDrag(InventoryDragEvent event) {
-        String title = ChatColor.stripColor(event.getView().getTitle());
-
-        if (!BalTopGui.isTitle(title)) {
+        if (!BalTopGui.isBalTopInventory(event.getView().getTopInventory())) {
             return;
         }
 
@@ -133,54 +118,114 @@ public final class BalTopGuiListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
-    public void onSearchChat(AsyncPlayerChatEvent event) {
+    public void onSearchChat(AsyncChatEvent event) {
         Player player = event.getPlayer();
+        SearchPrompt prompt = searchPrompts.remove(player.getUniqueId());
 
-        if (!waitingForSearch.remove(player.getUniqueId())) {
+        if (prompt == null) {
             return;
         }
 
         event.setCancelled(true);
-        String message = event.getMessage();
+        cancelSearchTimeout(player.getUniqueId());
+
+        String input = PlainTextComponentSerializer.plainText()
+                .serialize(event.message());
+        String query = sanitize(input);
 
         core.getServer().getScheduler().runTask(core, () -> {
             if (!player.isOnline()) {
                 return;
             }
 
-            if (message.equalsIgnoreCase("cancel") || message.equalsIgnoreCase("cancelled")) {
+            if (query.equalsIgnoreCase("cancel")
+                    || query.equalsIgnoreCase("cancelled")) {
                 sendActionBar(player, "&#bbbbbbBalance Top search cancelled");
-                MenuHistory.openWithoutBackTrigger(core, player, () -> BalTopGui.open(core, player, economyService, BalTopGui.currentPage(player)));
+                reopen(player, prompt.page());
                 return;
             }
 
-            if (message.equalsIgnoreCase("clear")) {
+            if (query.equalsIgnoreCase("clear")) {
                 BalTopGui.clearSearch(player);
                 sendActionBar(player, "&#bbbbbbBalance Top search cleared");
-                MenuHistory.openWithoutBackTrigger(core, player, () -> BalTopGui.open(core, player, economyService, 0));
+                reopen(player, 0);
                 return;
             }
 
-            UUID targetId = findPlayer(message);
+            if (query.isBlank()) {
+                sendActionBar(player, "&cSearch cannot be empty");
+                reopen(player, prompt.page());
+                return;
+            }
 
-            if (targetId == null) {
+            String displayLabel = displaySearchLabel(query);
+            BalTopGui.setSearch(player, query, displayLabel);
+
+            if (!BalTopGui.hasMatches(player, economyService)) {
                 sendActionBar(player, "&cNo Balance Top player found");
-                MenuHistory.openWithoutBackTrigger(core, player, () -> BalTopGui.open(core, player, economyService, 0));
-                return;
             }
 
-            BalTopGui.setSearch(player, message);
-            openStatsFromBalTop(player, 0, targetId);
+            reopen(player, 0);
         });
     }
 
-    private void beginSearch(Player player) {
-        waitingForSearch.add(player.getUniqueId());
-        player.closeInventory();
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        UUID playerId = event.getPlayer().getUniqueId();
+        searchPrompts.remove(playerId);
+        cancelSearchTimeout(playerId);
+        BalTopGui.clearSearch(event.getPlayer());
+    }
 
-        player.sendMessage(TextColor.color("&#bbbbbbType a player name to search Balance Top"));
-        player.sendMessage(TextColor.color("&#bbbbbbType &dcancel &#bbbbbbto cancel or &dclear &#bbbbbbto reset search"));
-        player.sendActionBar(actionBar("&#bbbbbbType a player name to search Balance Top"));
+    public void shutdown() {
+        for (BukkitTask task : searchTimeouts.values()) {
+            task.cancel();
+        }
+
+        searchTimeouts.clear();
+        searchPrompts.clear();
+        BalTopGui.clearAllState();
+    }
+
+    private void beginSearch(Player player, int page) {
+        UUID playerId = player.getUniqueId();
+        searchPrompts.put(playerId, new SearchPrompt(page));
+        cancelSearchTimeout(playerId);
+
+        BukkitTask timeout = core.getServer().getScheduler().runTaskLater(
+                core,
+                () -> {
+                    SearchPrompt removed = searchPrompts.remove(playerId);
+                    searchTimeouts.remove(playerId);
+
+                    if (removed == null || !player.isOnline()) {
+                        return;
+                    }
+
+                    sendActionBar(player, "&cBalance Top search timed out");
+                    reopen(player, removed.page());
+                },
+                SEARCH_TIMEOUT_TICKS
+        );
+        searchTimeouts.put(playerId, timeout);
+
+        player.closeInventory();
+        player.sendMessage(TextColor.color(
+                "&#bbbbbbType a player name to search Balance Top"
+        ));
+        player.sendMessage(TextColor.color(
+                "&#bbbbbbType &dcancel &#bbbbbbto cancel or "
+                        + "&dclear &#bbbbbbto reset search"
+        ));
+        sendActionBar(player, "&#bbbbbbType a player name to search Balance Top");
+    }
+
+    private void reopen(Player player, int page) {
+        MenuHistory.openWithoutBackTrigger(
+                core,
+                player,
+                () -> BalTopGui.open(core, player, economyService, page)
+        );
     }
 
     private void openStatsFromBalTop(Player player, int page, UUID targetId) {
@@ -192,45 +237,67 @@ public final class BalTopGuiListener implements Listener {
         );
     }
 
-    private UUID findPlayer(String query) {
-        if (query == null || query.isBlank()) {
-            return null;
-        }
+    private String displaySearchLabel(String query) {
+        String normalized = query.toLowerCase(Locale.ROOT);
 
-        String lowerQuery = query.toLowerCase();
-
-        for (Map.Entry<UUID, Long> entry : economyService.topBalances(Integer.MAX_VALUE)) {
+        for (Map.Entry<UUID, Long> entry
+                : economyService.topBalances(Integer.MAX_VALUE)) {
             OfflinePlayer target = Bukkit.getOfflinePlayer(entry.getKey());
             String username = target.getName() == null ? "" : target.getName();
             String displayName = DisplayNames.displayName(target);
 
-            if (username.equalsIgnoreCase(query)
-                    || displayName.equalsIgnoreCase(query)
-                    || username.toLowerCase().contains(lowerQuery)
-                    || displayName.toLowerCase().contains(lowerQuery)) {
-                return entry.getKey();
+            if (username.toLowerCase(Locale.ROOT).equals(normalized)
+                    || displayName.toLowerCase(Locale.ROOT).equals(normalized)) {
+                return displayName;
             }
         }
 
-        return null;
+        return query;
     }
 
-    private UUID targetIdAtSlot(Player player, int page, int slot) {
-        List<Map.Entry<UUID, Long>> entries = BalTopGui.filteredEntries(player, economyService);
-        int index = (page * BalTopGui.entriesPerPage()) + slot;
-
-        if (index < 0 || index >= entries.size()) {
-            return null;
+    private String sanitize(String input) {
+        if (input == null) {
+            return "";
         }
 
-        return entries.get(index).getKey();
+        String clean = TextColor.strip(input)
+                .replaceAll("[\\p{Cntrl}]", "")
+                .trim();
+
+        if (clean.length() > MAX_SEARCH_LENGTH) {
+            clean = clean.substring(0, MAX_SEARCH_LENGTH);
+        }
+
+        return clean;
+    }
+
+    private void cancelSearchTimeout(UUID playerId) {
+        BukkitTask task = searchTimeouts.remove(playerId);
+
+        if (task != null) {
+            task.cancel();
+        }
     }
 
     private void sendActionBar(Player player, String message) {
-        player.sendActionBar(actionBar(message));
+        player.sendActionBar(component(message));
     }
 
-    private Component actionBar(String message) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
+    private Component component(String message) {
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(TextColor.color(message));
+    }
+
+    private static final class SearchPrompt {
+
+        private final int page;
+
+        private SearchPrompt(int page) {
+            this.page = page;
+        }
+
+        private int page() {
+            return page;
+        }
     }
 }

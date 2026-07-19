@@ -10,6 +10,8 @@ import org.bukkit.command.PluginCommand;
 
 public final class BalTopModule extends Module {
 
+    private BalTopGuiListener listener;
+
     @Override
     public String name() {
         return "BalTop";
@@ -25,23 +27,25 @@ public final class BalTopModule extends Module {
         }
 
         BalTopCommand command = new BalTopCommand(core, economyService);
-
         PluginCommand balTop = core.getCommand("baltop");
 
-        if (balTop != null) {
-            balTop.setExecutor(command);
-            balTop.setTabCompleter(command);
-        } else {
+        if (balTop == null) {
             core.getLogger().warning("Missing command in plugin.yml: baltop");
+            return;
         }
 
-        core.getServer().getPluginManager().registerEvents(
-                new BalTopGuiListener(core, economyService),
-                core
-        );
+        balTop.setExecutor(command);
+        balTop.setTabCompleter(command);
+
+        listener = new BalTopGuiListener(core, economyService);
+        core.getServer().getPluginManager().registerEvents(listener, core);
     }
 
     @Override
     public void disable() {
+        if (listener != null) {
+            listener.shutdown();
+            listener = null;
+        }
     }
 }
