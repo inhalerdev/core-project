@@ -76,6 +76,6 @@ messages:
   teleported-actionbar: ''
 
   queue-waiting-actionbar: '&#ff55ffQueue&#bbbbbb: Waiting for an opponent'
-  queue-actionbar: '&#ff55ffQueue&#bbbbbb: &#ff88ff%queued%&#bbbbbb/&ff55ff%max%&#bbbbbb teleporting
+  queue-actionbar: '&#ff55ffQueue&#bbbbbb: &#ff88ff%queued%&#bbbbbb/&#ff55ff%max%&#bbbbbb teleporting
     in &d%seconds%s'
   queue-left-actionbar: '&cNo longer in the duels queue'
