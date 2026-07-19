@@ -8,7 +8,6 @@ import net.mineacle.core.common.text.TextColor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Particle;
-import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -22,8 +21,11 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.util.Vector;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -31,106 +33,181 @@ import java.util.UUID;
 public final class DoubleJumpListener implements Listener {
 
     private final Core core;
-    private final Map<UUID, Long> lastJumpMillis = new HashMap<>();
+
+    private final Map<UUID, Long> lastJumpNanos = new HashMap<>();
+    private final Set<UUID> doubleJumpFlightOwned = new HashSet<>();
     private final Set<UUID> flyEnabled = new HashSet<>();
+    private final Map<UUID, FlightSnapshot> flySnapshots =
+            new HashMap<>();
+
+    private Set<String> doubleJumpWorlds = Set.of();
+    private Set<String> flyWorlds = Set.of();
+
+    private long cooldownNanos;
+    private double upwardVelocity;
+    private double forwardVelocity;
+    private boolean particles;
+    private boolean cooldownActionBar;
+    private boolean doubleJumpEnabled;
+    private boolean flyFeatureEnabled;
 
     public DoubleJumpListener(Core core) {
         this.core = core;
+        reloadSettings();
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
-        core.getServer().getScheduler().runTaskLater(core, () -> refresh(event.getPlayer()), 2L);
+        Player player = event.getPlayer();
+
+        core.getServer().getScheduler().runTaskLater(
+                core,
+                () -> refresh(player),
+                2L
+        );
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
-        UUID uuid = event.getPlayer().getUniqueId();
-        lastJumpMillis.remove(uuid);
-        flyEnabled.remove(uuid);
+        Player player = event.getPlayer();
+        UUID playerId = player.getUniqueId();
+
+        disableCoreFly(player, false);
+        releaseDoubleJumpFlight(player);
+
+        lastJumpNanos.remove(playerId);
+        flySnapshots.remove(playerId);
+        flyEnabled.remove(playerId);
+        doubleJumpFlightOwned.remove(playerId);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onChangedWorld(PlayerChangedWorldEvent event) {
         Player player = event.getPlayer();
+        lastJumpNanos.remove(player.getUniqueId());
 
-        if (!isFlyWorld(player.getWorld().getName())) {
-            flyEnabled.remove(player.getUniqueId());
-            forceDisableFlight(player, true);
+        if (isFlyEnabled(player) && !canUseFly(player)) {
+            disableCoreFly(player, true);
         }
 
         refresh(player);
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(
+            priority = EventPriority.MONITOR,
+            ignoreCancelled = true
+    )
     public void onTeleport(PlayerTeleportEvent event) {
         Player player = event.getPlayer();
 
-        core.getServer().getScheduler().runTaskLater(core, () -> {
-            if (!isFlyWorld(player.getWorld().getName())) {
-                flyEnabled.remove(player.getUniqueId());
-                forceDisableFlight(player, true);
-            }
+        core.getServer().getScheduler().runTaskLater(
+                core,
+                () -> {
+                    if (isFlyEnabled(player)
+                            && !canUseFly(player)) {
+                        disableCoreFly(player, true);
+                    }
 
-            refresh(player);
-        }, 1L);
+                    refresh(player);
+                },
+                1L
+        );
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onGameModeChange(PlayerGameModeChangeEvent event) {
-        core.getServer().getScheduler().runTaskLater(core, () -> refresh(event.getPlayer()), 1L);
+    @EventHandler(
+            priority = EventPriority.MONITOR,
+            ignoreCancelled = true
+    )
+    public void onGameModeChange(
+            PlayerGameModeChangeEvent event
+    ) {
+        Player player = event.getPlayer();
+
+        core.getServer().getScheduler().runTaskLater(
+                core,
+                () -> {
+                    if (isFlyEnabled(player)
+                            && !canUseFly(player)) {
+                        disableCoreFly(player, false);
+                    }
+
+                    refresh(player);
+                },
+                1L
+        );
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onMove(PlayerMoveEvent event) {
+        if (!positionChanged(event)) {
+            return;
+        }
+
         Player player = event.getPlayer();
 
-        if (flyEnabled.contains(player.getUniqueId())) {
-            refreshFly(player);
+        if (isFlyEnabled(player)) {
+            if (!canUseFly(player)) {
+                disableCoreFly(player, true);
+            }
+
             return;
         }
 
-        if (!enabledForDoubleJump(player)) {
-            disableDoubleJumpFlight(player);
-            return;
-        }
-
-        if (player.isOnGround() && !player.getAllowFlight()) {
-            player.setAllowFlight(true);
-            player.setFlying(false);
-        }
+        refreshDoubleJump(player);
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    @EventHandler(
+            priority = EventPriority.HIGHEST,
+            ignoreCancelled = false
+    )
     public void onToggleFlight(PlayerToggleFlightEvent event) {
         Player player = event.getPlayer();
+        UUID playerId = player.getUniqueId();
 
-        if (flyEnabled.contains(player.getUniqueId())) {
+        if (flyEnabled.contains(playerId)) {
             if (!canUseFly(player)) {
-                flyEnabled.remove(player.getUniqueId());
-                forceDisableFlight(player, true);
                 event.setCancelled(true);
+                disableCoreFly(player, true);
             }
+
             return;
         }
 
-        if (!enabledForDoubleJump(player)) {
-            disableDoubleJumpFlight(player);
+        /*
+         * Ignore flight supplied by Creative, Spectator, or another plugin.
+         * Double Jump only intercepts flight state it explicitly armed.
+         */
+        if (!doubleJumpFlightOwned.contains(playerId)) {
             return;
         }
 
         event.setCancelled(true);
+        doubleJumpFlightOwned.remove(playerId);
+
+        if (!isDoubleJumpEligible(player)) {
+            clearOwnedAllowFlight(player);
+            return;
+        }
+
         player.setFlying(false);
         player.setAllowFlight(false);
 
         if (isOnCooldown(player)) {
             SoundService.doubleJumpCooldown(player, core);
 
-            if (core.getConfig().getBoolean("double-jump.actionbar-cooldown", false)) {
-                player.sendActionBar(actionBar("&cDouble jump is cooling down"));
+            if (cooldownActionBar) {
+                player.sendActionBar(
+                        actionBar(
+                                "&cDouble jump is cooling down"
+                        )
+                );
             }
 
-            core.getServer().getScheduler().runTaskLater(core, () -> refresh(player), 5L);
+            core.getServer().getScheduler().runTaskLater(
+                    core,
+                    () -> refresh(player),
+                    5L
+            );
             return;
         }
 
@@ -138,48 +215,87 @@ public final class DoubleJumpListener implements Listener {
     }
 
     public boolean toggleFly(Player player) {
-        UUID uuid = player.getUniqueId();
-
-        if (flyEnabled.contains(uuid)) {
-            flyEnabled.remove(uuid);
-            forceDisableFlight(player, true);
+        if (player == null || !player.isOnline()) {
             return false;
         }
 
-        flyEnabled.add(uuid);
-        refreshFly(player);
+        if (isFlyEnabled(player)) {
+            disableCoreFly(player, true);
+            return false;
+        }
+
+        if (!canUseFly(player)) {
+            return false;
+        }
+
+        UUID playerId = player.getUniqueId();
+        boolean ownedDoubleJump =
+                doubleJumpFlightOwned.remove(playerId);
+        boolean externalAllowFlight =
+                player.getAllowFlight() && !ownedDoubleJump;
+
+        flySnapshots.put(
+                playerId,
+                new FlightSnapshot(externalAllowFlight)
+        );
+        flyEnabled.add(playerId);
+
+        player.setAllowFlight(true);
         return true;
     }
 
     public void dropOutOfFly(Player player) {
-        if (player == null) {
+        if (player == null || !isFlyEnabled(player)) {
             return;
         }
 
-        flyEnabled.remove(player.getUniqueId());
-        forceDisableFlight(player, true);
+        disableCoreFly(player, true);
+    }
+
+    public boolean isFlyEnabled(Player player) {
+        return player != null
+                && flyEnabled.contains(player.getUniqueId());
     }
 
     public boolean isFlyWorld(String worldName) {
-        if (worldName == null || worldName.isBlank()) {
+        return worldName != null
+                && flyWorlds.contains(normalizeWorld(worldName));
+    }
+
+    public boolean canUseFly(Player player) {
+        if (player == null
+                || !player.isOnline()
+                || !flyFeatureEnabled) {
             return false;
         }
 
-        for (String configuredWorld : core.getConfig().getStringList("fly.worlds")) {
-            if (configuredWorld.equalsIgnoreCase(worldName)) {
-                return true;
-            }
-        }
+        String permission = core.getConfig().getString(
+                "fly.permission",
+                "mineacle.plus"
+        );
 
-        return false;
+        boolean permitted = player.hasPermission(
+                permission == null || permission.isBlank()
+                        ? "mineacle.plus"
+                        : permission
+        ) || player.hasPermission("mineaclefly.admin");
+
+        return permitted && isFlyWorld(
+                player.getWorld().getName()
+        );
+    }
+
+    public void reloadSettingsAndRefresh() {
+        reloadSettings();
+        SoundService.clearCache();
+        refreshAll();
     }
 
     public void refreshAll() {
-        for (Player player : core.getServer().getOnlinePlayers()) {
-            if (flyEnabled.contains(player.getUniqueId()) && !canUseFly(player)) {
-                flyEnabled.remove(player.getUniqueId());
-                forceDisableFlight(player, true);
-                continue;
+        for (Player player
+                : core.getServer().getOnlinePlayers()) {
+            if (isFlyEnabled(player) && !canUseFly(player)) {
+                disableCoreFly(player, true);
             }
 
             refresh(player);
@@ -187,12 +303,78 @@ public final class DoubleJumpListener implements Listener {
     }
 
     public void disableAll() {
-        for (Player player : core.getServer().getOnlinePlayers()) {
-            forceDisableFlight(player, true);
+        for (Player player
+                : new ArrayList<>(
+                core.getServer().getOnlinePlayers()
+        )) {
+            disableCoreFly(player, false);
+            releaseDoubleJumpFlight(player);
         }
 
-        lastJumpMillis.clear();
+        lastJumpNanos.clear();
+        doubleJumpFlightOwned.clear();
         flyEnabled.clear();
+        flySnapshots.clear();
+    }
+
+    private void reloadSettings() {
+        doubleJumpEnabled = core.getConfig().getBoolean(
+                "double-jump.enabled",
+                true
+        );
+        flyFeatureEnabled = core.getConfig().getBoolean(
+                "fly.enabled",
+                true
+        );
+
+        doubleJumpWorlds = normalizedWorlds(
+                core.getConfig().getStringList(
+                        "double-jump.worlds"
+                )
+        );
+        flyWorlds = normalizedWorlds(
+                core.getConfig().getStringList("fly.worlds")
+        );
+
+        double cooldownSeconds = finiteClamped(
+                core.getConfig().getDouble(
+                        "double-jump.cooldown-seconds",
+                        0.75D
+                ),
+                0.0D,
+                60.0D,
+                0.75D
+        );
+
+        cooldownNanos = Math.round(
+                cooldownSeconds * 1_000_000_000.0D
+        );
+        upwardVelocity = finiteClamped(
+                core.getConfig().getDouble(
+                        "double-jump.upward-velocity",
+                        0.75D
+                ),
+                0.0D,
+                4.0D,
+                0.75D
+        );
+        forwardVelocity = finiteClamped(
+                core.getConfig().getDouble(
+                        "double-jump.forward-velocity",
+                        1.50D
+                ),
+                0.0D,
+                4.0D,
+                1.50D
+        );
+        particles = core.getConfig().getBoolean(
+                "double-jump.particles",
+                false
+        );
+        cooldownActionBar = core.getConfig().getBoolean(
+                "double-jump.actionbar-cooldown",
+                false
+        );
     }
 
     private void refresh(Player player) {
@@ -200,158 +382,65 @@ public final class DoubleJumpListener implements Listener {
             return;
         }
 
-        if (flyEnabled.contains(player.getUniqueId())) {
-            refreshFly(player);
-            return;
-        }
-
-        if (!enabledForDoubleJump(player)) {
-            disableDoubleJumpFlight(player);
-            return;
-        }
-
-        if (player.isOnGround()) {
-            player.setAllowFlight(true);
-            player.setFlying(false);
-        }
-    }
-
-    private void refreshFly(Player player) {
-        if (!canUseFly(player)) {
-            flyEnabled.remove(player.getUniqueId());
-            forceDisableFlight(player, true);
-            return;
-        }
-
-        player.setAllowFlight(true);
-    }
-
-    private boolean canUseFly(Player player) {
-        if (player == null || !player.isOnline()) {
-            return false;
-        }
-
-        if (!core.getConfig().getBoolean("fly.enabled", true)) {
-            return false;
-        }
-
-        if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) {
-            return true;
-        }
-
-        String permission = core.getConfig().getString("fly.permission", "mineacle.plus");
-
-        if (!player.hasPermission(permission) && !player.hasPermission("mineaclefly.admin")) {
-            return false;
-        }
-
-        return isFlyWorld(player.getWorld().getName());
-    }
-
-    private void launch(Player player) {
-        lastJumpMillis.put(player.getUniqueId(), System.currentTimeMillis());
-
-        double upward = core.getConfig().getDouble("double-jump.upward-velocity", 0.62D);
-        double forward = core.getConfig().getDouble("double-jump.forward-velocity", 1.25D);
-
-        Vector direction = player.getLocation().getDirection().clone();
-        direction.setY(0.0D);
-
-        if (direction.lengthSquared() > 0.0D) {
-            direction.normalize().multiply(forward);
-        }
-
-        direction.setY(upward);
-        player.setVelocity(direction);
-        playParticles(player);
-        SoundService.doubleJump(player, core);
-    }
-
-    private boolean isOnCooldown(Player player) {
-        double cooldownSeconds = Math.max(0.0D, core.getConfig().getDouble("double-jump.cooldown-seconds", 0.75D));
-
-        if (cooldownSeconds <= 0.0D) {
-            return false;
-        }
-
-        Long lastJump = lastJumpMillis.get(player.getUniqueId());
-
-        if (lastJump == null) {
-            return false;
-        }
-
-        long cooldownMillis = Math.round(cooldownSeconds * 1000.0D);
-        return System.currentTimeMillis() - lastJump < cooldownMillis;
-    }
-
-    private boolean enabledForDoubleJump(Player player) {
-        if (player == null || !player.isOnline()) {
-            return false;
-        }
-
-        if (!core.getConfig().getBoolean("double-jump.enabled", true)) {
-            return false;
-        }
-
-        if (flyEnabled.contains(player.getUniqueId())) {
-            return false;
-        }
-
-        if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) {
-            return false;
-        }
-
-        if (player.isInsideVehicle()) {
-            return false;
-        }
-
-        World world = player.getWorld();
-
-        if (world == null) {
-            return false;
-        }
-
-        return isDoubleJumpWorld(world.getName());
-    }
-
-    private boolean isDoubleJumpWorld(String worldName) {
-        if (worldName == null || worldName.isBlank()) {
-            return false;
-        }
-
-        for (String configuredWorld : core.getConfig().getStringList("double-jump.worlds")) {
-            if (configuredWorld.equalsIgnoreCase(worldName)) {
-                return true;
+        if (isFlyEnabled(player)) {
+            if (canUseFly(player)) {
+                player.setAllowFlight(true);
+            } else {
+                disableCoreFly(player, true);
             }
-        }
 
-        return false;
-    }
-
-    private void forceDisableFlight(Player player, boolean drop) {
-        if (player == null || !player.isOnline()) {
             return;
         }
 
-        if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) {
+        refreshDoubleJump(player);
+    }
+
+    private void refreshDoubleJump(Player player) {
+        if (!isDoubleJumpEligible(player)) {
+            releaseDoubleJumpFlight(player);
+            return;
+        }
+
+        if (!player.isOnGround()) {
+            return;
+        }
+
+        armDoubleJump(player);
+    }
+
+    private void armDoubleJump(Player player) {
+        UUID playerId = player.getUniqueId();
+
+        if (flyEnabled.contains(playerId)
+                || doubleJumpFlightOwned.contains(playerId)
+                || player.getAllowFlight()) {
             return;
         }
 
         player.setFlying(false);
-        player.setAllowFlight(false);
-
-        if (drop && !player.isOnGround()) {
-            Vector velocity = player.getVelocity();
-            player.setVelocity(new Vector(velocity.getX(), Math.min(velocity.getY(), -0.35D), velocity.getZ()));
-        }
+        player.setAllowFlight(true);
+        doubleJumpFlightOwned.add(playerId);
     }
 
-    private void disableDoubleJumpFlight(Player player) {
-        if (player == null || !player.isOnline()) {
+    private void releaseDoubleJumpFlight(Player player) {
+        if (player == null) {
             return;
         }
 
-        if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) {
+        UUID playerId = player.getUniqueId();
+
+        if (!doubleJumpFlightOwned.remove(playerId)) {
+            return;
+        }
+
+        clearOwnedAllowFlight(player);
+    }
+
+    private void clearOwnedAllowFlight(Player player) {
+        if (player == null
+                || !player.isOnline()
+                || isCreativeFlight(player)
+                || isFlyEnabled(player)) {
             return;
         }
 
@@ -364,28 +453,187 @@ public final class DoubleJumpListener implements Listener {
         }
     }
 
-    private void playParticles(Player player) {
-        if (!core.getConfig().getBoolean("double-jump.particles", true)) {
+    private void disableCoreFly(
+            Player player,
+            boolean drop
+    ) {
+        if (player == null) {
             return;
         }
 
-        Location location = player.getLocation().clone().add(0.0D, 0.15D, 0.0D);
+        UUID playerId = player.getUniqueId();
 
-        try {
-            player.getWorld().spawnParticle(
-                    Particle.CLOUD,
-                    location,
-                    12,
-                    0.35D,
-                    0.05D,
-                    0.35D,
-                    0.02D
-            );
-        } catch (Exception ignored) {
+        if (!flyEnabled.remove(playerId)) {
+            return;
+        }
+
+        FlightSnapshot snapshot = flySnapshots.remove(playerId);
+
+        if (!player.isOnline() || isCreativeFlight(player)) {
+            return;
+        }
+
+        player.setFlying(false);
+
+        boolean restoreExternal = snapshot != null
+                && snapshot.externalAllowFlight();
+
+        player.setAllowFlight(restoreExternal);
+
+        if (drop
+                && !player.isOnGround()
+                && !restoreExternal) {
+            Vector velocity = player.getVelocity();
+
+            player.setVelocity(new Vector(
+                    velocity.getX(),
+                    Math.min(velocity.getY(), -0.35D),
+                    velocity.getZ()
+            ));
+        }
+
+        if (!restoreExternal
+                && player.isOnGround()
+                && isDoubleJumpEligible(player)) {
+            armDoubleJump(player);
         }
     }
 
+    private void launch(Player player) {
+        lastJumpNanos.put(
+                player.getUniqueId(),
+                System.nanoTime()
+        );
+
+        Vector direction = player.getLocation()
+                .getDirection()
+                .clone();
+        direction.setY(0.0D);
+
+        if (direction.lengthSquared() > 0.000001D) {
+            direction.normalize().multiply(forwardVelocity);
+        } else {
+            direction.zero();
+        }
+
+        direction.setY(upwardVelocity);
+        player.setVelocity(direction);
+
+        playParticles(player);
+        SoundService.doubleJump(player, core);
+    }
+
+    private boolean isOnCooldown(Player player) {
+        if (cooldownNanos <= 0L) {
+            return false;
+        }
+
+        Long lastJump = lastJumpNanos.get(
+                player.getUniqueId()
+        );
+
+        return lastJump != null
+                && System.nanoTime() - lastJump < cooldownNanos;
+    }
+
+    private boolean isDoubleJumpEligible(Player player) {
+        if (player == null
+                || !player.isOnline()
+                || !doubleJumpEnabled
+                || isFlyEnabled(player)
+                || isCreativeFlight(player)
+                || player.isInsideVehicle()
+                || player.isGliding()
+                || player.isRiptiding()
+                || player.isDead()) {
+            return false;
+        }
+
+        return doubleJumpWorlds.contains(
+                normalizeWorld(player.getWorld().getName())
+        );
+    }
+
+    private boolean isCreativeFlight(Player player) {
+        GameMode gameMode = player.getGameMode();
+
+        return gameMode == GameMode.CREATIVE
+                || gameMode == GameMode.SPECTATOR;
+    }
+
+    private void playParticles(Player player) {
+        if (!particles) {
+            return;
+        }
+
+        Location location = player.getLocation()
+                .clone()
+                .add(0.0D, 0.15D, 0.0D);
+
+        player.getWorld().spawnParticle(
+                Particle.CLOUD,
+                location,
+                12,
+                0.35D,
+                0.05D,
+                0.35D,
+                0.02D
+        );
+    }
+
+    private boolean positionChanged(PlayerMoveEvent event) {
+        Location from = event.getFrom();
+        Location to = event.getTo();
+
+        return to != null
+                && (from.getX() != to.getX()
+                || from.getY() != to.getY()
+                || from.getZ() != to.getZ());
+    }
+
+    private Set<String> normalizedWorlds(
+            List<String> configuredWorlds
+    ) {
+        if (configuredWorlds == null
+                || configuredWorlds.isEmpty()) {
+            return Set.of();
+        }
+
+        Set<String> worlds = new HashSet<>();
+
+        for (String world : configuredWorlds) {
+            if (world != null && !world.isBlank()) {
+                worlds.add(normalizeWorld(world));
+            }
+        }
+
+        return Set.copyOf(worlds);
+    }
+
+    private String normalizeWorld(String worldName) {
+        return worldName.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private double finiteClamped(
+            double value,
+            double minimum,
+            double maximum,
+            double fallback
+    ) {
+        if (!Double.isFinite(value)) {
+            return fallback;
+        }
+
+        return Math.max(minimum, Math.min(maximum, value));
+    }
+
     private Component actionBar(String message) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(TextColor.color(message));
+    }
+
+    private record FlightSnapshot(
+            boolean externalAllowFlight
+    ) {
     }
 }

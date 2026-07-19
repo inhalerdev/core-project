@@ -218,6 +218,7 @@ groups:
     visible-commands:
       - "ban"
       - "delwarp"
+      - "doublejump"
       - "echest"
       - "eco"
       - "enchant"
