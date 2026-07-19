@@ -28,7 +28,7 @@ public final class AuctionHouseCommand implements CommandExecutor, TabCompleter 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage("Players only");
+            sender.sendMessage(core.getMessage("general.players-only"));
             return true;
         }
 
@@ -38,7 +38,7 @@ public final class AuctionHouseCommand implements CommandExecutor, TabCompleter 
         }
 
         if (!player.hasPermission("mineacleauctionhouse.use")) {
-            player.sendMessage(TextColor.color("&cYou do not have permission"));
+            player.sendMessage(core.getMessage("general.no-permission"));
             return true;
         }
 
@@ -98,12 +98,12 @@ public final class AuctionHouseCommand implements CommandExecutor, TabCompleter 
         long price = service.parsePriceCents(args[1]);
 
         if (price < service.minPriceCents()) {
-            player.sendMessage(TextColor.color("&cMinimum auction price is " + service.format(service.minPriceCents())));
+            player.sendMessage(TextColor.color("&cMinimum auction price is &a" + service.format(service.minPriceCents())));
             return;
         }
 
         if (price > service.maxPriceCents()) {
-            player.sendMessage(TextColor.color("&cMaximum auction price is " + service.format(service.maxPriceCents())));
+            player.sendMessage(TextColor.color("&cMaximum auction price is &a" + service.format(service.maxPriceCents())));
             return;
         }
 
@@ -111,7 +111,10 @@ public final class AuctionHouseCommand implements CommandExecutor, TabCompleter 
         player.getInventory().setItemInMainHand(null);
 
         service.createListing(player, saleItem, price);
-        player.sendMessage(TextColor.color("&#bbbbbbListed &d" + service.itemName(saleItem) + " &#bbbbbbfor &a" + service.format(price)));
+        player.sendMessage(TextColor.color(
+                "&#bbbbbbListed &d" + service.itemName(saleItem)
+                        + " &#bbbbbbfor &a" + service.format(price)
+        ));
     }
 
     @Override

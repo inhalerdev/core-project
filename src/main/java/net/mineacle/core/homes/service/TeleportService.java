@@ -21,7 +21,7 @@ public final class TeleportService {
 
     private final Core core;
     private final Map<UUID, Location> teleportOrigins = new HashMap<>();
-    private final Map<UUID, String> teleportTargets = new HashMap<>();
+    private final Map<UUID, String> teleportContexts = new HashMap<>();
     private final Set<UUID> teleporting = new HashSet<>();
 
     public TeleportService(Core core) {
@@ -35,17 +35,35 @@ public final class TeleportService {
     public void cancel(UUID uuid) {
         teleporting.remove(uuid);
         teleportOrigins.remove(uuid);
-        teleportTargets.remove(uuid);
+        teleportContexts.remove(uuid);
     }
 
     public void begin(Player player, String targetName, Runnable action) {
+        beginInternal(player, targetName, targetName, action);
+    }
+
+    public void beginTpa(Player player, String destinationPlayerName, Runnable action) {
+        beginInternal(player, destinationPlayerName, "TPA", action);
+    }
+
+    private void beginInternal(
+            Player player,
+            String displayedTarget,
+            String teleportContext,
+            Runnable action
+    ) {
         UUID uuid = player.getUniqueId();
 
         if (teleporting.contains(uuid)) {
             return;
         }
 
-        int delaySeconds = getDelaySeconds(player, targetName);
+        String safeDisplayedTarget = displayedTarget == null || displayedTarget.isBlank()
+                ? "destination"
+                : displayedTarget;
+
+        String safeContext = teleportContext == null ? "" : teleportContext;
+        int delaySeconds = getDelaySeconds(player, safeContext);
 
         if (delaySeconds <= 0) {
             action.run();
@@ -55,10 +73,10 @@ public final class TeleportService {
 
         teleporting.add(uuid);
         teleportOrigins.put(uuid, player.getLocation().clone());
-        teleportTargets.put(uuid, targetName == null ? "" : targetName);
+        teleportContexts.put(uuid, safeContext);
 
         String startMessage = core.getMessage("homes.teleporting")
-                .replace("%target%", targetName == null ? "destination" : targetName)
+                .replace("%target%", safeDisplayedTarget)
                 .replace("%seconds%", String.valueOf(delaySeconds));
 
         player.sendActionBar(actionBar(startMessage));
@@ -91,7 +109,7 @@ public final class TeleportService {
                 }
 
                 String message = core.getMessage("homes.teleporting")
-                        .replace("%target%", targetName == null ? "destination" : targetName)
+                        .replace("%target%", safeDisplayedTarget)
                         .replace("%seconds%", String.valueOf(countdown));
 
                 player.sendActionBar(actionBar(message));
@@ -107,9 +125,9 @@ public final class TeleportService {
             return;
         }
 
-        String targetName = teleportTargets.getOrDefault(uuid, "");
+        String teleportContext = teleportContexts.getOrDefault(uuid, "");
 
-        if (!cancelOnMove(targetName)) {
+        if (!cancelOnMove(teleportContext)) {
             return;
         }
 
@@ -119,7 +137,7 @@ public final class TeleportService {
             return;
         }
 
-        if (movedTooFar(origin, to, cancelDistance(targetName))) {
+        if (movedTooFar(origin, to, cancelDistance(teleportContext))) {
             cancel(uuid);
             String message = TextColor.color(CANCELLED_MOVE_MESSAGE);
             player.sendActionBar(actionBar(message));
@@ -128,12 +146,12 @@ public final class TeleportService {
         }
     }
 
-    private int getDelaySeconds(Player player, String targetName) {
-        if (targetName != null && targetName.equalsIgnoreCase("TPA")) {
+    private int getDelaySeconds(Player player, String teleportContext) {
+        if (teleportContext != null && teleportContext.equalsIgnoreCase("TPA")) {
             return teleportDelay(player, "tpa.teleport-delay-seconds", "tpa.plus-teleport-delay-seconds");
         }
 
-        if (targetName != null && targetName.equalsIgnoreCase("Team Home")) {
+        if (teleportContext != null && teleportContext.equalsIgnoreCase("Team Home")) {
             return teleportDelay(player, "homes.team-home.teleport-delay-seconds", "homes.team-home.plus-delay-seconds");
         }
 
@@ -160,24 +178,24 @@ public final class TeleportService {
         return defaultDelay;
     }
 
-    private boolean cancelOnMove(String targetName) {
-        if (targetName != null && targetName.equalsIgnoreCase("TPA")) {
+    private boolean cancelOnMove(String teleportContext) {
+        if (teleportContext != null && teleportContext.equalsIgnoreCase("TPA")) {
             return core.getConfig().getBoolean("tpa.cancel-on-move", true);
         }
 
-        if (targetName != null && targetName.equalsIgnoreCase("Team Home")) {
+        if (teleportContext != null && teleportContext.equalsIgnoreCase("Team Home")) {
             return core.getConfig().getBoolean("homes.team-home.cancel-on-move", true);
         }
 
         return core.getConfig().getBoolean("homes.teleport.cancel-on-move", true);
     }
 
-    private double cancelDistance(String targetName) {
-        if (targetName != null && targetName.equalsIgnoreCase("TPA")) {
+    private double cancelDistance(String teleportContext) {
+        if (teleportContext != null && teleportContext.equalsIgnoreCase("TPA")) {
             return Math.max(0.01D, core.getConfig().getDouble("tpa.cancel-distance", 1.0D));
         }
 
-        if (targetName != null && targetName.equalsIgnoreCase("Team Home")) {
+        if (teleportContext != null && teleportContext.equalsIgnoreCase("Team Home")) {
             return Math.max(0.01D, core.getConfig().getDouble("homes.team-home.cancel-distance", 1.0D));
         }
 

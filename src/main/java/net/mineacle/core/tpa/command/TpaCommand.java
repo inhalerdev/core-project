@@ -93,11 +93,14 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
             sendBoth(requester, "&#bbbbbbTeleport request auto accepted");
             SoundService.teleportRequest(requester, core);
 
-            teleportService.begin(requester, "TPA", () -> {
-                requester.teleport(target.getLocation());
-                sendBoth(requester, "&#bbbbbbTeleported to &#ff88ff" + DisplayNames.displayName(target));
-                SoundService.teleportComplete(requester, core);
-            });
+            teleportService.beginTpa(
+                    requester,
+                    DisplayNames.displayName(target),
+                    () -> {
+                        requester.teleport(target.getLocation());
+                        sendBoth(requester, "&#bbbbbbTeleported to &#ff88ff" + DisplayNames.displayName(target));
+                    }
+            );
 
             return true;
         }

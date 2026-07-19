@@ -27,7 +27,7 @@ public final class EnderChestCommand implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player viewer)) {
-            sender.sendMessage("Players only");
+            sender.sendMessage(core.getMessage("general.players-only"));
             return true;
         }
 

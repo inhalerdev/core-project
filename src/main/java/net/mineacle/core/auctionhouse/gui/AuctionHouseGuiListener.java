@@ -58,18 +58,32 @@ public final class AuctionHouseGuiListener implements Listener {
 
         event.setCancelled(true);
 
-        String query = PlainTextComponentSerializer.plainText().serialize(event.message()).trim();
+        String query = PlainTextComponentSerializer.plainText()
+                .serialize(event.message())
+                .trim();
 
         core.getServer().getScheduler().runTask(core, () -> {
             if (query.equalsIgnoreCase("cancel") || query.equalsIgnoreCase("cancelled")) {
                 player.sendMessage(TextColor.color("&#bbbbbbAuction search cancelled"));
-                AuctionHouseGui.openBrowse(player, service, prompt.page(), prompt.sortMode(), prompt.query());
+                AuctionHouseGui.openBrowse(
+                        player,
+                        service,
+                        prompt.page(),
+                        prompt.sortMode(),
+                        prompt.query()
+                );
                 return;
             }
 
             if (query.isBlank()) {
                 player.sendMessage(TextColor.color("&cSearch cannot be empty"));
-                AuctionHouseGui.openBrowse(player, service, prompt.page(), prompt.sortMode(), prompt.query());
+                AuctionHouseGui.openBrowse(
+                        player,
+                        service,
+                        prompt.page(),
+                        prompt.sortMode(),
+                        prompt.query()
+                );
                 return;
             }
 
@@ -77,10 +91,15 @@ public final class AuctionHouseGuiListener implements Listener {
         });
     }
 
-    private void handleBrowse(InventoryClickEvent event, Player player, AuctionHouseGui.BrowseHolder holder) {
+    private void handleBrowse(
+            InventoryClickEvent event,
+            Player player,
+            AuctionHouseGui.BrowseHolder holder
+    ) {
         event.setCancelled(true);
 
-        if (event.getClickedInventory() == null || event.getClickedInventory() != event.getView().getTopInventory()) {
+        if (event.getClickedInventory() == null
+                || event.getClickedInventory() != event.getView().getTopInventory()) {
             return;
         }
 
@@ -90,7 +109,13 @@ public final class AuctionHouseGuiListener implements Listener {
             AuctionHouseListing listing = service.listing(holder.slotListings.get(slot));
 
             if (listing == null) {
-                AuctionHouseGui.openBrowse(player, service, holder.page, holder.sortMode, holder.query);
+                AuctionHouseGui.openBrowse(
+                        player,
+                        service,
+                        holder.page,
+                        holder.sortMode,
+                        holder.query
+                );
                 return;
             }
 
@@ -98,49 +123,81 @@ public final class AuctionHouseGuiListener implements Listener {
             return;
         }
 
-        if (slot == 45 && holder.page > 0) {
-            AuctionHouseGui.openBrowse(player, service, holder.page - 1, holder.sortMode, holder.query);
+        if (slot == AuctionHouseGui.previousSlot() && holder.page > 0) {
+            AuctionHouseGui.openBrowse(
+                    player,
+                    service,
+                    holder.page - 1,
+                    holder.sortMode,
+                    holder.query
+            );
             return;
         }
 
-        if (slot == 46) {
-            AuctionHouseGui.openBrowse(player, service, 0, holder.sortMode.next(), holder.query);
+        if (slot == AuctionHouseGui.filterSlot()) {
+            AuctionHouseGui.openBrowse(
+                    player,
+                    service,
+                    0,
+                    holder.sortMode.next(),
+                    holder.query
+            );
             return;
         }
 
-        if (slot == 47) {
+        if (slot == AuctionHouseGui.worthSlot()) {
             player.closeInventory();
             player.performCommand("worth");
             return;
         }
 
-        if (slot == 49) {
-            AuctionHouseGui.openBrowse(player, service, holder.page, holder.sortMode, holder.query);
+        if (slot == AuctionHouseGui.refreshSlot()) {
+            AuctionHouseGui.openBrowse(
+                    player,
+                    service,
+                    holder.page,
+                    holder.sortMode,
+                    holder.query
+            );
             return;
         }
 
-        if (slot == 51) {
-            searchPrompts.put(player.getUniqueId(), new SearchPrompt(holder.page, holder.sortMode, holder.query));
+        if (slot == AuctionHouseGui.searchSlot()) {
+            searchPrompts.put(
+                    player.getUniqueId(),
+                    new SearchPrompt(holder.page, holder.sortMode, holder.query)
+            );
             player.closeInventory();
             player.sendMessage(TextColor.color("&#bbbbbbType an item name to search auctions"));
             player.sendMessage(TextColor.color("&#bbbbbbType &ccancel &#bbbbbbto return"));
             return;
         }
 
-        if (slot == 52) {
+        if (slot == AuctionHouseGui.ownItemsSlot()) {
             AuctionHouseGui.openOwn(player, service);
             return;
         }
 
-        if (slot == 53) {
-            AuctionHouseGui.openBrowse(player, service, holder.page + 1, holder.sortMode, holder.query);
+        if (slot == AuctionHouseGui.nextSlot()) {
+            AuctionHouseGui.openBrowse(
+                    player,
+                    service,
+                    holder.page + 1,
+                    holder.sortMode,
+                    holder.query
+            );
         }
     }
 
-    private void handleOwn(InventoryClickEvent event, Player player, AuctionHouseGui.OwnHolder holder) {
+    private void handleOwn(
+            InventoryClickEvent event,
+            Player player,
+            AuctionHouseGui.OwnHolder holder
+    ) {
         event.setCancelled(true);
 
-        if (event.getClickedInventory() == null || event.getClickedInventory() != event.getView().getTopInventory()) {
+        if (event.getClickedInventory() == null
+                || event.getClickedInventory() != event.getView().getTopInventory()) {
             return;
         }
 
@@ -159,37 +216,62 @@ public final class AuctionHouseGuiListener implements Listener {
             return;
         }
 
-        if (slot == 46) {
+        if (slot == AuctionHouseGui.ownWorthSlot()) {
             player.closeInventory();
             player.performCommand("worth");
             return;
         }
 
-        if (slot == 49) {
+        if (slot == AuctionHouseGui.ownRefreshSlot()) {
             AuctionHouseGui.openOwn(player, service);
             return;
         }
 
-        if (slot == 53) {
-            AuctionHouseGui.openBrowse(player, service, 0, AuctionHouseService.SortMode.LOWEST_PRICE, "");
+        if (slot == AuctionHouseGui.ownListItemSlot()) {
+            player.closeInventory();
+            player.sendMessage(TextColor.color(
+                    "&#bbbbbbHold an item and use &d/ah sell <price>"
+            ));
+            return;
+        }
+
+        if (slot == AuctionHouseGui.ownBackSlot()) {
+            AuctionHouseGui.openBrowse(
+                    player,
+                    service,
+                    0,
+                    AuctionHouseService.SortMode.LOWEST_PRICE,
+                    ""
+            );
         }
     }
 
-    private void handleConfirmBuy(InventoryClickEvent event, Player player, AuctionHouseGui.ConfirmBuyHolder holder) {
+    private void handleConfirmBuy(
+            InventoryClickEvent event,
+            Player player,
+            AuctionHouseGui.ConfirmBuyHolder holder
+    ) {
         event.setCancelled(true);
 
-        if (event.getClickedInventory() == null || event.getClickedInventory() != event.getView().getTopInventory()) {
+        if (event.getClickedInventory() == null
+                || event.getClickedInventory() != event.getView().getTopInventory()) {
             return;
         }
 
         int slot = event.getRawSlot();
 
-        if (slot == 11) {
-            AuctionHouseGui.openBrowse(player, service, 0, AuctionHouseService.SortMode.LOWEST_PRICE, "");
+        if (slot == AuctionHouseGui.confirmCancelSlot()) {
+            AuctionHouseGui.openBrowse(
+                    player,
+                    service,
+                    0,
+                    AuctionHouseService.SortMode.LOWEST_PRICE,
+                    ""
+            );
             return;
         }
 
-        if (slot != 15) {
+        if (slot != AuctionHouseGui.confirmBuySlot()) {
             return;
         }
 
@@ -198,7 +280,13 @@ public final class AuctionHouseGuiListener implements Listener {
         switch (result) {
             case SUCCESS -> {
                 player.sendMessage(TextColor.color("&#bbbbbbAuction purchase complete"));
-                AuctionHouseGui.openBrowse(player, service, 0, AuctionHouseService.SortMode.LOWEST_PRICE, "");
+                AuctionHouseGui.openBrowse(
+                        player,
+                        service,
+                        0,
+                        AuctionHouseService.SortMode.LOWEST_PRICE,
+                        ""
+                );
             }
             case OWN_ITEM -> player.sendMessage(TextColor.color("&cYou cannot buy your own listing"));
             case NOT_ENOUGH_MONEY -> player.sendMessage(TextColor.color("&cYou do not have enough money"));
@@ -206,11 +294,21 @@ public final class AuctionHouseGuiListener implements Listener {
             case ECONOMY_MISSING -> player.sendMessage(TextColor.color("&cEconomy is not available"));
             case NOT_FOUND -> {
                 player.sendMessage(TextColor.color("&cThat listing is no longer available"));
-                AuctionHouseGui.openBrowse(player, service, 0, AuctionHouseService.SortMode.LOWEST_PRICE, "");
+                AuctionHouseGui.openBrowse(
+                        player,
+                        service,
+                        0,
+                        AuctionHouseService.SortMode.LOWEST_PRICE,
+                        ""
+                );
             }
         }
     }
 
-    private record SearchPrompt(int page, AuctionHouseService.SortMode sortMode, String query) {
+    private record SearchPrompt(
+            int page,
+            AuctionHouseService.SortMode sortMode,
+            String query
+    ) {
     }
 }

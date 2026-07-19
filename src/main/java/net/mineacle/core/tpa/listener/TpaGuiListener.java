@@ -86,17 +86,25 @@ public final class TpaGuiListener implements Listener {
         sendBoth(target, "&#bbbbbbTeleport request accepted");
 
         if (request.type() == TpaRequestType.TO_TARGET) {
-            teleportService.begin(requester, "TPA", () -> {
-                requester.teleport(target.getLocation());
-                sendBoth(requester, "&#bbbbbbTeleported to &#ff88ff" + DisplayNames.displayName(target));
-            });
+            teleportService.beginTpa(
+                    requester,
+                    DisplayNames.displayName(target),
+                    () -> {
+                        requester.teleport(target.getLocation());
+                        sendBoth(requester, "&#bbbbbbTeleported to &#ff88ff" + DisplayNames.displayName(target));
+                    }
+            );
             return;
         }
 
-        teleportService.begin(target, "TPA", () -> {
-            target.teleport(requester.getLocation());
-            sendBoth(target, "&#bbbbbbTeleported to &#ff88ff" + DisplayNames.displayName(requester));
-        });
+        teleportService.beginTpa(
+                target,
+                DisplayNames.displayName(requester),
+                () -> {
+                    target.teleport(requester.getLocation());
+                    sendBoth(target, "&#bbbbbbTeleported to &#ff88ff" + DisplayNames.displayName(requester));
+                }
+        );
     }
 
     private void deny(Player target) {
