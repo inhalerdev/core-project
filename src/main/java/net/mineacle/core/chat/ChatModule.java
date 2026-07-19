@@ -18,6 +18,7 @@ import net.mineacle.core.teams.service.TeamService;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
 
 public final class ChatModule extends Module {
 
@@ -43,46 +44,77 @@ public final class ChatModule extends Module {
     }
 
     @Override
-    public void enable(Core core) {
-        nicknameService = new NicknameService(core);
+    public void enable(Core core) throws Exception {
         nicknameSettings = new NicknameSettings(core);
+        nicknameService = new NicknameService(core);
         chatService = new ChatService(core, nicknameService);
 
         TeamService teamService = TeamsModule.teamService();
 
-        MessageCommand messageCommand = new MessageCommand(core, chatService);
-        ReplyCommand replyCommand = new ReplyCommand(core, chatService);
-        IgnoreCommand ignoreCommand = new IgnoreCommand(core, chatService);
-        IgnoreListCommand ignoreListCommand = new IgnoreListCommand(core, chatService);
-        RealNameCommand realNameCommand = new RealNameCommand(core, nicknameService);
-        NickCommand nickCommand = new NickCommand(core, nicknameService, nicknameSettings);
-
-        register(core, "msg", messageCommand);
-        register(core, "r", replyCommand);
-        register(core, "ignore", ignoreCommand);
-        register(core, "ignorelist", ignoreListCommand);
-        registerNick(core, nickCommand);
-        register(core, "realname", realNameCommand);
-
-        core.getServer().getPluginManager().registerEvents(
-                new ChatFormatListener(core, chatService, teamService),
-                core
+        register(
+                core,
+                "msg",
+                new MessageCommand(core, chatService)
+        );
+        register(
+                core,
+                "r",
+                new ReplyCommand(core, chatService)
+        );
+        register(
+                core,
+                "ignore",
+                new IgnoreCommand(core, chatService)
+        );
+        register(
+                core,
+                "ignorelist",
+                new IgnoreListCommand(core, chatService)
+        );
+        registerNick(
+                core,
+                new NickCommand(
+                        core,
+                        nicknameService,
+                        nicknameSettings
+                )
+        );
+        register(
+                core,
+                "realname",
+                new RealNameCommand(core, nicknameService)
         );
 
         core.getServer().getPluginManager().registerEvents(
-                new JoinQuitMessageListener(),
+                new ChatFormatListener(
+                        core,
+                        chatService,
+                        teamService
+                ),
                 core
         );
+        core.getServer().getPluginManager().registerEvents(
+                new JoinQuitMessageListener(
+                        core,
+                        chatService,
+                        nicknameService
+                ),
+                core
+        );
+
+        for (Player player : core.getServer().getOnlinePlayers()) {
+            nicknameService.updatePlayerDisplay(player);
+        }
     }
 
     @Override
     public void disable() {
         if (chatService != null) {
-            chatService.save();
+            chatService.shutdown();
         }
 
         if (nicknameService != null) {
-            nicknameService.save();
+            nicknameService.shutdown();
         }
 
         chatService = null;
@@ -90,40 +122,49 @@ public final class ChatModule extends Module {
         nicknameSettings = null;
     }
 
-    private void registerNick(Core core, NickCommand executor) {
-        PluginCommand command = core.getCommand("nick");
+    private void registerNick(
+            Core core,
+            NickCommand executor
+    ) {
+        PluginCommand command = requiredCommand(core, "nick");
 
-        if (command == null) {
-            core.getLogger().warning("Missing command in plugin.yml: nick");
-            return;
-        }
-
-        String permission = nicknameSettings.commandPermission();
-
-        if (permission == null || permission.isBlank()) {
-            command.setPermission(null);
-        } else {
-            command.setPermission(permission);
-        }
-
-        command.setPermissionMessage("§cNicknames are currently disabled");
-        command.setUsage("/nick <name|reset>");
+        /*
+         * Runtime permission handling is intentional. Plus players receive
+         * mineacle.plus, while staff may receive mineaclechat.nick directly.
+         * A plugin.yml-only permission would incorrectly block one group.
+         */
+        command.setPermission(null);
+        command.setPermissionMessage(null);
+        command.setUsage("/nick <nickname|reset>");
         command.setExecutor(executor);
         command.setTabCompleter(executor);
     }
 
-    private void register(Core core, String commandName, CommandExecutor executor) {
-        PluginCommand command = core.getCommand(commandName);
-
-        if (command == null) {
-            core.getLogger().warning("Missing command in plugin.yml: " + commandName);
-            return;
-        }
-
+    private void register(
+            Core core,
+            String commandName,
+            CommandExecutor executor
+    ) {
+        PluginCommand command = requiredCommand(core, commandName);
         command.setExecutor(executor);
 
         if (executor instanceof TabCompleter completer) {
             command.setTabCompleter(completer);
         }
+    }
+
+    private PluginCommand requiredCommand(
+            Core core,
+            String commandName
+    ) {
+        PluginCommand command = core.getCommand(commandName);
+
+        if (command == null) {
+            throw new IllegalStateException(
+                    "Missing command in plugin.yml: " + commandName
+            );
+        }
+
+        return command;
     }
 }

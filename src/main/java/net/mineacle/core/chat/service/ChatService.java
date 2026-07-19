@@ -1,24 +1,27 @@
 package net.mineacle.core.chat.service;
 
-import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.format.TextDecoration;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
+import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -26,32 +29,43 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.logging.Level;
 
 public final class ChatService {
+
+    public enum MessageResult {
+        SUCCESS,
+        NO_REPLY_TARGET,
+        TARGET_OFFLINE,
+        CANNOT_MESSAGE_SELF,
+        TARGET_IGNORING,
+        EMPTY_MESSAGE
+    }
+
+    public enum IgnoreResult {
+        NOW_IGNORING,
+        NO_LONGER_IGNORING,
+        STORAGE_ERROR
+    }
+
+    private static final int MAX_MESSAGE_LENGTH = 256;
 
     private final Core core;
     private final NicknameService nicknameService;
     private final File file;
-    private final FileConfiguration config;
 
     private final Map<UUID, UUID> replyTargets = new HashMap<>();
     private final Map<UUID, Set<UUID>> ignored = new HashMap<>();
 
-    public ChatService(Core core, NicknameService nicknameService) {
+    public ChatService(
+            Core core,
+            NicknameService nicknameService
+    ) throws IOException {
         this.core = core;
         this.nicknameService = nicknameService;
         this.file = new File(core.getDataFolder(), "chat.yml");
 
-        if (!file.exists()) {
-            try {
-                file.createNewFile();
-            } catch (IOException exception) {
-                core.getLogger().severe("Could not create chat.yml");
-                exception.printStackTrace();
-            }
-        }
-
-        this.config = YamlConfiguration.loadConfiguration(file);
+        ensureStorage();
         load();
     }
 
@@ -59,149 +73,325 @@ public final class ChatService {
         return nicknameService;
     }
 
-    public void sendPrivate(Player sender, Player receiver, String message) {
-        if (sender.getUniqueId().equals(receiver.getUniqueId())) {
-            sender.sendMessage(core.getMessage("chat.cannot-message-self"));
-            return;
-        }
-
-        if (isIgnoring(receiver.getUniqueId(), sender.getUniqueId())) {
-            sender.sendMessage(core.getMessage("chat.target-ignoring-you"));
-            return;
-        }
-
-        Component formatted = privateMessageComponent(sender, receiver, message);
-
-        sender.sendMessage(formatted);
-        receiver.sendMessage(formatted);
-
-        replyTargets.put(sender.getUniqueId(), receiver.getUniqueId());
-        replyTargets.put(receiver.getUniqueId(), sender.getUniqueId());
+    public boolean enabled() {
+        return core.getConfig().getBoolean(
+                "chat.enabled",
+                true
+        );
     }
 
-    public void reply(Player sender, String message) {
+    public MessageResult sendPrivate(
+            Player sender,
+            Player receiver,
+            String rawMessage
+    ) {
+        if (sender == null || receiver == null) {
+            return MessageResult.TARGET_OFFLINE;
+        }
+
+        if (sender.getUniqueId().equals(receiver.getUniqueId())) {
+            return MessageResult.CANNOT_MESSAGE_SELF;
+        }
+
+        if (isIgnoring(
+                receiver.getUniqueId(),
+                sender.getUniqueId()
+        )) {
+            return MessageResult.TARGET_IGNORING;
+        }
+
+        String message = sanitizeMessage(rawMessage);
+
+        if (message.isBlank()) {
+            return MessageResult.EMPTY_MESSAGE;
+        }
+
+        Component senderCopy = privateMessageComponent(
+                sender,
+                receiver,
+                message,
+                receiver
+        );
+        Component receiverCopy = privateMessageComponent(
+                sender,
+                receiver,
+                message,
+                sender
+        );
+
+        sender.sendMessage(senderCopy);
+        receiver.sendMessage(receiverCopy);
+
+        replyTargets.put(
+                sender.getUniqueId(),
+                receiver.getUniqueId()
+        );
+        replyTargets.put(
+                receiver.getUniqueId(),
+                sender.getUniqueId()
+        );
+
+        SoundService.chatMessage(receiver, core);
+        return MessageResult.SUCCESS;
+    }
+
+    public MessageResult reply(
+            Player sender,
+            String message
+    ) {
+        if (sender == null) {
+            return MessageResult.NO_REPLY_TARGET;
+        }
+
         UUID targetId = replyTargets.get(sender.getUniqueId());
 
         if (targetId == null) {
-            sender.sendMessage(core.getMessage("chat.no-reply-target"));
-            return;
+            return MessageResult.NO_REPLY_TARGET;
         }
 
         Player target = Bukkit.getPlayer(targetId);
 
         if (target == null || !target.isOnline()) {
-            sender.sendMessage(core.getMessage("chat.player-not-found"));
-            return;
+            replyTargets.remove(sender.getUniqueId());
+            return MessageResult.TARGET_OFFLINE;
         }
 
-        sendPrivate(sender, target, message);
+        return sendPrivate(sender, target, message);
     }
 
-    public boolean toggleIgnore(Player player, OfflinePlayer target) {
-        Set<UUID> ignoredPlayers = ignored.computeIfAbsent(player.getUniqueId(), ignored -> new HashSet<>());
+    public synchronized IgnoreResult toggleIgnoreDetailed(
+            Player player,
+            OfflinePlayer target
+    ) {
+        UUID playerId = player.getUniqueId();
+        UUID targetId = target.getUniqueId();
+        Set<UUID> ignoredPlayers = ignored.computeIfAbsent(
+                playerId,
+                ignoredId -> new HashSet<>()
+        );
 
-        if (ignoredPlayers.contains(target.getUniqueId())) {
-            ignoredPlayers.remove(target.getUniqueId());
-
+        if (ignoredPlayers.remove(targetId)) {
             if (ignoredPlayers.isEmpty()) {
-                ignored.remove(player.getUniqueId());
+                ignored.remove(playerId);
             }
 
-            save();
+            if (!saveNow()) {
+                ignored.computeIfAbsent(
+                        playerId,
+                        ignoredId -> new HashSet<>()
+                ).add(targetId);
+                return IgnoreResult.STORAGE_ERROR;
+            }
+
+            return IgnoreResult.NO_LONGER_IGNORING;
+        }
+
+        ignoredPlayers.add(targetId);
+
+        if (!saveNow()) {
+            ignoredPlayers.remove(targetId);
+
+            if (ignoredPlayers.isEmpty()) {
+                ignored.remove(playerId);
+            }
+
+            return IgnoreResult.STORAGE_ERROR;
+        }
+
+        clearReplyPair(playerId, targetId);
+        return IgnoreResult.NOW_IGNORING;
+    }
+
+    /**
+     * Compatibility method retained for integrations that only need the
+     * resulting ignored state.
+     */
+    public boolean toggleIgnore(
+            Player player,
+            OfflinePlayer target
+    ) {
+        return toggleIgnoreDetailed(player, target)
+                == IgnoreResult.NOW_IGNORING;
+    }
+
+    public boolean isIgnoring(
+            UUID receiverId,
+            UUID senderId
+    ) {
+        if (receiverId == null || senderId == null) {
             return false;
         }
 
-        ignoredPlayers.add(target.getUniqueId());
-        save();
-        return true;
-    }
-
-    public boolean isIgnoring(UUID receiverId, UUID senderId) {
-        return ignored.getOrDefault(receiverId, Set.of()).contains(senderId);
+        return ignored
+                .getOrDefault(receiverId, Set.of())
+                .contains(senderId);
     }
 
     public List<String> ignoreList(Player player) {
         List<String> names = new ArrayList<>();
 
-        for (UUID uuid : ignored.getOrDefault(player.getUniqueId(), Set.of())) {
-            OfflinePlayer target = Bukkit.getOfflinePlayer(uuid);
-            names.add(nicknameService.displayName(target));
+        for (UUID targetId : ignored.getOrDefault(
+                player.getUniqueId(),
+                Set.of()
+        )) {
+            OfflinePlayer target = Bukkit.getOfflinePlayer(targetId);
+            names.add(DisplayNames.displayName(target));
         }
 
-        return names;
+        names.sort(String.CASE_INSENSITIVE_ORDER);
+        return List.copyOf(names);
     }
 
     public List<Player> chatRecipients(Player sender) {
-        String mode = core.getConfig().getString("chat.worlds.mode", "global").toLowerCase(Locale.ROOT);
+        List<Player> candidates = switch (worldMode()) {
+            case "same-world" -> sameWorldRecipients(sender);
+            case "grouped" -> groupedRecipients(sender);
+            default -> new ArrayList<>(Bukkit.getOnlinePlayers());
+        };
 
-        if (mode.equals("global")) {
-            return new ArrayList<>(Bukkit.getOnlinePlayers());
-        }
-
-        if (mode.equals("same-world")) {
-            List<Player> recipients = new ArrayList<>();
-            World world = sender.getWorld();
-
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                if (player.getWorld().equals(world)) {
-                    recipients.add(player);
-                }
-            }
-
-            return recipients;
-        }
-
-        if (mode.equals("grouped")) {
-            return groupedRecipients(sender);
-        }
-
-        return new ArrayList<>(Bukkit.getOnlinePlayers());
-    }
-
-    public String formatChat(Player sender, String message) {
-        String format = core.getConfig().getString(
-                "chat.format",
-                "%mineacle_chat_displayname%&#bbbbbb: &#bbbbbb%message%"
+        candidates.removeIf(
+                recipient -> !recipient.getUniqueId()
+                        .equals(sender.getUniqueId())
+                        && isIgnoring(
+                        recipient.getUniqueId(),
+                        sender.getUniqueId()
+                )
         );
 
-        String output = format.replace("%message%", message);
-
-        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
-            output = PlaceholderAPI.setPlaceholders(sender, output);
-        } else {
-            output = output.replace("%mineacle_chat_displayname%", nicknameService.rawChatDisplayName(sender));
-        }
-
-        return TextColor.color(output);
+        return candidates;
     }
 
-    private Component privateMessageComponent(Player sender, Player receiver, String message) {
-        Component component = legacy(
-                "&d" + DisplayNames.displayName(sender)
-                        + " &#bbbbbb-> &d"
-                        + DisplayNames.displayName(receiver)
+    public String sanitizeMessage(String rawMessage) {
+        if (rawMessage == null) {
+            return "";
+        }
+
+        String cleaned = rawMessage
+                .replace('\r', ' ')
+                .replace('\n', ' ')
+                .replace("§", "")
+                .replaceAll("[\\p{Cntrl}]", "")
+                .trim();
+
+        if (cleaned.length() > MAX_MESSAGE_LENGTH) {
+            cleaned = cleaned.substring(0, MAX_MESSAGE_LENGTH);
+        }
+
+        return cleaned;
+    }
+
+    /**
+     * Compatibility formatter used for console and older integrations.
+     * User text is appended after color translation so literal ampersands do
+     * not become formatting codes.
+     */
+    public String formatChat(
+            Player sender,
+            String rawMessage
+    ) {
+        String prefix = TextColor.color(
+                DisplayNames.luckPermsPrefix(sender)
+                        + "&#bbbbbb"
+                        + DisplayNames.displayName(sender)
                         + "&#bbbbbb: &#bbbbbb"
-                        + message
         );
+        return prefix + sanitizeMessage(rawMessage);
+    }
 
-        component = component.hoverEvent(HoverEvent.showText(legacy(
-                "&#bbbbbbPrivate message\n"
-                        + "&#bbbbbbFrom: &#ff88ff" + DisplayNames.displayName(sender) + "\n"
-                        + "&#bbbbbbTo: &#ff88ff" + DisplayNames.displayName(receiver) + "\n"
-                        + "&#bbbbbbClick to reply"
-        )));
+    public void cleanupPlayer(UUID playerId) {
+        if (playerId == null) {
+            return;
+        }
 
-        component = component.clickEvent(ClickEvent.suggestCommand("/msg " + DisplayNames.commandDisplayName(sender) + " "));
+        replyTargets.remove(playerId);
+        replyTargets.entrySet().removeIf(
+                entry -> entry.getValue().equals(playerId)
+        );
+    }
 
-        return component;
+    public void shutdown() {
+        save();
+        replyTargets.clear();
+    }
+
+    public synchronized void save() {
+        saveNow();
+    }
+
+    private boolean saveNow() {
+        try {
+            persist();
+            return true;
+        } catch (IOException exception) {
+            core.getLogger().log(
+                    Level.SEVERE,
+                    "Could not save chat.yml",
+                    exception
+            );
+            return false;
+        }
+    }
+
+    private Component privateMessageComponent(
+            Player sender,
+            Player receiver,
+            String message,
+            Player replyTarget
+    ) {
+        String senderName = DisplayNames.displayName(sender);
+        String receiverName = DisplayNames.displayName(receiver);
+        String replyName = DisplayNames.displayName(replyTarget);
+
+        Component body = neutral(senderName)
+                .append(neutral(" -> "))
+                .append(neutral(receiverName))
+                .append(neutral(": "))
+                .append(neutral(message));
+
+        Component hover = primary("Private Message")
+                .append(Component.newline())
+                .append(neutral("From: " + senderName))
+                .append(Component.newline())
+                .append(neutral("To: " + receiverName))
+                .append(Component.newline())
+                .append(neutral("Click to reply to " + replyName));
+
+        return body
+                .hoverEvent(HoverEvent.showText(hover))
+                .clickEvent(
+                        ClickEvent.suggestCommand(
+                                "/msg "
+                                        + DisplayNames.commandDisplayName(
+                                        replyTarget
+                                )
+                                        + " "
+                        )
+                );
+    }
+
+    private List<Player> sameWorldRecipients(Player sender) {
+        List<Player> recipients = new ArrayList<>();
+        World world = sender.getWorld();
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (player.getWorld().equals(world)) {
+                recipients.add(player);
+            }
+        }
+
+        return recipients;
     }
 
     private List<Player> groupedRecipients(Player sender) {
         List<Player> recipients = new ArrayList<>();
-        String senderGroup = worldGroup(sender.getWorld().getName());
+        String senderGroup = worldGroup(
+                sender.getWorld().getName()
+        );
 
         for (Player player : Bukkit.getOnlinePlayers()) {
-            String playerGroup = worldGroup(player.getWorld().getName());
+            String playerGroup = worldGroup(
+                    player.getWorld().getName()
+            );
 
             if (senderGroup.equals(playerGroup)) {
                 recipients.add(player);
@@ -211,72 +401,185 @@ public final class ChatService {
         return recipients;
     }
 
+    private String worldMode() {
+        String configured = core.getConfig().getString(
+                "chat.worlds.mode",
+                "global"
+        );
+
+        if (configured == null || configured.isBlank()) {
+            return "global";
+        }
+
+        return configured.trim().toLowerCase(Locale.ROOT);
+    }
+
     private String worldGroup(String worldName) {
-        ConfigurationSection groups = core.getConfig().getConfigurationSection("chat.worlds.groups");
+        ConfigurationSection groups = core.getConfig()
+                .getConfigurationSection("chat.worlds.groups");
 
         if (groups == null) {
-            return worldName;
+            return worldName.toLowerCase(Locale.ROOT);
         }
 
         for (String group : groups.getKeys(false)) {
-            List<String> worlds = core.getConfig().getStringList("chat.worlds.groups." + group);
+            List<String> worlds = core.getConfig().getStringList(
+                    "chat.worlds.groups." + group
+            );
 
-            for (String world : worlds) {
-                if (world.equalsIgnoreCase(worldName)) {
-                    return group;
+            for (String configuredWorld : worlds) {
+                if (configuredWorld != null
+                        && configuredWorld.equalsIgnoreCase(worldName)) {
+                    return group.toLowerCase(Locale.ROOT);
                 }
             }
         }
 
-        return worldName;
+        return worldName.toLowerCase(Locale.ROOT);
     }
 
-    private void load() {
+    private synchronized void load() {
         ignored.clear();
 
-        ConfigurationSection section = config.getConfigurationSection("ignored");
+        YamlConfiguration configuration =
+                YamlConfiguration.loadConfiguration(file);
+        ConfigurationSection section =
+                configuration.getConfigurationSection("ignored");
 
         if (section == null) {
             return;
         }
 
-        for (String key : section.getKeys(false)) {
+        for (String rawOwnerId : section.getKeys(false)) {
             try {
-                UUID owner = UUID.fromString(key);
-                Set<UUID> ignoredSet = new HashSet<>();
+                UUID ownerId = UUID.fromString(rawOwnerId);
+                Set<UUID> ignoredPlayers = new HashSet<>();
 
-                for (String raw : config.getStringList("ignored." + key)) {
+                for (String rawTargetId
+                        : configuration.getStringList(
+                        "ignored." + rawOwnerId
+                )) {
                     try {
-                        ignoredSet.add(UUID.fromString(raw));
+                        UUID targetId = UUID.fromString(rawTargetId);
+
+                        if (!ownerId.equals(targetId)) {
+                            ignoredPlayers.add(targetId);
+                        }
                     } catch (IllegalArgumentException ignoredException) {
                     }
                 }
 
-                if (!ignoredSet.isEmpty()) {
-                    ignored.put(owner, ignoredSet);
+                if (!ignoredPlayers.isEmpty()) {
+                    ignored.put(ownerId, ignoredPlayers);
                 }
             } catch (IllegalArgumentException ignoredException) {
             }
         }
     }
 
-    public void save() {
-        config.set("ignored", null);
+    private synchronized void persist() throws IOException {
+        ensureStorage();
 
-        for (Map.Entry<UUID, Set<UUID>> entry : ignored.entrySet()) {
-            List<String> ids = entry.getValue().stream().map(UUID::toString).toList();
-            config.set("ignored." + entry.getKey(), ids);
+        YamlConfiguration configuration = new YamlConfiguration();
+
+        List<UUID> owners = new ArrayList<>(ignored.keySet());
+        owners.sort(Comparator.comparing(UUID::toString));
+
+        for (UUID ownerId : owners) {
+            List<String> targetIds = ignored
+                    .getOrDefault(ownerId, Set.of())
+                    .stream()
+                    .map(UUID::toString)
+                    .sorted()
+                    .toList();
+
+            if (!targetIds.isEmpty()) {
+                configuration.set(
+                        "ignored." + ownerId,
+                        targetIds
+                );
+            }
         }
 
-        try {
-            config.save(file);
-        } catch (IOException exception) {
-            core.getLogger().severe("Could not save chat.yml");
-            exception.printStackTrace();
+        atomicSave(configuration);
+    }
+
+    private void ensureStorage() throws IOException {
+        File folder = core.getDataFolder();
+
+        if (!folder.exists()
+                && !folder.mkdirs()
+                && !folder.exists()) {
+            throw new IOException(
+                    "Could not create MineacleCore data folder"
+            );
+        }
+
+        if (!file.exists()
+                && !file.createNewFile()
+                && !file.exists()) {
+            throw new IOException("Could not create chat.yml");
         }
     }
 
-    private Component legacy(String message) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
+    private void atomicSave(
+            YamlConfiguration configuration
+    ) throws IOException {
+        File temporary = new File(
+                file.getParentFile(),
+                file.getName() + ".tmp"
+        );
+
+        configuration.save(temporary);
+
+        try {
+            Files.move(
+                    temporary.toPath(),
+                    file.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING
+            );
+        } catch (AtomicMoveNotSupportedException exception) {
+            Files.move(
+                    temporary.toPath(),
+                    file.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING
+            );
+        } finally {
+            Files.deleteIfExists(temporary.toPath());
+        }
+    }
+
+    private void clearReplyPair(
+            UUID first,
+            UUID second
+    ) {
+        if (second.equals(replyTargets.get(first))) {
+            replyTargets.remove(first);
+        }
+
+        if (first.equals(replyTargets.get(second))) {
+            replyTargets.remove(second);
+        }
+    }
+
+    private Component neutral(String text) {
+        return Component.text(
+                        text == null ? "" : text,
+                        net.kyori.adventure.text.format.TextColor.color(
+                                0xBBBBBB
+                        )
+                )
+                .decoration(TextDecoration.ITALIC, false);
+    }
+
+    private Component primary(String text) {
+        return Component.text(
+                        text == null ? "" : text,
+                        net.kyori.adventure.text.format.TextColor.color(
+                                0xFF55FF
+                        )
+                )
+                .decoration(TextDecoration.ITALIC, false);
     }
 }

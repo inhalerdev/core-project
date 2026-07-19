@@ -99,11 +99,15 @@ baltop:
 nickname:
   enabled: false
   show-command-when-disabled: false
-  prefix: ""
+  allow-default: false
+  plus-permission: mineacle.plus
+  permission: mineaclechat.nick
+  prefix: "."
   max-length: 15
-  allowed-regex: "^[a-zA-Z_0-9&§]+$"
-  default-name-color: "&f"
-  op-name-color: "&d"
+  allowed-regex: "^[a-zA-Z0-9_]+$"
+  prevent-username-impersonation: true
+  default-name-color: "#bbbbbb"
+  op-name-color: "#bbbbbb"
 
 chat:
   enabled: true

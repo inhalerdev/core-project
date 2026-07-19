@@ -4,7 +4,8 @@ import net.mineacle.core.Core;
 import net.mineacle.core.chat.service.ChatService;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.player.PlayerTabComplete;
-import org.bukkit.Bukkit;
+import net.mineacle.core.common.sound.SoundService;
+import net.mineacle.core.common.text.TextColor;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -14,59 +15,121 @@ import org.bukkit.entity.Player;
 
 import java.util.List;
 
-public final class IgnoreCommand implements CommandExecutor, TabCompleter {
+public final class IgnoreCommand
+        implements CommandExecutor, TabCompleter {
 
     private final Core core;
     private final ChatService chatService;
 
-    public IgnoreCommand(Core core, ChatService chatService) {
+    public IgnoreCommand(
+            Core core,
+            ChatService chatService
+    ) {
         this.core = core;
         this.chatService = chatService;
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public boolean onCommand(
+            CommandSender sender,
+            Command command,
+            String label,
+            String[] args
+    ) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(core.getMessage("general.players-only"));
+            sender.sendMessage(
+                    core.getMessage("general.players-only")
+            );
             return true;
         }
 
         if (!player.hasPermission("mineaclechat.ignore")) {
-            player.sendMessage(core.getMessage("general.no-permission"));
+            error(
+                    player,
+                    core.getMessage("general.no-permission")
+            );
             return true;
         }
 
-        if (args.length < 1) {
-            player.sendMessage(core.getMessage("chat.ignore-usage"));
+        if (args.length != 1) {
+            error(
+                    player,
+                    core.getMessage("chat.ignore-usage")
+            );
             return true;
         }
 
         OfflinePlayer target = DisplayNames.resolveOffline(args[0]);
 
-        if (target.getName() == null && !target.hasPlayedBefore()) {
-            player.sendMessage(core.getMessage("chat.player-not-found"));
+        if (target == null
+                || (target.getName() == null
+                && !target.hasPlayedBefore())) {
+            error(
+                    player,
+                    core.getMessage("chat.player-not-found")
+            );
             return true;
         }
 
         if (target.getUniqueId().equals(player.getUniqueId())) {
-            player.sendMessage(core.getMessage("chat.cannot-ignore-self"));
+            error(
+                    player,
+                    core.getMessage("chat.cannot-ignore-self")
+            );
             return true;
         }
 
-        boolean nowIgnoring = chatService.toggleIgnore(player, target);
-        String targetName = chatService.nicknames().displayName(target);
+        ChatService.IgnoreResult result =
+                chatService.toggleIgnoreDetailed(player, target);
+        String targetName = DisplayNames.displayName(target);
 
-        player.sendMessage(core.getMessage(nowIgnoring ? "chat.now-ignoring" : "chat.no-longer-ignoring")
-                .replace("%player%", targetName));
+        switch (result) {
+            case NOW_IGNORING -> {
+                player.sendMessage(TextColor.color(
+                        "&#bbbbbbYou are now ignoring &#bbbbbb"
+                                + targetName
+                ));
+                SoundService.featureEnable(player, core);
+            }
+            case NO_LONGER_IGNORING -> {
+                player.sendMessage(TextColor.color(
+                        "&#bbbbbbYou are no longer ignoring &#bbbbbb"
+                                + targetName
+                ));
+                SoundService.featureDisable(player, core);
+            }
+            case STORAGE_ERROR -> error(
+                    player,
+                    TextColor.color(
+                            "&cCould not update your ignore list"
+                    )
+            );
+        }
+
         return true;
     }
 
     @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!(sender instanceof Player player) || args.length != 1) {
+    public List<String> onTabComplete(
+            CommandSender sender,
+            Command command,
+            String alias,
+            String[] args
+    ) {
+        if (!(sender instanceof Player player)
+                || !player.hasPermission("mineaclechat.ignore")
+                || args.length != 1) {
             return List.of();
         }
 
-        return PlayerTabComplete.onlinePlayers(player, args[0]);
+        return PlayerTabComplete.onlinePlayers(
+                player,
+                args[0]
+        );
+    }
+
+    private void error(Player player, String message) {
+        player.sendMessage(message);
+        SoundService.guiError(player, core);
     }
 }

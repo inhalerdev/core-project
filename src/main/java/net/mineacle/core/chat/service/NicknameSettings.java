@@ -12,19 +12,31 @@ public final class NicknameSettings {
     }
 
     public boolean enabled() {
-        return core.getConfig().getBoolean("nickname.enabled", true);
+        return core.getConfig().getBoolean(
+                "nickname.enabled",
+                true
+        );
     }
 
     public boolean allowDefault() {
-        return core.getConfig().getBoolean("nickname.allow-default", false);
+        return core.getConfig().getBoolean(
+                "nickname.allow-default",
+                false
+        );
     }
 
     public String plusPermission() {
-        return core.getConfig().getString("nickname.plus-permission", "mineacle.plus");
+        return core.getConfig().getString(
+                "nickname.plus-permission",
+                "mineacle.plus"
+        );
     }
 
     public String permission() {
-        return core.getConfig().getString("nickname.permission", "mineaclechat.nick");
+        return core.getConfig().getString(
+                "nickname.permission",
+                "mineaclechat.nick"
+        );
     }
 
     public boolean canUse(Player player) {
@@ -36,18 +48,15 @@ public final class NicknameSettings {
             return true;
         }
 
-        return player.hasPermission(plusPermission()) || player.hasPermission(permission());
+        return player.hasPermission(plusPermission())
+                || player.hasPermission(permission());
     }
 
+    /**
+     * Runtime permission checks are used because Plus and staff permissions
+     * are intentionally separate.
+     */
     public String commandPermission() {
-        if (!enabled()) {
-            return "mineacle.disabled.nick";
-        }
-
-        if (allowDefault()) {
-            return "";
-        }
-
-        return plusPermission();
+        return "";
     }
 }

@@ -1,19 +1,20 @@
 package net.mineacle.core.chat.listener;
 
 import io.papermc.paper.event.player.AsyncChatEvent;
-import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.chat.service.ChatService;
 import net.mineacle.core.common.player.DisplayNames;
-import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.common.sound.SoundService;
+import net.mineacle.core.economy.EconomyModule;
+import net.mineacle.core.economy.service.EconomyService;
+import net.mineacle.core.stats.StatsModule;
+import net.mineacle.core.stats.service.StatsService;
 import net.mineacle.core.teams.service.TeamService;
-import org.bukkit.Bukkit;
-import org.bukkit.Statistic;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -25,133 +26,211 @@ public final class ChatFormatListener implements Listener {
     private final ChatService chatService;
     private final TeamService teamService;
 
-    public ChatFormatListener(Core core, ChatService chatService, TeamService teamService) {
+    public ChatFormatListener(
+            Core core,
+            ChatService chatService,
+            TeamService teamService
+    ) {
         this.core = core;
         this.chatService = chatService;
         this.teamService = teamService;
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(
+            priority = EventPriority.HIGH,
+            ignoreCancelled = true
+    )
     public void onChat(AsyncChatEvent event) {
         Player sender = event.getPlayer();
 
-        if (teamService != null && teamService.isTeamChatEnabled(sender.getUniqueId())) {
+        if (teamService != null
+                && teamService.isTeamChatEnabled(
+                sender.getUniqueId()
+        )) {
             return;
         }
 
         event.setCancelled(true);
 
-        String message = PlainTextComponentSerializer.plainText().serialize(event.message());
+        String message = chatService.sanitizeMessage(
+                PlainTextComponentSerializer.plainText()
+                        .serialize(event.message())
+        );
 
-        Bukkit.getScheduler().runTask(core, () -> {
-            String consoleFormatted = chatService.formatChat(sender, message);
-
-            for (Player recipient : chatService.chatRecipients(sender)) {
-                recipient.sendMessage(chatComponent(sender, recipient, message));
-            }
-
-            core.getServer().getConsoleSender().sendMessage(consoleFormatted);
-        });
+        core.getServer().getScheduler().runTask(
+                core,
+                () -> sendChat(sender, message)
+        );
     }
 
-    private Component chatComponent(Player sender, Player recipient, String message) {
-        Component base = legacy(chatName(sender) + "&#bbbbbb: &#bbbbbb" + message)
-                .hoverEvent(HoverEvent.showText(hoverStats(sender)));
-
-        if (!sender.getUniqueId().equals(recipient.getUniqueId())) {
-            base = base.clickEvent(ClickEvent.runCommand("/tpamenu " + DisplayNames.commandDisplayName(sender)));
+    private void sendChat(
+            Player sender,
+            String message
+    ) {
+        if (!sender.isOnline() || message.isBlank()) {
+            return;
         }
 
-        return base;
+        if (!chatService.enabled()) {
+            sender.sendMessage(
+                    Component.text(
+                            "Chat is currently disabled",
+                            net.kyori.adventure.text.format.TextColor.color(
+                                    0xFF5555
+                            )
+                    )
+            );
+            SoundService.guiError(sender, core);
+            return;
+        }
+
+        for (Player recipient
+                : chatService.chatRecipients(sender)) {
+            recipient.sendMessage(
+                    chatComponent(sender, recipient, message)
+            );
+        }
+
+        core.getServer()
+                .getConsoleSender()
+                .sendMessage(
+                        chatService.formatChat(sender, message)
+                );
     }
 
-    private String chatName(Player player) {
-        return DisplayNames.luckPermsPrefix(player) + "&#bbbbbb" + DisplayNames.displayName(player);
+    private Component chatComponent(
+            Player sender,
+            Player recipient,
+            String message
+    ) {
+        Component identity = legacyPrefix(
+                DisplayNames.luckPermsPrefix(sender)
+        ).append(
+                neutral(DisplayNames.displayName(sender))
+        ).hoverEvent(
+                HoverEvent.showText(hoverStats(sender))
+        );
+
+        if (!sender.getUniqueId()
+                .equals(recipient.getUniqueId())) {
+            identity = identity.clickEvent(
+                    ClickEvent.runCommand(
+                            "/tpa "
+                                    + DisplayNames.commandDisplayName(
+                                    sender
+                            )
+                    )
+            );
+        }
+
+        return identity
+                .append(neutral(": "))
+                .append(neutral(message));
     }
 
     private Component hoverStats(Player player) {
-        String money = placeholder(player, "%mineacle_balance_formatted%", "0");
-        String playtime = placeholder(player, "%mineacle_stats_playtime%", playtime(player));
-        String kills = placeholder(player, "%mineacle_stats_kills%", String.valueOf(stat(player, Statistic.PLAYER_KILLS)));
-        String deaths = placeholder(player, "%mineacle_stats_deaths%", String.valueOf(stat(player, Statistic.DEATHS)));
-        String teamName = placeholder(player, "%mineacleteams_name%", "");
+        EconomyService economy = EconomyModule.economyService();
+        StatsService stats = StatsModule.statsService();
 
-        StringBuilder hover = new StringBuilder();
+        String money = economy == null
+                ? "$0"
+                : economy.format(
+                economy.getBalanceCents(player.getUniqueId())
+        );
+        long kills = stats == null
+                ? 0L
+                : stats.kills(player.getUniqueId());
+        long deaths = stats == null
+                ? 0L
+                : stats.deaths(player.getUniqueId());
+        String playtime = stats == null
+                ? "0m"
+                : stats.playtime(player.getUniqueId());
 
-        hover.append(chatName(player)).append("\n");
-
-        if (hasTeam(teamName)) {
-            hover.append("&d🔥&#bbbbbb Team &#ff88ff").append(teamName).append("\n");
-        }
-
-        hover.append("&a$ &#bbbbbbMoney &a").append(money).append("\n")
-                .append("&e⌚ &#bbbbbbPlaytime &e").append(playtime).append("\n")
-                .append("&c🗡 &#bbbbbbKills &c").append(kills).append("\n")
-                .append("&#ffa033☠ &#bbbbbbDeaths &#ffa033").append(deaths);
-
-        return legacy(hover.toString());
+        return neutral(DisplayNames.displayName(player))
+                .append(Component.newline())
+                .append(Component.newline())
+                .append(moneyLine("Money", money))
+                .append(Component.newline())
+                .append(statLine("Kills", String.valueOf(kills)))
+                .append(Component.newline())
+                .append(statLine("Deaths", String.valueOf(deaths)))
+                .append(Component.newline())
+                .append(statLine("Playtime", playtime));
     }
 
-    private boolean hasTeam(String teamName) {
-        if (teamName == null) {
-            return false;
-        }
-
-        String cleaned = teamName.trim();
-
-        return !cleaned.isBlank()
-                && !cleaned.equalsIgnoreCase("none")
-                && !cleaned.equalsIgnoreCase("no team")
-                && !cleaned.equalsIgnoreCase("null")
-                && !cleaned.equalsIgnoreCase("n/a")
-                && !cleaned.equalsIgnoreCase("%mineacleteams_name%");
+    private Component moneyLine(
+            String label,
+            String value
+    ) {
+        return Component.text(
+                        "$ ",
+                        net.kyori.adventure.text.format.TextColor.color(
+                                0x55FF55
+                        )
+                )
+                .append(neutral(label + " "))
+                .append(
+                        Component.text(
+                                value,
+                                net.kyori.adventure.text.format.TextColor.color(
+                                        0x55FF55
+                                )
+                        )
+                )
+                .decoration(TextDecoration.ITALIC, false);
     }
 
-    private String placeholder(Player player, String placeholder, String fallback) {
-        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") == null) {
-            return fallback;
-        }
-
-        try {
-            String parsed = PlaceholderAPI.setPlaceholders(player, placeholder);
-
-            if (parsed == null || parsed.isBlank() || parsed.equalsIgnoreCase(placeholder)) {
-                return fallback;
-            }
-
-            return parsed;
-        } catch (Throwable ignored) {
-            return fallback;
-        }
+    private Component statLine(
+            String label,
+            String value
+    ) {
+        return primary("• ")
+                .append(neutral(label + " "))
+                .append(secondary(value));
     }
 
-    private int stat(Player player, Statistic statistic) {
-        try {
-            return player.getStatistic(statistic);
-        } catch (Exception ignored) {
-            return 0;
+    private Component legacyPrefix(String text) {
+        if (text == null || text.isBlank()) {
+            return Component.empty();
         }
+
+        return net.kyori.adventure.text.serializer.legacy
+                .LegacyComponentSerializer
+                .legacySection()
+                .deserialize(
+                        net.mineacle.core.common.text.TextColor.color(text)
+                )
+                .decoration(TextDecoration.ITALIC, false);
     }
 
-    private String playtime(Player player) {
-        int ticks = stat(player, Statistic.PLAY_ONE_MINUTE);
-        long totalSeconds = ticks / 20L;
-        long days = totalSeconds / 86400L;
-        long hours = (totalSeconds % 86400L) / 3600L;
-        long minutes = (totalSeconds % 3600L) / 60L;
-
-        if (days > 0) {
-            return days + "d " + hours + "h";
-        }
-
-        if (hours > 0) {
-            return hours + "h " + minutes + "m";
-        }
-
-        return minutes + "m";
+    private Component neutral(String text) {
+        return Component.text(
+                        text == null ? "" : text,
+                        net.kyori.adventure.text.format.TextColor.color(
+                                0xBBBBBB
+                        )
+                )
+                .decoration(TextDecoration.ITALIC, false);
     }
 
-    private Component legacy(String message) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
+    private Component primary(String text) {
+        return Component.text(
+                        text == null ? "" : text,
+                        net.kyori.adventure.text.format.TextColor.color(
+                                0xFF55FF
+                        )
+                )
+                .decoration(TextDecoration.ITALIC, false);
+    }
+
+    private Component secondary(String text) {
+        return Component.text(
+                        text == null ? "" : text,
+                        net.kyori.adventure.text.format.TextColor.color(
+                                0xFF88FF
+                        )
+                )
+                .decoration(TextDecoration.ITALIC, false);
     }
 }

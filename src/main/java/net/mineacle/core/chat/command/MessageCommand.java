@@ -4,79 +4,134 @@ import net.mineacle.core.Core;
 import net.mineacle.core.chat.service.ChatService;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.player.PlayerTabComplete;
+import net.mineacle.core.common.sound.SoundService;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
-import java.util.ArrayList;
 import java.util.List;
 
-public final class MessageCommand implements CommandExecutor, TabCompleter {
+public final class MessageCommand
+        implements CommandExecutor, TabCompleter {
 
     private final Core core;
     private final ChatService chatService;
 
-    public MessageCommand(Core core, ChatService chatService) {
+    public MessageCommand(
+            Core core,
+            ChatService chatService
+    ) {
         this.core = core;
         this.chatService = chatService;
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public boolean onCommand(
+            CommandSender sender,
+            Command command,
+            String label,
+            String[] args
+    ) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(core.getMessage("general.players-only"));
+            sender.sendMessage(
+                    core.getMessage("general.players-only")
+            );
             return true;
         }
 
         if (!player.hasPermission("mineaclechat.message")) {
-            player.sendMessage(core.getMessage("general.no-permission"));
+            error(
+                    player,
+                    core.getMessage("general.no-permission")
+            );
             return true;
         }
 
         if (args.length < 2) {
-            player.sendMessage(core.getMessage("chat.message-usage"));
+            error(
+                    player,
+                    core.getMessage("chat.message-usage")
+            );
             return true;
         }
 
         Player target = DisplayNames.resolveOnline(args[0]);
 
         if (target == null) {
-            player.sendMessage(core.getMessage("chat.player-not-found"));
+            error(
+                    player,
+                    core.getMessage("chat.player-not-found")
+            );
             return true;
         }
 
-        chatService.sendPrivate(player, target, join(args, 1));
+        handleResult(
+                player,
+                chatService.sendPrivate(
+                        player,
+                        target,
+                        String.join(
+                                " ",
+                                java.util.Arrays.copyOfRange(
+                                        args,
+                                        1,
+                                        args.length
+                                )
+                        )
+                )
+        );
         return true;
     }
 
-    private String join(String[] args, int start) {
-        StringBuilder builder = new StringBuilder();
-
-        for (int index = start; index < args.length; index++) {
-            if (builder.length() > 0) {
-                builder.append(' ');
-            }
-
-            builder.append(args[index]);
+    @Override
+    public List<String> onTabComplete(
+            CommandSender sender,
+            Command command,
+            String alias,
+            String[] args
+    ) {
+        if (!(sender instanceof Player player)
+                || !player.hasPermission("mineaclechat.message")
+                || args.length != 1) {
+            return List.of();
         }
 
-        return builder.toString();
+        return PlayerTabComplete.onlinePlayers(
+                player,
+                args[0]
+        );
     }
 
-    @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> completions = new ArrayList<>();
-
-        if (!(sender instanceof Player player)) {
-            return completions;
+    private void handleResult(
+            Player player,
+            ChatService.MessageResult result
+    ) {
+        switch (result) {
+            case SUCCESS -> {
+            }
+            case CANNOT_MESSAGE_SELF -> error(
+                    player,
+                    core.getMessage("chat.cannot-message-self")
+            );
+            case TARGET_IGNORING -> error(
+                    player,
+                    core.getMessage("chat.target-ignoring-you")
+            );
+            case TARGET_OFFLINE -> error(
+                    player,
+                    core.getMessage("chat.player-not-found")
+            );
+            case EMPTY_MESSAGE, NO_REPLY_TARGET -> error(
+                    player,
+                    core.getMessage("chat.message-usage")
+            );
         }
+    }
 
-        if (args.length == 1) {
-            return PlayerTabComplete.onlinePlayers(player, args[0]);
-        }
-
-        return completions;
+    private void error(Player player, String message) {
+        player.sendMessage(message);
+        SoundService.guiError(player, core);
     }
 }

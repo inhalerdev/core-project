@@ -1,20 +1,16 @@
 package net.mineacle.core.common.player;
 
 import me.clip.placeholderapi.PlaceholderAPI;
-import net.mineacle.core.Core;
 import net.mineacle.core.chat.ChatModule;
 import net.mineacle.core.chat.service.NicknameService;
+import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import java.util.Locale;
-import java.util.regex.Pattern;
 
 public final class DisplayNames {
-
-    private static final Pattern HEX_ONLY = Pattern.compile("(?i)^#[a-f0-9]{6}$");
-    private static final Pattern AMP_HEX = Pattern.compile("(?i)^&#[a-f0-9]{6}$");
 
     private DisplayNames() {
     }
@@ -25,7 +21,10 @@ public final class DisplayNames {
         }
 
         String name = player.getName();
-        return name == null || name.isBlank() ? player.getUniqueId().toString() : name;
+
+        return name == null || name.isBlank()
+                ? player.getUniqueId().toString()
+                : name;
     }
 
     public static String displayName(OfflinePlayer player) {
@@ -48,28 +47,33 @@ public final class DisplayNames {
         return "";
     }
 
+    /**
+     * Public player names are always Mineacle neutral.
+     */
     public static String nameColor(OfflinePlayer player) {
-        Core core = Core.instance();
-
-        String color;
-        if (player != null && player.isOp()) {
-            color = core == null ? "#ff55ff" : core.getConfig().getString("nickname.op-name-color", "#ff55ff");
-        } else {
-            color = core == null ? "#bbbbbb" : core.getConfig().getString("nickname.default-name-color", "#bbbbbb");
-        }
-
-        return normalizeColor(color);
+        return "&#bbbbbb";
     }
 
-    public static String coloredDisplayName(OfflinePlayer player) {
-        return nameColor(player) + displayName(player);
+    public static String coloredDisplayName(
+            OfflinePlayer player
+    ) {
+        return "&#bbbbbb" + displayName(player);
     }
 
-    public static String prefixedDisplayName(OfflinePlayer player) {
-        return luckPermsPrefix(player) + coloredDisplayName(player);
+    /**
+     * Prefixes may keep their own style, but the player name remains neutral.
+     */
+    public static String prefixedDisplayName(
+            OfflinePlayer player
+    ) {
+        return luckPermsPrefix(player)
+                + "&#bbbbbb"
+                + displayName(player);
     }
 
-    public static String commandDisplayName(OfflinePlayer player) {
+    public static String commandDisplayName(
+            OfflinePlayer player
+    ) {
         return displayName(player);
     }
 
@@ -82,17 +86,11 @@ public final class DisplayNames {
         String normalized = normalize(raw);
 
         for (Player online : Bukkit.getOnlinePlayers()) {
-            if (normalize(username(online)).equals(normalized)) {
-                return online;
-            }
-
-            if (normalize(displayName(online)).equals(normalized)) {
-                return online;
-            }
-
-            String nickname = nickname(online);
-
-            if (!nickname.isBlank() && normalize(nickname).equals(normalized)) {
+            if (normalize(username(online)).equals(normalized)
+                    || normalize(displayName(online))
+                    .equals(normalized)
+                    || normalize(nickname(online))
+                    .equals(normalized)) {
                 return online;
             }
         }
@@ -110,17 +108,25 @@ public final class DisplayNames {
         NicknameService service = ChatModule.nicknameService();
 
         if (service != null) {
-            OfflinePlayer byNick = service.findByNickname(input);
+            OfflinePlayer byNickname =
+                    service.findByNickname(input);
 
-            if (byNick != null) {
-                return byNick;
+            if (byNickname != null) {
+                return byNickname;
             }
         }
 
-        return Bukkit.getOfflinePlayer(input);
+        if (input == null || input.isBlank()) {
+            return null;
+        }
+
+        return Bukkit.getOfflinePlayer(input.trim());
     }
 
-    public static boolean startsWithDisplay(Player player, String partial) {
+    public static boolean startsWithDisplay(
+            Player player,
+            String partial
+    ) {
         if (player == null) {
             return false;
         }
@@ -128,23 +134,32 @@ public final class DisplayNames {
         String normalized = normalize(partial);
 
         return normalize(username(player)).startsWith(normalized)
-                || normalize(displayName(player)).startsWith(normalized)
-                || normalize(nickname(player)).startsWith(normalized);
+                || normalize(displayName(player))
+                .startsWith(normalized)
+                || normalize(nickname(player))
+                .startsWith(normalized);
     }
 
-    public static String luckPermsPrefix(OfflinePlayer player) {
-        if (player == null) {
-            return "";
-        }
-
-        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") == null) {
+    public static String luckPermsPrefix(
+            OfflinePlayer player
+    ) {
+        if (player == null
+                || Bukkit.getPluginManager()
+                .getPlugin("PlaceholderAPI") == null) {
             return "";
         }
 
         try {
-            String parsed = PlaceholderAPI.setPlaceholders(player, "%luckperms_prefix%");
+            String parsed = PlaceholderAPI.setPlaceholders(
+                    player,
+                    "%luckperms_prefix%"
+            );
 
-            if (parsed == null || parsed.isBlank() || parsed.equalsIgnoreCase("%luckperms_prefix%")) {
+            if (parsed == null
+                    || parsed.isBlank()
+                    || parsed.equalsIgnoreCase(
+                    "%luckperms_prefix%"
+            )) {
                 return "";
             }
 
@@ -154,32 +169,23 @@ public final class DisplayNames {
         }
     }
 
-    private static String normalizeColor(String input) {
-        if (input == null || input.isBlank()) {
-            return "&#bbbbbb";
-        }
-
-        String cleaned = input.trim();
-
-        if (AMP_HEX.matcher(cleaned).matches()) {
-            return cleaned;
-        }
-
-        if (HEX_ONLY.matcher(cleaned).matches()) {
-            return "&" + cleaned;
-        }
-
-        return cleaned;
-    }
-
     private static String normalize(String input) {
         if (input == null) {
             return "";
         }
 
-        String cleaned = input.trim();
+        String cleaned = TextColor.strip(input).trim();
+        NicknameService service = ChatModule.nicknameService();
 
-        if (cleaned.startsWith(".")) {
+        if (service != null) {
+            String prefix = service.prefix();
+
+            if (prefix != null
+                    && !prefix.isBlank()
+                    && cleaned.startsWith(prefix)) {
+                cleaned = cleaned.substring(prefix.length());
+            }
+        } else if (cleaned.startsWith(".")) {
             cleaned = cleaned.substring(1);
         }
 
