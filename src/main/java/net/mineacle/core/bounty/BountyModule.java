@@ -3,15 +3,15 @@ package net.mineacle.core.bounty;
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.bounty.command.BountyCommand;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
-import org.bukkit.command.TabCompleter;
 
 public final class BountyModule extends Module {
 
-    private static net.mineacle.core.bounty.BountyService bountyService;
+    private static BountyService bountyService;
 
-    public static net.mineacle.core.bounty.BountyService bountyService() {
+    private BountySearchInputListener searchInputListener;
+
+    public static BountyService bountyService() {
         return bountyService;
     }
 
@@ -21,37 +21,58 @@ public final class BountyModule extends Module {
     }
 
     @Override
-    public void enable(Core core) {
-        bountyService = new net.mineacle.core.bounty.BountyService(core);
+    public void enable(Core core) throws Exception {
+        YamlBountyRepository repository = new YamlBountyRepository(core);
+        bountyService = new BountyService(core, repository);
+        bountyService.load();
+
+        PluginCommand pluginCommand = core.getCommand("bounty");
+
+        if (pluginCommand == null) {
+            throw new IllegalStateException(
+                    "Missing command in plugin.yml: bounty"
+            );
+        }
 
         BountyCommand command = new BountyCommand(core, bountyService);
-        register(core, "bounty", command);
+        pluginCommand.setExecutor(command);
+        pluginCommand.setTabCompleter(command);
 
-        core.getServer().getPluginManager().registerEvents(new net.mineacle.core.bounty.BountyListener(core, bountyService), core);
-        core.getServer().getPluginManager().registerEvents(new net.mineacle.core.bounty.BountyGuiListener(core, bountyService), core);
+        searchInputListener = new BountySearchInputListener(
+                core,
+                bountyService
+        );
+
+        core.getServer().getPluginManager().registerEvents(
+                new BountyListener(core, bountyService),
+                core
+        );
+        core.getServer().getPluginManager().registerEvents(
+                new BountyGuiListener(
+                        core,
+                        bountyService,
+                        searchInputListener
+                ),
+                core
+        );
+        core.getServer().getPluginManager().registerEvents(
+                searchInputListener,
+                core
+        );
     }
 
     @Override
     public void disable() {
+        if (searchInputListener != null) {
+            searchInputListener.shutdown();
+            searchInputListener = null;
+        }
+
+        BountyMainGui.clearAllState();
+
         if (bountyService != null) {
-            bountyService.save();
-        }
-
-        bountyService = null;
-    }
-
-    private void register(Core core, String commandName, CommandExecutor executor) {
-        PluginCommand command = core.getCommand(commandName);
-
-        if (command == null) {
-            core.getLogger().warning("Missing command in plugin.yml: " + commandName);
-            return;
-        }
-
-        command.setExecutor(executor);
-
-        if (executor instanceof TabCompleter completer) {
-            command.setTabCompleter(completer);
+            bountyService.shutdown();
+            bountyService = null;
         }
     }
 }

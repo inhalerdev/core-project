@@ -3,13 +3,16 @@ package net.mineacle.core.bounty;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.sound.SoundService;
+import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.stats.PlayerStatisticsGui;
-import org.bukkit.ChatColor;
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 
 import java.util.UUID;
 
@@ -17,18 +20,35 @@ public final class BountyGuiListener implements Listener {
 
     private final Core core;
     private final BountyService bountyService;
-    private final PlayerStatisticsGui statisticsGui = new PlayerStatisticsGui();
+    private final BountySearchInputListener searchInputListener;
+    private final PlayerStatisticsGui statisticsGui =
+            new PlayerStatisticsGui();
 
-    public BountyGuiListener(Core core, BountyService bountyService) {
+    public BountyGuiListener(
+            Core core,
+            BountyService bountyService,
+            BountySearchInputListener searchInputListener
+    ) {
         this.core = core;
         this.bountyService = bountyService;
+        this.searchInputListener = searchInputListener;
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    @EventHandler(
+            priority = EventPriority.HIGHEST,
+            ignoreCancelled = false
+    )
     public void onClick(InventoryClickEvent event) {
-        String title = ChatColor.stripColor(event.getView().getTitle());
+        BountyMainGui.MainHolder mainHolder =
+                BountyMainGui.holder(
+                        event.getView().getTopInventory()
+                );
+        BountyConfirmGui.ConfirmHolder confirmHolder =
+                BountyConfirmGui.holder(
+                        event.getView().getTopInventory()
+                );
 
-        if (title == null || (!BountyMainGui.isTitle(title) && !title.equals(BountyConfirmGui.TITLE))) {
+        if (mainHolder == null && confirmHolder == null) {
             return;
         }
 
@@ -40,88 +60,235 @@ public final class BountyGuiListener implements Listener {
         }
 
         int rawSlot = event.getRawSlot();
-        int topSize = event.getView().getTopInventory().getSize();
+        int topSize = event.getView()
+                .getTopInventory()
+                .getSize();
 
         if (rawSlot < 0 || rawSlot >= topSize) {
             return;
         }
 
-        if (BountyMainGui.isTitle(title)) {
-            handleMain(player, rawSlot);
+        if (mainHolder != null) {
+            handleMain(
+                    event,
+                    player,
+                    mainHolder,
+                    rawSlot
+            );
             return;
         }
 
-        handleConfirm(player, rawSlot);
+        handleConfirm(player, confirmHolder, rawSlot);
     }
 
-    private void handleMain(Player player, int rawSlot) {
-        int page = BountyMainGui.currentPage(player);
+    @EventHandler(
+            priority = EventPriority.HIGHEST,
+            ignoreCancelled = false
+    )
+    public void onDrag(InventoryDragEvent event) {
+        if (!BountyMainGui.isBountyInventory(
+                event.getView().getTopInventory()
+        )) {
+            return;
+        }
 
+        event.setCancelled(true);
+        event.setResult(org.bukkit.event.Event.Result.DENY);
+    }
+
+    private void handleMain(
+            InventoryClickEvent event,
+            Player player,
+            BountyMainGui.MainHolder holder,
+            int rawSlot
+    ) {
         if (rawSlot == BountyMainGui.PREVIOUS_SLOT) {
-            SoundService.guiClick(player, core);
-            MenuHistory.openWithoutBackTrigger(core, player, () -> BountyMainGui.open(core, player, bountyService, page - 1));
+            reopen(player, holder.page() - 1);
             return;
         }
 
         if (rawSlot == BountyMainGui.SORT_SLOT) {
-            SoundService.guiClick(player, core);
-            BountyMainGui.cycleSort(core, player);
-            MenuHistory.openWithoutBackTrigger(core, player, () -> BountyMainGui.open(core, player, bountyService, 0));
+            BountyMainGui.cycleSort(player);
+            reopen(player, 0);
             return;
         }
 
         if (rawSlot == BountyMainGui.REFRESH_SLOT) {
-            SoundService.guiClick(player, core);
-            MenuHistory.openWithoutBackTrigger(core, player, () -> BountyMainGui.open(core, player, bountyService, page));
+            reopen(player, holder.page());
             return;
         }
 
         if (rawSlot == BountyMainGui.SEARCH_SLOT) {
-            SoundService.guiClick(player, core);
-            BountySearchInputListener.begin(player);
-            MenuHistory.openWithoutBackTrigger(core, player, player::closeInventory);
+            if (event.isRightClick()
+                    && BountyMainGui.hasSearch(player)) {
+                BountyMainGui.clearSearch(player);
+                player.sendActionBar(
+                        net.kyori.adventure.text.serializer.legacy
+                                .LegacyComponentSerializer
+                                .legacySection()
+                                .deserialize(
+                                        TextColor.color(
+                                                "&#bbbbbbBounty search cleared"
+                                        )
+                                )
+                );
+                reopen(player, 0);
+                return;
+            }
+
+            searchInputListener.begin(
+                    player,
+                    holder.page()
+            );
             return;
         }
 
         if (rawSlot == BountyMainGui.NEXT_SLOT) {
-            SoundService.guiClick(player, core);
-            MenuHistory.openWithoutBackTrigger(core, player, () -> BountyMainGui.open(core, player, bountyService, page + 1));
+            reopen(player, holder.page() + 1);
             return;
         }
 
-        UUID targetId = BountyMainGui.targetAt(player, bountyService, rawSlot);
+        UUID targetId = holder.targetAt(rawSlot);
 
         if (targetId == null) {
             return;
         }
 
-        SoundService.guiClick(player, core);
         MenuHistory.openChild(
                 core,
                 player,
-                () -> BountyMainGui.open(core, player, bountyService, page),
+                () -> BountyMainGui.open(
+                        core,
+                        player,
+                        bountyService,
+                        holder.page()
+                ),
                 () -> statisticsGui.open(player, targetId)
         );
     }
 
-    private void handleConfirm(Player player, int rawSlot) {
+    private void handleConfirm(
+            Player player,
+            BountyConfirmGui.ConfirmHolder holder,
+            int rawSlot
+    ) {
         if (rawSlot == BountyConfirmGui.CANCEL_SLOT) {
             SoundService.guiCancel(player, core);
-            MenuHistory.openWithoutBackTrigger(core, player, player::closeInventory);
+            reopen(player, 0);
             return;
         }
 
-        if (rawSlot != BountyConfirmGui.CONFIRM_SLOT) {
+        if (rawSlot != BountyConfirmGui.CONFIRM_SLOT
+                || !holder.tryConsume()) {
             return;
         }
 
-        SoundService.guiConfirm(player, core);
+        OfflinePlayer target = Bukkit.getOfflinePlayer(
+                holder.targetId()
+        );
+        BountyService.PlaceResult result =
+                bountyService.placeDetailed(
+                        player,
+                        target,
+                        holder.amountCents()
+                );
 
-        /*
-         * Existing BountyConfirmGui/BountyCommand metadata flow is kept.
-         * This listener only makes menu closing/back behavior safe.
-         * If your local listener already executes the bounty placement here,
-         * keep that placement logic and wrap its close/open calls in MenuHistory.
-         */
+        switch (result.status()) {
+            case SUCCESS -> {
+                String targetName =
+                        bountyService.displayName(target);
+
+                player.sendMessage(TextColor.color(
+                        "&#bbbbbbPlaced &a"
+                                + bountyService.format(
+                                result.contributionCents()
+                        )
+                                + " &#bbbbbbbounty on &#bbbbbb"
+                                + targetName
+                ));
+                SoundService.guiConfirm(player, core);
+
+                Player onlineTarget = target.getPlayer();
+
+                if (onlineTarget != null
+                        && onlineTarget.isOnline()) {
+                    onlineTarget.sendMessage(TextColor.color(
+                            "&#bbbbbb"
+                                    + bountyService.displayName(player)
+                                    + " placed an &a"
+                                    + bountyService.format(
+                                    result.contributionCents()
+                            )
+                                    + " &#bbbbbbbounty on you"
+                    ));
+                    SoundService.guiConfirm(
+                            onlineTarget,
+                            core
+                    );
+                }
+            }
+            case DISABLED -> sendError(
+                    player,
+                    "&cBounty system is currently disabled"
+            );
+            case INVALID_TARGET -> sendError(
+                    player,
+                    "&cThat player could not be found"
+            );
+            case SELF_TARGET -> sendError(
+                    player,
+                    "&cYou cannot place a bounty on yourself"
+            );
+            case INVALID_AMOUNT -> sendError(
+                    player,
+                    "&cEnter a valid bounty amount"
+            );
+            case BELOW_MINIMUM -> sendError(
+                    player,
+                    "&cMinimum bounty is &a"
+                            + bountyService.format(
+                            bountyService.minimumCents()
+                    )
+            );
+            case ABOVE_MAXIMUM -> sendError(
+                    player,
+                    "&cMaximum bounty is &a"
+                            + bountyService.format(
+                            bountyService.maximumCents()
+                    )
+            );
+            case ECONOMY_UNAVAILABLE -> sendError(
+                    player,
+                    "&cEconomy is not available"
+            );
+            case NOT_ENOUGH_MONEY -> sendError(
+                    player,
+                    "&cYou do not have enough money"
+            );
+            case STORAGE_ERROR -> sendError(
+                    player,
+                    "&cCould not save that bounty"
+            );
+        }
+
+        reopen(player, 0);
+    }
+
+    private void reopen(Player player, int page) {
+        MenuHistory.openWithoutBackTrigger(
+                core,
+                player,
+                () -> BountyMainGui.open(
+                        core,
+                        player,
+                        bountyService,
+                        page
+                )
+        );
+    }
+
+    private void sendError(Player player, String message) {
+        player.sendMessage(TextColor.color(message));
+        SoundService.guiError(player, core);
     }
 }

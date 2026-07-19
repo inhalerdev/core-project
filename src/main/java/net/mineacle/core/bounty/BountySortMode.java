@@ -1,6 +1,7 @@
 package net.mineacle.core.bounty;
 
 public enum BountySortMode {
+
     AMOUNT("Amount"),
     RECENT("Recently Set"),
     NAME("Name");
