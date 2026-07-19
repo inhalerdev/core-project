@@ -23,6 +23,7 @@ public final class AdminInspectModule extends Module {
 
     @Override
     public void disable() {
+        // This module does not own tasks, files, or other runtime state.
     }
 
     private void register(Core core, String commandName, CommandExecutor executor) {
