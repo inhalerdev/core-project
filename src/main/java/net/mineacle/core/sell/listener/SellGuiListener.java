@@ -12,6 +12,7 @@ import net.mineacle.core.sell.model.SaleResult;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -29,123 +30,159 @@ public final class SellGuiListener implements Listener {
 
     private final Core core;
     private final SellService sellService;
-    private final Set<UUID> processingSellClose = new HashSet<>();
+    private final Set<UUID> processingSellClose =
+            new HashSet<>();
 
-    public SellGuiListener(Core core, SellService sellService) {
+    public SellGuiListener(
+            Core core,
+            SellService sellService
+    ) {
         this.core = core;
         this.sellService = sellService;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onSellClose(InventoryCloseEvent event) {
-        if (!(event.getPlayer() instanceof Player player)) {
+        if (!(event.getPlayer() instanceof Player player)
+                || !SellGui.isInventory(event.getInventory())) {
             return;
         }
 
-        if (!isSellMenu(event.getView().getTitle())) {
+        UUID playerId = player.getUniqueId();
+
+        if (!processingSellClose.add(playerId)) {
             return;
         }
 
-        if (!processingSellClose.add(player.getUniqueId())) {
-            return;
-        }
+        try {
+            Inventory inventory = event.getInventory();
+            inventory.setItem(SellGui.SUMMARY_SLOT, null);
 
-        Inventory inventory = event.getInventory();
-        inventory.setItem(SellGui.SUMMARY_SLOT, null);
+            SaleResult result = sellService.sellInventory(
+                    playerId,
+                    inventory
+            );
 
-        SaleResult result = sellService.sellInventory(player.getUniqueId(), inventory);
+            for (ItemStack returned
+                    : result.returnedItems()) {
+                returnItem(player, returned);
+            }
 
-        for (ItemStack returned : result.returnedItems()) {
-            returnItem(player, returned);
-        }
+            if (!result.failureMessage().isBlank()) {
+                player.sendMessage(
+                        TextColor.color(
+                                result.failureMessage()
+                        )
+                );
+                SoundService.guiError(player, core);
+            }
 
-        if (!result.soldAnything()) {
-            processingSellClose.remove(player.getUniqueId());
-            return;
-        }
-
-        String chat = sellService.message("sold-chat", "&#bbbbbbSold &#ff88ff%amount%x items &#bbbbbbfor &a+%money%")
-                .replace("%amount%", String.valueOf(result.totalAmount()))
-                .replace("%money%", sellService.format(result.totalCents()));
-
-        String actionbar = sellService.message("sold-actionbar", "&a+%money%")
-                .replace("%money%", sellService.format(result.totalCents()));
-
-        player.sendMessage(chat);
-        player.sendActionBar(actionBar(actionbar));
-        SoundService.economyReceive(player, core);
-
-        processingSellClose.remove(player.getUniqueId());
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
-    public void onSellClick(InventoryClickEvent event) {
-        if (!isSellMenu(event.getView().getTitle())) {
-            return;
-        }
-
-        if (!(event.getWhoClicked() instanceof Player player)) {
-            return;
-        }
-
-        int rawSlot = event.getRawSlot();
-
-        if (rawSlot == SellGui.SUMMARY_SLOT) {
-            event.setCancelled(true);
-            event.setResult(org.bukkit.event.Event.Result.DENY);
-            return;
-        }
-
-        refreshSellGui(player);
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
-    public void onSellDrag(InventoryDragEvent event) {
-        if (!isSellMenu(event.getView().getTitle())) {
-            return;
-        }
-
-        if (event.getRawSlots().contains(SellGui.SUMMARY_SLOT)) {
-            event.setCancelled(true);
-            event.setResult(org.bukkit.event.Event.Result.DENY);
-            return;
-        }
-
-        if (!(event.getWhoClicked() instanceof Player player)) {
-            return;
-        }
-
-        refreshSellGui(player);
-    }
-
-    private void refreshSellGui(Player player) {
-        core.getServer().getScheduler().runTask(core, () -> {
-            if (!player.isOnline() || !isSellMenu(player.getOpenInventory().getTitle())) {
+            if (!result.soldAnything()) {
                 return;
             }
 
-            SellGui.updateSummary(player, player.getOpenInventory().getTopInventory(), sellService);
-            player.updateInventory();
-        });
+            String chat = sellService.message(
+                    "sold-chat",
+                    "&#bbbbbbSold &#ff88ff%amount%x items "
+                            + "&#bbbbbbfor &a+%money%"
+            )
+                    .replace(
+                            "%amount%",
+                            String.valueOf(result.totalAmount())
+                    )
+                    .replace(
+                            "%money%",
+                            sellService.format(
+                                    result.totalCents()
+                            )
+                    );
+            String actionBar = sellService.message(
+                    "sold-actionbar",
+                    "&a+%money%"
+            ).replace(
+                    "%money%",
+                    sellService.format(result.totalCents())
+            );
+
+            player.sendMessage(chat);
+            player.sendActionBar(component(actionBar));
+            SoundService.economyReceive(player, core);
+        } finally {
+            processingSellClose.remove(playerId);
+        }
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    @EventHandler(
+            priority = EventPriority.HIGHEST,
+            ignoreCancelled = false
+    )
+    public void onSellClick(InventoryClickEvent event) {
+        if (!SellGui.isInventory(
+                event.getView().getTopInventory()
+        )) {
+            return;
+        }
+
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+
+        if (event.getRawSlot() == SellGui.SUMMARY_SLOT) {
+            event.setCancelled(true);
+            event.setResult(Event.Result.DENY);
+            return;
+        }
+
+        refreshSellGui(player);
+    }
+
+    @EventHandler(
+            priority = EventPriority.HIGHEST,
+            ignoreCancelled = false
+    )
+    public void onSellDrag(InventoryDragEvent event) {
+        if (!SellGui.isInventory(
+                event.getView().getTopInventory()
+        )) {
+            return;
+        }
+
+        if (event.getRawSlots()
+                .contains(SellGui.SUMMARY_SLOT)) {
+            event.setCancelled(true);
+            event.setResult(Event.Result.DENY);
+            return;
+        }
+
+        if (event.getWhoClicked() instanceof Player player) {
+            refreshSellGui(player);
+        }
+    }
+
+    @EventHandler(
+            priority = EventPriority.HIGHEST,
+            ignoreCancelled = false
+    )
     public void onHistoryClick(InventoryClickEvent event) {
-        String title = ChatColor.stripColor(event.getView().getTitle());
+        String title = ChatColor.stripColor(
+                event.getView().getTitle()
+        );
 
         if (!SellHistoryGui.isTitle(title)) {
             return;
         }
 
         event.setCancelled(true);
-        event.setResult(org.bukkit.event.Event.Result.DENY);
+        event.setResult(Event.Result.DENY);
 
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
 
         int slot = event.getRawSlot();
-        int topSize = event.getView().getTopInventory().getSize();
+        int topSize = event.getView()
+                .getTopInventory()
+                .getSize();
 
         if (slot < 0 || slot >= topSize) {
             return;
@@ -155,43 +192,98 @@ public final class SellGuiListener implements Listener {
 
         if (slot == SellHistoryGui.PREVIOUS_SLOT) {
             SoundService.guiClick(player, core);
-            MenuHistory.openWithoutBackTrigger(core, player, () -> SellHistoryGui.open(core, player, sellService, page - 1));
+            MenuHistory.openWithoutBackTrigger(
+                    core,
+                    player,
+                    () -> SellHistoryGui.open(
+                            core,
+                            player,
+                            sellService,
+                            page - 1
+                    )
+            );
             return;
         }
 
         if (slot == SellHistoryGui.SORT_SLOT) {
             SoundService.guiClick(player, core);
             SellHistoryGui.cycleSort(player);
-            MenuHistory.openWithoutBackTrigger(core, player, () -> SellHistoryGui.open(core, player, sellService, 0));
+            MenuHistory.openWithoutBackTrigger(
+                    core,
+                    player,
+                    () -> SellHistoryGui.open(
+                            core,
+                            player,
+                            sellService,
+                            0
+                    )
+            );
             return;
         }
 
         if (slot == SellHistoryGui.NEXT_SLOT) {
             SoundService.guiClick(player, core);
-            MenuHistory.openWithoutBackTrigger(core, player, () -> SellHistoryGui.open(core, player, sellService, page + 1));
+            MenuHistory.openWithoutBackTrigger(
+                    core,
+                    player,
+                    () -> SellHistoryGui.open(
+                            core,
+                            player,
+                            sellService,
+                            page + 1
+                    )
+            );
         }
     }
 
-    private boolean isSellMenu(String rawTitle) {
-        String title = ChatColor.stripColor(rawTitle);
-        String sellTitle = ChatColor.stripColor(SellGui.title(core));
+    private void refreshSellGui(Player player) {
+        core.getServer().getScheduler().runTask(
+                core,
+                () -> {
+                    if (!player.isOnline()) {
+                        return;
+                    }
 
-        return title != null && sellTitle != null && title.equals(sellTitle);
+                    Inventory top = player.getOpenInventory()
+                            .getTopInventory();
+
+                    if (!SellGui.isInventory(top)) {
+                        return;
+                    }
+
+                    SellGui.updateSummary(
+                            player,
+                            top,
+                            sellService
+                    );
+                    player.updateInventory();
+                }
+        );
     }
 
-    private void returnItem(Player player, ItemStack item) {
+    private void returnItem(
+            Player player,
+            ItemStack item
+    ) {
         if (item == null || item.getType().isAir()) {
             return;
         }
 
         ItemStack clean = sellService.stripWorthLore(item);
 
-        player.getInventory().addItem(clean).values().forEach(leftover ->
-                player.getWorld().dropItemNaturally(player.getLocation(), leftover)
-        );
+        player.getInventory()
+                .addItem(clean)
+                .values()
+                .forEach(leftover ->
+                        player.getWorld().dropItemNaturally(
+                                player.getLocation(),
+                                leftover
+                        )
+                );
     }
 
-    private Component actionBar(String message) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
+    private Component component(String message) {
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(TextColor.color(message));
     }
 }

@@ -8,6 +8,22 @@ public record SaleResult(
         boolean soldAnything,
         long totalCents,
         long totalAmount,
-        List<ItemStack> returnedItems
+        List<ItemStack> returnedItems,
+        String failureMessage
 ) {
+
+    public SaleResult(
+            boolean soldAnything,
+            long totalCents,
+            long totalAmount,
+            List<ItemStack> returnedItems
+    ) {
+        this(
+                soldAnything,
+                totalCents,
+                totalAmount,
+                returnedItems,
+                ""
+        );
+    }
 }

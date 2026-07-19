@@ -2,11 +2,13 @@ package net.mineacle.core.sell.gui;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.sell.model.SellQuote;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -21,23 +23,55 @@ public final class SellGui {
     private SellGui() {
     }
 
-    public static void open(Core core, Player player, SellService sellService) {
-        Inventory inventory = Bukkit.createInventory(null, SIZE, title(core));
+    public static void open(
+            Core core,
+            Player player,
+            SellService sellService
+    ) {
+        Holder holder = new Holder();
+        Inventory inventory = Bukkit.createInventory(
+                holder,
+                SIZE,
+                title(core)
+        );
+        holder.inventory = inventory;
+
         updateSummary(player, inventory, sellService);
         player.openInventory(inventory);
     }
 
     public static void open(Core core, Player player) {
-        Inventory inventory = Bukkit.createInventory(null, SIZE, title(core));
-        player.openInventory(inventory);
+        SellService sellService =
+                net.mineacle.core.sell.SellModule.sellService();
+
+        if (sellService != null) {
+            open(core, player, sellService);
+        }
+    }
+
+    public static boolean isInventory(Inventory inventory) {
+        return inventory != null
+                && inventory.getHolder(false) instanceof Holder;
     }
 
     public static String title(Core core) {
-        return TextColor.color(core.getConfig().getString("sell.gui.title", "Place Items In Here To Sell"));
+        return TextColor.color(
+                core.getConfig().getString(
+                        "sell.gui.title",
+                        "Place Items In Here To Sell"
+                )
+        );
     }
 
-    public static void updateSummary(Player player, Inventory inventory, SellService sellService) {
-        if (player == null || inventory == null || sellService == null || inventory.getSize() <= SUMMARY_SLOT) {
+    public static void updateSummary(
+            Player player,
+            Inventory inventory,
+            SellService sellService
+    ) {
+        if (player == null
+                || inventory == null
+                || sellService == null
+                || inventory.getSize() <= SUMMARY_SLOT) {
             return;
         }
 
@@ -56,22 +90,49 @@ public final class SellGui {
                 continue;
             }
 
-            ItemStack clean = sellService.stripWorthLore(item);
+            SellQuote quote = sellService.quote(
+                    player.getUniqueId(),
+                    item
+            );
 
-            if (!sellService.canSell(clean)) {
-                ignoredAmount += clean.getAmount();
+            if (!quote.sellable()) {
+                ignoredAmount = safeAdd(
+                        ignoredAmount,
+                        item.getAmount()
+                );
                 continue;
             }
 
-            totalCents += sellService.stackWorthCents(player, clean);
-            totalAmount += clean.getAmount();
+            totalCents = safeAdd(
+                    totalCents,
+                    quote.totalCents()
+            );
+            totalAmount = safeAdd(
+                    totalAmount,
+                    item.getAmount()
+            );
         }
 
-        inventory.setItem(SUMMARY_SLOT, summaryItem(sellService, totalCents, totalAmount, ignoredAmount));
+        inventory.setItem(
+                SUMMARY_SLOT,
+                summaryItem(
+                        sellService,
+                        totalCents,
+                        totalAmount,
+                        ignoredAmount
+                )
+        );
     }
 
-    private static ItemStack summaryItem(SellService sellService, long totalCents, long totalAmount, long ignoredAmount) {
-        ItemStack item = new ItemStack(Material.GREEN_STAINED_GLASS_PANE);
+    private static ItemStack summaryItem(
+            SellService sellService,
+            long totalCents,
+            long totalAmount,
+            long ignoredAmount
+    ) {
+        ItemStack item = new ItemStack(
+                Material.GREEN_STAINED_GLASS_PANE
+        );
         ItemMeta meta = item.getItemMeta();
 
         if (meta == null) {
@@ -79,11 +140,18 @@ public final class SellGui {
         }
 
         List<String> lore = new ArrayList<>();
-        lore.add("&#bbbbbbValue: &a" + sellService.format(totalCents));
-        lore.add("&#bbbbbbItems: &#ff88ff" + totalAmount);
+        lore.add(
+                "&#bbbbbbValue: &a"
+                        + sellService.format(totalCents)
+        );
+        lore.add(
+                "&#bbbbbbItems: &#ff88ff" + totalAmount
+        );
 
         if (ignoredAmount > 0L) {
-            lore.add("&#bbbbbbIgnored: &c" + ignoredAmount);
+            lore.add(
+                    "&#bbbbbbIgnored: &c" + ignoredAmount
+            );
         }
 
         lore.add("");
@@ -94,5 +162,24 @@ public final class SellGui {
         meta.setLore(lore.stream().map(TextColor::color).toList());
         item.setItemMeta(meta);
         return item;
+    }
+
+    private static long safeAdd(long first, long second) {
+        try {
+            return Math.addExact(first, second);
+        } catch (ArithmeticException exception) {
+            return Long.MAX_VALUE;
+        }
+    }
+
+    private static final class Holder
+            implements InventoryHolder {
+
+        private Inventory inventory;
+
+        @Override
+        public Inventory getInventory() {
+            return inventory;
+        }
     }
 }

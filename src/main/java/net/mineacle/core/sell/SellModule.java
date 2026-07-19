@@ -15,11 +15,14 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitTask;
 
 public final class SellModule extends Module {
 
     private static SellService sellService;
+
     private SellWorthPacketListener packetListener;
+    private BukkitTask marketTask;
 
     public static SellService sellService() {
         return sellService;
@@ -33,48 +36,101 @@ public final class SellModule extends Module {
     @Override
     public void enable(Core core) {
         sellService = new SellService(core);
+        sellService.start();
 
-        SellCommand command = new SellCommand(core, sellService);
+        SellCommand command =
+                new SellCommand(core, sellService);
+
         register(core, "sell", command);
         register(core, "worth", command);
         register(core, "sellmulti", command);
 
-        core.getServer().getPluginManager().registerEvents(new SellGuiListener(core, sellService), core);
-        core.getServer().getPluginManager().registerEvents(new WorthGuiListener(core, sellService), core);
-        core.getServer().getPluginManager().registerEvents(new SellMultiGuiListener(), core);
-        core.getServer().getPluginManager().registerEvents(new ItemStackNormalizeListener(core), core);
-        core.getServer().getPluginManager().registerEvents(new SellWorthRefreshListener(core), core);
+        core.getServer().getPluginManager().registerEvents(
+                new SellGuiListener(core, sellService),
+                core
+        );
+        core.getServer().getPluginManager().registerEvents(
+                new WorthGuiListener(core, sellService),
+                core
+        );
+        core.getServer().getPluginManager().registerEvents(
+                new SellMultiGuiListener(),
+                core
+        );
+        core.getServer().getPluginManager().registerEvents(
+                new ItemStackNormalizeListener(
+                        core,
+                        sellService
+                ),
+                core
+        );
+        core.getServer().getPluginManager().registerEvents(
+                new SellWorthRefreshListener(core),
+                core
+        );
 
-        Plugin protocolLib = core.getServer().getPluginManager().getPlugin("ProtocolLib");
+        marketTask = core.getServer()
+                .getScheduler()
+                .runTaskTimer(
+                        core,
+                        sellService::tick,
+                        20L,
+                        20L * 20L
+                );
+
+        Plugin protocolLib = core.getServer()
+                .getPluginManager()
+                .getPlugin("ProtocolLib");
+
         if (protocolLib != null && protocolLib.isEnabled()) {
-            packetListener = new SellWorthPacketListener(core, sellService);
-            ProtocolLibrary.getProtocolManager().addPacketListener(packetListener);
-            core.getLogger().info("Sell worth hover lore enabled for normal inventory and storage only");
+            packetListener = new SellWorthPacketListener(
+                    core,
+                    sellService
+            );
+            ProtocolLibrary.getProtocolManager()
+                    .addPacketListener(packetListener);
+            core.getLogger().info(
+                    "Sell worth hover lore enabled for "
+                            + "player inventory and real storage"
+            );
         } else {
-            core.getLogger().warning("ProtocolLib not found; worth hover lore is disabled outside Mineacle GUIs");
+            core.getLogger().warning(
+                    "ProtocolLib not found — packet-only "
+                            + "Worth lore is disabled"
+            );
         }
     }
 
     @Override
     public void disable() {
+        if (marketTask != null) {
+            marketTask.cancel();
+            marketTask = null;
+        }
+
         if (packetListener != null) {
-            ProtocolLibrary.getProtocolManager().removePacketListener(packetListener);
+            ProtocolLibrary.getProtocolManager()
+                    .removePacketListener(packetListener);
             packetListener = null;
         }
 
         if (sellService != null) {
-            sellService.save();
+            sellService.shutdown();
+            sellService = null;
         }
-
-        sellService = null;
     }
 
-    private void register(Core core, String commandName, CommandExecutor executor) {
+    private void register(
+            Core core,
+            String commandName,
+            CommandExecutor executor
+    ) {
         PluginCommand command = core.getCommand(commandName);
 
         if (command == null) {
-            core.getLogger().warning("Missing command in plugin.yml: " + commandName);
-            return;
+            throw new IllegalStateException(
+                    "Missing command in plugin.yml: " + commandName
+            );
         }
 
         command.setExecutor(executor);

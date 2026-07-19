@@ -8,6 +8,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -16,50 +17,84 @@ import java.util.List;
 
 public final class SellMultiGui {
 
-    public static final String TITLE = "Sell Multipliers";
+    public static final String TITLE = "Market Overview";
 
-    private static final int[] CATEGORY_SLOTS = {10, 11, 12, 13, 14, 15, 16, 22};
+    private static final int[] CATEGORY_SLOTS = {
+            9, 10, 11, 12, 13, 14, 15, 16, 17
+    };
 
     private SellMultiGui() {
     }
 
-    public static void open(Core core, Player player, SellService sellService) {
-        Inventory inventory = Bukkit.createInventory(null, 27, TITLE);
+    public static void open(
+            Core core,
+            Player player,
+            SellService sellService
+    ) {
+        Holder holder = new Holder();
+        Inventory inventory = Bukkit.createInventory(
+                holder,
+                27,
+                TITLE
+        );
+        holder.inventory = inventory;
 
-        List<String> categories = sellService.multiplierCategories();
+        List<String> categories =
+                sellService.multiplierCategories();
 
-        for (int index = 0; index < categories.size() && index < CATEGORY_SLOTS.length; index++) {
+        for (int index = 0;
+             index < categories.size()
+                     && index < CATEGORY_SLOTS.length;
+             index++) {
             String category = categories.get(index);
-            inventory.setItem(CATEGORY_SLOTS[index], categoryItem(player, sellService, category));
+
+            inventory.setItem(
+                    CATEGORY_SLOTS[index],
+                    categoryItem(sellService, category)
+            );
         }
 
         player.openInventory(inventory);
     }
 
-    public static boolean isTitle(String strippedTitle) {
-        return strippedTitle != null && strippedTitle.equalsIgnoreCase(TITLE);
+    public static boolean isInventory(Inventory inventory) {
+        return inventory != null
+                && inventory.getHolder(false) instanceof Holder;
     }
 
-    private static ItemStack categoryItem(Player player, SellService sellService, String category) {
-        double multiplier = sellService.multiplier(player.getUniqueId(), category);
-        double increase = sellService.categoryIncreasePerLevel(category);
-        double max = sellService.categoryMaxMultiplier(category);
+    public static boolean isTitle(String strippedTitle) {
+        return strippedTitle != null
+                && strippedTitle.equalsIgnoreCase(TITLE);
+    }
 
-        long sold = sellService.categorySoldAmount(player.getUniqueId(), category);
-        long progress = sellService.categoryProgressAmount(player.getUniqueId(), category);
-        long needed = sellService.categoryAmountPerLevel(category);
-        long remaining = sellService.categoryRemainingAmount(player.getUniqueId(), category);
+    private static ItemStack categoryItem(
+            SellService sellService,
+            String category
+    ) {
+        double multiplier =
+                sellService.categoryMarketMultiplier(category);
+        long sold =
+                sellService.categoryRollingAmount(category);
+        long target =
+                sellService.categoryTargetUnits(category);
+        int featured =
+                sellService.categoryFeaturedItems(category);
 
         return item(
                 categoryMaterial(category),
                 "&d" + sellService.categoryDisplay(category),
                 List.of(
-                        "&#bbbbbbMultiplier: &#ff88ff" + SellService.formatMultiplier(multiplier) + "x",
-                        "&#bbbbbbSold: &#ff88ff" + MoneyFormatter.compact(sold),
-                        "&#bbbbbbProgress: &#ff88ff" + MoneyFormatter.compact(progress) + "&#bbbbbb/&#ff88ff" + MoneyFormatter.compact(needed),
-                        "&#bbbbbbRemaining: &#ff88ff" + MoneyFormatter.compact(remaining),
-                        "&#bbbbbbNext Upgrade: &#ff88ff+" + SellService.formatMultiplier(increase) + "x",
-                        "&#bbbbbbMax Multiplier: &#ff88ff" + SellService.formatMultiplier(max) + "x"
+                        "&#bbbbbbMarket: &#ff88ff"
+                                + SellService.formatMultiplier(
+                                multiplier
+                        )
+                                + "x",
+                        "&#bbbbbb24h Supply: &#ff88ff"
+                                + MoneyFormatter.compact(sold),
+                        "&#bbbbbbDaily Target: &#ff88ff"
+                                + MoneyFormatter.compact(target),
+                        "&#bbbbbbFeatured Items: &#ff88ff"
+                                + featured
                 )
         );
     }
@@ -73,11 +108,16 @@ public final class SellMultiGui {
             case "mob_drops" -> Material.BONE;
             case "nether" -> Material.NETHERRACK;
             case "end" -> Material.END_STONE;
+            case "combat" -> Material.DIAMOND_SWORD;
             default -> Material.CHEST;
         };
     }
 
-    private static ItemStack item(Material material, String name, List<String> lore) {
+    private static ItemStack item(
+            Material material,
+            String name,
+            List<String> lore
+    ) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
 
@@ -86,9 +126,22 @@ public final class SellMultiGui {
         }
 
         meta.setDisplayName(TextColor.color(name));
-        meta.setLore(lore.stream().map(TextColor::color).toList());
+        meta.setLore(
+                lore.stream().map(TextColor::color).toList()
+        );
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
+    }
+
+    private static final class Holder
+            implements InventoryHolder {
+
+        private Inventory inventory;
+
+        @Override
+        public Inventory getInventory() {
+            return inventory;
+        }
     }
 }

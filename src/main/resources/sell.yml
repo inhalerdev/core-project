@@ -1,458 +1,514 @@
 settings:
   allow-all-items-with-fallback: true
-  deny-damaged-tools: true
-  deny-enchanted-items: false
+  deny-custom-items: false
   deny-filled-containers: true
+  deny-enchanted-items: false
+
   blocked-items:
-  - BARRIER
-  - BEDROCK
-  - COMMAND_BLOCK
-  - CHAIN_COMMAND_BLOCK
-  - REPEATING_COMMAND_BLOCK
-  - COMMAND_BLOCK_MINECART
-  - STRUCTURE_BLOCK
-  - STRUCTURE_VOID
-  - JIGSAW
-  - LIGHT
-  - DEBUG_STICK
-  - KNOWLEDGE_BOOK
-  - SPAWNER
-  - TRIAL_SPAWNER
-  - VAULT
-  - END_PORTAL_FRAME
-  - DRAGON_EGG
-  - FARMLAND
-  - FROGSPAWN
-  - REINFORCED_DEEPSLATE
-  - PLAYER_HEAD
-  - PIGLIN_HEAD
-categories:
-  farming:
-    display-name: Farming
-  ores:
-    display-name: Ores
-  wood:
-    display-name: Wood
-  mob_drops:
-    display-name: Mob Drops
-  nether:
-    display-name: Nether
-  end:
-    display-name: End
-  combat:
-    display-name: Combat
-  blocks:
-    display-name: Blocks
-  rare:
-    display-name: Rare
-  misc:
-    display-name: Misc
-fallback-prices:
-  farming: 0.04
-  ores: 0.15
-  wood: 0.04
-  mob_drops: 0.08
-  nether: 0.08
-  end: 0.1
-  combat: 0.25
-  blocks: 0.01
-  rare: 1.0
-  misc: 0.02
-prices:
-  WHEAT:
-    price: 0.08
-    category: farming
-  CARROT:
-    price: 0.07
-    category: farming
-  POTATO:
-    price: 0.07
-    category: farming
-  SUGAR_CANE:
-    price: 0.06
-    category: farming
-  CACTUS:
-    price: 0.06
-    category: farming
-  KELP:
-    price: 0.03
-    category: farming
-  PUMPKIN:
-    price: 0.18
-    category: farming
-  MELON_SLICE:
-    price: 0.04
-    category: farming
-  BAMBOO:
-    price: 0.02
-    category: farming
-  COBBLESTONE:
-    price: 0.01
-    category: blocks
-  STONE:
-    price: 0.02
-    category: blocks
-  DEEPSLATE:
-    price: 0.02
-    category: blocks
-  DIRT:
-    price: 0.01
-    category: blocks
-  SAND:
-    price: 0.02
-    category: blocks
-  GRAVEL:
-    price: 0.02
-    category: blocks
-  CLAY_BALL:
-    price: 0.05
-    category: blocks
-  CLAY:
-    price: 0.2
-    category: blocks
-  OAK_LOG:
-    price: 0.08
-    category: wood
-  SPRUCE_LOG:
-    price: 0.08
-    category: wood
-  BIRCH_LOG:
-    price: 0.08
-    category: wood
-  JUNGLE_LOG:
-    price: 0.08
-    category: wood
-  ACACIA_LOG:
-    price: 0.08
-    category: wood
-  DARK_OAK_LOG:
-    price: 0.08
-    category: wood
-  MANGROVE_LOG:
-    price: 0.1
-    category: wood
-  CHERRY_LOG:
-    price: 0.1
-    category: wood
-  ROTTEN_FLESH:
-    price: 0.08
-    category: mob_drops
-  BONE:
-    price: 0.12
-    category: mob_drops
-  STRING:
-    price: 0.1
-    category: mob_drops
-  SPIDER_EYE:
-    price: 0.18
-    category: mob_drops
-  GUNPOWDER:
-    price: 0.45
-    category: mob_drops
-  ENDER_PEARL:
-    price: 0.9
-    category: mob_drops
-  BLAZE_ROD:
-    price: 1.75
-    category: mob_drops
-  GHAST_TEAR:
-    price: 12.0
-    category: nether
-  MAGMA_CREAM:
-    price: 0.75
-    category: mob_drops
-  SLIME_BALL:
-    price: 0.65
-    category: mob_drops
-  COAL:
-    price: 0.35
-    category: ores
-  RAW_COPPER:
-    price: 0.45
-    category: ores
-  COPPER_INGOT:
-    price: 0.6
-    category: ores
-  RAW_IRON:
-    price: 1.2
-    category: ores
-  IRON_INGOT:
-    price: 1.6
-    category: ores
-  RAW_GOLD:
-    price: 2.2
-    category: ores
-  GOLD_INGOT:
-    price: 3.0
-    category: ores
-  REDSTONE:
-    price: 0.3
-    category: ores
-  LAPIS_LAZULI:
-    price: 0.45
-    category: ores
-  QUARTZ:
-    price: 0.55
-    category: ores
-  AMETHYST_SHARD:
-    price: 0.85
-    category: ores
-  DIAMOND:
-    price: 18.0
-    category: ores
-  EMERALD:
-    price: 16.0
-    category: ores
-  COAL_BLOCK:
-    price: 3.15
-    category: ores
-  COPPER_BLOCK:
-    price: 5.4
-    category: ores
-  IRON_BLOCK:
-    price: 14.4
-    category: ores
-  GOLD_BLOCK:
-    price: 27.0
-    category: ores
-  REDSTONE_BLOCK:
-    price: 2.7
-    category: ores
-  LAPIS_BLOCK:
-    price: 4.05
-    category: ores
-  QUARTZ_BLOCK:
-    price: 2.2
-    category: ores
-  DIAMOND_BLOCK:
-    price: 162.0
-    category: ores
-  EMERALD_BLOCK:
-    price: 144.0
-    category: ores
-  BLACKSTONE:
-    price: 0.04
-    category: nether
-  GILDED_BLACKSTONE:
-    price: 28.0
-    category: rare
-  CRYING_OBSIDIAN:
-    price: 3.5
-    category: nether
-  OBSIDIAN:
-    price: 1.6
-    category: nether
-  ANCIENT_DEBRIS:
-    price: 1150.0
-    category: ores
-  NETHERITE_SCRAP:
-    price: 1150.0
-    category: ores
-  NETHERITE_INGOT:
-    price: 4500.0
-    category: ores
-  NETHERITE_BLOCK:
-    price: 3240.0
-    category: rare
-  NETHERITE_SWORD:
-    price: 760.0
-    category: rare
-  NETHERITE_PICKAXE:
-    price: 1160.0
-    category: rare
-  NETHERITE_AXE:
-    price: 1160.0
-    category: rare
-  NETHERITE_SHOVEL:
-    price: 460.0
-    category: rare
-  NETHERITE_HOE:
-    price: 760.0
-    category: rare
-  NETHERITE_HELMET:
-    price: 1840.0
-    category: rare
-  NETHERITE_CHESTPLATE:
-    price: 2920.0
-    category: rare
-  NETHERITE_LEGGINGS:
-    price: 2560.0
-    category: rare
-  NETHERITE_BOOTS:
-    price: 1480.0
-    category: rare
-  END_STONE:
-    price: 0.08
-    category: end
-  CHORUS_FRUIT:
-    price: 0.18
-    category: end
-  POPPED_CHORUS_FRUIT:
-    price: 0.28
-    category: end
-  SHULKER_SHELL:
-    price: 75.0
-    category: end
-  ELYTRA:
-    price: 25000.0
-    category: end
-  DRAGON_BREATH:
-    price: 12.0
-    category: end
-  DRAGON_EGG:
-    price: 10000.0
-    category: rare
-  ECHO_SHARD:
-    price: 45.0
-    category: rare
-  DISC_FRAGMENT_5:
-    price: 28.0
-    category: rare
-  HEART_OF_THE_SEA:
-    price: 2500.0
-    category: misc
-  NAUTILUS_SHELL:
-    price: 125.0
-    category: misc
-  TOTEM_OF_UNDYING:
-    price: 4000.0
-    category: combat
-  NETHER_STAR:
-    price: 15000.0
-    category: misc
-  BEACON:
-    price: 18000.0
-    category: misc
-  TRIDENT:
-    price: 6500.0
-    category: combat
-  WITHER_SKELETON_SKULL:
-    price: 190.0
-    category: rare
-  ENCHANTED_GOLDEN_APPLE:
-    price: 8500.0
-    category: combat
-  END_CRYSTAL:
-    price: 600.0
-    category: combat
-  CONDUIT:
-    price: 5000.0
-    category: misc
-  MACE:
-    price: 10000.0
-    category: combat
-  HEAVY_CORE:
-    price: 7500.0
-    category: combat
-demand:
+    - BEDROCK
+    - BARRIER
+    - COMMAND_BLOCK
+    - CHAIN_COMMAND_BLOCK
+    - REPEATING_COMMAND_BLOCK
+    - STRUCTURE_BLOCK
+    - STRUCTURE_VOID
+    - JIGSAW
+    - DEBUG_STICK
+    - PLAYER_HEAD
+
+  # These may appear in /worth but cannot be sold to the server.
+  unsellable-items:
+    - DRAGON_EGG
+
+durability:
   enabled: true
-  cycle-hours: 24
-  active-items: 12
-  reduce-after-sold: 10000
-  oversold-after-sold: 25000
-  last-rotation: 0
-  tiers:
-    wanted: 1.25
-    high_demand: 1.5
-    premium: 2.0
-    oversold: 0.65
-  tier-order:
-  - wanted
-  - high_demand
-  - premium
-  excluded-items:
-  - GILDED_BLACKSTONE
-  - ANCIENT_DEBRIS
-  - NETHERITE_SCRAP
-  - NETHERITE_INGOT
-  - NETHERITE_BLOCK
-  - NETHER_STAR
-  - BEACON
-  - ELYTRA
-  - DRAGON_EGG
-  - TOTEM_OF_UNDYING
-  - HEART_OF_THE_SEA
-  - ECHO_SHARD
-  pool:
-    farming:
-    - WHEAT
-    - CARROT
-    - POTATO
-    - SUGAR_CANE
-    - CACTUS
-    - KELP
-    - PUMPKIN
-    - MELON_SLICE
-    mob_drops:
-    - BONE
-    - STRING
-    - GUNPOWDER
-    - ROTTEN_FLESH
-    - ENDER_PEARL
-    - BLAZE_ROD
-    - SLIME_BALL
+
+  # A nearly broken item keeps 10% of its market-adjusted base value.
+  minimum-base-multiplier: 0.10
+
+  # Enchantments retain at least half of their configured value.
+  minimum-enchant-multiplier: 0.50
+
+market:
+  enabled: true
+
+  # Items using category fallback prices stay static unless explicitly enabled.
+  fallback-items-enabled: false
+
+  # MySQL/MariaDB uses the database section from webprofiles.yml.
+  # sell-market.yml remains an automatic local fallback/checkpoint.
+  storage: mysql
+  database-config-file: webprofiles.yml
+  table-prefix: mineacle_sell
+
+  reprice-interval-minutes: 15
+  flush-seconds: 30
+  bucket-minutes: 60
+  retention-days: 7
+
+  minimum-multiplier: 0.35
+  maximum-multiplier: 1.75
+  maximum-change-per-refresh-percent: 8.0
+  minimum-observation-hours: 6
+
+  weights:
+    last-6-hours: 0.60
+    last-24-hours: 0.30
+    last-7-days: 0.10
+
+  categories:
+    blocks:
+      enabled: true
     ores:
-    - COAL
-    - COPPER_INGOT
-    - IRON_INGOT
-    - GOLD_INGOT
-    - REDSTONE
-    - LAPIS_LAZULI
-    - QUARTZ
+      enabled: true
+    wood:
+      enabled: true
+    farming:
+      enabled: true
+    mob_drops:
+      enabled: true
     nether:
-    - BLACKSTONE
-    - CRYING_OBSIDIAN
-    - MAGMA_CREAM
+      enabled: true
     end:
-    - END_STONE
-    - CHORUS_FRUIT
-    - POPPED_CHORUS_FRUIT
+      enabled: true
+    combat:
+      enabled: false
+    misc:
+      enabled: false
+
+  # Expected server-wide units sold per day.
+  targets:
+    blocks: 50000
+    ores: 2000
+    wood: 15000
+    farming: 25000
+    mob_drops: 15000
+    nether: 5000
+    end: 1500
+    combat: 250
+    misc: 500
+
+  featured:
+    rotation-hours: 12
+    active-items: 8
+    minimum-multiplier: 1.10
+    maximum-multiplier: 1.35
+
+    pool:
+      - SUGAR_CANE
+      - WHEAT
+      - CARROT
+      - POTATO
+      - PUMPKIN
+      - MELON_SLICE
+      - GUNPOWDER
+      - BONE
+      - STRING
+      - ROTTEN_FLESH
+      - SPIDER_EYE
+      - SLIME_BALL
+      - COAL
+      - IRON_INGOT
+      - COPPER_INGOT
+      - GOLD_INGOT
+      - REDSTONE
+      - LAPIS_LAZULI
+      - AMETHYST_SHARD
+      - DIAMOND
+      - EMERALD
+      - BLAZE_ROD
+      - BLAZE_POWDER
+      - GHAST_TEAR
+      - MAGMA_CREAM
+      - QUARTZ
+      - ENDER_PEARL
+      - SHULKER_SHELL
+      - OAK_LOG
+      - SPRUCE_LOG
+      - BIRCH_LOG
+      - JUNGLE_LOG
+      - ACACIA_LOG
+      - DARK_OAK_LOG
+      - CHERRY_LOG
+      - MANGROVE_LOG
+
+    excluded-items:
+      - DRAGON_EGG
+      - ELYTRA
+      - NETHER_STAR
+      - NETHERITE_BLOCK
+      - NETHERITE_INGOT
+      - TOTEM_OF_UNDYING
+      - ENCHANTED_GOLDEN_APPLE
+      - PLAYER_HEAD
+
+fallback-prices:
+  blocks: "0.03"
+  ores: "1"
+  wood: "0.12"
+  farming: "0.08"
+  mob_drops: "0.15"
+  nether: "0.20"
+  end: "0.35"
+  combat: "0.50"
+  misc: "0.01"
+
+categories:
+  blocks:
+    display-name: "Blocks"
+  ores:
+    display-name: "Ores"
+  wood:
+    display-name: "Wood"
+  farming:
+    display-name: "Farming"
+  mob_drops:
+    display-name: "Mob Drops"
+  nether:
+    display-name: "Nether"
+  end:
+    display-name: "End"
+  combat:
+    display-name: "Combat"
+  misc:
+    display-name: "Misc"
+
 enchant-values:
-  default-per-level-cents: 25000
+  enabled: true
+
+  # These values are integer cents.
+  default-per-level-cents: 2500
   treasure-multiplier: 2.0
   unsafe-multiplier: 1.25
+
   enchants:
-    MENDING: 150000
-    PROTECTION: 45000
-    FIRE_PROTECTION: 35000
-    BLAST_PROTECTION: 35000
-    PROJECTILE_PROTECTION: 35000
-    FEATHER_FALLING: 40000
-    RESPIRATION: 40000
-    AQUA_AFFINITY: 60000
-    THORNS: 50000
-    DEPTH_STRIDER: 45000
-    FROST_WALKER: 75000
-    SOUL_SPEED: 75000
-    SWIFT_SNEAK: 85000
-    SHARPNESS: 45000
-    SMITE: 30000
-    BANE_OF_ARTHROPODS: 25000
-    KNOCKBACK: 30000
-    FIRE_ASPECT: 60000
-    LOOTING: 65000
-    SWEEPING_EDGE: 40000
-    EFFICIENCY: 40000
-    SILK_TOUCH: 125000
-    UNBREAKING: 35000
-    FORTUNE: 75000
-    POWER: 40000
-    PUNCH: 45000
-    FLAME: 75000
-    INFINITY: 125000
-    LUCK_OF_THE_SEA: 45000
-    LURE: 35000
-    LOYALTY: 50000
-    IMPALING: 40000
-    RIPTIDE: 80000
-    CHANNELING: 125000
-    MULTISHOT: 75000
-    QUICK_CHARGE: 45000
-    PIERCING: 35000
-    WIND_BURST: 100000
-    DENSITY: 50000
-    BREACH: 65000
-  enabled: true
+    MENDING: 10000
+    PROTECTION: 3500
+    SHARPNESS: 3500
+    EFFICIENCY: 3000
+    UNBREAKING: 2500
+    FORTUNE: 5000
+    SILK_TOUCH: 7500
+
+prices:
+  DRAGON_EGG:
+    base-price: "50000"
+    category: end
+    market-enabled: false
+
+  NETHERITE_BLOCK:
+    base-price: "27000"
+    category: ores
+    market-enabled: false
+
+  ELYTRA:
+    base-price: "15000"
+    category: end
+    market-enabled: false
+
+  BEACON:
+    base-price: "12000"
+    category: misc
+    market-enabled: false
+
+  NETHER_STAR:
+    base-price: "10000"
+    category: misc
+    market-enabled: false
+
+  ENCHANTED_GOLDEN_APPLE:
+    base-price: "5000"
+    category: combat
+    market-enabled: false
+
+  NETHERITE_INGOT:
+    base-price: "3000"
+    category: ores
+    target-units-per-day: 25
+    minimum-multiplier: 0.60
+    maximum-multiplier: 1.40
+
+  TOTEM_OF_UNDYING:
+    base-price: "2500"
+    category: combat
+    market-enabled: false
+
+  DIAMOND_BLOCK:
+    base-price: "2250"
+    category: ores
+    target-units-per-day: 35
+
+  EMERALD_BLOCK:
+    base-price: "1800"
+    category: ores
+    target-units-per-day: 45
+
+  NETHERITE_SCRAP:
+    base-price: "750"
+    category: ores
+    target-units-per-day: 100
+
+  ANCIENT_DEBRIS:
+    base-price: "750"
+    category: ores
+    target-units-per-day: 100
+
+  GOLDEN_APPLE:
+    base-price: "750"
+    category: combat
+    market-enabled: false
+
+  END_CRYSTAL:
+    base-price: "350"
+    category: combat
+    market-enabled: false
+
+  DIAMOND:
+    base-price: "250"
+    category: ores
+    target-units-per-day: 300
+    minimum-multiplier: 0.50
+    maximum-multiplier: 1.60
+
+  EMERALD:
+    base-price: "200"
+    category: ores
+    target-units-per-day: 400
+    minimum-multiplier: 0.45
+    maximum-multiplier: 1.65
+
+  GOLD_BLOCK:
+    base-price: "126"
+    category: ores
+    target-units-per-day: 500
+
+  IRON_BLOCK:
+    base-price: "72"
+    category: ores
+    target-units-per-day: 1500
+
+  COPPER_BLOCK:
+    base-price: "27"
+    category: ores
+    target-units-per-day: 2500
+
+  AMETHYST_BLOCK:
+    base-price: "24"
+    category: ores
+    target-units-per-day: 1200
+
+  COAL_BLOCK:
+    base-price: "18"
+    category: ores
+    target-units-per-day: 3000
+
+  LAPIS_BLOCK:
+    base-price: "18"
+    category: ores
+    target-units-per-day: 2000
+
+  REDSTONE_BLOCK:
+    base-price: "13.50"
+    category: ores
+    target-units-per-day: 3000
+
+  QUARTZ_BLOCK:
+    base-price: "8"
+    category: nether
+    target-units-per-day: 4000
+
+  RAW_GOLD_BLOCK:
+    base-price: "126"
+    category: ores
+    target-units-per-day: 500
+
+  RAW_IRON_BLOCK:
+    base-price: "72"
+    category: ores
+    target-units-per-day: 1500
+
+  RAW_COPPER_BLOCK:
+    base-price: "27"
+    category: ores
+    target-units-per-day: 2500
+
+  GOLD_INGOT:
+    base-price: "14"
+    category: ores
+    target-units-per-day: 4500
+
+  IRON_INGOT:
+    base-price: "8"
+    category: ores
+    target-units-per-day: 12000
+
+  AMETHYST_SHARD:
+    base-price: "6"
+    category: ores
+    target-units-per-day: 6000
+
+  COPPER_INGOT:
+    base-price: "3"
+    category: ores
+    target-units-per-day: 18000
+
+  COAL:
+    base-price: "2"
+    category: ores
+    target-units-per-day: 20000
+
+  QUARTZ:
+    base-price: "2"
+    category: nether
+    target-units-per-day: 18000
+
+  LAPIS_LAZULI:
+    base-price: "2"
+    category: ores
+    target-units-per-day: 14000
+
+  ENDER_PEARL:
+    base-price: "2"
+    category: end
+    target-units-per-day: 12000
+
+  REDSTONE:
+    base-price: "1.50"
+    category: ores
+    target-units-per-day: 25000
+
+  BLAZE_ROD:
+    base-price: "1.50"
+    category: nether
+    target-units-per-day: 6000
+
+  CHARCOAL:
+    base-price: "1.50"
+    category: ores
+    target-units-per-day: 10000
+
+  OAK_LOG:
+    base-price: "1.25"
+    category: wood
+    target-units-per-day: 12000
+
+  SPRUCE_LOG:
+    base-price: "1.25"
+    category: wood
+    target-units-per-day: 12000
+
+  BIRCH_LOG:
+    base-price: "1.25"
+    category: wood
+    target-units-per-day: 10000
+
+  JUNGLE_LOG:
+    base-price: "1.25"
+    category: wood
+    target-units-per-day: 8000
+
+  ACACIA_LOG:
+    base-price: "1.25"
+    category: wood
+    target-units-per-day: 8000
+
+  DARK_OAK_LOG:
+    base-price: "1.25"
+    category: wood
+    target-units-per-day: 10000
+
+  CHERRY_LOG:
+    base-price: "1.25"
+    category: wood
+    target-units-per-day: 8000
+
+  MANGROVE_LOG:
+    base-price: "1.25"
+    category: wood
+    target-units-per-day: 8000
+
+  GHAST_TEAR:
+    base-price: "4"
+    category: nether
+    target-units-per-day: 1000
+
+  SHULKER_SHELL:
+    base-price: "20"
+    category: end
+    target-units-per-day: 800
+
+  BLAZE_POWDER:
+    base-price: "0.75"
+    category: nether
+    target-units-per-day: 10000
+
+  MAGMA_CREAM:
+    base-price: "0.70"
+    category: nether
+    target-units-per-day: 5000
+
+  SLIME_BALL:
+    base-price: "0.60"
+    category: mob_drops
+    target-units-per-day: 10000
+
+  PUMPKIN:
+    base-price: "0.35"
+    category: farming
+    target-units-per-day: 18000
+
+  WHEAT:
+    base-price: "0.25"
+    category: farming
+    target-units-per-day: 30000
+
+  GUNPOWDER:
+    base-price: "0.25"
+    category: mob_drops
+    target-units-per-day: 20000
+
+  CARROT:
+    base-price: "0.22"
+    category: farming
+    target-units-per-day: 30000
+
+  POTATO:
+    base-price: "0.22"
+    category: farming
+    target-units-per-day: 30000
+
+  SUGAR_CANE:
+    base-price: "0.18"
+    category: farming
+    target-units-per-day: 50000
+    minimum-multiplier: 0.25
+    maximum-multiplier: 2.00
+
+  SPIDER_EYE:
+    base-price: "0.18"
+    category: mob_drops
+    target-units-per-day: 12000
+
+  BONE:
+    base-price: "0.12"
+    category: mob_drops
+    target-units-per-day: 25000
+
+  STRING:
+    base-price: "0.10"
+    category: mob_drops
+    target-units-per-day: 25000
+
+  ROTTEN_FLESH:
+    base-price: "0.08"
+    category: mob_drops
+    target-units-per-day: 35000
+
+  MELON_SLICE:
+    base-price: "0.08"
+    category: farming
+    target-units-per-day: 50000
+
 messages:
-  sold-chat: '&#bbbbbbSold &#ff88ff%amount%x items &#bbbbbbfor &a+%money%'
-  sold-actionbar: '&a+%money%'
+  sold-chat: "&#bbbbbbSold &#ff88ff%amount%x items &#bbbbbbfor &a+%money%"
+  sold-actionbar: "&a+%money%"
