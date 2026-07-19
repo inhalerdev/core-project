@@ -6,18 +6,31 @@ queue:
   countdown-seconds: 30
 
 teleport:
-  countdown-seconds: 30
+  default-countdown-seconds: 5
+  plus-countdown-seconds: 3
+  plus-permission: mineacle.plus
+  cancel-distance: 2.0
 
 duel-request:
   timeout-seconds: 60
 
 destination:
-  world: origins
+  world: overworld
   center-x: 0
   center-z: 1
   min-radius: 5000
   max-radius: 48000
   find-location-attempts: 120
+  spawn-spacing: 8.0
+  arrival-protection-ticks: 40
+  unsafe-ground:
+    - WATER
+    - LAVA
+    - FIRE
+    - SOUL_FIRE
+    - MAGMA_BLOCK
+    - CACTUS
+    - POWDER_SNOW
 
 queue-zones:
   spawn1:
@@ -48,34 +61,43 @@ queue-zones:
     max-y: 81.0
 
 messages:
-  disabled: '&cDuels are disabled'
-  self: '&cYou cannot duel yourself'
-  invalid-player: '&cThat player cannot duel right now'
-  already-teleporting: '&cThat player is already preparing for a duel'
-  no-arena: '&cCould not find a safe duel location'
+  disabled: "&cDuels are disabled"
+  self: "&cYou cannot duel yourself"
+  invalid-player: "&cThat player cannot duel right now"
+  already-teleporting: "&cThat player is already preparing for a duel"
+  invite-busy: "&cOne of you already has a pending duel request"
+  not-enough-players: "&cNot enough players are ready"
+  no-arena: "&cCould not find a safe duel location"
+  teleport-failed: "&cDuel teleport failed"
 
-  invite-sent: '&#bbbbbbDuel request sent to &#ff88ff%target%'
-  invite-received-header: '%player% &#bbbbbbsent you a duel request'
-  respond-prefix: '&#bbbbbbRespond '
-  accept-button: '&a[Accept]'
-  accept-hover: '&#bbbbbbAccept duel request'
-  deny-button: '&c[Deny]'
-  deny-hover: '&#bbbbbbDeny duel request'
-  invite-denied: '&#ff88ff%player% &#bbbbbbdenied your duel request'
-  denied: '&#bbbbbbDuel request denied'
-  no-invite: '&cYou do not have a pending duel request'
-  no-outgoing: '&cYou do not have an outgoing duel request'
-  inviter-offline: '&cThat player is no longer online'
-  cancelled: '&#bbbbbbDuel request cancelled'
+  invite-sent: "&#bbbbbbDuel request sent to &#bbbbbb%target%"
+  invite-received-header: "&#bbbbbb%player% sent you a duel request"
+  respond-prefix: "&#bbbbbbRespond "
+  accept-button: "&a[Accept]"
+  accept-hover: "&#bbbbbbAccept duel request"
+  deny-button: "&c[Deny]"
+  deny-hover: "&#bbbbbbDeny duel request"
+  accepted: "&#bbbbbbDuel request accepted"
+  invite-accepted: "&#bbbbbb%player% accepted your duel request"
+  invite-denied: "&#bbbbbb%player% denied your duel request"
+  denied: "&#bbbbbbDuel request denied"
+  no-invite: "&cYou do not have a pending duel request"
+  no-outgoing: "&cYou do not have an outgoing duel request"
+  inviter-offline: "&cThat player is no longer online"
+  cancelled: "&#bbbbbbDuel request cancelled"
+  invite-expired: "&cDuel request expired"
+  invite-cancelled-target: "&#bbbbbb%player% cancelled the duel request"
+  invite-cancelled-left: "&cDuel request cancelled — %player% left"
 
-  teleport-started: '&#bbbbbbDuel teleport started. Do not move'
-  teleport-countdown-actionbar: '&#bbbbbbDuel teleport in &d%seconds%s'
-  teleport-cancelled: '&cTeleport cancelled'
-  teleport-cancelled-moved: '&cTeleport cancelled — you moved'
-  teleport-cancelled-other-moved: '&cDuel cancelled — %player% moved'
-  teleported-actionbar: ''
+  teleport-started: "&#bbbbbbDuel teleport started — do not move"
+  teleport-countdown-actionbar: "&#bbbbbbDuel teleport in &d%seconds%s"
+  finding-location-actionbar: "&#bbbbbbFinding a safe duel location"
+  teleport-cancelled: "&cTeleport cancelled"
+  teleport-cancelled-moved: "&cTeleport cancelled — you moved"
+  teleport-cancelled-other-moved: "&cDuel cancelled — %player% moved"
+  teleport-cancelled-left: "&cDuel cancelled — %player% left"
+  teleported-actionbar: "&#bbbbbbDuel started in &dOverworld"
 
-  queue-waiting-actionbar: '&#ff55ffQueue&#bbbbbb: Waiting for an opponent'
-  queue-actionbar: '&#ff55ffQueue&#bbbbbb: &#ff88ff%queued%&#bbbbbb/&#ff55ff%max%&#bbbbbb teleporting
-    in &d%seconds%s'
-  queue-left-actionbar: '&cNo longer in the duels queue'
+  queue-waiting-actionbar: "&#ff55ffQueue&#bbbbbb: Waiting for an opponent"
+  queue-actionbar: "&#ff55ffQueue&#bbbbbb: &#ff88ff%queued%&#bbbbbb/&#ff55ff%max% &#bbbbbbteleporting in &d%seconds%s"
+  queue-left-actionbar: "&cNo longer in the duels queue"

@@ -45,9 +45,6 @@ rank:
       weight: 100
 
 worlds:
-  default-name: "Unknown"
-  default-group: "other"
-
   mappings:
     spawn1:
       name: "Spawn 1"
@@ -58,19 +55,13 @@ worlds:
     spawn3:
       name: "Spawn 3"
       group: "spawn"
-    origins:
+    overworld:
       name: "Overworld"
       group: "survival"
-    world_nether:
+    overworld_nether:
       name: "Nether"
       group: "survival"
-    origins_nether:
-      name: "Nether"
-      group: "survival"
-    world_the_end:
-      name: "End"
-      group: "survival"
-    origins_the_end:
+    overworld_the_end:
       name: "End"
       group: "survival"
 
@@ -78,9 +69,9 @@ web-fights:
   enabled: true
   combat-timeout-seconds: 60
   allowed-worlds:
-    - "origins"
-    - "origins_nether"
-    - "origins_the_end"
+    - "overworld"
+    - "overworld_nether"
+    - "overworld_the_end"
 
 web-teams:
   enabled: true

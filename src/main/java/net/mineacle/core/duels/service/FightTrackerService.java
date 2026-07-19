@@ -18,95 +18,130 @@ import java.util.UUID;
 
 public final class FightTrackerService {
 
-    private static final List<String> DEFAULT_ALLOWED_WORLDS = List.of(
-            "origins",
-            "origins_nether",
-            "origins_the_end"
-    );
+    private static final List<String> DEFAULT_ALLOWED_WORLDS =
+            List.of(
+                    "overworld",
+                    "overworld_nether",
+                    "overworld_the_end"
+            );
 
     private final Core core;
-    private final FileConfiguration config;
     private final FightRepository repository;
-    private final Map<FightKey, ActiveFight> activeFights = new HashMap<>();
-    private final Set<String> allowedWorlds;
-    private final long timeoutMillis;
+    private final Map<FightKey, ActiveFight> activeFights =
+            new HashMap<>();
 
-    public FightTrackerService(Core core, FileConfiguration config, FightRepository repository) {
+    private Set<String> allowedWorlds = Set.of();
+    private long timeoutNanos;
+
+    public FightTrackerService(
+            Core core,
+            FileConfiguration config,
+            FightRepository repository
+    ) {
         this.core = core;
-        this.config = config;
         this.repository = repository;
-        this.allowedWorlds = loadAllowedWorlds(config);
-        this.timeoutMillis = Math.max(
-                1L,
-                config.getLong("web-fights.combat-timeout-seconds", 60L)
-        ) * 1000L;
+        applySettings(config);
     }
 
     public void start() {
-        if (!enabled()) {
-            core.getLogger().info("Web fight tracking is disabled");
+        if (!repository.enabled()) {
+            core.getLogger().info(
+                    "Web fight tracking is disabled"
+            );
             return;
         }
 
-        repository.initialize();
-        core.getLogger().info(
-                "Web fight tracking enabled for "
-                        + String.join(", ", allowedWorlds)
-                        + " with a "
-                        + (timeoutMillis / 1000L)
-                        + "s combat timeout"
-        );
+        initializeRepositoryAsync();
+        logSettings();
+    }
+
+    public void reload(FileConfiguration config) {
+        activeFights.clear();
+        repository.reload(config);
+        applySettings(config);
+        start();
     }
 
     public void tick() {
-        if (!enabled()) {
+        if (!repository.enabled()) {
             activeFights.clear();
             return;
         }
 
-        long now = System.currentTimeMillis();
-        activeFights.entrySet().removeIf(entry -> entry.getValue().expired(now, timeoutMillis));
+        long now = System.nanoTime();
+
+        activeFights.entrySet().removeIf(
+                entry -> entry.getValue().expired(
+                        now,
+                        timeoutNanos
+                )
+        );
     }
 
     public void shutdown() {
         activeFights.clear();
     }
 
-    public void recordDamage(Player attacker, Player victim) {
-        if (!enabled()
+    public void recordDamage(
+            Player attacker,
+            Player victim
+    ) {
+        if (!repository.enabled()
                 || attacker == null
                 || victim == null
-                || attacker.getUniqueId().equals(victim.getUniqueId())
+                || attacker.getUniqueId().equals(
+                victim.getUniqueId()
+        )
                 || !attacker.isOnline()
                 || !victim.isOnline()
-                || !attacker.getWorld().equals(victim.getWorld())
+                || !attacker.getWorld().equals(
+                victim.getWorld()
+        )
                 || !allowedWorld(attacker.getWorld())) {
             return;
         }
 
-        long now = System.currentTimeMillis();
-        FightKey key = FightKey.of(attacker.getUniqueId(), victim.getUniqueId());
-        ActiveFight fight = activeFights.get(key);
+        long nowNanos = System.nanoTime();
+        long nowEpoch = System.currentTimeMillis();
+        FightKey key = FightKey.of(
+                attacker.getUniqueId(),
+                victim.getUniqueId()
+        );
         String worldKey = attacker.getWorld().getName();
+        ActiveFight fight = activeFights.get(key);
 
         if (fight == null
-                || fight.expired(now, timeoutMillis)
-                || !fight.worldKey().equalsIgnoreCase(worldKey)) {
-            fight = new ActiveFight(key, worldKey, now);
+                || fight.expired(nowNanos, timeoutNanos)
+                || !fight.worldKey().equalsIgnoreCase(
+                worldKey
+        )) {
+            fight = new ActiveFight(
+                    key,
+                    worldKey,
+                    nowEpoch,
+                    nowNanos
+            );
             activeFights.put(key, fight);
         }
 
-        fight.recordHit(attacker.getUniqueId(), victim.getUniqueId(), now);
+        fight.recordHit(
+                attacker.getUniqueId(),
+                victim.getUniqueId(),
+                nowNanos
+        );
     }
 
-    public void completeFight(Player loser, Player killer) {
+    public void completeFight(
+            Player loser,
+            Player killer
+    ) {
         if (loser == null) {
             return;
         }
 
         UUID loserId = loser.getUniqueId();
 
-        if (!enabled()
+        if (!repository.enabled()
                 || killer == null
                 || killer.getUniqueId().equals(loserId)
                 || !killer.isOnline()
@@ -116,15 +151,23 @@ public final class FightTrackerService {
             return;
         }
 
-        long now = System.currentTimeMillis();
-        FightKey key = FightKey.of(killer.getUniqueId(), loserId);
+        long nowNanos = System.nanoTime();
+        long endedAt = System.currentTimeMillis();
+        FightKey key = FightKey.of(
+                killer.getUniqueId(),
+                loserId
+        );
         ActiveFight fight = activeFights.get(key);
 
         boolean valid = fight != null
-                && !fight.expired(now, timeoutMillis)
-                && fight.worldKey().equalsIgnoreCase(loser.getWorld().getName())
+                && !fight.expired(nowNanos, timeoutNanos)
+                && fight.worldKey().equalsIgnoreCase(
+                loser.getWorld().getName()
+        )
                 && fight.mutual()
-                && killer.getUniqueId().equals(fight.lastAttacker())
+                && killer.getUniqueId().equals(
+                fight.lastAttacker()
+        )
                 && loserId.equals(fight.lastVictim());
 
         clearPlayer(loserId);
@@ -133,11 +176,14 @@ public final class FightTrackerService {
             return;
         }
 
-        long endedAt = now;
-        long startedAt = fight.startedAt();
-        int durationSeconds = (int) Math.max(0L, (endedAt - startedAt) / 1000L);
+        int durationSeconds = (int) Math.min(
+                Integer.MAX_VALUE,
+                Math.max(
+                        0L,
+                        (endedAt - fight.startedAtEpoch()) / 1000L
+                )
+        );
         String worldKey = loser.getWorld().getName();
-        String worldName = friendlyWorldName(worldKey);
 
         FightResultRecord record = new FightResultRecord(
                 UUID.randomUUID(),
@@ -148,10 +194,10 @@ public final class FightTrackerService {
                 DisplayNames.username(loser),
                 DisplayNames.displayName(loser),
                 worldKey,
-                worldName,
+                friendlyWorldName(worldKey),
                 combinedHearts(killer),
                 0.0D,
-                startedAt,
+                fight.startedAtEpoch(),
                 endedAt,
                 durationSeconds
         );
@@ -173,47 +219,84 @@ public final class FightTrackerService {
             return;
         }
 
-        activeFights.entrySet().removeIf(entry -> entry.getKey().contains(playerId));
+        activeFights.entrySet().removeIf(
+                entry -> entry.getKey().contains(playerId)
+        );
     }
 
-    private boolean enabled() {
-        return repository.enabled();
+    private void applySettings(FileConfiguration config) {
+        allowedWorlds = loadAllowedWorlds(config);
+        long timeoutSeconds = Math.max(
+                1L,
+                config.getLong(
+                        "web-fights.combat-timeout-seconds",
+                        60L
+                )
+        );
+        timeoutNanos = timeoutSeconds * 1_000_000_000L;
+    }
+
+    private void initializeRepositoryAsync() {
+        core.getServer().getScheduler().runTaskAsynchronously(
+                core,
+                repository::initialize
+        );
+    }
+
+    private void logSettings() {
+        core.getLogger().info(
+                "Web fight tracking enabled for "
+                        + String.join(", ", allowedWorlds)
+                        + " with a "
+                        + (timeoutNanos / 1_000_000_000L)
+                        + "s combat timeout"
+        );
     }
 
     private boolean allowedWorld(World world) {
-        return world != null && allowedWorlds.contains(world.getName().toLowerCase(Locale.ROOT));
+        return world != null
+                && allowedWorlds.contains(
+                world.getName().toLowerCase(Locale.ROOT)
+        );
     }
 
     private String friendlyWorldName(String worldKey) {
-        String configured = config.getString("worlds.mappings." + worldKey + ".name");
-
-        if (configured != null && !configured.isBlank()) {
-            return configured;
-        }
-
         return switch (worldKey.toLowerCase(Locale.ROOT)) {
-            case "origins" -> "Overworld";
-            case "origins_nether" -> "Nether";
-            case "origins_the_end" -> "End";
+            case "overworld" -> "Overworld";
+            case "overworld_nether" -> "Nether";
+            case "overworld_the_end" -> "End";
             default -> worldKey;
         };
     }
 
     private double combinedHearts(Player player) {
         double health = Math.max(0.0D, player.getHealth());
-        double absorption = Math.max(0.0D, player.getAbsorptionAmount());
+        double absorption = Math.max(
+                0.0D,
+                player.getAbsorptionAmount()
+        );
         double hearts = (health + absorption) / 2.0D;
+
         return Math.round(hearts * 100.0D) / 100.0D;
     }
 
-    private Set<String> loadAllowedWorlds(FileConfiguration configuration) {
-        List<String> configured = configuration.getStringList("web-fights.allowed-worlds");
-        List<String> source = configured.isEmpty() ? DEFAULT_ALLOWED_WORLDS : configured;
+    private Set<String> loadAllowedWorlds(
+            FileConfiguration configuration
+    ) {
+        List<String> configured =
+                configuration.getStringList(
+                        "web-fights.allowed-worlds"
+                );
+        List<String> source = configured.isEmpty()
+                ? DEFAULT_ALLOWED_WORLDS
+                : configured;
         Set<String> result = new HashSet<>();
 
         for (String world : source) {
             if (world != null && !world.isBlank()) {
-                result.add(world.trim().toLowerCase(Locale.ROOT));
+                result.add(
+                        world.trim().toLowerCase(Locale.ROOT)
+                );
             }
         }
 
@@ -223,7 +306,7 @@ public final class FightTrackerService {
     private record FightKey(UUID first, UUID second) {
 
         private static FightKey of(UUID one, UUID two) {
-            if (one.toString().compareTo(two.toString()) <= 0) {
+            if (one.compareTo(two) <= 0) {
                 return new FightKey(one, two);
             }
 
@@ -231,7 +314,8 @@ public final class FightTrackerService {
         }
 
         private boolean contains(UUID playerId) {
-            return first.equals(playerId) || second.equals(playerId);
+            return first.equals(playerId)
+                    || second.equals(playerId);
         }
     }
 
@@ -239,25 +323,36 @@ public final class FightTrackerService {
 
         private final FightKey key;
         private final String worldKey;
-        private final long startedAt;
+        private final long startedAtEpoch;
 
-        private long lastCombatAt;
+        private long lastCombatNanos;
         private boolean firstDamagedSecond;
         private boolean secondDamagedFirst;
         private UUID lastAttacker;
         private UUID lastVictim;
 
-        private ActiveFight(FightKey key, String worldKey, long startedAt) {
+        private ActiveFight(
+                FightKey key,
+                String worldKey,
+                long startedAtEpoch,
+                long startedAtNanos
+        ) {
             this.key = key;
             this.worldKey = worldKey;
-            this.startedAt = startedAt;
-            this.lastCombatAt = startedAt;
+            this.startedAtEpoch = startedAtEpoch;
+            this.lastCombatNanos = startedAtNanos;
         }
 
-        private void recordHit(UUID attacker, UUID victim, long at) {
-            if (attacker.equals(key.first()) && victim.equals(key.second())) {
+        private void recordHit(
+                UUID attacker,
+                UUID victim,
+                long atNanos
+        ) {
+            if (attacker.equals(key.first())
+                    && victim.equals(key.second())) {
                 firstDamagedSecond = true;
-            } else if (attacker.equals(key.second()) && victim.equals(key.first())) {
+            } else if (attacker.equals(key.second())
+                    && victim.equals(key.first())) {
                 secondDamagedFirst = true;
             } else {
                 return;
@@ -265,23 +360,26 @@ public final class FightTrackerService {
 
             lastAttacker = attacker;
             lastVictim = victim;
-            lastCombatAt = at;
+            lastCombatNanos = atNanos;
         }
 
         private boolean mutual() {
             return firstDamagedSecond && secondDamagedFirst;
         }
 
-        private boolean expired(long now, long timeout) {
-            return now - lastCombatAt > timeout;
+        private boolean expired(
+                long nowNanos,
+                long timeout
+        ) {
+            return nowNanos - lastCombatNanos > timeout;
         }
 
         private String worldKey() {
             return worldKey;
         }
 
-        private long startedAt() {
-            return startedAt;
+        private long startedAtEpoch() {
+            return startedAtEpoch;
         }
 
         private UUID lastAttacker() {
