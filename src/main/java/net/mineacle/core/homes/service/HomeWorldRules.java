@@ -15,39 +15,70 @@ public final class HomeWorldRules {
     }
 
     public boolean isBlockedWorld(Location location) {
-        return isBlocked(location, "homes.allowed-worlds", "homes.blocked-worlds");
+        return isBlocked(
+                location,
+                "homes.allowed-worlds",
+                "homes.blocked-worlds"
+        );
     }
 
     public boolean isTeamHomeBlockedWorld(Location location) {
-        return isBlocked(location, "homes.team-home.allowed-worlds", "homes.team-home.blocked-worlds");
+        return isBlocked(
+                location,
+                "homes.team-home.allowed-worlds",
+                "homes.team-home.blocked-worlds"
+        );
     }
 
-    private boolean isBlocked(Location location, String allowedPath, String blockedPath) {
+    private boolean isBlocked(
+            Location location,
+            String allowedPath,
+            String blockedPath
+    ) {
         if (location == null) {
             return true;
         }
 
         World world = location.getWorld();
+
         if (world == null) {
             return true;
         }
 
         String worldName = world.getName();
+        boolean allowedListEnabled =
+                core.getConfig().getBoolean(
+                        allowedPath + ".enabled",
+                        false
+                );
+        List<String> allowedWorlds =
+                core.getConfig().getStringList(
+                        allowedPath + ".worlds"
+                );
 
-        boolean allowedListEnabled = core.getConfig().getBoolean(allowedPath + ".enabled", false);
-        List<String> allowedWorlds = core.getConfig().getStringList(allowedPath + ".worlds");
-
-        if (allowedListEnabled && !containsIgnoreCase(allowedWorlds, worldName)) {
+        if (allowedListEnabled
+                && !containsWorld(
+                allowedWorlds,
+                worldName
+        )) {
             return true;
         }
 
-        List<String> blockedWorlds = core.getConfig().getStringList(blockedPath);
-        return containsIgnoreCase(blockedWorlds, worldName);
+        List<String> blockedWorlds =
+                core.getConfig().getStringList(blockedPath);
+
+        return containsWorld(blockedWorlds, worldName);
     }
 
-    private boolean containsIgnoreCase(List<String> list, String value) {
-        for (String entry : list) {
-            if (entry.equalsIgnoreCase(value)) {
+    private boolean containsWorld(
+            List<String> worlds,
+            String worldName
+    ) {
+        for (String configured : worlds) {
+            if (HomeWorldNames.sameWorldName(
+                    configured,
+                    worldName
+            )) {
                 return true;
             }
         }

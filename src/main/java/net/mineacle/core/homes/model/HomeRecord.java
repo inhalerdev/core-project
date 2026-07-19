@@ -1,6 +1,6 @@
 package net.mineacle.core.homes.model;
 
-import org.bukkit.Bukkit;
+import net.mineacle.core.homes.service.HomeWorldNames;
 import org.bukkit.Location;
 import org.bukkit.World;
 
@@ -13,8 +13,15 @@ public final class HomeRecord {
     private final float yaw;
     private final float pitch;
 
-    public HomeRecord(String worldName, double x, double y, double z, float yaw, float pitch) {
-        this.worldName = worldName;
+    public HomeRecord(
+            String worldName,
+            double x,
+            double y,
+            double z,
+            float yaw,
+            float pitch
+    ) {
+        this.worldName = HomeWorldNames.canonical(worldName);
         this.x = x;
         this.y = y;
         this.z = z;
@@ -23,6 +30,12 @@ public final class HomeRecord {
     }
 
     public static HomeRecord fromLocation(Location location) {
+        if (location == null || location.getWorld() == null) {
+            throw new IllegalArgumentException(
+                    "Home location must have a loaded world"
+            );
+        }
+
         return new HomeRecord(
                 location.getWorld().getName(),
                 location.getX(),
@@ -34,12 +47,20 @@ public final class HomeRecord {
     }
 
     public Location toLocation() {
-        World world = Bukkit.getWorld(worldName);
+        World world = HomeWorldNames.resolve(worldName);
+
         if (world == null) {
             return null;
         }
 
-        return new Location(world, x, y, z, yaw, pitch);
+        return new Location(
+                world,
+                x,
+                y,
+                z,
+                yaw,
+                pitch
+        );
     }
 
     public String worldName() {

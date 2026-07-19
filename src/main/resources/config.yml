@@ -5,44 +5,53 @@ teleport-perks:
 
 homes:
   max-homes:
-    default: 2
+    default: 3
     plus: 5
+
   plus-permission: mineacle.plus
   default-name-format: "Home %id%"
+
   allowed-worlds:
     enabled: true
     worlds:
-      - origins
-      - origins_nether
-      - origins_the_end
+      - overworld
+      - overworld_nether
+      - overworld_the_end
+
   blocked-worlds:
     - spawn1
     - spawn2
     - spawn3
+
   teleport:
     delay-seconds: 5
     plus-delay-seconds: 3
     cancel-on-move: true
-    cancel-distance: 1.0
+    cancel-distance: 2.0
+
   delete-confirm:
     timeout-seconds: 5
+
   team-home:
     enabled: true
     banner-slot: 10
     dye-slot: 19
+
     teleport-delay-seconds: 5
     plus-teleport-delay-seconds: 3
     cancel-on-move: true
-    cancel-distance: 1.0
+    cancel-distance: 2.0
     delete-confirm-timeout-seconds: 5
+
     allowed-worlds:
       enabled: true
       worlds:
-        - origins
+        - overworld
+        - overworld_nether
+        - overworld_the_end
+
     blocked-worlds:
       - spawn1
-      - origins_nether
-      - origins_the_end
       - spawn2
       - spawn3
 
