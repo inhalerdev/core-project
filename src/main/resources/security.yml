@@ -151,7 +151,7 @@ groups:
       - "discord"
       - "duel"
       - "guide"
-      - "auction"
+      - "ah"
       - "home"
       - "ignore"
       - "ignorelist"
@@ -176,7 +176,7 @@ groups:
       - "worth"
       - "x"
     hidden-commands:
-      - "ah"
+      - "auction"
       - "auctionhouse"
       - "bal"
       - "balancetop"
