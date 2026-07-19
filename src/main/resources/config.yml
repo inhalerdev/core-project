@@ -85,11 +85,13 @@ punish:
 
 economy:
   enabled: true
-  starting-balance: 0
+  starting-balance: "0"
+  save-retry-seconds: 30
   currency-symbol: "$"
+
   pay:
     enabled: true
-    minimum: 0.01
+    minimum: "0.01"
 
 baltop:
   enabled: true

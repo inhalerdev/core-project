@@ -1,16 +1,31 @@
 package net.mineacle.core.economy.service;
 
-import java.util.HashSet;
+import net.mineacle.core.common.text.TextColor;
+
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 public final class OfflinePaymentNotice {
 
     private long totalCents;
-    private final Set<String> senders;
+    private final Set<String> senders = new LinkedHashSet<>();
 
-    public OfflinePaymentNotice(long totalCents, Set<String> senders) {
-        this.totalCents = totalCents;
-        this.senders = new HashSet<>(senders);
+    public OfflinePaymentNotice(
+            long totalCents,
+            Collection<String> senders
+    ) {
+        this.totalCents = Math.max(0L, totalCents);
+
+        if (senders != null) {
+            for (String sender : senders) {
+                addSender(sender);
+            }
+        }
+    }
+
+    public OfflinePaymentNotice copy() {
+        return new OfflinePaymentNotice(totalCents, senders);
     }
 
     public long totalCents() {
@@ -18,15 +33,32 @@ public final class OfflinePaymentNotice {
     }
 
     public Set<String> senders() {
-        return senders;
+        return Set.copyOf(senders);
     }
 
-    public void add(long cents, String senderName) {
-        totalCents += cents;
-
-        if (senderName != null && !senderName.isBlank()) {
-            senders.add(senderName);
+    public boolean tryAdd(
+            long cents,
+            String senderName
+    ) {
+        if (cents <= 0L) {
+            return false;
         }
+
+        try {
+            totalCents = Math.addExact(totalCents, cents);
+        } catch (ArithmeticException exception) {
+            return false;
+        }
+
+        addSender(senderName);
+        return true;
+    }
+
+    /**
+     * Compatibility method retained for older MineacleCore callers.
+     */
+    public void add(long cents, String senderName) {
+        tryAdd(cents, senderName);
     }
 
     public boolean singleSender() {
@@ -39,5 +71,17 @@ public final class OfflinePaymentNotice {
         }
 
         return senders.iterator().next();
+    }
+
+    private void addSender(String senderName) {
+        if (senderName == null || senderName.isBlank()) {
+            return;
+        }
+
+        String clean = TextColor.strip(senderName).trim();
+
+        if (!clean.isBlank()) {
+            senders.add(clean);
+        }
     }
 }
