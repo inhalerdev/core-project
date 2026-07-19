@@ -2,11 +2,12 @@ enabled: true
 
 database:
   driver-class: "com.mysql.cj.jdbc.Driver"
-  jdbc-url: "jdbc:mysql://mysql.mineacle.net:3306/mineacle_core?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&connectTimeout=10000&socketTimeout=10000"
+  jdbc-url: "jdbc:mysql://mysql.mineacle.net:3306/mineacle_core?sslMode=REQUIRED&tlsVersions=TLSv1.2,TLSv1.3&serverTimezone=UTC&allowPublicKeyRetrieval=true&connectTimeout=10000&socketTimeout=30000&tcpKeepAlive=true"
   username: "mineacle_core_user"
-  password: "*nidnarB2025"
+  password: "CHANGE-ME-IN-plugins/MineacleCore/webprofiles.yml"
   table: "mineacle_web_profiles"
   teams-table: "mineacle_web_teams"
+  fights-table: "mineacle_web_fights"
 
 sync:
   interval-seconds: 120
@@ -16,24 +17,70 @@ sync:
   mark-offline-on-disable: true
 
 rank:
+  default-key: "default"
   default-name: "Member"
+  default-prefix: ""
+  default-color: "#bbbbbb"
+
   permission-ranks:
-    owner:
-      name: "Owner"
-      permission: "mineacle.rank.owner"
+    developer:
+      name: "Developer"
+      prefix: "Developer"
+      color: "#ffaa00"
+      permission: "mineacle.rank.developer"
       weight: 1000
+
     admin:
       name: "Admin"
+      prefix: "Admin"
+      color: "#ff5555"
       permission: "mineacle.rank.admin"
       weight: 900
-    moderator:
-      name: "Moderator"
-      permission: "mineacle.rank.mod"
-      weight: 700
+
     plus:
       name: "Mineacle+"
+      prefix: "Mineacle+"
+      color: "#ff55ff"
       permission: "mineacle.plus"
       weight: 100
+
+worlds:
+  default-name: "Unknown"
+  default-group: "other"
+
+  mappings:
+    spawn1:
+      name: "Spawn 1"
+      group: "spawn"
+    spawn2:
+      name: "Spawn 2"
+      group: "spawn"
+    spawn3:
+      name: "Spawn 3"
+      group: "spawn"
+    origins:
+      name: "Overworld"
+      group: "survival"
+    world_nether:
+      name: "Nether"
+      group: "survival"
+    origins_nether:
+      name: "Nether"
+      group: "survival"
+    world_the_end:
+      name: "End"
+      group: "survival"
+    origins_the_end:
+      name: "End"
+      group: "survival"
+
+web-fights:
+  enabled: true
+  combat-timeout-seconds: 60
+  allowed-worlds:
+    - "origins"
+    - "origins_nether"
+    - "origins_the_end"
 
 web-teams:
   enabled: true
