@@ -4,77 +4,121 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
+import java.util.Map;
 
 public final class PlayerTabComplete {
 
     private PlayerTabComplete() {
     }
 
-    public static List<String> onlinePlayers(Player viewer, String input) {
+    public static List<String> onlinePlayers(
+            Player viewer,
+            String input
+    ) {
         return onlinePlayers(viewer, input, false);
     }
 
-    public static List<String> onlinePlayers(Player viewer, String input, boolean includeSelf) {
-        String partial = input == null ? "" : input.trim().toLowerCase(Locale.ROOT);
-        Set<String> completions = new LinkedHashSet<>();
+    public static List<String> onlinePlayers(
+            Player viewer,
+            String input,
+            boolean includeSelf
+    ) {
+        String partial = input == null
+                ? ""
+                : input.trim();
+
+        Map<String, String> completions = new LinkedHashMap<>();
 
         for (Player online : Bukkit.getOnlinePlayers()) {
-            if (!includeSelf && viewer != null && online.getUniqueId().equals(viewer.getUniqueId())) {
+            if (!includeSelf
+                    && viewer != null
+                    && online.getUniqueId()
+                    .equals(viewer.getUniqueId())) {
                 continue;
             }
 
-            String commandName = DisplayNames.commandDisplayName(online);
-            String displayName = DisplayNames.displayName(online);
-            String username = online.getName();
-
-            if (partial.isEmpty()
-                    || commandName.toLowerCase(Locale.ROOT).startsWith(partial)
-                    || displayName.toLowerCase(Locale.ROOT).startsWith(partial)
-                    || username.toLowerCase(Locale.ROOT).startsWith(partial)) {
-                completions.add(commandName);
+            if (viewer != null && !viewer.canSee(online)) {
+                continue;
             }
+
+            if (!partial.isEmpty()
+                    && !DisplayNames.startsWithDisplay(
+                    online,
+                    partial
+            )) {
+                continue;
+            }
+
+            String commandName =
+                    DisplayNames.commandDisplayName(online);
+
+            if (commandName == null || commandName.isBlank()) {
+                continue;
+            }
+
+            completions.putIfAbsent(
+                    commandName.toLowerCase(Locale.ROOT),
+                    commandName
+            );
         }
 
-        return new ArrayList<>(completions);
+        List<String> result =
+                new ArrayList<>(completions.values());
+        result.sort(String.CASE_INSENSITIVE_ORDER);
+        return List.copyOf(result);
     }
 
-    /*
-     * Mineacle tab standard:
-     * follow-up command options must show every valid option immediately, even
-     * after the player typed part of one option. This matches the Donut-style UX.
+    /**
+     * Mineacle command UX: show every valid follow-up option immediately,
+     * even after part of an option has been entered.
      */
-    public static List<String> options(String input, Iterable<String> options) {
-        List<String> completions = new ArrayList<>();
-
-        for (String option : options) {
-            if (option == null || option.isBlank()) {
-                continue;
-            }
-
-            completions.add(option);
-        }
-
-        return completions;
+    public static List<String> options(
+            String input,
+            Iterable<String> options
+    ) {
+        return uniqueOptions(options, null);
     }
 
-    public static List<String> optionsFiltered(String input, Iterable<String> options) {
-        String partial = input == null ? "" : input.trim().toLowerCase(Locale.ROOT);
-        List<String> completions = new ArrayList<>();
+    public static List<String> optionsFiltered(
+            String input,
+            Iterable<String> options
+    ) {
+        String partial = input == null
+                ? ""
+                : input.trim().toLowerCase(Locale.ROOT);
+
+        return uniqueOptions(options, partial);
+    }
+
+    private static List<String> uniqueOptions(
+            Iterable<String> options,
+            String partial
+    ) {
+        if (options == null) {
+            return List.of();
+        }
+
+        Map<String, String> unique = new LinkedHashMap<>();
 
         for (String option : options) {
             if (option == null || option.isBlank()) {
                 continue;
             }
 
-            if (partial.isEmpty() || option.toLowerCase(Locale.ROOT).startsWith(partial)) {
-                completions.add(option);
+            String normalized = option.toLowerCase(Locale.ROOT);
+
+            if (partial != null
+                    && !partial.isEmpty()
+                    && !normalized.startsWith(partial)) {
+                continue;
             }
+
+            unique.putIfAbsent(normalized, option);
         }
 
-        return completions;
+        return List.copyOf(unique.values());
     }
 }

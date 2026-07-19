@@ -120,6 +120,10 @@ public final class NicknameService {
             return NicknameResult.INVALID;
         }
 
+        if (TextColor.containsFormatting(input)) {
+            return NicknameResult.INVALID;
+        }
+
         String cleaned = cleanInput(input);
 
         if (!valid(cleaned)) {

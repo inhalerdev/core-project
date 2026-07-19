@@ -31,7 +31,11 @@ public final class DisplayNames {
         NicknameService service = ChatModule.nicknameService();
 
         if (service != null) {
-            return service.displayName(player);
+            String displayName = service.displayName(player);
+
+            if (displayName != null && !displayName.isBlank()) {
+                return displayName;
+            }
         }
 
         return username(player);
@@ -40,15 +44,16 @@ public final class DisplayNames {
     public static String nickname(OfflinePlayer player) {
         NicknameService service = ChatModule.nicknameService();
 
-        if (service != null) {
-            return service.nickname(player);
+        if (service == null) {
+            return "";
         }
 
-        return "";
+        String nickname = service.nickname(player);
+        return nickname == null ? "" : nickname;
     }
 
     /**
-     * Public player names are always Mineacle neutral.
+     * Public Mineacle player names always use the neutral name color.
      */
     public static String nameColor(OfflinePlayer player) {
         return "&#bbbbbb";
@@ -61,7 +66,8 @@ public final class DisplayNames {
     }
 
     /**
-     * Prefixes may keep their own style, but the player name remains neutral.
+     * Rank prefixes retain their configured styling. The player identity
+     * following the prefix always resets to Mineacle neutral.
      */
     public static String prefixedDisplayName(
             OfflinePlayer player
@@ -83,6 +89,12 @@ public final class DisplayNames {
         }
 
         String raw = input.trim();
+        Player exactUsername = Bukkit.getPlayerExact(raw);
+
+        if (exactUsername != null) {
+            return exactUsername;
+        }
+
         String normalized = normalize(raw);
 
         for (Player online : Bukkit.getOnlinePlayers()) {
@@ -95,7 +107,7 @@ public final class DisplayNames {
             }
         }
 
-        return Bukkit.getPlayerExact(raw);
+        return null;
     }
 
     public static OfflinePlayer resolveOffline(String input) {
@@ -103,6 +115,10 @@ public final class DisplayNames {
 
         if (online != null) {
             return online;
+        }
+
+        if (input == null || input.isBlank()) {
+            return null;
         }
 
         NicknameService service = ChatModule.nicknameService();
@@ -114,10 +130,6 @@ public final class DisplayNames {
             if (byNickname != null) {
                 return byNickname;
             }
-        }
-
-        if (input == null || input.isBlank()) {
-            return null;
         }
 
         return Bukkit.getOfflinePlayer(input.trim());
@@ -133,7 +145,8 @@ public final class DisplayNames {
 
         String normalized = normalize(partial);
 
-        return normalize(username(player)).startsWith(normalized)
+        return normalized.isEmpty()
+                || normalize(username(player)).startsWith(normalized)
                 || normalize(displayName(player))
                 .startsWith(normalized)
                 || normalize(nickname(player))
@@ -150,16 +163,16 @@ public final class DisplayNames {
         }
 
         try {
+            String placeholder = "%luckperms_prefix%";
             String parsed = PlaceholderAPI.setPlaceholders(
                     player,
-                    "%luckperms_prefix%"
+                    placeholder
             );
 
             if (parsed == null
                     || parsed.isBlank()
-                    || parsed.equalsIgnoreCase(
-                    "%luckperms_prefix%"
-            )) {
+                    || parsed.equalsIgnoreCase(placeholder)
+                    || parsed.contains(placeholder)) {
                 return "";
             }
 

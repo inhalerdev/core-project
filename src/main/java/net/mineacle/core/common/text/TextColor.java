@@ -7,20 +7,24 @@ import java.util.regex.Pattern;
 
 public final class TextColor {
 
-    private static final Pattern HEX_PATTERN = Pattern.compile("(?i)&?#([A-Fa-f0-9]{6})");
+    private static final Pattern HEX_PATTERN = Pattern.compile(
+            "(?i)&?#([0-9a-f]{6})"
+    );
+
+    private static final Pattern LEGACY_PATTERN = Pattern.compile(
+            "(?i)(?:&|§)[0-9a-fk-orx]"
+    );
 
     private TextColor() {
     }
 
     public static String color(String input) {
-        if (input == null || input.isBlank()) {
+        if (input == null || input.isEmpty()) {
             return "";
         }
 
-        String output = input.replace("&#bbbbbb", "&#bbbbbb");
-
-        Matcher matcher = HEX_PATTERN.matcher(output);
-        StringBuilder builder = new StringBuilder();
+        Matcher matcher = HEX_PATTERN.matcher(input);
+        StringBuffer output = new StringBuffer(input.length() + 16);
 
         while (matcher.find()) {
             String hex = matcher.group(1);
@@ -30,15 +34,35 @@ public final class TextColor {
                 replacement.append('§').append(character);
             }
 
-            matcher.appendReplacement(builder, replacement.toString());
+            matcher.appendReplacement(
+                    output,
+                    Matcher.quoteReplacement(replacement.toString())
+            );
         }
 
-        matcher.appendTail(builder);
+        matcher.appendTail(output);
 
-        return ChatColor.translateAlternateColorCodes('&', builder.toString());
+        return ChatColor.translateAlternateColorCodes(
+                '&',
+                output.toString()
+        );
     }
 
     public static String strip(String input) {
-        return ChatColor.stripColor(color(input));
+        if (input == null || input.isEmpty()) {
+            return "";
+        }
+
+        String stripped = ChatColor.stripColor(color(input));
+        return stripped == null ? "" : stripped;
+    }
+
+    public static boolean containsFormatting(String input) {
+        if (input == null || input.isEmpty()) {
+            return false;
+        }
+
+        return HEX_PATTERN.matcher(input).find()
+                || LEGACY_PATTERN.matcher(input).find();
     }
 }

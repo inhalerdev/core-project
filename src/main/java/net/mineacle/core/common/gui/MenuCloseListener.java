@@ -1,10 +1,12 @@
 package net.mineacle.core.common.gui;
 
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.server.PluginDisableEvent;
 import org.bukkit.plugin.Plugin;
 
 public final class MenuCloseListener implements Listener {
@@ -15,93 +17,29 @@ public final class MenuCloseListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onInventoryClose(InventoryCloseEvent event) {
-        if (!(event.getPlayer() instanceof Player player)) {
+        if (!(event.getPlayer() instanceof Player player)
+                || !MenuHistory.isTracked(player)) {
             return;
         }
 
-        String title = ChatColor.stripColor(event.getView().getTitle());
+        MenuHistory.handleClose(
+                plugin,
+                player,
+                event.getInventory()
+        );
+    }
 
-        if (title == null || !isMineacleMenu(title)) {
-            return;
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        MenuHistory.clear(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPluginDisable(PluginDisableEvent event) {
+        if (event.getPlugin().equals(plugin)) {
+            MenuHistory.clearAll();
         }
-
-        MenuHistory.handleClose(plugin, player);
-    }
-
-    private boolean isMineacleMenu(String title) {
-        return isHomesMenu(title)
-                || isTeamsMenu(title)
-                || isTpaMenu(title)
-                || isStatsMenu(title)
-                || isBalTopMenu(title)
-                || isSpawnMenu(title)
-                || isGuideMenu(title);
-    }
-
-    private boolean isHomesMenu(String title) {
-        return title.equalsIgnoreCase("Homes")
-                || title.equalsIgnoreCase("Player Homes")
-                || title.equalsIgnoreCase("Delete Home")
-                || title.equalsIgnoreCase("Delete Player Home")
-                || title.equalsIgnoreCase("Delete Team Home")
-                || title.equalsIgnoreCase("Overwrite Home")
-                || title.equalsIgnoreCase("Rename Home");
-    }
-
-    private boolean isTeamsMenu(String title) {
-        return title.equalsIgnoreCase("Team Menu")
-                || title.equalsIgnoreCase("Team Invites")
-                || title.equalsIgnoreCase("Team Invite")
-                || title.equalsIgnoreCase("Confirm Action")
-                || title.equalsIgnoreCase("Disband Team")
-                || title.equalsIgnoreCase("Leave Team")
-                || title.equalsIgnoreCase("Kick Player")
-                || title.equalsIgnoreCase("Ban Player")
-                || title.equalsIgnoreCase("Promote Player")
-                || title.equalsIgnoreCase("Demote Player")
-                || title.equalsIgnoreCase("Transfer Founder")
-                || title.equalsIgnoreCase("Delete Team Home")
-                || title.equalsIgnoreCase("Team Info")
-                || title.startsWith("Team:")
-                || title.startsWith("Member:")
-                || isTeamMainMenu(title);
-    }
-
-    private boolean isTpaMenu(String title) {
-        return title.equalsIgnoreCase("Teleport Request");
-    }
-
-    private boolean isStatsMenu(String title) {
-        return title.endsWith(" Stats");
-    }
-
-    private boolean isBalTopMenu(String title) {
-        return title.startsWith("Balance Top");
-    }
-
-    private boolean isSpawnMenu(String title) {
-        return title.equalsIgnoreCase("Spawn");
-    }
-
-    private boolean isGuideMenu(String title) {
-        return title.equalsIgnoreCase("Guide")
-                || title.equalsIgnoreCase("Mineacle Guide")
-                || title.equalsIgnoreCase("Rules")
-                || title.equalsIgnoreCase("Server Rules")
-                || title.equalsIgnoreCase("Mineacle Rules");
-    }
-
-    private boolean isTeamMainMenu(String title) {
-        if (title.startsWith("Balance Top")) {
-            return false;
-        }
-
-        if (title.endsWith(" Stats")) {
-            return false;
-        }
-
-        return title.matches(".+ \\(\\d+/\\d+\\)");
     }
 }
