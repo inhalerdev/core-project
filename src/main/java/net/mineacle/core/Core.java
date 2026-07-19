@@ -4,6 +4,7 @@ import net.mineacle.core.admininspect.AdminInspectModule;
 import net.mineacle.core.auctionhouse.AuctionHouseModule;
 import net.mineacle.core.baltop.BalTopModule;
 import net.mineacle.core.bootstrap.Module;
+import net.mineacle.core.bootstrap.ModuleManager;
 import net.mineacle.core.bounty.BountyModule;
 import net.mineacle.core.chat.ChatModule;
 import net.mineacle.core.common.gui.MenuCloseListener;
@@ -13,16 +14,16 @@ import net.mineacle.core.duels.DuelsModule;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.enchant.EnchantModule;
 import net.mineacle.core.gamemode.GamemodeModule;
-import net.mineacle.core.homes.HomesModule;
 import net.mineacle.core.hide.HideModule;
+import net.mineacle.core.homes.HomesModule;
 import net.mineacle.core.links.LinksModule;
 import net.mineacle.core.nametag.NametagModule;
 import net.mineacle.core.orders.OrdersModule;
 import net.mineacle.core.placeholders.PlaceholdersModule;
 import net.mineacle.core.rtp.RtpModule;
+import net.mineacle.core.security.SecurityModule;
 import net.mineacle.core.sell.SellModule;
 import net.mineacle.core.shulkerpreview.ShulkerPreviewModule;
-import net.mineacle.core.security.SecurityModule;
 import net.mineacle.core.spawn.SpawnModule;
 import net.mineacle.core.spawnprotection.SpawnProtectionModule;
 import net.mineacle.core.stats.StatsModule;
@@ -37,9 +38,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.logging.Level;
 
 public final class Core extends JavaPlugin {
 
@@ -57,7 +57,7 @@ public final class Core extends JavaPlugin {
     private File economyFile;
     private FileConfiguration economyConfig;
 
-    private final List<Module> modules = new ArrayList<>();
+    private ModuleManager moduleManager;
 
     public static Core instance() {
         return instance;
@@ -66,83 +66,65 @@ public final class Core extends JavaPlugin {
     @Override
     public void onEnable() {
         instance = this;
-
-        saveDefaultConfig();
-        loadMessagesFile();
-        loadHomesFile();
-        loadTeamsFile();
-        loadEconomyFile();
-
-        getServer().getPluginManager().registerEvents(new MenuCloseListener(this), this);
+        long startedAt = System.nanoTime();
 
         try {
-            registerModule(new HomesModule());
-            registerModule(new TeamsModule());
-            registerModule(new TpaModule());
-            registerModule(new StatsModule());
-            registerModule(new EconomyModule());
-            registerModule(new BalTopModule());
-            registerModule(new ChatModule());
-            registerModule(new LinksModule());
-            registerModule(new SecurityModule());
-            registerModule(new AdminInspectModule());
-            registerModule(new EnchantModule());
-            registerModule(new NametagModule());
-            registerModule(new HideModule());
-            registerModule(new PlaceholdersModule());
-            registerModule(new WebProfilesModule());
-            registerModule(new SpawnModule());
-            registerModule(new WarpModule());
-            registerModule(new SpawnProtectionModule());
-            registerModule(new DoubleJumpModule());
-            registerModule(new RtpModule());
-            registerModule(new WorldMaintenanceModule());
-            registerModule(new DuelsModule());
-            registerModule(new OrdersModule());
-            registerModule(new SellModule());
-            registerModule(new AuctionHouseModule());
-            registerModule(new ShulkerPreviewModule());
-            registerModule(new BountyModule());
-            registerModule(new GamemodeModule());
+            initializeCoreFiles();
 
-            getLogger().info("MineacleCore enabled successfully");
+            getServer().getPluginManager().registerEvents(
+                    new MenuCloseListener(this),
+                    this
+            );
+
+            moduleManager = new ModuleManager(this);
+            registerModules();
+
+            getLogger().info(
+                    "MineacleCore enabled successfully with "
+                            + moduleManager.size()
+                            + " modules ("
+                            + elapsedMillis(startedAt)
+                            + "ms)"
+            );
         } catch (Exception exception) {
-            getLogger().severe("Failed to enable MineacleCore: " + exception.getMessage());
-            exception.printStackTrace();
+            getLogger().log(
+                    Level.SEVERE,
+                    "MineacleCore failed during startup",
+                    exception
+            );
+
+            if (moduleManager != null) {
+                moduleManager.disableAll();
+            }
+
             getServer().getPluginManager().disablePlugin(this);
         }
     }
 
     @Override
     public void onDisable() {
-        disableModules();
+        try {
+            if (moduleManager != null) {
+                moduleManager.disableAll();
+            }
+        } finally {
+            saveHomesFile();
+            saveTeamsFile();
+            saveEconomyFile();
 
-        saveHomesFile();
-        saveTeamsFile();
-        saveEconomyFile();
-
-        instance = null;
+            moduleManager = null;
+            instance = null;
+        }
     }
 
     public void registerModule(Module module) throws Exception {
-        module.enable(this);
-        modules.add(module);
-        getLogger().info("Enabled module: " + module.name());
-    }
-
-    private void disableModules() {
-        for (int i = modules.size() - 1; i >= 0; i--) {
-            Module module = modules.get(i);
-
-            try {
-                module.disable();
-                getLogger().info("Disabled module: " + module.name());
-            } catch (Exception exception) {
-                getLogger().warning("Failed to disable module " + module.name() + ": " + exception.getMessage());
-            }
+        if (moduleManager == null) {
+            throw new IllegalStateException(
+                    "ModuleManager is not initialized"
+            );
         }
 
-        modules.clear();
+        moduleManager.register(module);
     }
 
     public void reloadCoreFiles() {
@@ -151,106 +133,6 @@ public final class Core extends JavaPlugin {
         loadHomesFile();
         loadTeamsFile();
         loadEconomyFile();
-    }
-
-    private void loadMessagesFile() {
-        if (!getDataFolder().exists()) {
-            getDataFolder().mkdirs();
-        }
-
-        messagesFile = new File(getDataFolder(), "messages.yml");
-
-        if (!messagesFile.exists()) {
-            saveResource("messages.yml", false);
-        }
-
-        messagesConfig = YamlConfiguration.loadConfiguration(messagesFile);
-    }
-
-    private void loadHomesFile() {
-        if (!getDataFolder().exists()) {
-            getDataFolder().mkdirs();
-        }
-
-        homesFile = new File(getDataFolder(), "homes.yml");
-
-        if (!homesFile.exists()) {
-            saveResource("homes.yml", false);
-        }
-
-        homesConfig = YamlConfiguration.loadConfiguration(homesFile);
-    }
-
-    private void loadTeamsFile() {
-        if (!getDataFolder().exists()) {
-            getDataFolder().mkdirs();
-        }
-
-        teamsFile = new File(getDataFolder(), "teams.yml");
-
-        if (!teamsFile.exists()) {
-            saveResource("teams.yml", false);
-        }
-
-        teamsConfig = YamlConfiguration.loadConfiguration(teamsFile);
-    }
-
-    private void loadEconomyFile() {
-        if (!getDataFolder().exists()) {
-            getDataFolder().mkdirs();
-        }
-
-        economyFile = new File(getDataFolder(), "economy.yml");
-
-        if (!economyFile.exists()) {
-            try {
-                economyFile.createNewFile();
-            } catch (IOException exception) {
-                getLogger().severe("Could not create economy.yml");
-                exception.printStackTrace();
-            }
-        }
-
-        economyConfig = YamlConfiguration.loadConfiguration(economyFile);
-    }
-
-    public void saveHomesFile() {
-        if (homesFile == null || homesConfig == null) {
-            return;
-        }
-
-        try {
-            homesConfig.save(homesFile);
-        } catch (IOException exception) {
-            getLogger().severe("Could not save homes.yml");
-            exception.printStackTrace();
-        }
-    }
-
-    public void saveTeamsFile() {
-        if (teamsFile == null || teamsConfig == null) {
-            return;
-        }
-
-        try {
-            teamsConfig.save(teamsFile);
-        } catch (IOException exception) {
-            getLogger().severe("Could not save teams.yml");
-            exception.printStackTrace();
-        }
-    }
-
-    public void saveEconomyFile() {
-        if (economyFile == null || economyConfig == null) {
-            return;
-        }
-
-        try {
-            economyConfig.save(economyFile);
-        } catch (IOException exception) {
-            getLogger().severe("Could not save economy.yml");
-            exception.printStackTrace();
-        }
     }
 
     public FileConfiguration getMessagesConfig() {
@@ -270,7 +152,14 @@ public final class Core extends JavaPlugin {
     }
 
     public String getMessage(String path) {
-        String value = messagesConfig.getString(path, "&cMissing message: " + path);
+        if (messagesConfig == null) {
+            return TextColor.color("&cMissing message: " + path);
+        }
+
+        String value = messagesConfig.getString(
+                path,
+                "&cMissing message: " + path
+        );
         return TextColor.color(value);
     }
 
@@ -279,6 +168,157 @@ public final class Core extends JavaPlugin {
     }
 
     public List<Module> modules() {
-        return Collections.unmodifiableList(modules);
+        if (moduleManager == null) {
+            return List.of();
+        }
+
+        return moduleManager.modules();
+    }
+
+    private void registerModules() throws Exception {
+        registerModule(new HomesModule());
+        registerModule(new TeamsModule());
+        registerModule(new TpaModule());
+        registerModule(new StatsModule());
+        registerModule(new EconomyModule());
+        registerModule(new BalTopModule());
+        registerModule(new ChatModule());
+        registerModule(new LinksModule());
+        registerModule(new SecurityModule());
+        registerModule(new AdminInspectModule());
+        registerModule(new EnchantModule());
+        registerModule(new NametagModule());
+        registerModule(new HideModule());
+        registerModule(new PlaceholdersModule());
+        registerModule(new WebProfilesModule());
+        registerModule(new SpawnModule());
+        registerModule(new WarpModule());
+        registerModule(new SpawnProtectionModule());
+        registerModule(new DoubleJumpModule());
+        registerModule(new RtpModule());
+        registerModule(new WorldMaintenanceModule());
+        registerModule(new DuelsModule());
+        registerModule(new OrdersModule());
+        registerModule(new SellModule());
+        registerModule(new AuctionHouseModule());
+        registerModule(new ShulkerPreviewModule());
+        registerModule(new BountyModule());
+        registerModule(new GamemodeModule());
+    }
+
+    private void initializeCoreFiles() {
+        ensureDataFolder();
+        saveDefaultConfig();
+        loadMessagesFile();
+        loadHomesFile();
+        loadTeamsFile();
+        loadEconomyFile();
+    }
+
+    private void ensureDataFolder() {
+        if (getDataFolder().exists()) {
+            return;
+        }
+
+        if (!getDataFolder().mkdirs() && !getDataFolder().exists()) {
+            throw new IllegalStateException(
+                    "Could not create MineacleCore data folder"
+            );
+        }
+    }
+
+    private void loadMessagesFile() {
+        ensureDataFolder();
+        messagesFile = new File(getDataFolder(), "messages.yml");
+
+        if (!messagesFile.exists()) {
+            saveResource("messages.yml", false);
+        }
+
+        messagesConfig = YamlConfiguration.loadConfiguration(messagesFile);
+    }
+
+    private void loadHomesFile() {
+        ensureDataFolder();
+        homesFile = new File(getDataFolder(), "homes.yml");
+
+        if (!homesFile.exists()) {
+            saveResource("homes.yml", false);
+        }
+
+        homesConfig = YamlConfiguration.loadConfiguration(homesFile);
+    }
+
+    private void loadTeamsFile() {
+        ensureDataFolder();
+        teamsFile = new File(getDataFolder(), "teams.yml");
+
+        if (!teamsFile.exists()) {
+            saveResource("teams.yml", false);
+        }
+
+        teamsConfig = YamlConfiguration.loadConfiguration(teamsFile);
+    }
+
+    private void loadEconomyFile() {
+        ensureDataFolder();
+        economyFile = new File(getDataFolder(), "economy.yml");
+
+        if (!economyFile.exists()) {
+            try {
+                if (!economyFile.createNewFile()
+                        && !economyFile.exists()) {
+                    throw new IOException(
+                            "createNewFile returned false"
+                    );
+                }
+            } catch (IOException exception) {
+                throw new IllegalStateException(
+                        "Could not create economy.yml",
+                        exception
+                );
+            }
+        }
+
+        economyConfig = YamlConfiguration.loadConfiguration(economyFile);
+    }
+
+    public void saveHomesFile() {
+        saveYaml(homesConfig, homesFile, "homes.yml");
+    }
+
+    public void saveTeamsFile() {
+        saveYaml(teamsConfig, teamsFile, "teams.yml");
+    }
+
+    public void saveEconomyFile() {
+        saveYaml(economyConfig, economyFile, "economy.yml");
+    }
+
+    private void saveYaml(
+            FileConfiguration configuration,
+            File file,
+            String fileName
+    ) {
+        if (configuration == null || file == null) {
+            return;
+        }
+
+        try {
+            configuration.save(file);
+        } catch (IOException exception) {
+            getLogger().log(
+                    Level.SEVERE,
+                    "Could not save " + fileName,
+                    exception
+            );
+        }
+    }
+
+    private long elapsedMillis(long startedAt) {
+        return Math.max(
+                0L,
+                (System.nanoTime() - startedAt) / 1_000_000L
+        );
     }
 }
