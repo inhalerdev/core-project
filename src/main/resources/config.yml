@@ -97,7 +97,7 @@ baltop:
   entries-per-page: 45
 
 nickname:
-  enabled: false
+  enabled: true
   show-command-when-disabled: false
   allow-default: false
   plus-permission: mineacle.plus
@@ -111,17 +111,17 @@ nickname:
 
 chat:
   enabled: true
-  format: "%luckperms_prefix%&#bbbbbb%mineacle_chat_displayname%: %message%"
+  format: "%luckperms_prefix%&#bbbbbb%mineacle_chat_displayname%&#bbbbbb: &#bbbbbb%message%"
   worlds:
     mode: grouped
     groups:
       global:
         - spawn1
-        - origins_nether
-        - origins_the_end
         - spawn2
         - spawn3
-        - origins
+        - overworld
+        - overworld_nether
+        - overworld_the_end
 
 placeholders:
   datetime:
@@ -587,12 +587,3 @@ shulker-preview:
     - "crate"
   messages:
     no-permission: "&cThis is a Mineacle+ feature"
-
-nickname:
-  enabled: false
-  show-command-when-disabled: false
-  prefix: ""
-  max-length: 15
-  allowed-regex: "^[a-zA-Z_0-9&§]+$"
-  default-name-color: "&f"
-  op-name-color: "&d"
