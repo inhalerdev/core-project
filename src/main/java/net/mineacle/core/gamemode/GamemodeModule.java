@@ -25,14 +25,27 @@ public final class GamemodeModule extends Module {
     public void disable() {
     }
 
-    private void register(Core core, String commandName, GameMode gameMode) {
+    private void register(
+            Core core,
+            String commandName,
+            GameMode gameMode
+    ) {
         PluginCommand command = core.getCommand(commandName);
 
         if (command == null) {
-            core.getLogger().warning("Missing command in plugin.yml: " + commandName);
-            return;
+            throw new IllegalStateException(
+                    "Missing command in plugin.yml: " + commandName
+            );
         }
 
-        command.setExecutor(new GamemodeShortcutCommand(core, gameMode));
+        GamemodeShortcutCommand executor =
+                new GamemodeShortcutCommand(
+                        core,
+                        commandName,
+                        gameMode
+                );
+
+        command.setExecutor(executor);
+        command.setTabCompleter(executor);
     }
 }
