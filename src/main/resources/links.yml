@@ -1,57 +1,32 @@
 enabled: true
 
 links:
-  guide:
-    url: ""
-    title: "&#ff88ffMineacle Guide"
-    lines:
-      - "&#bbbbbbUse &d/spawn &#bbbbbbto move between spawn worlds"
-      - "&#bbbbbbUse &d/warp &#bbbbbbto reach Crates, Duels, Market, and Stats"
-      - "&#bbbbbbUse &d/team &#bbbbbbto manage your team"
-      - "&#bbbbbbUse &d/sell &#bbbbbbto sell items into the server economy"
-      - "&#bbbbbbUse &d/duel <player> &#bbbbbbto RTP together into Origins for PvP"
-    button: ""
-    button-line: ""
-    hover: ""
-
-  rules:
-    url: ""
-    title: "&cMineacle Rules"
-    lines:
-      - "&#bbbbbbPlay fair and respect the survival economy"
-      - "&#bbbbbbNo cheating, hacked clients, macros, dupes, or exploit abuse"
-      - "&#bbbbbbNo harassment, threats, doxxing, or targeted toxicity"
-      - "&#bbbbbbUse common sense. Staff decisions protect server quality"
-    button: ""
-    button-line: ""
-    hover: ""
-
   store:
     url: "https://store.mineacle.net"
-    title: "&#ff88ffMineacle Store"
+    title: "&dMineacle Store"
     lines:
       - "&#bbbbbbSupport the server and unlock &#ff88ffMineacle+"
-      - "&#bbbbbbGet perks, cosmetics, and crate keys for progression"
-    button: "&#ff88ff› &#bbbbbbstore.mineacle.net"
-    button-line: "&#ff88ff› &#bbbbbbstore.mineacle.net"
+      - "&#bbbbbbView perks, cosmetics, and progression upgrades"
+    button: "&d› &#bbbbbbstore.mineacle.net"
+    button-line: "&d› &#bbbbbbstore.mineacle.net"
     hover: "&#bbbbbbClick to open &#ff88ffstore.mineacle.net"
 
   discord:
     url: "https://discord.gg/4xrYFxdSWg"
-    title: "&#ff88ffMineacle Discord"
+    title: "&dMineacle Discord"
     lines:
       - "&#bbbbbbJoin the community and stay updated"
       - "&#bbbbbbGet support, announcements, events, and tickets"
-    button: "&#ff88ff› &#bbbbbbdiscord.gg/mineacle"
-    button-line: "&#ff88ff› &#bbbbbbdiscord.gg/mineacle"
+    button: "&d› &#bbbbbbdiscord.gg/mineacle"
+    button-line: "&d› &#bbbbbbdiscord.gg/mineacle"
     hover: "&#bbbbbbClick to open the &#ff88ffMineacle Discord"
 
   x:
     url: "https://x.com/mineaclenetwork"
-    title: "&#ffffffMineacle on X"
+    title: "&dMineacle on X"
     lines:
       - "&#bbbbbbFollow server news, clips, and updates"
       - "&#bbbbbbSee announcements from the Mineacle network"
-    button: "&#ffffff› &#bbbbbbx.com/mineaclenetwork"
-    button-line: "&#ffffff› &#bbbbbbx.com/mineaclenetwork"
-    hover: "&#bbbbbbClick to open &#ffffffx.com/mineaclenetwork"
+    button: "&d› &#bbbbbbx.com/mineaclenetwork"
+    button-line: "&d› &#bbbbbbx.com/mineaclenetwork"
+    hover: "&#bbbbbbClick to open &#ff88ffx.com/mineaclenetwork"

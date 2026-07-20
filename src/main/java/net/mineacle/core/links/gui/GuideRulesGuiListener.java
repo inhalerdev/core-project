@@ -2,107 +2,196 @@ package net.mineacle.core.links.gui;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
-import org.bukkit.ChatColor;
+import net.mineacle.core.common.sound.SoundService;
+import net.mineacle.core.links.service.GuideRulesService;
+import net.mineacle.core.links.service.LinksService;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 
 import java.util.Locale;
 
-public final class GuideRulesGuiListener implements Listener {
+public final class GuideRulesGuiListener
+        implements Listener {
 
     private final Core core;
+    private final GuideRulesGui gui;
+    private final LinksService linksService;
 
-    public GuideRulesGuiListener(Core core) {
+    public GuideRulesGuiListener(
+            Core core,
+            GuideRulesGui gui,
+            LinksService linksService
+    ) {
         this.core = core;
+        this.gui = gui;
+        this.linksService = linksService;
     }
 
-    @EventHandler
+    @EventHandler(
+            priority = EventPriority.HIGHEST,
+            ignoreCancelled = false
+    )
     public void onClick(InventoryClickEvent event) {
-        String title = ChatColor.stripColor(event.getView().getTitle());
+        GuideRulesGui.Holder holder =
+                gui.holder(
+                        event.getView().getTopInventory()
+                );
 
-        if (title == null) {
-            return;
-        }
-
-        String guideTitle = ChatColor.stripColor(GuideRulesGui.configuredTitle(GuideRulesGui.GUIDE_KEY));
-        String rulesTitle = ChatColor.stripColor(GuideRulesGui.configuredTitle(GuideRulesGui.RULES_KEY));
-
-        boolean guide = title.equalsIgnoreCase(guideTitle) || title.equalsIgnoreCase("Guide") || title.equalsIgnoreCase("Mineacle Guide");
-        boolean rules = title.equalsIgnoreCase(rulesTitle) || title.equalsIgnoreCase("Rules") || title.equalsIgnoreCase("Server Rules");
-
-        if (!guide && !rules) {
+        if (holder == null) {
             return;
         }
 
         event.setCancelled(true);
+        event.setResult(Event.Result.DENY);
 
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
 
-        if (event.getClickedInventory() == null || event.getClickedInventory() != event.getView().getTopInventory()) {
+        int rawSlot = event.getRawSlot();
+        int topSize = event.getView()
+                .getTopInventory()
+                .getSize();
+
+        if (rawSlot < 0 || rawSlot >= topSize) {
             return;
         }
 
-        String menuKey = guide ? GuideRulesGui.GUIDE_KEY : GuideRulesGui.RULES_KEY;
-        String action = GuideRulesGui.action(menuKey, event.getRawSlot());
+        String action = holder.action(rawSlot);
 
-        runAction(player, menuKey, action);
+        if (action == null || action.isBlank()) {
+            return;
+        }
+
+        SoundService.guiClick(player, core);
+        runAction(player, holder.menuKey(), action);
     }
 
-    private void runAction(Player player, String currentMenu, String rawAction) {
-        if (rawAction == null || rawAction.isBlank()) {
-            return;
+    @EventHandler(
+            priority = EventPriority.HIGHEST,
+            ignoreCancelled = false
+    )
+    public void onDrag(InventoryDragEvent event) {
+        if (gui.isInventory(
+                event.getView().getTopInventory()
+        )) {
+            event.setCancelled(true);
+            event.setResult(Event.Result.DENY);
         }
+    }
 
+    private void runAction(
+            Player player,
+            String currentMenu,
+            String rawAction
+    ) {
         String action = rawAction.trim();
         String lower = action.toLowerCase(Locale.ROOT);
 
         if (lower.equals("close")) {
-            player.closeInventory();
+            MenuHistory.close(core, player);
             return;
         }
 
-        if (lower.equals("guide") || lower.equals("open:guide")) {
-            MenuHistory.openChild(core, player,
-                    () -> openCurrent(player, currentMenu),
-                    () -> GuideRulesGui.openGuide(player));
+        if (lower.equals("guide")
+                || lower.equals("open:guide")) {
+            openChild(
+                    player,
+                    currentMenu,
+                    GuideRulesService.GUIDE
+            );
             return;
         }
 
-        if (lower.equals("rules") || lower.equals("open:rules")) {
-            MenuHistory.openChild(core, player,
-                    () -> openCurrent(player, currentMenu),
-                    () -> GuideRulesGui.openRules(player));
+        if (lower.equals("rules")
+                || lower.equals("open:rules")) {
+            openChild(
+                    player,
+                    currentMenu,
+                    GuideRulesService.RULES
+            );
+            return;
+        }
+
+        if (lower.startsWith("link:")) {
+            String linkKey = action.substring(
+                    "link:".length()
+            ).trim();
+
+            MenuHistory.close(core, player);
+            core.getServer().getScheduler().runTask(
+                    core,
+                    () -> linksService.sendLink(
+                            player,
+                            linkKey
+                    )
+            );
             return;
         }
 
         if (lower.startsWith("command:")) {
-            String command = action.substring("command:".length()).trim();
-
-            if (command.startsWith("/")) {
-                command = command.substring(1);
-            }
-
-            player.closeInventory();
-            player.performCommand(command);
+            runCommand(
+                    player,
+                    action.substring(
+                            "command:".length()
+                    )
+            );
             return;
         }
 
         if (action.startsWith("/")) {
-            player.closeInventory();
-            player.performCommand(action.substring(1));
+            runCommand(player, action);
         }
     }
 
-    private void openCurrent(Player player, String currentMenu) {
-        if (GuideRulesGui.RULES_KEY.equalsIgnoreCase(currentMenu)) {
-            GuideRulesGui.openRules(player);
+    private void openChild(
+            Player player,
+            String currentMenu,
+            String targetMenu
+    ) {
+        if (targetMenu.equalsIgnoreCase(currentMenu)) {
             return;
         }
 
-        GuideRulesGui.openGuide(player);
+        MenuHistory.openChild(
+                core,
+                player,
+                () -> gui.open(player, currentMenu),
+                () -> gui.open(player, targetMenu)
+        );
+    }
+
+    private void runCommand(
+            Player player,
+            String rawCommand
+    ) {
+        String command = rawCommand == null
+                ? ""
+                : rawCommand.trim();
+
+        while (command.startsWith("/")) {
+            command = command.substring(1);
+        }
+
+        if (command.isBlank()) {
+            return;
+        }
+
+        String finalCommand = command;
+        MenuHistory.close(core, player);
+
+        core.getServer().getScheduler().runTask(
+                core,
+                () -> {
+                    if (player.isOnline()) {
+                        player.performCommand(finalCommand);
+                    }
+                }
+        );
     }
 }

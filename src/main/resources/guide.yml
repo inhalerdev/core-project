@@ -2,13 +2,13 @@ title: "Guide"
 size: 27
 
 items:
-  origins:
+  survival:
     slot: 10
     material: GRASS_BLOCK
-    name: "&dOrigins"
+    name: "&dOverworld"
     lore:
       - "&#bbbbbbMain survival world"
-      - "&#bbbbbbPvP and loot drops enabled"
+      - "&#bbbbbbPvP and item drops are enabled"
       - ""
       - "&#ff88ffWorld Size: &#bbbbbb100k x 100k"
       - "&#ff88ffDifficulty: &#bbbbbbHard"
@@ -21,15 +21,15 @@ items:
     material: GOLD_INGOT
     name: "&dEconomy"
     lore:
-      - "&#bbbbbbSell items and check values"
-      - "&#bbbbbbBuild your balance over time"
+      - "&#bbbbbbSell items and trade with players"
+      - "&#bbbbbbBuild your balance through the economy"
       - ""
       - "&#ff88ffCommands:"
       - "&d/sell &#bbbbbbSell items"
-      - "&d/worth &#bbbbbbView prices"
-      - "&d/ah &#bbbbbbComing later"
+      - "&d/worth &#bbbbbbView server prices"
+      - "&d/ah &#bbbbbbBrowse player listings"
       - ""
-      - "&dClick to open Worth"
+      - "&dClick to open Item Prices"
     action: "command:/worth"
 
   rules:
@@ -37,7 +37,7 @@ items:
     material: BOOK
     name: "&dRules"
     lore:
-      - "&#bbbbbbServer and chat rules"
+      - "&#bbbbbbServer, chat, economy, and PvP rules"
       - "&#bbbbbbfor fair survival gameplay"
       - ""
       - "&dClick to view Rules"
@@ -48,8 +48,8 @@ items:
     material: CLOCK
     name: "&dLeaderboards"
     lore:
-      - "&#bbbbbbView top balances"
-      - "&#bbbbbband compete for ranks"
+      - "&#bbbbbbView the richest players"
+      - "&#bbbbbband compete for leaderboard positions"
       - ""
       - "&#ff88ffCommand: &d/baltop"
       - ""
@@ -61,8 +61,8 @@ items:
     material: RED_BED
     name: "&dHomes"
     lore:
-      - "&#bbbbbbSave return points"
-      - "&#bbbbbband manage them from a GUI"
+      - "&#bbbbbbSave and manage return points"
+      - "&#bbbbbbthrough the Homes menu"
       - ""
       - "&#ff88ffDefault: &#bbbbbb3 homes"
       - "&#ff88ffMineacle+: &#bbbbbb5 homes"
@@ -76,7 +76,7 @@ items:
     name: "&dTeams"
     lore:
       - "&#bbbbbbCreate or join a team"
-      - "&#bbbbbbwith invites and team home"
+      - "&#bbbbbbwith invites and a shared Team Home"
       - ""
       - "&#ff88ffCommand: &d/team"
       - ""
@@ -88,13 +88,10 @@ items:
     material: DIAMOND_SWORD
     name: "&dDuels"
     lore:
-      - "&#bbbbbbChallenge players into Origins"
-      - "&#bbbbbbInventory risk applies"
+      - "&#bbbbbbChallenge players to survival PvP"
+      - "&#bbbbbbInventory risk and item loss apply"
       - ""
-      - "&#ff88ffCommands:"
-      - "&d/duel <player> &#bbbbbbChallenge"
-      - "&d/duel accept &#bbbbbbAccept"
-      - "&d/duel deny &#bbbbbbDeny"
+      - "&#ff88ffCommand: &d/duel <player>"
       - ""
-      - "&dClick to type /duel"
+      - "&dClick to open Duels"
     action: "command:/duel"

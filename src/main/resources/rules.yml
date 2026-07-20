@@ -10,12 +10,12 @@ items:
       - "&#bbbbbbNo hacked clients"
       - "&#bbbbbbNo movement mods"
       - "&#bbbbbbNo inventory mods"
-      - "&#bbbbbbNo radar, freecam, or xray"
+      - "&#bbbbbbNo radar, freecam, or x-ray"
       - "&#bbbbbbNo macros or scripts"
       - "&#bbbbbbNo abusing bugs or dupes"
-      - "&#bbbbbbNo alt abuse"
-      - "&#bbbbbbNo IRL trading"
-      - "&#bbbbbbNo invite rewards abuse"
+      - "&#bbbbbbNo alternate-account abuse"
+      - "&#bbbbbbNo real-money trading"
+      - "&#bbbbbbNo invite-reward abuse"
       - "&#bbbbbbNo cross-server trading"
       - "&#bbbbbbNo seed finding"
       - "&#bbbbbbNo staff impersonation"
@@ -32,9 +32,9 @@ items:
       - "&#bbbbbbNo discrimination or hate speech"
       - "&#bbbbbbNo threats"
       - "&#bbbbbbNo sharing private information"
-      - "&#bbbbbbNo pretending to be someone else"
+      - "&#bbbbbbNo impersonation"
       - "&#bbbbbbNo ban evasion"
-      - "&#bbbbbbNo lying to staff"
+      - "&#bbbbbbDo not deliberately mislead staff"
 
   economy-rules:
     slot: 15
@@ -42,8 +42,8 @@ items:
     name: "&dEconomy Rules"
     lore:
       - "&#bbbbbbNo price exploit abuse"
-      - "&#bbbbbbNo duped item trading"
-      - "&#bbbbbbNo alt-based farming"
+      - "&#bbbbbbNo duplicated-item trading"
+      - "&#bbbbbbNo alternate-account farming abuse"
       - "&#bbbbbbNo market manipulation exploits"
       - "&#bbbbbbReport broken prices immediately"
 
@@ -52,8 +52,8 @@ items:
     material: DIAMOND_SWORD
     name: "&dPvP & Duels"
     lore:
-      - "&#bbbbbbPvP is enabled in Origins"
-      - "&#bbbbbbLoot can be lost in combat"
-      - "&#bbbbbbDo not abuse safe-zone edges"
+      - "&#bbbbbbPvP is enabled in the survival world"
+      - "&#bbbbbbItems can be lost in combat"
+      - "&#bbbbbbDo not abuse safe-zone boundaries"
       - "&#bbbbbbDo not abuse combat bugs"
       - "&#bbbbbbDuel outcomes are final"

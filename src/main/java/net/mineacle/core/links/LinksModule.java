@@ -3,13 +3,16 @@ package net.mineacle.core.links;
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.links.command.LinksCommand;
+import net.mineacle.core.links.gui.GuideRulesGui;
 import net.mineacle.core.links.gui.GuideRulesGuiListener;
-import net.mineacle.core.links.listener.LinksCommandListener;
+import net.mineacle.core.links.service.GuideRulesService;
+import net.mineacle.core.links.service.LinksService;
 import org.bukkit.command.PluginCommand;
 
 public final class LinksModule extends Module {
 
-    private LinksCommand command;
+    private LinksService linksService;
+    private GuideRulesService guideRulesService;
 
     @Override
     public String name() {
@@ -18,32 +21,53 @@ public final class LinksModule extends Module {
 
     @Override
     public void enable(Core core) {
-        command = new LinksCommand(core);
+        linksService = new LinksService(core);
+        guideRulesService = new GuideRulesService(core);
 
-        register(core, "guide");
-        register(core, "rules");
-        register(core, "discord");
-        register(core, "store");
-        register(core, "x");
+        GuideRulesGui guideRulesGui =
+                new GuideRulesGui(core, guideRulesService);
+        LinksCommand command = new LinksCommand(
+                core,
+                linksService,
+                guideRulesGui
+        );
 
-        core.getServer().getPluginManager().registerEvents(new LinksCommandListener(command), core);
-        core.getServer().getPluginManager().registerEvents(new GuideRulesGuiListener(core), core);
+        register(core, "guide", command);
+        register(core, "rules", command);
+        register(core, "discord", command);
+        register(core, "store", command);
+        register(core, "x", command);
+
+        core.getServer().getPluginManager().registerEvents(
+                new GuideRulesGuiListener(
+                        core,
+                        guideRulesGui,
+                        linksService
+                ),
+                core
+        );
     }
 
     @Override
     public void disable() {
-        command = null;
+        linksService = null;
+        guideRulesService = null;
     }
 
-    private void register(Core core, String commandName) {
-        PluginCommand pluginCommand = core.getCommand(commandName);
+    private void register(
+            Core core,
+            String commandName,
+            LinksCommand executor
+    ) {
+        PluginCommand command = core.getCommand(commandName);
 
-        if (pluginCommand == null) {
-            core.getLogger().warning("Missing command in plugin.yml: " + commandName);
-            return;
+        if (command == null) {
+            throw new IllegalStateException(
+                    "Missing command in plugin.yml: " + commandName
+            );
         }
 
-        pluginCommand.setExecutor(command);
-        pluginCommand.setTabCompleter(command);
+        command.setExecutor(executor);
+        command.setTabCompleter(executor);
     }
 }
