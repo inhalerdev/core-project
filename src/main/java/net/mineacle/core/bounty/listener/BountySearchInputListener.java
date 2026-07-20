@@ -71,8 +71,10 @@ public final class BountySearchInputListener implements Listener {
                 "&#bbbbbbType a player name to search bounties"
         ));
         player.sendMessage(TextColor.color(
-                "&#bbbbbbType &dcancel &#bbbbbbto cancel or "
-                        + "&dclear &#bbbbbbto reset search"
+                "&#bbbbbbType &#ff88ffcancel "
+                        + "&#bbbbbbto return or "
+                        + "&#ff88ffclear "
+                        + "&#bbbbbbto reset search"
         ));
         sendActionBar(
                 player,

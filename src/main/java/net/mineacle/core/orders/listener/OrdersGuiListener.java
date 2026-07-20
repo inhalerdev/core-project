@@ -528,10 +528,10 @@ public final class OrdersGuiListener
                 "&#bbbbbbType an item name to search orders"
         ));
         player.sendMessage(TextColor.color(
-                "&#bbbbbbType &#ff88ffclear "
-                        + "&#bbbbbbto reset or "
-                        + "&#ff88ffcancel "
-                        + "&#bbbbbbto stop"
+                "&#bbbbbbType &#ff88ffcancel "
+                        + "&#bbbbbbto return or "
+                        + "&#ff88ffclear "
+                        + "&#bbbbbbto reset search"
         ));
     }
 
@@ -544,10 +544,10 @@ public final class OrdersGuiListener
                 "&#bbbbbbType an item name to search"
         ));
         player.sendMessage(TextColor.color(
-                "&#bbbbbbType &#ff88ffclear "
-                        + "&#bbbbbbto reset or "
-                        + "&#ff88ffcancel "
-                        + "&#bbbbbbto stop"
+                "&#bbbbbbType &#ff88ffcancel "
+                        + "&#bbbbbbto return or "
+                        + "&#ff88ffclear "
+                        + "&#bbbbbbto reset search"
         ));
     }
 

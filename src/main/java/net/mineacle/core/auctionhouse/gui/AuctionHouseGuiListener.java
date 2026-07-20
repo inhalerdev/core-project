@@ -670,8 +670,10 @@ public final class AuctionHouseGuiListener implements Listener {
         );
         player.sendMessage(
                 TextColor.color(
-                        "&#bbbbbbType &ccancel &#bbbbbbto return "
-                                + "or &cclear &#bbbbbbto clear the search"
+                        "&#bbbbbbType &#ff88ffcancel "
+                                + "&#bbbbbbto return or "
+                                + "&#ff88ffclear "
+                                + "&#bbbbbbto reset search"
                 )
         );
     }
