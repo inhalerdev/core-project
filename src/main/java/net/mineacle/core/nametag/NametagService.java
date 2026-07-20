@@ -20,30 +20,28 @@ import org.bukkit.scoreboard.Team;
 import java.io.File;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 public final class NametagService {
 
+    private static final String TEAM_PREFIX = "mn_";
+
     private final Core core;
     private final File file;
+
     private FileConfiguration config;
 
     public NametagService(Core core) {
         this.core = core;
-        this.file = new File(core.getDataFolder(), "nametags.yml");
+        this.file = new File(
+                core.getDataFolder(),
+                "nametags.yml"
+        );
         reload();
     }
 
     public void reload() {
-        if (!core.getDataFolder().exists()) {
-            core.getDataFolder().mkdirs();
-        }
-
-        if (!file.exists()) {
-            core.saveResource("nametags.yml", false);
-        }
-
+        ensureDataFile();
         config = YamlConfiguration.loadConfiguration(file);
     }
 
@@ -53,10 +51,22 @@ public final class NametagService {
 
     public long updateIntervalTicks() {
         if (config.contains("update-interval-ticks")) {
-            return Math.max(1L, config.getLong("update-interval-ticks", 2L));
+            return Math.max(
+                    1L,
+                    config.getLong(
+                            "update-interval-ticks",
+                            20L
+                    )
+            );
         }
 
-        return Math.max(2L, config.getLong("update-interval-seconds", 1L) * 20L);
+        return Math.max(
+                2L,
+                config.getLong(
+                        "update-interval-seconds",
+                        1L
+                ) * 20L
+        );
     }
 
     public boolean enabledInWorld(Player player) {
@@ -68,17 +78,22 @@ public final class NametagService {
             return true;
         }
 
-        List<String> worlds = config.getStringList("worlds.list");
+        List<String> worlds =
+                config.getStringList("worlds.list");
 
         if (worlds.isEmpty()) {
             return true;
         }
 
-        return worlds.stream().anyMatch(world -> world.equalsIgnoreCase(player.getWorld().getName()));
+        return worlds.stream().anyMatch(
+                world -> world.equalsIgnoreCase(
+                        player.getWorld().getName()
+                )
+        );
     }
 
     public void refreshAll() {
-        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        Scoreboard scoreboard = mainScoreboard();
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!enabled() || !enabledInWorld(player)) {
@@ -91,7 +106,11 @@ public final class NametagService {
     }
 
     public void refresh(Player player) {
-        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+
+        Scoreboard scoreboard = mainScoreboard();
 
         if (!enabled() || !enabledInWorld(player)) {
             removeFromMineacleTeams(player, scoreboard);
@@ -101,31 +120,48 @@ public final class NametagService {
         refresh(player, scoreboard);
     }
 
-    private void refresh(Player player, Scoreboard scoreboard) {
-        String teamName = teamName(player);
-        Team team = scoreboard.getTeam(teamName);
+    private void refresh(
+            Player player,
+            Scoreboard scoreboard
+    ) {
+        String currentTeamName = teamName(player);
+        Team team = scoreboard.getTeam(currentTeamName);
 
         if (team == null) {
-            team = scoreboard.registerNewTeam(teamName);
+            team = scoreboard.registerNewTeam(
+                    currentTeamName
+            );
         }
 
-        removeFromOtherMineacleTeams(player, scoreboard, teamName);
+        removeFromOtherMineacleTeams(
+                player,
+                scoreboard,
+                currentTeamName
+        );
 
         if (!team.hasEntry(player.getName())) {
             team.addEntry(player.getName());
         }
 
         HideService hideService = HideModule.service();
+        boolean hideNametag = hideService != null
+                && hideService.shouldHideRealNametag(player);
 
-        if (hideService != null && hideService.shouldHideRealNametag(player)) {
+        if (hideNametag) {
             team.prefix(Component.empty());
             team.suffix(Component.empty());
             team.color(NamedTextColor.WHITE);
-            team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
+            team.setOption(
+                    Team.Option.NAME_TAG_VISIBILITY,
+                    Team.OptionStatus.NEVER
+            );
             return;
         }
 
-        team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
+        team.setOption(
+                Team.Option.NAME_TAG_VISIBILITY,
+                Team.OptionStatus.ALWAYS
+        );
         team.color(teamTextColor(player));
         team.prefix(legacy(buildPrefix(player)));
         team.suffix(legacy(buildSuffix()));
@@ -135,13 +171,18 @@ public final class NametagService {
         StringBuilder prefix = new StringBuilder();
 
         if (config.getBoolean("rank.enabled", true)) {
-            String rank = stripTrailingSpaces(rankPrefix(player));
+            String rank = stripTrailingSpaces(
+                    rankPrefix(player)
+            );
 
             if (rank != null && !rank.isBlank()) {
                 prefix.append(rank);
 
-                if (config.getBoolean("rank.space-after-prefix", false)) {
-                    prefix.append(" ");
+                if (config.getBoolean(
+                        "rank.space-after-prefix",
+                        false
+                )) {
+                    prefix.append(' ');
                 }
             }
         }
@@ -152,22 +193,40 @@ public final class NametagService {
     }
 
     private String buildSuffix() {
-        return limitTeamPart(config.getString("suffix", ""), false);
+        return limitTeamPart(
+                config.getString("suffix", ""),
+                false
+        );
     }
 
     private String nameColor(OfflinePlayer player) {
-        if (!config.getBoolean("name-color.enabled", true)) {
+        if (!config.getBoolean(
+                "name-color.enabled",
+                true
+        )) {
             return "";
         }
 
         if (player != null && player.isOp()) {
-            return normalizeColor(config.getString("name-color.op", "&d"));
+            return normalizeColor(
+                    config.getString(
+                            "name-color.op",
+                            "&d"
+                    )
+            );
         }
 
-        return normalizeColor(config.getString("name-color.default", "&f"));
+        return normalizeColor(
+                config.getString(
+                        "name-color.default",
+                        "&f"
+                )
+        );
     }
 
-    private NamedTextColor teamTextColor(OfflinePlayer player) {
+    private NamedTextColor teamTextColor(
+            OfflinePlayer player
+    ) {
         if (player != null && player.isOp()) {
             return NamedTextColor.LIGHT_PURPLE;
         }
@@ -176,21 +235,36 @@ public final class NametagService {
     }
 
     private String rankPrefix(Player player) {
-        if (!config.getBoolean("rank.use-placeholderapi", true)) {
+        if (!config.getBoolean(
+                "rank.use-placeholderapi",
+                true
+        )) {
             return config.getString("rank.fallback", "");
         }
 
-        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") == null) {
+        if (Bukkit.getPluginManager()
+                .getPlugin("PlaceholderAPI") == null) {
             return config.getString("rank.fallback", "");
         }
 
-        String placeholder = config.getString("rank.placeholder", "%luckperms_prefix%");
+        String placeholder = config.getString(
+                "rank.placeholder",
+                "%luckperms_prefix%"
+        );
 
         try {
-            String parsed = PlaceholderAPI.setPlaceholders(player, placeholder);
+            String parsed = PlaceholderAPI.setPlaceholders(
+                    player,
+                    placeholder
+            );
 
-            if (parsed == null || parsed.isBlank() || parsed.equalsIgnoreCase(placeholder)) {
-                return config.getString("rank.fallback", "");
+            if (parsed == null
+                    || parsed.isBlank()
+                    || parsed.equalsIgnoreCase(placeholder)) {
+                return config.getString(
+                        "rank.fallback",
+                        ""
+                );
             }
 
             return parsed;
@@ -199,19 +273,33 @@ public final class NametagService {
         }
     }
 
+    /**
+     * Scoreboard team names are limited, so use a stable UUID-derived key.
+     * Username truncation can collide and make one player's hidden state
+     * affect another player.
+     */
     private String teamName(Player player) {
-        String clean = ChatColor.stripColor(player.getName()).toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_]", "");
+        String compact = player.getUniqueId()
+                .toString()
+                .replace("-", "");
 
-        if (clean.length() > 12) {
-            clean = clean.substring(0, 12);
-        }
-
-        return "mn_" + clean;
+        return TEAM_PREFIX
+                + compact.substring(0, 7)
+                + compact.substring(
+                        compact.length() - 6
+                );
     }
 
-    private void removeFromOtherMineacleTeams(Player player, Scoreboard scoreboard, String currentTeamName) {
+    private void removeFromOtherMineacleTeams(
+            Player player,
+            Scoreboard scoreboard,
+            String currentTeamName
+    ) {
         for (Team team : scoreboard.getTeams()) {
-            if (team.getName().equals(currentTeamName) || !team.getName().startsWith("mn_")) {
+            if (team.getName().equals(currentTeamName)
+                    || !team.getName().startsWith(
+                    TEAM_PREFIX
+            )) {
                 continue;
             }
 
@@ -221,9 +309,12 @@ public final class NametagService {
         }
     }
 
-    private void removeFromMineacleTeams(Player player, Scoreboard scoreboard) {
+    private void removeFromMineacleTeams(
+            Player player,
+            Scoreboard scoreboard
+    ) {
         for (Team team : scoreboard.getTeams()) {
-            if (!team.getName().startsWith("mn_")) {
+            if (!team.getName().startsWith(TEAM_PREFIX)) {
                 continue;
             }
 
@@ -234,27 +325,30 @@ public final class NametagService {
     }
 
     public void removeDisplay(Player player) {
-        if (player == null) {
-            return;
+        if (player != null) {
+            removeFromMineacleTeams(
+                    player,
+                    mainScoreboard()
+            );
         }
-
-        removeFromMineacleTeams(player, Bukkit.getScoreboardManager().getMainScoreboard());
     }
 
     public void removeOrphanDisplays() {
-        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        Scoreboard scoreboard = mainScoreboard();
         Set<String> onlineNames = new HashSet<>();
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             onlineNames.add(player.getName());
         }
 
-        for (Team team : Set.copyOf(scoreboard.getTeams())) {
-            if (!team.getName().startsWith("mn_")) {
+        for (Team team
+                : Set.copyOf(scoreboard.getTeams())) {
+            if (!team.getName().startsWith(TEAM_PREFIX)) {
                 continue;
             }
 
-            for (String entry : Set.copyOf(team.getEntries())) {
+            for (String entry
+                    : Set.copyOf(team.getEntries())) {
                 if (!onlineNames.contains(entry)) {
                     team.removeEntry(entry);
                 }
@@ -267,17 +361,28 @@ public final class NametagService {
     }
 
     public void clear() {
-        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        Scoreboard scoreboard = mainScoreboard();
 
-        for (Team team : Set.copyOf(scoreboard.getTeams())) {
-            if (team.getName().startsWith("mn_")) {
+        for (Team team
+                : Set.copyOf(scoreboard.getTeams())) {
+            if (team.getName().startsWith(TEAM_PREFIX)) {
                 team.unregister();
             }
         }
     }
 
+    private Scoreboard mainScoreboard() {
+        return Bukkit.getScoreboardManager()
+                .getMainScoreboard();
+    }
+
     private Component legacy(String message) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message == null ? "" : message));
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(
+                        TextColor.color(
+                                message == null ? "" : message
+                        )
+                );
     }
 
     private String normalizeColor(String input) {
@@ -302,17 +407,50 @@ public final class NametagService {
         return input.replaceFirst("\\s+$", "");
     }
 
-    private String limitTeamPart(String input, boolean prefix) {
+    private String limitTeamPart(
+            String input,
+            boolean prefix
+    ) {
         if (input == null) {
             return "";
         }
 
-        int max = Math.max(16, config.getInt(prefix ? "limits.prefix" : "limits.suffix", 64));
+        int maximum = Math.max(
+                16,
+                config.getInt(
+                        prefix
+                                ? "limits.prefix"
+                                : "limits.suffix",
+                        64
+                )
+        );
 
-        if (input.length() <= max) {
+        if (input.length() <= maximum) {
             return input;
         }
 
-        return input.substring(0, max);
+        return input.substring(0, maximum);
+    }
+
+    private void ensureDataFile() {
+        File dataFolder = core.getDataFolder();
+
+        if (!dataFolder.exists()
+                && !dataFolder.mkdirs()
+                && !dataFolder.exists()) {
+            throw new IllegalStateException(
+                    "Could not create MineacleCore data folder"
+            );
+        }
+
+        if (!file.exists()) {
+            core.saveResource("nametags.yml", false);
+        }
+
+        if (!file.isFile()) {
+            throw new IllegalStateException(
+                    "Could not initialize nametags.yml"
+            );
+        }
     }
 }

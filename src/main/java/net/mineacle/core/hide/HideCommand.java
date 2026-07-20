@@ -1,69 +1,121 @@
 package net.mineacle.core.hide;
 
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
-import net.mineacle.core.nametag.NametagModule;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
-import java.util.Collections;
 import java.util.List;
 
-public final class HideCommand implements CommandExecutor, TabCompleter {
+public final class HideCommand
+        implements CommandExecutor, TabCompleter {
 
     private final Core core;
     private final HideService service;
 
-    public HideCommand(Core core, HideService service) {
+    public HideCommand(
+            Core core,
+            HideService service
+    ) {
         this.core = core;
         this.service = service;
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public boolean onCommand(
+            CommandSender sender,
+            Command command,
+            String label,
+            String[] args
+    ) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage("Players only");
+            sender.sendMessage(
+                    core.getMessage("general.players-only")
+            );
+            return true;
+        }
+
+        if (args.length != 0) {
+            error(player, "&cUsage: /hide");
             return true;
         }
 
         if (!service.enabled()) {
-            send(player, "&cHide is disabled");
-            SoundService.guiError(player, core);
+            error(player, "&cHide is currently disabled");
             return true;
         }
 
         if (!service.canUse(player)) {
-            send(player, service.message("blocked", "&cMineacle+ is required to use /hide"));
-            SoundService.guiError(player, core);
+            error(
+                    player,
+                    service.message(
+                            "blocked",
+                            "&cYou do not have permission to use /hide"
+                    )
+            );
             return true;
         }
 
         boolean hidden = service.toggle(player);
 
         if (hidden) {
-            send(player, service.message("enabled", "&#bbbbbbHidden mode &#ff88ffenabled"));
-            SoundService.guiConfirm(player, core);
+            send(
+                    player,
+                    service.message(
+                            "enabled",
+                            "&#bbbbbbNametag hidden"
+                    )
+            );
+            SoundService.featureEnable(player, core);
         } else {
-            send(player, service.message("disabled", "&#bbbbbbHidden mode &cdisabled"));
-            SoundService.guiCancel(player, core);
+            send(
+                    player,
+                    service.message(
+                            "disabled",
+                            "&#bbbbbbNametag visible"
+                    )
+            );
+            SoundService.featureDisable(player, core);
         }
 
-        NametagModule.refreshAll();
         return true;
     }
 
-    private void send(Player player, String message) {
-        player.sendMessage(TextColor.color(message));
-        player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message)));
+    @Override
+    public List<String> onTabComplete(
+            CommandSender sender,
+            Command command,
+            String alias,
+            String[] args
+    ) {
+        return List.of();
     }
 
-    @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        return Collections.emptyList();
+    private void error(
+            Player player,
+            String message
+    ) {
+        send(player, message);
+        SoundService.guiError(player, core);
+    }
+
+    private void send(
+            Player player,
+            String message
+    ) {
+        String colored = TextColor.color(message);
+        player.sendMessage(colored);
+        player.sendActionBar(component(colored));
+    }
+
+    private Component component(String coloredMessage) {
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(coloredMessage);
     }
 }

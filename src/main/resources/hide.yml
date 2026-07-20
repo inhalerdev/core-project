@@ -1,15 +1,17 @@
 enabled: true
 
-permission: mineacle.plus
-admin-see-permission: mineaclehide.admin
+# /hide is reserved for administrators.
+permission: mineaclehide.admin
 
-# /hide is nametag-only.
-# It must not change gameplay, tablist, scoreboard, inventory, pickup, eating, building, combat, or mob targeting.
+# /hide hides only the native overhead nametag.
+# It never changes entity visibility, TAB, gameplay, inventory, pickups,
+# building, combat, eating, or mob targeting.
 nametag-only: true
 hide-from-tab: false
+persist-across-restarts: false
 
 messages:
-  enabled: "&#bbbbbbHidden mode &#ff88ffenabled"
-  disabled: "&#bbbbbbHidden mode &cdisabled"
-  blocked: "&cMineacle+ is required to use /hide"
-  actionbar: "&#bbbbbbYou are hidden"
+  enabled: "&#bbbbbbNametag hidden"
+  disabled: "&#bbbbbbNametag visible"
+  blocked: "&cYou do not have permission to use /hide"
+  actionbar: "&#bbbbbbNametag hidden"

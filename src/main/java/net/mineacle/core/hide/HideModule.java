@@ -3,9 +3,7 @@ package net.mineacle.core.hide;
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.nametag.NametagModule;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
-import org.bukkit.command.TabCompleter;
 
 public final class HideModule extends Module {
 
@@ -19,14 +17,26 @@ public final class HideModule extends Module {
     @Override
     public void enable(Core core) {
         service = new HideService(core);
+
+        PluginCommand command = core.getCommand("hide");
+
+        if (command == null) {
+            service = null;
+            throw new IllegalStateException(
+                    "Missing command in plugin.yml: hide"
+            );
+        }
+
+        HideCommand executor = new HideCommand(core, service);
+        command.setExecutor(executor);
+        command.setTabCompleter(executor);
+
+        core.getServer().getPluginManager().registerEvents(
+                new HideListener(core, service),
+                core
+        );
+
         service.start();
-
-        HideCommand command = new HideCommand(core, service);
-        register(core, "hide", command);
-
-        core.getServer().getPluginManager().registerEvents(new HideListener(core, service), core);
-
-        service.applyAll();
         NametagModule.refreshAll();
     }
 
@@ -35,27 +45,11 @@ public final class HideModule extends Module {
         if (service != null) {
             service.showAll();
             service.stop();
+            service = null;
         }
-
-        service = null;
     }
 
     public static HideService service() {
         return service;
-    }
-
-    private void register(Core core, String commandName, CommandExecutor executor) {
-        PluginCommand command = core.getCommand(commandName);
-
-        if (command == null) {
-            core.getLogger().warning("Missing command in plugin.yml: " + commandName);
-            return;
-        }
-
-        command.setExecutor(executor);
-
-        if (executor instanceof TabCompleter completer) {
-            command.setTabCompleter(completer);
-        }
     }
 }

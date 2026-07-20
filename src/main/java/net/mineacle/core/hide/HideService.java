@@ -13,7 +13,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -22,72 +21,81 @@ public final class HideService {
 
     private final Core core;
     private final File file;
+    private final Set<UUID> hidden = new HashSet<>();
 
     private FileConfiguration config;
-    private final Set<UUID> hidden = new HashSet<>();
-    private BukkitTask task;
-    private int actionbarTicks;
+    private BukkitTask actionbarTask;
 
     public HideService(Core core) {
         this.core = core;
-        this.file = new File(core.getDataFolder(), "hide.yml");
+        this.file = new File(
+                core.getDataFolder(),
+                "hide.yml"
+        );
         reload();
     }
 
     public void reload() {
-        if (!core.getDataFolder().exists()) {
-            core.getDataFolder().mkdirs();
-        }
-
-        if (!file.exists()) {
-            core.saveResource("hide.yml", false);
-        }
-
+        ensureDataFile();
         config = YamlConfiguration.loadConfiguration(file);
+
+        if (!enabled() && !hidden.isEmpty()) {
+            showAll();
+        }
     }
 
     public void start() {
         stop();
 
-        task = core.getServer().getScheduler().runTaskTimer(core, () -> {
-            actionbarTicks += 2;
-
-            if (actionbarTicks >= 40) {
-                actionbarTicks = 0;
-                sendActionbars();
-            }
-        }, 2L, 2L);
+        actionbarTask = core.getServer()
+                .getScheduler()
+                .runTaskTimer(
+                        core,
+                        this::sendActionbars,
+                        40L,
+                        40L
+                );
     }
 
     public void stop() {
-        if (task != null) {
-            task.cancel();
-            task = null;
+        if (actionbarTask != null) {
+            actionbarTask.cancel();
+            actionbarTask = null;
         }
     }
 
     public boolean enabled() {
-        return config.getBoolean("enabled", true);
+        return config != null
+                && config.getBoolean("enabled", true);
     }
 
     public boolean canUse(Player player) {
-        return player.hasPermission(permission()) || player.hasPermission(adminPermission());
+        return player != null
+                && player.hasPermission(permission());
     }
 
     public String permission() {
-        return config.getString("permission", "mineacle.plus");
+        return config == null
+                ? "mineaclehide.admin"
+                : config.getString(
+                        "permission",
+                        "mineaclehide.admin"
+                );
     }
 
+    /**
+     * Compatibility accessor retained for callers using the former name.
+     */
     public String adminPermission() {
-        return config.getString("admin-see-permission", "mineaclehide.admin");
+        return permission();
     }
 
-    public boolean isHidden(UUID uuid) {
-        return hidden.contains(uuid);
+    public boolean isHidden(UUID playerId) {
+        return playerId != null && hidden.contains(playerId);
     }
 
     public Set<UUID> hiddenPlayers() {
-        return Collections.unmodifiableSet(hidden);
+        return Set.copyOf(hidden);
     }
 
     public boolean toggle(Player player) {
@@ -101,95 +109,153 @@ public final class HideService {
     }
 
     public void hide(Player player) {
-        hidden.add(player.getUniqueId());
-
-        /*
-         * /hide is nametag-only.
-         * Do not hide player entity, tablist name, scoreboard identity, pickups,
-         * mob targeting, block placement, eating, or any gameplay action.
-         */
-        ensureVisible(player);
-        NametagModule.refreshAll();
-    }
-
-    public void show(Player player) {
-        hidden.remove(player.getUniqueId());
-        ensureVisible(player);
-        NametagModule.refreshAll();
-    }
-
-    public void apply(Player hiddenPlayer) {
-        if (!hiddenPlayer.isOnline()) {
+        if (player == null || !player.isOnline()) {
             return;
         }
 
-        ensureVisible(hiddenPlayer);
-        NametagModule.refreshAll();
+        if (hidden.add(player.getUniqueId())) {
+            NametagModule.refresh(player);
+        }
+    }
+
+    public void show(Player player) {
+        if (player == null) {
+            return;
+        }
+
+        if (hidden.remove(player.getUniqueId())
+                && player.isOnline()) {
+            NametagModule.refresh(player);
+        }
+    }
+
+    /**
+     * Removes temporary Hide state without changing entity visibility.
+     */
+    public void forget(Player player) {
+        if (player != null) {
+            hidden.remove(player.getUniqueId());
+        }
+    }
+
+    public void apply(Player hiddenPlayer) {
+        if (hiddenPlayer == null
+                || !hiddenPlayer.isOnline()
+                || !isHidden(hiddenPlayer.getUniqueId())) {
+            return;
+        }
+
+        NametagModule.refresh(hiddenPlayer);
     }
 
     public void applyAll() {
-        for (Player hiddenPlayer : Bukkit.getOnlinePlayers()) {
-            if (!isHidden(hiddenPlayer.getUniqueId())) {
-                continue;
-            }
-
-            apply(hiddenPlayer);
-        }
+        NametagModule.refreshAll();
     }
 
+    /**
+     * Compatibility no-op. Hide is nametag-only and must never override
+     * visibility decisions made by vanish or moderation plugins.
+     */
     public void applyViewer(Player viewer) {
-        for (Player hiddenPlayer : Bukkit.getOnlinePlayers()) {
-            if (!isHidden(hiddenPlayer.getUniqueId())) {
-                continue;
-            }
-
-            viewer.showPlayer(core, hiddenPlayer);
-        }
+        // Deliberately does not call showPlayer or hidePlayer
     }
 
-    public void applyViewer(Player viewer, Player hiddenPlayer) {
-        viewer.showPlayer(core, hiddenPlayer);
+    /**
+     * Compatibility no-op. Hide is nametag-only and must never override
+     * visibility decisions made by vanish or moderation plugins.
+     */
+    public void applyViewer(
+            Player viewer,
+            Player hiddenPlayer
+    ) {
+        // Deliberately does not call showPlayer or hidePlayer
     }
 
     public void showAll() {
-        for (Player hiddenPlayer : Bukkit.getOnlinePlayers()) {
-            hidden.remove(hiddenPlayer.getUniqueId());
-            ensureVisible(hiddenPlayer);
+        if (hidden.isEmpty()) {
+            return;
         }
 
         hidden.clear();
         NametagModule.refreshAll();
     }
 
-    public String message(String path, String fallback) {
-        return config.getString("messages." + path, fallback);
+    public String message(
+            String path,
+            String fallback
+    ) {
+        if (config == null) {
+            return fallback;
+        }
+
+        return config.getString(
+                "messages." + path,
+                fallback
+        );
     }
 
-    public String parsedMessage(String path, String fallback, Player player) {
-        return TextColor.color(message(path, fallback).replace("%player%", DisplayNames.displayName(player)));
+    public String parsedMessage(
+            String path,
+            String fallback,
+            Player player
+    ) {
+        return TextColor.color(
+                message(path, fallback).replace(
+                        "%player%",
+                        DisplayNames.displayName(player)
+                )
+        );
     }
 
     public boolean shouldHideRealNametag(Player player) {
-        return player != null && isHidden(player.getUniqueId());
-    }
-
-    private void ensureVisible(Player player) {
-        for (Player viewer : Bukkit.getOnlinePlayers()) {
-            viewer.showPlayer(core, player);
-        }
+        return player != null
+                && isHidden(player.getUniqueId());
     }
 
     private void sendActionbars() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (!isHidden(player.getUniqueId())) {
+        if (hidden.isEmpty()) {
+            return;
+        }
+
+        String message = message(
+                "actionbar",
+                "&#bbbbbbNametag hidden"
+        );
+        Component component = LegacyComponentSerializer
+                .legacySection()
+                .deserialize(TextColor.color(message));
+
+        for (UUID playerId : Set.copyOf(hidden)) {
+            Player player = Bukkit.getPlayer(playerId);
+
+            if (player == null || !player.isOnline()) {
+                hidden.remove(playerId);
                 continue;
             }
 
-            player.sendActionBar(component(message("actionbar", "&#bbbbbbYou are hidden")));
+            player.sendActionBar(component);
         }
     }
 
-    private Component component(String message) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
+    private void ensureDataFile() {
+        File dataFolder = core.getDataFolder();
+
+        if (!dataFolder.exists()
+                && !dataFolder.mkdirs()
+                && !dataFolder.exists()) {
+            throw new IllegalStateException(
+                    "Could not create MineacleCore data folder"
+            );
+        }
+
+        if (!file.exists()) {
+            core.saveResource("hide.yml", false);
+        }
+
+        if (!file.isFile()) {
+            throw new IllegalStateException(
+                    "Could not initialize hide.yml"
+            );
+        }
     }
 }

@@ -2,14 +2,14 @@ package net.mineacle.core.nametag;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
-import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 
 public final class NametagModule extends Module {
 
     private static NametagService service;
+
     private BukkitTask refreshTask;
     private BukkitTask cleanupTask;
 
@@ -22,14 +22,47 @@ public final class NametagModule extends Module {
     public void enable(Core core) {
         service = new NametagService(core);
 
-        NametagCommand command = new NametagCommand(core, service);
-        register(core, "mineaclenametags", command);
+        PluginCommand command =
+                core.getCommand("mineaclenametags");
 
-        core.getServer().getPluginManager().registerEvents(new NametagListener(core, service), core);
+        if (command == null) {
+            service = null;
+            throw new IllegalStateException(
+                    "Missing command in plugin.yml: mineaclenametags"
+            );
+        }
 
-        long interval = Math.max(1L, service.updateIntervalTicks());
-        refreshTask = core.getServer().getScheduler().runTaskTimer(core, service::refreshAll, 5L, interval);
-        cleanupTask = core.getServer().getScheduler().runTaskTimer(core, service::removeOrphanDisplays, 200L, 600L);
+        NametagCommand executor =
+                new NametagCommand(core, service);
+        command.setExecutor(executor);
+        command.setTabCompleter(executor);
+
+        core.getServer().getPluginManager().registerEvents(
+                new NametagListener(core, service),
+                core
+        );
+
+        long interval = Math.max(
+                1L,
+                service.updateIntervalTicks()
+        );
+
+        refreshTask = core.getServer()
+                .getScheduler()
+                .runTaskTimer(
+                        core,
+                        service::refreshAll,
+                        5L,
+                        interval
+                );
+        cleanupTask = core.getServer()
+                .getScheduler()
+                .runTaskTimer(
+                        core,
+                        service::removeOrphanDisplays,
+                        200L,
+                        600L
+                );
 
         service.refreshAll();
     }
@@ -48,9 +81,8 @@ public final class NametagModule extends Module {
 
         if (service != null) {
             service.clear();
+            service = null;
         }
-
-        service = null;
     }
 
     public static void refreshAll() {
@@ -59,18 +91,9 @@ public final class NametagModule extends Module {
         }
     }
 
-    private void register(Core core, String commandName, CommandExecutor executor) {
-        PluginCommand command = core.getCommand(commandName);
-
-        if (command == null) {
-            core.getLogger().warning("Missing command in plugin.yml: " + commandName);
-            return;
-        }
-
-        command.setExecutor(executor);
-
-        if (executor instanceof TabCompleter completer) {
-            command.setTabCompleter(completer);
+    public static void refresh(Player player) {
+        if (service != null && player != null) {
+            service.refresh(player);
         }
     }
 }

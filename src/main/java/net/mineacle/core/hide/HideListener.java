@@ -1,7 +1,6 @@
 package net.mineacle.core.hide;
 
 import net.mineacle.core.Core;
-import net.mineacle.core.nametag.NametagModule;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -15,7 +14,10 @@ public final class HideListener implements Listener {
     private final Core core;
     private final HideService service;
 
-    public HideListener(Core core, HideService service) {
+    public HideListener(
+            Core core,
+            HideService service
+    ) {
         this.core = core;
         this.service = service;
     }
@@ -24,34 +26,34 @@ public final class HideListener implements Listener {
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
 
-        core.getServer().getScheduler().runTaskLater(core, () -> {
-            if (!player.isOnline()) {
-                return;
-            }
-
-            service.applyViewer(player);
-            service.applyAll();
-            NametagModule.refreshAll();
-        }, 5L);
+        core.getServer().getScheduler().runTaskLater(
+                core,
+                () -> {
+                    if (player.isOnline()) {
+                        service.apply(player);
+                    }
+                },
+                5L
+        );
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
-        service.show(event.getPlayer());
+        service.forget(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onWorldChange(PlayerChangedWorldEvent event) {
         Player player = event.getPlayer();
 
-        core.getServer().getScheduler().runTaskLater(core, () -> {
-            if (!player.isOnline()) {
-                return;
-            }
-
-            service.applyViewer(player);
-            service.apply(player);
-            NametagModule.refreshAll();
-        }, 2L);
+        core.getServer().getScheduler().runTaskLater(
+                core,
+                () -> {
+                    if (player.isOnline()) {
+                        service.apply(player);
+                    }
+                },
+                2L
+        );
     }
 }
