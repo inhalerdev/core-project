@@ -9,11 +9,14 @@ import net.mineacle.core.stats.service.StatsService;
 import net.mineacle.core.teams.TeamsModule;
 import net.mineacle.core.teams.service.TeamService;
 import org.bukkit.Bukkit;
+import org.bukkit.scheduler.BukkitTask;
 
 public final class PlaceholdersModule extends Module {
 
     private MineaclePlaceholderExpansion expansion;
     private MineacleTeamsPlaceholderExpansion teamsExpansion;
+    private PlaceholderSnapshotService snapshots;
+    private BukkitTask refreshTask;
 
     @Override
     public String name() {
@@ -22,49 +25,101 @@ public final class PlaceholdersModule extends Module {
 
     @Override
     public void enable(Core core) {
-        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") == null) {
-            core.getLogger().warning("PlaceholderAPI is not installed. Mineacle placeholders were not registered.");
+        if (Bukkit.getPluginManager()
+                .getPlugin("PlaceholderAPI") == null) {
+            core.getLogger().warning(
+                    "PlaceholderAPI is not installed — "
+                            + "Mineacle placeholders were not registered"
+            );
             return;
         }
 
-        EconomyService economyService = EconomyModule.economyService();
-        TeamService teamService = TeamsModule.teamService();
-        StatsService statsService = StatsModule.statsService();
+        EconomyService economyService =
+                EconomyModule.economyService();
+        TeamService teamService =
+                TeamsModule.teamService();
+        StatsService statsService =
+                StatsModule.statsService();
 
-        if (economyService == null) {
-            core.getLogger().warning("Mineacle placeholders could not register because EconomyService is not loaded.");
-            return;
+        snapshots = new PlaceholderSnapshotService(
+                core,
+                economyService,
+                statsService
+        );
+        snapshots.refresh();
+
+        expansion = new MineaclePlaceholderExpansion(
+                core,
+                economyService,
+                teamService,
+                statsService,
+                snapshots
+        );
+
+        if (!expansion.register()) {
+            clear();
+            throw new IllegalStateException(
+                    "Could not register %mineacle_*% placeholders"
+            );
         }
 
-        if (teamService == null) {
-            core.getLogger().warning("Mineacle placeholders could not register because TeamService is not loaded.");
-            return;
+        teamsExpansion =
+                new MineacleTeamsPlaceholderExpansion(
+                        core,
+                        teamService
+                );
+
+        if (!teamsExpansion.register()) {
+            expansion.unregister();
+            clear();
+            throw new IllegalStateException(
+                    "Could not register %mineacleteams_*% placeholders"
+            );
         }
 
-        if (statsService == null) {
-            core.getLogger().warning("Mineacle placeholders could not register because StatsService is not loaded.");
-            return;
-        }
+        long refreshTicks = Math.max(
+                20L,
+                core.getConfig().getLong(
+                        "placeholders.cache.refresh-ticks",
+                        600L
+                )
+        );
 
-        this.expansion = new MineaclePlaceholderExpansion(core, economyService, teamService, statsService);
-        this.expansion.register();
+        refreshTask = core.getServer()
+                .getScheduler()
+                .runTaskTimer(
+                        core,
+                        snapshots::refresh,
+                        refreshTicks,
+                        refreshTicks
+                );
 
-        this.teamsExpansion = new MineacleTeamsPlaceholderExpansion(core, teamService);
-        this.teamsExpansion.register();
-
-        core.getLogger().info("Registered Mineacle PlaceholderAPI expansions.");
+        core.getLogger().info(
+                "Registered Mineacle PlaceholderAPI expansions"
+        );
     }
 
     @Override
     public void disable() {
+        if (refreshTask != null) {
+            refreshTask.cancel();
+            refreshTask = null;
+        }
+
         if (expansion != null) {
             expansion.unregister();
-            expansion = null;
         }
 
         if (teamsExpansion != null) {
             teamsExpansion.unregister();
-            teamsExpansion = null;
         }
+
+        clear();
+    }
+
+    private void clear() {
+        expansion = null;
+        teamsExpansion = null;
+        snapshots = null;
     }
 }

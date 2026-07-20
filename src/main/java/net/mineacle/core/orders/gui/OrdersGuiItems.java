@@ -138,6 +138,37 @@ public final class OrdersGuiItems {
                 : material;
     }
 
+
+    public static ItemStack navigation(
+            boolean previous,
+            boolean enabled,
+            int targetPage
+    ) {
+        if (!enabled) {
+            return item(
+                    Material.GRAY_STAINED_GLASS_PANE,
+                    previous
+                            ? "&#bbbbbbPrevious Page"
+                            : "&#bbbbbbNext Page",
+                    "&#bbbbbbNo "
+                            + (previous ? "previous" : "next")
+                            + " page"
+            );
+        }
+
+        return item(
+                Material.ARROW,
+                previous ? "&dPrevious" : "&dNext",
+                "&#bbbbbbPage &#ff88ff" + targetPage
+        );
+    }
+
+    public static boolean isDisabledNavigation(ItemStack item) {
+        return item != null
+                && item.getType()
+                == Material.GRAY_STAINED_GLASS_PANE;
+    }
+
     public static Component component(String text) {
         return LegacyComponentSerializer.legacySection()
                 .deserialize(

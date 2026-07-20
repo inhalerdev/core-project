@@ -1,5 +1,6 @@
 package net.mineacle.core.orders.gui;
 
+import net.mineacle.core.common.gui.CenteredToolbar;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.orders.model.OrderRecord;
@@ -20,13 +21,18 @@ public final class OrdersMainGui {
     public static final int SIZE = 54;
     public static final int ORDERS_PER_PAGE = 45;
 
-    public static final int PREVIOUS_SLOT = 45;
-    public static final int SORT_SLOT = 47;
-    public static final int FILTER_SLOT = 48;
-    public static final int REFRESH_SLOT = 49;
-    public static final int SEARCH_SLOT = 50;
-    public static final int MY_ORDERS_SLOT = 51;
-    public static final int NEXT_SLOT = 53;
+    private static final int[] TOOLBAR =
+            CenteredToolbar.interiorSlots(SIZE, 5);
+
+    public static final int PREVIOUS_SLOT =
+            CenteredToolbar.previousSlot(SIZE);
+    public static final int SORT_SLOT = TOOLBAR[0];
+    public static final int FILTER_SLOT = TOOLBAR[1];
+    public static final int REFRESH_SLOT = TOOLBAR[2];
+    public static final int SEARCH_SLOT = TOOLBAR[3];
+    public static final int MY_ORDERS_SLOT = TOOLBAR[4];
+    public static final int NEXT_SLOT =
+            CenteredToolbar.nextSlot(SIZE);
 
     private OrdersMainGui() {
     }
@@ -93,27 +99,14 @@ public final class OrdersMainGui {
             );
         }
 
-        if (page > 1) {
-            inventory.setItem(
-                    PREVIOUS_SLOT,
-                    OrdersGuiItems.item(
-                            OrdersGuiItems.material(
-                                    "orders.gui.buttons.previous.material",
-                                    Material.ARROW
-                            ),
-                            OrdersGuiItems.cfg(
-                                    "orders.gui.buttons.previous.name",
-                                    "&dPrevious"
-                            ),
-                            OrdersGuiItems.lore(
-                                    "orders.gui.buttons.previous.lore",
-                                    List.of(
-                                            "&#bbbbbbClick to view the previous page"
-                                    )
-                            )
-                    )
-            );
-        }
+        inventory.setItem(
+                PREVIOUS_SLOT,
+                OrdersGuiItems.navigation(
+                        true,
+                        page > 1,
+                        Math.max(1, page - 1)
+                )
+        );
 
         inventory.setItem(
                 SORT_SLOT,
@@ -165,27 +158,14 @@ public final class OrdersMainGui {
                 )
         );
 
-        if (page < maximumPage) {
-            inventory.setItem(
-                    NEXT_SLOT,
-                    OrdersGuiItems.item(
-                            OrdersGuiItems.material(
-                                    "orders.gui.buttons.next.material",
-                                    Material.ARROW
-                            ),
-                            OrdersGuiItems.cfg(
-                                    "orders.gui.buttons.next.name",
-                                    "&dNext"
-                            ),
-                            OrdersGuiItems.lore(
-                                    "orders.gui.buttons.next.lore",
-                                    List.of(
-                                            "&#bbbbbbClick to view the next page"
-                                    )
-                            )
-                    )
-            );
-        }
+        inventory.setItem(
+                NEXT_SLOT,
+                OrdersGuiItems.navigation(
+                        false,
+                        page < maximumPage,
+                        Math.min(maximumPage, page + 1)
+                )
+        );
 
         player.openInventory(inventory);
     }

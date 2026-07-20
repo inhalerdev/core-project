@@ -1,6 +1,7 @@
 package net.mineacle.core.baltop.gui;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.gui.CenteredToolbar;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.economy.service.EconomyService;
@@ -29,11 +30,16 @@ public final class BalTopGui {
     public static final int SIZE = 54;
     public static final int ENTRIES_PER_PAGE = 45;
 
-    private static final int SLOT_PREVIOUS = 45;
-    private static final int SLOT_PLAYER_HEAD = 48;
-    private static final int SLOT_REFRESH = 49;
-    private static final int SLOT_SEARCH = 50;
-    private static final int SLOT_NEXT = 53;
+    private static final int[] TOOLBAR =
+            CenteredToolbar.interiorSlots(SIZE, 3);
+
+    private static final int SLOT_PREVIOUS =
+            CenteredToolbar.previousSlot(SIZE);
+    private static final int SLOT_PLAYER_HEAD = TOOLBAR[0];
+    private static final int SLOT_REFRESH = TOOLBAR[1];
+    private static final int SLOT_SEARCH = TOOLBAR[2];
+    private static final int SLOT_NEXT =
+            CenteredToolbar.nextSlot(SIZE);
     private static final int SLOT_EMPTY = 22;
 
     private static final Map<UUID, SearchState> SEARCHES = new ConcurrentHashMap<>();
@@ -91,16 +97,14 @@ public final class BalTopGui {
             inventory.setItem(SLOT_EMPTY, emptyItem(search != null));
         }
 
-        if (page > 0) {
-            inventory.setItem(
-                    SLOT_PREVIOUS,
-                    toolbar(
-                            Material.ARROW,
-                            "&dPrevious Page",
-                            List.of("&#bbbbbbPage &#ff88ff" + page)
-                    )
-            );
-        }
+        inventory.setItem(
+                SLOT_PREVIOUS,
+                navigationItem(
+                        true,
+                        page > 0,
+                        Math.max(1, page)
+                )
+        );
 
         inventory.setItem(
                 SLOT_PLAYER_HEAD,
@@ -114,7 +118,7 @@ public final class BalTopGui {
         inventory.setItem(
                 SLOT_REFRESH,
                 toolbar(
-                        Material.EMERALD,
+                        Material.PAPER,
                         "&dRefresh",
                         List.of("&#bbbbbbClick to refresh Balance Top")
                 )
@@ -122,18 +126,50 @@ public final class BalTopGui {
 
         inventory.setItem(SLOT_SEARCH, searchItem(search));
 
-        if (page < totalPages - 1) {
-            inventory.setItem(
-                    SLOT_NEXT,
-                    toolbar(
-                            Material.ARROW,
-                            "&dNext Page",
-                            List.of("&#bbbbbbPage &#ff88ff" + (page + 2))
+        inventory.setItem(
+                SLOT_NEXT,
+                navigationItem(
+                        false,
+                        page < totalPages - 1,
+                        Math.min(totalPages, page + 2)
+                )
+        );
+
+        player.openInventory(inventory);
+    }
+
+    public static boolean isDisabledNavigation(ItemStack item) {
+        return item != null
+                && item.getType()
+                == Material.GRAY_STAINED_GLASS_PANE;
+    }
+
+    private static ItemStack navigationItem(
+            boolean previous,
+            boolean enabled,
+            int targetPage
+    ) {
+        if (!enabled) {
+            return toolbar(
+                    Material.GRAY_STAINED_GLASS_PANE,
+                    previous
+                            ? "&#bbbbbbPrevious Page"
+                            : "&#bbbbbbNext Page",
+                    List.of(
+                            "&#bbbbbbNo "
+                                    + (previous ? "previous" : "next")
+                                    + " page"
                     )
             );
         }
 
-        player.openInventory(inventory);
+        return toolbar(
+                Material.ARROW,
+                previous ? "&dPrevious Page" : "&dNext Page",
+                List.of(
+                        "&#bbbbbbPage &#ff88ff" + targetPage
+                )
+        );
     }
 
     public static boolean isBalTopInventory(Inventory inventory) {

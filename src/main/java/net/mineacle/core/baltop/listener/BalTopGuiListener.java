@@ -68,6 +68,14 @@ public final class BalTopGuiListener implements Listener {
             return;
         }
 
+        if ((rawSlot == BalTopGui.previousSlot()
+                || rawSlot == BalTopGui.nextSlot())
+                && BalTopGui.isDisabledNavigation(
+                event.getCurrentItem()
+        )) {
+            return;
+        }
+
         if (rawSlot == BalTopGui.previousSlot()) {
             reopen(player, holder.page() - 1);
             return;

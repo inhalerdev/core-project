@@ -1,6 +1,7 @@
 package net.mineacle.core.sell.gui;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.gui.CenteredToolbar;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.sell.model.SellQuote;
 import net.mineacle.core.sell.service.SellService;
@@ -18,7 +19,8 @@ import java.util.List;
 public final class SellGui {
 
     public static final int SIZE = 36;
-    public static final int SUMMARY_SLOT = 35;
+    public static final int SUMMARY_SLOT =
+            CenteredToolbar.centerSlot(SIZE);
 
     private SellGui() {
     }
@@ -141,7 +143,7 @@ public final class SellGui {
 
         List<String> lore = new ArrayList<>();
         lore.add(
-                "&#bbbbbbValue: &a"
+                "&#bbbbbbPending Payout: &a"
                         + sellService.format(totalCents)
         );
         lore.add(

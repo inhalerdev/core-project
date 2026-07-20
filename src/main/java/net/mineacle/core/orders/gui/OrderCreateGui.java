@@ -1,5 +1,6 @@
 package net.mineacle.core.orders.gui;
 
+import net.mineacle.core.common.gui.CenteredToolbar;
 import net.mineacle.core.orders.service.OrderService;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -16,12 +17,17 @@ public final class OrderCreateGui {
     public static final int SIZE = 54;
     public static final int ITEMS_PER_PAGE = 45;
 
-    public static final int PREVIOUS_SLOT = 45;
-    public static final int BACK_SLOT = 46;
-    public static final int FILTER_SLOT = 47;
-    public static final int SELECTED_SLOT = 49;
-    public static final int SEARCH_SLOT = 50;
-    public static final int NEXT_SLOT = 53;
+    private static final int[] TOOLBAR =
+            CenteredToolbar.interiorSlots(SIZE, 4);
+
+    public static final int PREVIOUS_SLOT =
+            CenteredToolbar.previousSlot(SIZE);
+    public static final int BACK_SLOT = TOOLBAR[0];
+    public static final int FILTER_SLOT = TOOLBAR[1];
+    public static final int SELECTED_SLOT = TOOLBAR[2];
+    public static final int SEARCH_SLOT = TOOLBAR[3];
+    public static final int NEXT_SLOT =
+            CenteredToolbar.nextSlot(SIZE);
 
     private OrderCreateGui() {
     }
@@ -90,16 +96,14 @@ public final class OrderCreateGui {
             );
         }
 
-        if (page > 1) {
-            inventory.setItem(
-                    PREVIOUS_SLOT,
-                    OrdersGuiItems.item(
-                            Material.ARROW,
-                            "&dPrevious",
-                            "&#bbbbbbClick to view the previous page"
-                    )
-            );
-        }
+        inventory.setItem(
+                PREVIOUS_SLOT,
+                OrdersGuiItems.navigation(
+                        true,
+                        page > 1,
+                        Math.max(1, page - 1)
+                )
+        );
 
         inventory.setItem(
                 BACK_SLOT,
@@ -122,16 +126,14 @@ public final class OrderCreateGui {
                 searchItem(state)
         );
 
-        if (page < maximumPage) {
-            inventory.setItem(
-                    NEXT_SLOT,
-                    OrdersGuiItems.item(
-                            Material.ARROW,
-                            "&dNext",
-                            "&#bbbbbbClick to view the next page"
-                    )
-            );
-        }
+        inventory.setItem(
+                NEXT_SLOT,
+                OrdersGuiItems.navigation(
+                        false,
+                        page < maximumPage,
+                        Math.min(maximumPage, page + 1)
+                )
+        );
 
         player.openInventory(inventory);
     }

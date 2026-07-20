@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.auctionhouse.model.AuctionHouseListing;
+import net.mineacle.core.common.gui.CenteredToolbar;
 import net.mineacle.core.auctionhouse.service.AuctionHouseService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
@@ -25,20 +26,29 @@ public final class AuctionHouseGui {
 
     public static final int SIZE = 54;
 
-    private static final int SLOT_PREVIOUS = 45;
-    private static final int SLOT_FILTER = 47;
-    private static final int SLOT_WORTH = 48;
-    private static final int SLOT_REFRESH = 49;
-    private static final int SLOT_SEARCH = 50;
-    private static final int SLOT_OWN_ITEMS = 51;
-    private static final int SLOT_NEXT = 53;
+    private static final int[] BROWSE_TOOLBAR =
+            CenteredToolbar.interiorSlots(SIZE, 5);
+    private static final int[] OWN_TOOLBAR =
+            CenteredToolbar.interiorSlots(SIZE, 4);
 
-    private static final int SLOT_OWN_PREVIOUS = 45;
-    private static final int SLOT_OWN_BACK = 46;
-    private static final int SLOT_OWN_WORTH = 47;
-    private static final int SLOT_OWN_REFRESH = 49;
-    private static final int SLOT_OWN_LIST_ITEM = 51;
-    private static final int SLOT_OWN_NEXT = 53;
+    private static final int SLOT_PREVIOUS =
+            CenteredToolbar.previousSlot(SIZE);
+    private static final int SLOT_FILTER = BROWSE_TOOLBAR[0];
+    private static final int SLOT_WORTH = BROWSE_TOOLBAR[1];
+    private static final int SLOT_REFRESH = BROWSE_TOOLBAR[2];
+    private static final int SLOT_SEARCH = BROWSE_TOOLBAR[3];
+    private static final int SLOT_OWN_ITEMS = BROWSE_TOOLBAR[4];
+    private static final int SLOT_NEXT =
+            CenteredToolbar.nextSlot(SIZE);
+
+    private static final int SLOT_OWN_PREVIOUS =
+            CenteredToolbar.previousSlot(SIZE);
+    private static final int SLOT_OWN_BACK = OWN_TOOLBAR[0];
+    private static final int SLOT_OWN_WORTH = OWN_TOOLBAR[1];
+    private static final int SLOT_OWN_REFRESH = OWN_TOOLBAR[2];
+    private static final int SLOT_OWN_LIST_ITEM = OWN_TOOLBAR[3];
+    private static final int SLOT_OWN_NEXT =
+            CenteredToolbar.nextSlot(SIZE);
 
     private static final int SLOT_CONFIRM_CANCEL = 11;
     private static final int SLOT_CONFIRM_ITEM = 13;
@@ -105,16 +115,14 @@ public final class AuctionHouseGui {
             holder.slotListings.put(slot, listing.id());
         }
 
-        if (effectivePage > 0) {
-            inventory.setItem(
-                    SLOT_PREVIOUS,
-                    item(
-                            Material.ARROW,
-                            "&dPrevious Page",
-                            "&#bbbbbbClick to view the previous page"
-                    )
-            );
-        }
+        inventory.setItem(
+                SLOT_PREVIOUS,
+                navigationItem(
+                        true,
+                        effectivePage > 0,
+                        Math.max(1, effectivePage)
+                )
+        );
 
         inventory.setItem(
                 SLOT_FILTER,
@@ -172,17 +180,15 @@ public final class AuctionHouseGui {
                 )
         );
 
-        if ((effectivePage + 1) * service.pageSize()
-                < listings.size()) {
-            inventory.setItem(
-                    SLOT_NEXT,
-                    item(
-                            Material.ARROW,
-                            "&dNext Page",
-                            "&#bbbbbbClick to view the next page"
-                    )
-            );
-        }
+        inventory.setItem(
+                SLOT_NEXT,
+                navigationItem(
+                        false,
+                        (effectivePage + 1) * service.pageSize()
+                                < listings.size(),
+                        effectivePage + 2
+                )
+        );
 
         player.openInventory(inventory);
     }
@@ -271,16 +277,14 @@ public final class AuctionHouseGui {
             );
         }
 
-        if (effectivePage > 0) {
-            inventory.setItem(
-                    SLOT_OWN_PREVIOUS,
-                    item(
-                            Material.ARROW,
-                            "&dPrevious Page",
-                            "&#bbbbbbClick to view the previous page"
-                    )
-            );
-        }
+        inventory.setItem(
+                SLOT_OWN_PREVIOUS,
+                navigationItem(
+                        true,
+                        effectivePage > 0,
+                        Math.max(1, effectivePage)
+                )
+        );
 
         inventory.setItem(
                 SLOT_OWN_BACK,
@@ -319,17 +323,15 @@ public final class AuctionHouseGui {
                 )
         );
 
-        if ((effectivePage + 1) * service.pageSize()
-                < listings.size()) {
-            inventory.setItem(
-                    SLOT_OWN_NEXT,
-                    item(
-                            Material.ARROW,
-                            "&dNext Page",
-                            "&#bbbbbbClick to view the next page"
-                    )
-            );
-        }
+        inventory.setItem(
+                SLOT_OWN_NEXT,
+                navigationItem(
+                        false,
+                        (effectivePage + 1) * service.pageSize()
+                                < listings.size(),
+                        effectivePage + 2
+                )
+        );
 
         player.openInventory(inventory);
     }
@@ -425,6 +427,36 @@ public final class AuctionHouseGui {
         );
 
         player.openInventory(inventory);
+    }
+
+    public static boolean isDisabledNavigation(ItemStack item) {
+        return item != null
+                && item.getType()
+                == Material.GRAY_STAINED_GLASS_PANE;
+    }
+
+    private static ItemStack navigationItem(
+            boolean previous,
+            boolean enabled,
+            int targetPage
+    ) {
+        if (!enabled) {
+            return item(
+                    Material.GRAY_STAINED_GLASS_PANE,
+                    previous
+                            ? "&#bbbbbbPrevious Page"
+                            : "&#bbbbbbNext Page",
+                    "&#bbbbbbNo "
+                            + (previous ? "previous" : "next")
+                            + " page"
+            );
+        }
+
+        return item(
+                Material.ARROW,
+                previous ? "&dPrevious Page" : "&dNext Page",
+                "&#bbbbbbPage &#ff88ff" + targetPage
+        );
     }
 
     private static ItemStack listingItem(

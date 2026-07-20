@@ -1,6 +1,7 @@
 package net.mineacle.core.sell.gui;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.gui.CenteredToolbar;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.Bukkit;
@@ -24,12 +25,18 @@ import java.util.UUID;
 public final class WorthGui {
 
     public static final int SIZE = 54;
-    public static final int PREVIOUS_SLOT = 45;
-    public static final int SEARCH_SLOT = 48;
-    public static final int SORT_SLOT = 49;
-    public static final int FILTER_SLOT = 50;
-    public static final int REFRESH_SLOT = 51;
-    public static final int NEXT_SLOT = 53;
+
+    private static final int[] TOOLBAR =
+            CenteredToolbar.interiorSlots(SIZE, 4);
+
+    public static final int PREVIOUS_SLOT =
+            CenteredToolbar.previousSlot(SIZE);
+    public static final int SEARCH_SLOT = TOOLBAR[0];
+    public static final int SORT_SLOT = TOOLBAR[1];
+    public static final int FILTER_SLOT = TOOLBAR[2];
+    public static final int REFRESH_SLOT = TOOLBAR[3];
+    public static final int NEXT_SLOT =
+            CenteredToolbar.nextSlot(SIZE);
 
     private static final int CONTENT_SLOTS = 45;
     private static final long CATALOG_TTL_MILLIS =
@@ -100,19 +107,14 @@ public final class WorthGui {
             );
         }
 
-        if (safePage > 0) {
-            inventory.setItem(
-                    PREVIOUS_SLOT,
-                    toolbar(
-                            Material.ARROW,
-                            "&dPrevious Page",
-                            List.of(
-                                    "&#bbbbbbPage &#ff88ff"
-                                            + safePage
-                            )
-                    )
-            );
-        }
+        inventory.setItem(
+                PREVIOUS_SLOT,
+                navigationItem(
+                        true,
+                        safePage > 0,
+                        Math.max(1, safePage)
+                )
+        );
 
         inventory.setItem(
                 SEARCH_SLOT,
@@ -144,19 +146,14 @@ public final class WorthGui {
                 )
         );
 
-        if (safePage < maximumPage) {
-            inventory.setItem(
-                    NEXT_SLOT,
-                    toolbar(
-                            Material.ARROW,
-                            "&dNext Page",
-                            List.of(
-                                    "&#bbbbbbPage &#ff88ff"
-                                            + (safePage + 2)
-                            )
-                    )
-            );
-        }
+        inventory.setItem(
+                NEXT_SLOT,
+                navigationItem(
+                        false,
+                        safePage < maximumPage,
+                        Math.min(maximumPage + 1, safePage + 2)
+                )
+        );
 
         player.openInventory(inventory);
     }
@@ -320,6 +317,40 @@ public final class WorthGui {
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
+    }
+
+    public static boolean isDisabledNavigation(ItemStack item) {
+        return item != null
+                && item.getType()
+                == Material.GRAY_STAINED_GLASS_PANE;
+    }
+
+    private static ItemStack navigationItem(
+            boolean previous,
+            boolean enabled,
+            int targetPage
+    ) {
+        if (!enabled) {
+            return toolbar(
+                    Material.GRAY_STAINED_GLASS_PANE,
+                    previous
+                            ? "&#bbbbbbPrevious Page"
+                            : "&#bbbbbbNext Page",
+                    List.of(
+                            "&#bbbbbbNo "
+                                    + (previous ? "previous" : "next")
+                                    + " page"
+                    )
+            );
+        }
+
+        return toolbar(
+                Material.ARROW,
+                previous ? "&dPrevious Page" : "&dNext Page",
+                List.of(
+                        "&#bbbbbbPage &#ff88ff" + targetPage
+                )
+        );
     }
 
     private static ItemStack sortToolbar(SortMode current) {

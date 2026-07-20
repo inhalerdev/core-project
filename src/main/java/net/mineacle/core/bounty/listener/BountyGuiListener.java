@@ -68,6 +68,14 @@ public final class BountyGuiListener implements Listener {
             return;
         }
 
+        if ((rawSlot == BountyMainGui.PREVIOUS_SLOT
+                || rawSlot == BountyMainGui.NEXT_SLOT)
+                && BountyMainGui.isDisabledNavigation(
+                event.getCurrentItem()
+        )) {
+            return;
+        }
+
         if (mainHolder != null) {
             handleMain(
                     event,

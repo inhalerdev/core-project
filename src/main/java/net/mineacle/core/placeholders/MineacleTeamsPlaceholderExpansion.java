@@ -12,12 +12,16 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Locale;
 import java.util.UUID;
 
-public final class MineacleTeamsPlaceholderExpansion extends PlaceholderExpansion {
+public final class MineacleTeamsPlaceholderExpansion
+        extends PlaceholderExpansion {
 
     private final Core core;
     private final TeamService teamService;
 
-    public MineacleTeamsPlaceholderExpansion(Core core, TeamService teamService) {
+    public MineacleTeamsPlaceholderExpansion(
+            Core core,
+            TeamService teamService
+    ) {
         this.core = core;
         this.teamService = teamService;
     }
@@ -48,45 +52,93 @@ public final class MineacleTeamsPlaceholderExpansion extends PlaceholderExpansio
     }
 
     @Override
-    public @Nullable String onRequest(OfflinePlayer player, @NotNull String params) {
+    public @Nullable String onRequest(
+            OfflinePlayer player,
+            @NotNull String params
+    ) {
         if (player == null) {
             return "";
         }
 
         UUID uuid = player.getUniqueId();
-        String key = params.toLowerCase(Locale.ROOT);
-
-        TeamRecord team = teamService.getTeamByPlayer(uuid);
-        TeamMemberRecord member = teamService.getMember(uuid);
+        String key = params.trim()
+                .toLowerCase(Locale.ROOT);
+        TeamRecord team = teamService == null
+                ? null
+                : teamService.getTeamByPlayer(uuid);
+        TeamMemberRecord member = teamService == null
+                ? null
+                : teamService.getMember(uuid);
 
         return switch (key) {
-            case "in_team", "has_team" -> team == null ? "false" : "true";
+            case "in_team", "has_team" ->
+                    booleanValue(team != null);
 
-            case "name", "team", "team_name" -> team == null ? "" : team.name();
+            case "name", "team", "team_name" ->
+                    team == null ? "" : team.name();
 
-            case "role", "rank", "team_role", "team_rank" -> member == null ? "" : member.role().displayName();
+            case "role", "rank",
+                 "team_role", "team_rank" ->
+                    member == null
+                            ? ""
+                            : member.role().displayName();
 
-            case "members", "member_count", "team_members", "team_member_count" -> {
-                if (team == null) {
-                    yield "0";
-                }
+            case "members", "member_count",
+                 "team_members", "team_member_count" ->
+                    team == null || teamService == null
+                            ? "0"
+                            : String.valueOf(
+                            teamService.getTeamMembers(
+                                    team.teamId()
+                            ).size()
+                    );
 
-                yield String.valueOf(teamService.getTeamMembers(team.teamId()).size());
-            }
+            case "max_members", "team_max_members" ->
+                    teamService == null
+                            ? "0"
+                            : String.valueOf(
+                            teamService.maxMembers()
+                    );
 
-            case "max_members", "team_max_members" -> String.valueOf(teamService.maxMembers());
+            case "pvp", "friendlyfire",
+                 "friendly_fire" ->
+                    team != null && team.friendlyFire()
+                            ? enabledLabel()
+                            : disabledLabel();
 
-            case "pvp", "friendlyfire", "friendly_fire" -> {
-                if (team == null) {
-                    yield "Off";
-                }
-
-                yield team.friendlyFire() ? "On" : "Off";
-            }
-
-            case "chat", "team_chat" -> teamService.isTeamChatEnabled(uuid) ? "Enabled" : "Disabled";
+            case "chat", "team_chat" ->
+                    teamService != null
+                            && teamService.isTeamChatEnabled(uuid)
+                            ? enabledLabel()
+                            : disabledLabel();
 
             default -> null;
         };
+    }
+
+    private String booleanValue(boolean value) {
+        return value
+                ? core.getConfig().getString(
+                "placeholders.labels.true",
+                "true"
+        )
+                : core.getConfig().getString(
+                "placeholders.labels.false",
+                "false"
+        );
+    }
+
+    private String enabledLabel() {
+        return core.getConfig().getString(
+                "placeholders.labels.enabled",
+                "Enabled"
+        );
+    }
+
+    private String disabledLabel() {
+        return core.getConfig().getString(
+                "placeholders.labels.disabled",
+                "Disabled"
+        );
     }
 }

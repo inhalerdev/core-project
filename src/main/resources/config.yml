@@ -2,66 +2,54 @@ teleport-perks:
   plus-permission: mineacle.plus
   default-delay-seconds: 5
   plus-delay-seconds: 3
-
 homes:
   max-homes:
     default: 3
     plus: 5
-
   plus-permission: mineacle.plus
-  default-name-format: "Home %id%"
-
+  default-name-format: Home %id%
   allowed-worlds:
     enabled: true
     worlds:
-      - overworld
-      - overworld_nether
-      - overworld_the_end
-
+    - overworld
+    - overworld_nether
+    - overworld_the_end
   blocked-worlds:
-    - spawn1
-    - spawn2
-    - spawn3
-
+  - spawn1
+  - spawn2
+  - spawn3
   teleport:
     delay-seconds: 5
     plus-delay-seconds: 3
     cancel-on-move: true
     cancel-distance: 2.0
-
   delete-confirm:
     timeout-seconds: 5
-
   team-home:
     enabled: true
     banner-slot: 10
     dye-slot: 19
-
     teleport-delay-seconds: 5
     plus-teleport-delay-seconds: 3
     cancel-on-move: true
     cancel-distance: 2.0
     delete-confirm-timeout-seconds: 5
-
     allowed-worlds:
       enabled: true
       worlds:
-        - overworld
-        - overworld_nether
-        - overworld_the_end
-
+      - overworld
+      - overworld_nether
+      - overworld_the_end
     blocked-worlds:
-      - spawn1
-      - spawn2
-      - spawn3
-
+    - spawn1
+    - spawn2
+    - spawn3
 teams:
   enabled: true
   max-members: 45
   ban-days: 7
   invites:
     timeout-seconds: 120
-
 tpa:
   enabled: true
   request-timeout-seconds: 60
@@ -69,82 +57,81 @@ tpa:
   plus-teleport-delay-seconds: 3
   cancel-on-move: true
   cancel-distance: 2.0
-
 punish:
-  appeal-url: "https://mineacle.net/appeal"
-  case-prefix: "MCL"
-
+  appeal-url: https://mineacle.net/appeal
+  case-prefix: MCL
   commands:
-    tempban: "tempban %player% %duration% %reason% Appeal ID: %case_id%"
-    permaban: "ban %player% %reason% Appeal ID: %case_id%"
-
+    tempban: 'tempban %player% %duration% %reason% Appeal ID: %case_id%'
+    permaban: 'ban %player% %reason% Appeal ID: %case_id%'
   reasons:
     cheating:
-      name: "&cCheating"
+      name: '&cCheating'
       material: DIAMOND_SWORD
-      reason: "Cheating"
+      reason: Cheating
     xray:
-      name: "&cX-Ray"
+      name: '&cX-Ray'
       material: DIAMOND_ORE
-      reason: "X-Ray"
+      reason: X-Ray
     duping:
-      name: "&cDuping"
+      name: '&cDuping'
       material: CHEST
-      reason: "Duping"
-
+      reason: Duping
 economy:
   enabled: true
-  starting-balance: "0"
+  starting-balance: '0'
   save-retry-seconds: 30
-  currency-symbol: "$"
-
+  currency-symbol: $
   pay:
     enabled: true
-    minimum: "0.01"
-
+    minimum: '0.01'
 baltop:
   enabled: true
   gui-title: Balance Top
   entries-per-page: 45
-
 nickname:
   enabled: true
   show-command-when-disabled: false
   allow-default: false
   plus-permission: mineacle.plus
   permission: mineaclechat.nick
-  prefix: "."
+  prefix: .
   max-length: 15
-  allowed-regex: "^[a-zA-Z0-9_]+$"
+  allowed-regex: ^[a-zA-Z0-9_]+$
   prevent-username-impersonation: true
-  default-name-color: "#bbbbbb"
-  op-name-color: "#bbbbbb"
-
+  default-name-color: '#bbbbbb'
+  op-name-color: '#bbbbbb'
 chat:
   enabled: true
-  format: "%luckperms_prefix% &#bbbbbb%mineacle_chat_displayname%&#bbbbbb: &#bbbbbb%message%"
+  format: '%luckperms_prefix% &#bbbbbb%mineacle_chat_displayname%&#bbbbbb: &#bbbbbb%message%'
   worlds:
     mode: grouped
     groups:
       global:
-        - spawn1
-        - spawn2
-        - spawn3
-        - overworld
-        - overworld_nether
-        - overworld_the_end
-
+      - spawn1
+      - spawn2
+      - spawn3
+      - overworld
+      - overworld_nether
+      - overworld_the_end
 placeholders:
+  empty-slot: '---'
+  labels:
+    unranked: Unranked
+    enabled: Enabled
+    disabled: Disabled
+    'true': 'true'
+    'false': 'false'
+  cache:
+    refresh-ticks: 600
+    maximum-leaderboard-positions: 100
   datetime:
     timezone: America/Chicago
     date-format: MM/dd/yy
     time-format: hh:mm
-    datetime-format: "MM/dd/yy | hh:mm"
-
+    datetime-format: MM/dd/yy | hh:mm
 origin-rtp:
   enabled: true
   world: overworld
-
   destinations:
     origins:
       enabled: true
@@ -155,7 +142,6 @@ origin-rtp:
         max-y: 320
         min-radius: 5000
         max-radius: 48000
-
     nether:
       enabled: true
       display-name: Nether
@@ -165,7 +151,6 @@ origin-rtp:
         max-y: 118
         min-radius: 5000
         max-radius: 48000
-
     end:
       enabled: true
       display-name: End
@@ -175,7 +160,6 @@ origin-rtp:
         max-y: 256
         min-radius: 5000
         max-radius: 48000
-
   queue:
     enabled: true
     process-every-ticks: 10
@@ -186,11 +170,9 @@ origin-rtp:
       permission: mineacle.plus
       delay-seconds: 3
       priority: true
-
   teleport:
     cancel-on-move: true
     cancel-distance: 2.0
-
   search:
     use-world-border: false
     center-x: 0
@@ -204,53 +186,50 @@ origin-rtp:
     preload-radius: 1
     respect-worldguard: false
     unsafe-blocks:
-      - AIR
-      - CAVE_AIR
-      - VOID_AIR
-      - WATER
-      - LAVA
-      - FIRE
-      - SOUL_FIRE
-      - CACTUS
-      - MAGMA_BLOCK
-      - POWDER_SNOW
-      - BEDROCK
-      - KELP
-      - KELP_PLANT
-      - OAK_LEAVES
-      - SPRUCE_LEAVES
-      - BIRCH_LEAVES
-      - JUNGLE_LEAVES
-      - ACACIA_LEAVES
-      - DARK_OAK_LEAVES
-      - MANGROVE_LEAVES
-      - CHERRY_LEAVES
-      - AZALEA_LEAVES
-      - FLOWERING_AZALEA_LEAVES
-
+    - AIR
+    - CAVE_AIR
+    - VOID_AIR
+    - WATER
+    - LAVA
+    - FIRE
+    - SOUL_FIRE
+    - CACTUS
+    - MAGMA_BLOCK
+    - POWDER_SNOW
+    - BEDROCK
+    - KELP
+    - KELP_PLANT
+    - OAK_LEAVES
+    - SPRUCE_LEAVES
+    - BIRCH_LEAVES
+    - JUNGLE_LEAVES
+    - ACACIA_LEAVES
+    - DARK_OAK_LEAVES
+    - MANGROVE_LEAVES
+    - CHERRY_LEAVES
+    - AZALEA_LEAVES
+    - FLOWERING_AZALEA_LEAVES
   messages:
-    disabled: "&cRTP is disabled"
-    already-queued: "&#ff88ffQueue&#bbbbbb: You are already in the random teleport queue"
-    queued: "&#ff88ffQueue&#bbbbbb: Finding a safe spot in &d%world%"
-    queued-position: "&#ff88ffQueue&#bbbbbb: Position &d#%position% &#bbbbbbfor &d%world%"
-    countdown: "&#bbbbbbTeleporting to &d%world% &#bbbbbbin &d%seconds%s"
-    cancelled: "&cTeleport cancelled — you moved"
-    searching: "&#ff88ffQueue&#bbbbbb: Finding a safe spot in &d%world%"
-    failed: "&#bbbbbbCould not find a &csafe &#bbbbbbspot in &d%world%"
-    teleported: "&#bbbbbbTeleported to &d%world%"
-
+    disabled: '&cRTP is disabled'
+    already-queued: '&#ff88ffQueue&#bbbbbb: You are already in the random teleport queue'
+    queued: '&#ff88ffQueue&#bbbbbb: Finding a safe spot in &d%world%'
+    queued-position: '&#ff88ffQueue&#bbbbbb: Position &d#%position% &#bbbbbbfor &d%world%'
+    countdown: '&#bbbbbbTeleporting to &d%world% &#bbbbbbin &d%seconds%s'
+    cancelled: '&cTeleport cancelled — you moved'
+    searching: '&#ff88ffQueue&#bbbbbb: Finding a safe spot in &d%world%'
+    failed: '&#bbbbbbCould not find a &csafe &#bbbbbbspot in &d%world%'
+    teleported: '&#bbbbbbTeleported to &d%world%'
 double-jump:
   enabled: true
   worlds:
-    - spawn1
-    - spawn2
-    - spawn3
+  - spawn1
+  - spawn2
+  - spawn3
   cooldown-seconds: 0.75
   upward-velocity: 0.75
-  forward-velocity: 1.50
+  forward-velocity: 1.5
   particles: false
   actionbar-cooldown: false
-
 sounds:
   enabled: true
   gui:
@@ -409,195 +388,165 @@ sounds:
       sound: BLOCK_BEACON_POWER_SELECT
       volume: 1.0
       pitch: 1.25
-
 fly:
   enabled: true
   permission: mineacle.plus
   worlds:
-    - spawn1
-    - spawn2
-    - spawn3
+  - spawn1
+  - spawn2
+  - spawn3
   world-display-names:
-    spawn1: "Spawn 1"
-    spawn2: "Spawn 2"
-    spawn3: "Spawn 3"
+    spawn1: Spawn 1
+    spawn2: Spawn 2
+    spawn3: Spawn 3
   messages:
-    enabled: "&#bbbbbbFlight &aEnabled&#bbbbbb in &#ff88ff%world%"
-    disabled: "&#bbbbbbFlight &cDisabled&#bbbbbb in &#ff88ff%world%"
-    blocked-world: "&cFlight is only available in spawn"
-    upgrade-line-1: "&fThis feature requires &dMineacle+"
-    upgrade-line-2: "&dhttps://store.mineacle.net"
-
+    enabled: '&#bbbbbbFlight &aEnabled&#bbbbbb in &#ff88ff%world%'
+    disabled: '&#bbbbbbFlight &cDisabled&#bbbbbb in &#ff88ff%world%'
+    blocked-world: '&cFlight is only available in spawn'
+    upgrade-line-1: '&fThis feature requires &dMineacle+'
+    upgrade-line-2: '&dhttps://store.mineacle.net'
 spawn-restrictions:
   enabled: true
   worlds:
-    - spawn1
-    - spawn2
-    - spawn3
+  - spawn1
+  - spawn2
+  - spawn3
   prevent-wither-rose-effects: true
-
-  # Deep Dark blocks may be placed in spawn worlds, but they should not activate, listen, pulse, or make noise.
-  # Use this list for right-click/activation blocking only.
   blocked-interactions:
-    - SCULK_SHRIEKER
-    - SCULK_SENSOR
-    - CALIBRATED_SCULK_SENSOR
-    - SCULK_CATALYST
-
-  # Placement is allowed. Do not list Deep Dark blocks here.
+  - SCULK_SHRIEKER
+  - SCULK_SENSOR
+  - CALIBRATED_SCULK_SENSOR
+  - SCULK_CATALYST
   blocked-placement: []
-
-  # Breaking is allowed. Protection/claims should handle spawn build rules elsewhere if needed.
   blocked-breaking: []
-
-  # These blocks should also have vibration/game-event activation cancelled in spawn worlds.
   blocked-game-events:
-    - SCULK_SHRIEKER
-    - SCULK_SENSOR
-    - CALIBRATED_SCULK_SENSOR
-    - SCULK_CATALYST
-
+  - SCULK_SHRIEKER
+  - SCULK_SENSOR
+  - CALIBRATED_SCULK_SENSOR
+  - SCULK_CATALYST
 gamemode:
-  message: "&#bbbbbbGamemode set to &#ff88ff%mode%"
-  other: "&#bbbbbbSet %player%&#bbbbbb's gamemode to &#ff88ff%mode%"
-  target: "&#bbbbbbYour gamemode was set to &#ff88ff%mode%"
-  already-self: "&#bbbbbbYour gamemode is already &#ff88ff%mode%"
-  already-other: "&#bbbbbb%player%&#bbbbbb is already in &#ff88ff%mode%"
-
+  message: '&#bbbbbbGamemode set to &#ff88ff%mode%'
+  other: '&#bbbbbbSet %player%&#bbbbbb''s gamemode to &#ff88ff%mode%'
+  target: '&#bbbbbbYour gamemode was set to &#ff88ff%mode%'
+  already-self: '&#bbbbbbYour gamemode is already &#ff88ff%mode%'
+  already-other: '&#bbbbbb%player%&#bbbbbb is already in &#ff88ff%mode%'
 bounty:
-  minimum: "1"
-  maximum: "999B"
+  minimum: '1'
+  maximum: 999B
   tax-percent: -1
-
 orders:
   enabled: true
   creation-tax-percent: 0.0
   confirm-timeout-seconds: 5
-
   limits:
     max-active-default: 10
     max-active-plus: 25
     max-amount: 2304
-    minimum-price-per-item: "0.01"
-
+    minimum-price-per-item: '0.01'
   gui:
     titles:
-      main: "Orders (Page %page%)"
-      my-orders: "My Orders (Page %page%)"
-      create: "Create Order (Page %page%)"
-      confirm-deliver: "Confirm Delivery"
-      confirm-cancel: "Confirm Cancel"
-
+      main: Orders (Page %page%)
+      my-orders: My Orders (Page %page%)
+      create: Create Order (Page %page%)
+      confirm-deliver: Confirm Delivery
+      confirm-cancel: Confirm Cancel
     buttons:
       previous:
         material: ARROW
-        name: "&dPrevious"
+        name: '&dPrevious'
         lore:
-          - "&#bbbbbbClick to view the previous page"
-
+        - '&#bbbbbbClick to view the previous page'
       next:
         material: ARROW
-        name: "&dNext"
+        name: '&dNext'
         lore:
-          - "&#bbbbbbClick to view the next page"
-
+        - '&#bbbbbbClick to view the next page'
       sort:
         material: ANVIL
-        name: "&dSort"
-
+        name: '&dSort'
       filter:
         material: HOPPER
-        name: "&dFilter"
-
+        name: '&dFilter'
       refresh:
         material: PAPER
-        name: "&dRefresh"
+        name: '&dRefresh'
         lore:
-          - "&#bbbbbbClick to refresh orders"
-
+        - '&#bbbbbbClick to refresh orders'
       search:
         material: OAK_SIGN
-        name: "&dSearch"
+        name: '&dSearch'
         lore:
-          - "&#bbbbbbClick to search orders"
-
+        - '&#bbbbbbClick to search orders'
       my-orders:
         material: PLAYER_HEAD
-        name: "&dMy Orders"
+        name: '&dMy Orders'
         lore:
-          - "&#bbbbbbView orders you created"
-          - "&#bbbbbbCollect delivered items"
-          - "&#bbbbbbOr cancel active requests"
-
+        - '&#bbbbbbView orders you created'
+        - '&#bbbbbbCollect delivered items'
+        - '&#bbbbbbOr cancel active requests'
     confirm:
       cancel:
-        name: "&cCancel"
-        lore: "&#bbbbbbClick to go back"
-
+        name: '&cCancel'
+        lore: '&#bbbbbbClick to go back'
       confirm:
-        name: "&dConfirm"
-        lore: "&#bbbbbbClick twice to confirm"
-
+        name: '&dConfirm'
+        lore: '&#bbbbbbClick twice to confirm'
       deliver:
-        name: "&dConfirm Delivery"
-        lore-1: "&#bbbbbbDelivering: &#ff88ff%amount%x %item%"
-        lore-2: "&#bbbbbbPayout: &a%payout%"
-        lore-3: "&#bbbbbbConfirm twice to deliver"
-
+        name: '&dConfirm Delivery'
+        lore-1: '&#bbbbbbDelivering: &#ff88ff%amount%x %item%'
+        lore-2: '&#bbbbbbPayout: &a%payout%'
+        lore-3: '&#bbbbbbConfirm twice to deliver'
       cancel-order:
-        name: "&cCancel Order"
-        lore-1: "&#bbbbbbRefund: &a%refund%"
-        lore-2: "&#bbbbbbConfirm twice to cancel this order"
-
+        name: '&cCancel Order'
+        lore-1: '&#bbbbbbRefund: &a%refund%'
+        lore-2: '&#bbbbbbConfirm twice to cancel this order'
   messages:
-    disabled: "&cOrders are currently disabled"
-    invalid-amount: "&cAmount must be greater than 0"
-    max-amount: "&cMaximum order amount: %max%"
-    max-active: "&cYou can only have %max% active orders"
-    hold-item: "&cChoose an item from the order menu"
-    economy-not-ready: "&cEconomy is not ready"
-    invalid-price: "&cType a price like 100k, 11.5M, or 250000"
-    minimum-price: "&cMinimum total price: %minimum%"
-    not-enough-money: "&cYou do not have enough money"
-    storage-error: "&cCould not save the order"
-    created: "&#bbbbbbCreated order for &#ff88ff%amount%x %item%"
-    already-complete: "&cThat order is already complete"
-    own-order: "&cYou cannot deliver to your own order"
-    missing-items: "&cYou do not have the required item"
-    delivered: "&#bbbbbbDelivered &#ff88ff%amount%x %item% &#bbbbbbfor &a+%money%"
-    cancelled: "&#bbbbbbCancelled order and refunded &a%refund%"
-    collected: "&#bbbbbbCollected &#ff88ff%amount%x %item%"
-    nothing-to-collect: "&cThere are no items to collect"
-    inventory-full: "&cYour inventory is full"
-
+    disabled: '&cOrders are currently disabled'
+    invalid-amount: '&cAmount must be greater than 0'
+    max-amount: '&cMaximum order amount: %max%'
+    max-active: '&cYou can only have %max% active orders'
+    hold-item: '&cChoose an item from the order menu'
+    economy-not-ready: '&cEconomy is not ready'
+    invalid-price: '&cType a price like 100k, 11.5M, or 250000'
+    minimum-price: '&cMinimum total price: %minimum%'
+    not-enough-money: '&cYou do not have enough money'
+    storage-error: '&cCould not save the order'
+    created: '&#bbbbbbCreated order for &#ff88ff%amount%x %item%'
+    already-complete: '&cThat order is already complete'
+    own-order: '&cYou cannot deliver to your own order'
+    missing-items: '&cYou do not have the required item'
+    delivered: '&#bbbbbbDelivered &#ff88ff%amount%x %item% &#bbbbbbfor &a+%money%'
+    cancelled: '&#bbbbbbCancelled order and refunded &a%refund%'
+    collected: '&#bbbbbbCollected &#ff88ff%amount%x %item%'
+    nothing-to-collect: '&cThere are no items to collect'
+    inventory-full: '&cYour inventory is full'
 stats:
   autosave-seconds: 60
   playtime:
     import-vanilla-on-first-seen: false
     enabled-worlds:
-      - overworld
-      - overworld_nether
-      - overworld_the_end
-      - spawn1
-      - spawn2
-      - spawn3
+    - overworld
+    - overworld_nether
+    - overworld_the_end
+    - spawn1
+    - spawn2
+    - spawn3
   combat:
     enabled-worlds:
-      - overworld
-      - overworld_nether
-      - overworld_the_end
-      - spawn1
-      - spawn2
-      - spawn3
-
+    - overworld
+    - overworld_nether
+    - overworld_the_end
+    - spawn1
+    - spawn2
+    - spawn3
 shulker-preview:
   enabled: true
   allow-default: false
   plus-permission: mineacle.plus
   permission: mineacleshulkerpreview.use
-  gui-title: "Shulker Box"
+  gui-title: Shulker Box
   blocked-title-contains:
-    - "phoenix"
-    - "crate"
+  - phoenix
+  - crate
   messages:
-    no-permission: "&cThis is a Mineacle+ feature"
+    no-permission: '&cThis is a Mineacle+ feature'

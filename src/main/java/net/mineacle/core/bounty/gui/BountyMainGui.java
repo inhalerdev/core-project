@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
+import net.mineacle.core.common.gui.CenteredToolbar;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -29,11 +30,16 @@ public final class BountyMainGui {
     public static final int SIZE = 54;
     public static final int ENTRIES_PER_PAGE = 45;
 
-    public static final int PREVIOUS_SLOT = 45;
-    public static final int SORT_SLOT = 48;
-    public static final int REFRESH_SLOT = 49;
-    public static final int SEARCH_SLOT = 50;
-    public static final int NEXT_SLOT = 53;
+    private static final int[] TOOLBAR =
+            CenteredToolbar.interiorSlots(SIZE, 3);
+
+    public static final int PREVIOUS_SLOT =
+            CenteredToolbar.previousSlot(SIZE);
+    public static final int SORT_SLOT = TOOLBAR[0];
+    public static final int REFRESH_SLOT = TOOLBAR[1];
+    public static final int SEARCH_SLOT = TOOLBAR[2];
+    public static final int NEXT_SLOT =
+            CenteredToolbar.nextSlot(SIZE);
 
     private static final int EMPTY_SLOT = 22;
 
@@ -99,19 +105,14 @@ public final class BountyMainGui {
             );
         }
 
-        if (page > 0) {
-            inventory.setItem(
-                    PREVIOUS_SLOT,
-                    toolbar(
-                            Material.ARROW,
-                            "&dPrevious Page",
-                            List.of(
-                                    "&#bbbbbbPage &#ff88ff"
-                                            + page
-                            )
-                    )
-            );
-        }
+        inventory.setItem(
+                PREVIOUS_SLOT,
+                navigationItem(
+                        true,
+                        page > 0,
+                        Math.max(1, page)
+                )
+        );
 
         inventory.setItem(
                 SORT_SLOT,
@@ -120,7 +121,7 @@ public final class BountyMainGui {
         inventory.setItem(
                 REFRESH_SLOT,
                 toolbar(
-                        Material.EMERALD,
+                        Material.PAPER,
                         "&dRefresh",
                         List.of(
                                 "&#bbbbbbClick to refresh bounties"
@@ -132,21 +133,50 @@ public final class BountyMainGui {
                 searchItem(state)
         );
 
-        if (page < totalPages - 1) {
-            inventory.setItem(
-                    NEXT_SLOT,
-                    toolbar(
-                            Material.ARROW,
-                            "&dNext Page",
-                            List.of(
-                                    "&#bbbbbbPage &#ff88ff"
-                                            + (page + 2)
-                            )
+        inventory.setItem(
+                NEXT_SLOT,
+                navigationItem(
+                        false,
+                        page < totalPages - 1,
+                        Math.min(totalPages, page + 2)
+                )
+        );
+
+        player.openInventory(inventory);
+    }
+
+    public static boolean isDisabledNavigation(ItemStack item) {
+        return item != null
+                && item.getType()
+                == Material.GRAY_STAINED_GLASS_PANE;
+    }
+
+    private static ItemStack navigationItem(
+            boolean previous,
+            boolean enabled,
+            int targetPage
+    ) {
+        if (!enabled) {
+            return toolbar(
+                    Material.GRAY_STAINED_GLASS_PANE,
+                    previous
+                            ? "&#bbbbbbPrevious Page"
+                            : "&#bbbbbbNext Page",
+                    List.of(
+                            "&#bbbbbbNo "
+                                    + (previous ? "previous" : "next")
+                                    + " page"
                     )
             );
         }
 
-        player.openInventory(inventory);
+        return toolbar(
+                Material.ARROW,
+                previous ? "&dPrevious Page" : "&dNext Page",
+                List.of(
+                        "&#bbbbbbPage &#ff88ff" + targetPage
+                )
+        );
     }
 
     public static MainHolder holder(Inventory inventory) {

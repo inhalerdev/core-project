@@ -53,6 +53,14 @@ public final class WorthGuiListener implements Listener {
             return;
         }
 
+        if ((slot == WorthGui.PREVIOUS_SLOT
+                || slot == WorthGui.NEXT_SLOT)
+                && WorthGui.isDisabledNavigation(
+                event.getCurrentItem()
+        )) {
+            return;
+        }
+
         int page = WorthGui.currentPage(player);
 
         if (slot == WorthGui.PREVIOUS_SLOT) {

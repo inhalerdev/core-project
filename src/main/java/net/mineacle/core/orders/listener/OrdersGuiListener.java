@@ -7,6 +7,7 @@ import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.orders.gui.OrderConfirmGui;
 import net.mineacle.core.orders.gui.OrderCreateGui;
 import net.mineacle.core.orders.gui.OrdersGuiHolder;
+import net.mineacle.core.orders.gui.OrdersGuiItems;
 import net.mineacle.core.orders.gui.OrdersMainGui;
 import net.mineacle.core.orders.gui.OrdersViewState;
 import net.mineacle.core.orders.gui.YourOrdersGui;
@@ -63,6 +64,14 @@ public final class OrdersGuiListener
         int slot = event.getRawSlot();
 
         if (slot < 0 || slot >= top.getSize()) {
+            return;
+        }
+
+        if ((slot == OrdersMainGui.PREVIOUS_SLOT
+                || slot == OrdersMainGui.NEXT_SLOT)
+                && OrdersGuiItems.isDisabledNavigation(
+                event.getCurrentItem()
+        )) {
             return;
         }
 

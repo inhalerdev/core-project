@@ -76,6 +76,16 @@ public final class AuctionHouseGuiListener implements Listener {
             return;
         }
 
+        int rawSlot = event.getRawSlot();
+
+        if ((rawSlot == AuctionHouseGui.previousSlot()
+                || rawSlot == AuctionHouseGui.nextSlot())
+                && AuctionHouseGui.isDisabledNavigation(
+                event.getCurrentItem()
+        )) {
+            return;
+        }
+
         if (holder instanceof AuctionHouseGui.BrowseHolder browseHolder) {
             handleBrowse(event, player, browseHolder);
             return;
