@@ -1,3 +1,9 @@
+# MineacleCore command security
+#
+# Bukkit, plugin.yml, and LuckPerms decide whether commands can execute.
+# Security filters root visibility only and must never replace command-specific
+# argument completion after a space.
+
 enabled: true
 bypass-permission: mineaclesecurity.bypass
 unknown-command-message: '&cThis command does not exist'
@@ -133,13 +139,13 @@ groups:
     priority: 0
     inherits: []
     visible-commands:
+    - ah
     - balance
     - baltop
     - bounty
     - discord
     - duel
     - guide
-    - ah
     - home
     - ignore
     - ignorelist
@@ -155,11 +161,11 @@ groups:
     - store
     - team
     - tpa
-    - tpaccept
     - tpacancel
-    - tpdeny
+    - tpaccept
     - tpahere
     - tpauto
+    - tpdeny
     - warp
     - worth
     - x
@@ -171,19 +177,26 @@ groups:
     - delhome
     - duels
     - h
+    - help
     - homes
     - lobby
+    - m
+    - mineacle
     - money
     - orders
+    - originrtp
+    - r
     - renamehome
     - reply
-    - r
+    - sellmulti
     - teams
     - tell
     - tpadeny
     - tphere
-    - warps
+    - tpno
+    - tpyes
     - w
+    - warps
     - wild
   plus:
     permission: mineacle.plus
@@ -192,7 +205,6 @@ groups:
     - default
     visible-commands:
     - fly
-    - hide
     - nick
   admin:
     permission: mineaclesecurity.group.admin
@@ -202,14 +214,16 @@ groups:
     visible-commands:
     - ban
     - delwarp
+    - doublejump
     - echest
     - eco
     - enchant
     - enchantinfo
     - gma
     - gmc
-    - gmsp
     - gms
+    - gmsp
+    - hide
     - invsee
     - kick
     - mineaclehomes
@@ -217,7 +231,6 @@ groups:
     - mineaclesecurity
     - mineacleworldmaintenance
     - mute
-    - nametags
     - realname
     - setwarp
     - speed
@@ -233,5 +246,6 @@ groups:
     - enderchest
     - flyspeed
     - money
+    - nametags
     - w
     - walkspeed

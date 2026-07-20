@@ -122,7 +122,7 @@ nickname:
 
 chat:
   enabled: true
-  format: "%luckperms_prefix%&#bbbbbb%mineacle_chat_displayname%&#bbbbbb: &#bbbbbb%message%"
+  format: "%luckperms_prefix% &#bbbbbb%mineacle_chat_displayname%&#bbbbbb: &#bbbbbb%message%"
   worlds:
     mode: grouped
     groups:
@@ -143,13 +143,13 @@ placeholders:
 
 origin-rtp:
   enabled: true
-  world: origins
+  world: overworld
 
   destinations:
     origins:
       enabled: true
-      display-name: Origins
-      world: origins
+      display-name: Overworld
+      world: overworld
       search:
         min-y: 64
         max-y: 320
@@ -159,7 +159,7 @@ origin-rtp:
     nether:
       enabled: true
       display-name: Nether
-      world: origins_nether
+      world: overworld_nether
       search:
         min-y: 32
         max-y: 118
@@ -169,7 +169,7 @@ origin-rtp:
     end:
       enabled: true
       display-name: End
-      world: origins_the_end
+      world: overworld_the_end
       search:
         min-y: 48
         max-y: 256
@@ -189,7 +189,7 @@ origin-rtp:
 
   teleport:
     cancel-on-move: true
-    cancel-distance: 1.0
+    cancel-distance: 2.0
 
   search:
     use-world-border: false
@@ -458,7 +458,11 @@ spawn-restrictions:
     - SCULK_CATALYST
 
 gamemode:
-  message: "&#bbbbbbGamemode set to &d%mode%"
+  message: "&#bbbbbbGamemode set to &#ff88ff%mode%"
+  other: "&#bbbbbbSet %player%&#bbbbbb's gamemode to &#ff88ff%mode%"
+  target: "&#bbbbbbYour gamemode was set to &#ff88ff%mode%"
+  already-self: "&#bbbbbbYour gamemode is already &#ff88ff%mode%"
+  already-other: "&#bbbbbb%player%&#bbbbbb is already in &#ff88ff%mode%"
 
 bounty:
   minimum: "1"
@@ -492,14 +496,14 @@ orders:
         lore:
           - "&#bbbbbbClick to go to the next page"
       sort:
-        material: CAULDRON
+        material: ANVIL
         name: "&dSort"
       filter:
         material: HOPPER
         name: "&dFilter"
       refresh:
         material: PAPER
-        name: "&dOrders"
+        name: "&dRefresh"
         lore:
           - "&#bbbbbbClick to refresh"
       search:
@@ -572,17 +576,17 @@ stats:
   playtime:
     import-vanilla-on-first-seen: false
     enabled-worlds:
-      - origins
-      - origins_nether
-      - origins_the_end
+      - overworld
+      - overworld_nether
+      - overworld_the_end
       - spawn1
       - spawn2
       - spawn3
   combat:
     enabled-worlds:
-      - origins
-      - origins_nether
-      - origins_the_end
+      - overworld
+      - overworld_nether
+      - overworld_the_end
       - spawn1
       - spawn2
       - spawn3
