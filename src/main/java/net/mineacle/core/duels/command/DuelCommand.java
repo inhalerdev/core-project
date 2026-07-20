@@ -5,6 +5,7 @@ import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.duels.service.DuelInviteSuggestions;
 import net.mineacle.core.duels.service.DuelService;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -21,6 +22,7 @@ public final class DuelCommand
 
     private final Core core;
     private final DuelService duelService;
+    private final DuelInviteSuggestions inviteSuggestions;
     private final Runnable reloadAction;
 
     public DuelCommand(
@@ -30,6 +32,11 @@ public final class DuelCommand
     ) {
         this.core = core;
         this.duelService = duelService;
+        this.inviteSuggestions =
+                new DuelInviteSuggestions(
+                        core,
+                        duelService
+                );
         this.reloadAction = reloadAction;
     }
 
@@ -60,24 +67,31 @@ public final class DuelCommand
             return true;
         }
 
-        String subcommand = args[0].toLowerCase(Locale.ROOT);
+        String subcommand = args[0]
+                .toLowerCase(Locale.ROOT);
 
         switch (subcommand) {
             case "accept" -> {
-                requireNoExtraArguments(player, args, () ->
-                        duelService.accept(player)
+                requireNoExtraArguments(
+                        player,
+                        args,
+                        () -> duelService.accept(player)
                 );
                 return true;
             }
             case "deny" -> {
-                requireNoExtraArguments(player, args, () ->
-                        duelService.deny(player)
+                requireNoExtraArguments(
+                        player,
+                        args,
+                        () -> duelService.deny(player)
                 );
                 return true;
             }
             case "cancel" -> {
-                requireNoExtraArguments(player, args, () ->
-                        duelService.cancel(player)
+                requireNoExtraArguments(
+                        player,
+                        args,
+                        () -> duelService.cancel(player)
                 );
                 return true;
             }
@@ -109,8 +123,13 @@ public final class DuelCommand
         return true;
     }
 
-    private void reload(Player player, String[] args) {
-        if (!player.hasPermission("mineacleduels.admin")) {
+    private void reload(
+            Player player,
+            String[] args
+    ) {
+        if (!player.hasPermission(
+                "mineacleduels.admin"
+        )) {
             error(
                     player,
                     core.getMessage("general.no-permission")
@@ -134,7 +153,9 @@ public final class DuelCommand
             Player player,
             String[] args
     ) {
-        if (!player.hasPermission("mineacleduels.admin")) {
+        if (!player.hasPermission(
+                "mineacleduels.admin"
+        )) {
             error(
                     player,
                     core.getMessage("general.no-permission")
@@ -145,7 +166,8 @@ public final class DuelCommand
         if (args.length == 1
                 || (args.length == 2
                 && args[1].equalsIgnoreCase("list"))) {
-            List<String> zones = duelService.queueZoneIds();
+            List<String> zones =
+                    duelService.queueZoneIds();
 
             if (zones.isEmpty()) {
                 player.sendMessage(TextColor.color(
@@ -154,10 +176,13 @@ public final class DuelCommand
                 return;
             }
 
-            player.sendMessage(TextColor.color("&dDuel Zones"));
+            player.sendMessage(
+                    TextColor.color("&dDuel Zones")
+            );
 
             for (String zone : zones) {
-                String info = duelService.queueZoneInfo(zone);
+                String info =
+                        duelService.queueZoneInfo(zone);
 
                 if (info != null) {
                     player.sendMessage(TextColor.color(
@@ -169,13 +194,15 @@ public final class DuelCommand
             return;
         }
 
-        String operation = args[1].toLowerCase(Locale.ROOT);
+        String operation = args[1]
+                .toLowerCase(Locale.ROOT);
 
         if (operation.equals("set")) {
             if (args.length > 4) {
                 error(
                         player,
-                        "&cUsage: /duel zone set <id> [radius]"
+                        "&cUsage: /duel zone set "
+                                + "<id> [radius]"
                 );
                 return;
             }
@@ -187,15 +214,23 @@ public final class DuelCommand
 
             if (args.length == 4) {
                 try {
-                    radius = Double.parseDouble(args[3]);
+                    radius = Double.parseDouble(
+                            args[3]
+                    );
                 } catch (NumberFormatException exception) {
-                    error(player, "&cRadius must be a number");
+                    error(
+                            player,
+                            "&cRadius must be a number"
+                    );
                     return;
                 }
             }
 
             if (!Double.isFinite(radius)) {
-                error(player, "&cRadius must be a finite number");
+                error(
+                        player,
+                        "&cRadius must be a finite number"
+                );
                 return;
             }
 
@@ -203,11 +238,12 @@ public final class DuelCommand
                     1.0D,
                     Math.min(128.0D, radius)
             );
-            String normalized = duelService.setQueueZone(
-                    id,
-                    player,
-                    appliedRadius
-            );
+            String normalized =
+                    duelService.setQueueZone(
+                            id,
+                            player,
+                            appliedRadius
+                    );
 
             player.sendMessage(TextColor.color(
                     "&#bbbbbbDuel queue zone &d"
@@ -216,7 +252,9 @@ public final class DuelCommand
             ));
             player.sendMessage(TextColor.color(
                     "&#bbbbbbRadius: &#ff88ff"
-                            + duelService.trimNumber(appliedRadius)
+                            + duelService.trimNumber(
+                            appliedRadius
+                    )
             ));
             SoundService.guiConfirm(player, core);
             return;
@@ -232,7 +270,9 @@ public final class DuelCommand
                 return;
             }
 
-            if (!duelService.removeQueueZone(args[2])) {
+            if (!duelService.removeQueueZone(
+                    args[2]
+            )) {
                 error(
                         player,
                         "&cThat duel zone does not exist"
@@ -251,7 +291,8 @@ public final class DuelCommand
 
         error(
                 player,
-                "&cUsage: /duel zone <set|remove|list>"
+                "&cUsage: /duel zone "
+                        + "<set|remove|list>"
         );
     }
 
@@ -261,14 +302,20 @@ public final class DuelCommand
             Runnable action
     ) {
         if (args.length != 1) {
-            error(player, "&cUsage: /duel " + args[0]);
+            error(
+                    player,
+                    "&cUsage: /duel " + args[0]
+            );
             return;
         }
 
         action.run();
     }
 
-    private void error(Player player, String message) {
+    private void error(
+            Player player,
+            String message
+    ) {
         player.sendMessage(TextColor.color(message));
         SoundService.guiError(player, core);
     }
@@ -281,46 +328,75 @@ public final class DuelCommand
             String[] args
     ) {
         if (!(sender instanceof Player player)
-                || !player.hasPermission("mineacleduels.use")) {
+                || !player.hasPermission(
+                "mineacleduels.use"
+        )) {
             return List.of();
         }
 
         if (args.length == 1) {
+            /*
+             * Player names always appear first.
+             *
+             * Response commands are appended only when the player actually
+             * has the matching active request:
+             *
+             * Incoming request -> accept, deny
+             * Outgoing request -> cancel
+             */
             List<String> options = new ArrayList<>(
                     PlayerTabComplete.onlinePlayers(
                             player,
                             args[0]
                     )
             );
-            options.add("accept");
-            options.add("deny");
-            options.add("cancel");
 
-            if (player.hasPermission("mineacleduels.admin")) {
+            options.addAll(
+                    inviteSuggestions.options(player)
+            );
+
+            if (player.hasPermission(
+                    "mineacleduels.admin"
+            )) {
                 options.add("zone");
                 options.add("reload");
             }
 
-            return PlayerTabComplete.options(args[0], options);
+            return PlayerTabComplete.optionsFiltered(
+                    args[0],
+                    options
+            );
         }
 
-        if (!player.hasPermission("mineacleduels.admin")) {
+        if (!player.hasPermission(
+                "mineacleduels.admin"
+        )) {
             return List.of();
         }
 
         if (args.length == 2
-                && args[0].equalsIgnoreCase("zone")) {
-            return PlayerTabComplete.options(
+                && args[0].equalsIgnoreCase(
+                "zone"
+        )) {
+            return PlayerTabComplete.optionsFiltered(
                     args[1],
-                    List.of("set", "remove", "list")
+                    List.of(
+                            "set",
+                            "remove",
+                            "list"
+                    )
             );
         }
 
         if (args.length == 3
                 && args[0].equalsIgnoreCase("zone")
-                && (args[1].equalsIgnoreCase("remove")
-                || args[1].equalsIgnoreCase("delete"))) {
-            return PlayerTabComplete.options(
+                && (args[1].equalsIgnoreCase(
+                "remove"
+        )
+                || args[1].equalsIgnoreCase(
+                "delete"
+        ))) {
+            return PlayerTabComplete.optionsFiltered(
                     args[2],
                     duelService.queueZoneIds()
             );
@@ -329,7 +405,7 @@ public final class DuelCommand
         if (args.length == 3
                 && args[0].equalsIgnoreCase("zone")
                 && args[1].equalsIgnoreCase("set")) {
-            return PlayerTabComplete.options(
+            return PlayerTabComplete.optionsFiltered(
                     args[2],
                     List.of(
                             player.getWorld().getName(),
@@ -343,9 +419,14 @@ public final class DuelCommand
         if (args.length == 4
                 && args[0].equalsIgnoreCase("zone")
                 && args[1].equalsIgnoreCase("set")) {
-            return PlayerTabComplete.options(
+            return PlayerTabComplete.optionsFiltered(
                     args[3],
-                    List.of("5", "7", "9", "10")
+                    List.of(
+                            "5",
+                            "7",
+                            "9",
+                            "10"
+                    )
             );
         }
 
