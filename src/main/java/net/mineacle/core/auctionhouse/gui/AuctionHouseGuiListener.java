@@ -5,6 +5,7 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.model.AuctionHouseListing;
 import net.mineacle.core.auctionhouse.service.AuctionHouseService;
+import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
@@ -68,7 +69,7 @@ public final class AuctionHouseGuiListener implements Listener {
         }
 
         if (!service.enabled()) {
-            player.closeInventory();
+            MenuHistory.close(core, player);
             fail(
                     player,
                     TextColor.color("&cAuction House is currently disabled")
@@ -167,7 +168,7 @@ public final class AuctionHouseGuiListener implements Listener {
                         )
                 );
                 SoundService.guiCancel(player, core);
-                AuctionHouseGui.openBrowse(
+                replaceBrowse(
                         player,
                         service,
                         0,
@@ -199,7 +200,7 @@ public final class AuctionHouseGuiListener implements Listener {
                 return;
             }
 
-            AuctionHouseGui.openBrowse(
+            replaceBrowse(
                     player,
                     service,
                     0,
@@ -237,13 +238,24 @@ public final class AuctionHouseGuiListener implements Listener {
             }
 
             SoundService.guiClick(player, core);
-            AuctionHouseGui.openConfirmBuy(
+            MenuHistory.openChild(
+                    core,
                     player,
-                    service,
-                    listing,
-                    holder.page(),
-                    holder.sortMode(),
-                    holder.query()
+                    () -> AuctionHouseGui.openBrowse(
+                            player,
+                            service,
+                            holder.page(),
+                            holder.sortMode(),
+                            holder.query()
+                    ),
+                    () -> AuctionHouseGui.openConfirmBuy(
+                            player,
+                            service,
+                            listing,
+                            holder.page(),
+                            holder.sortMode(),
+                            holder.query()
+                    )
             );
             return;
         }
@@ -251,7 +263,7 @@ public final class AuctionHouseGuiListener implements Listener {
         if (slot == AuctionHouseGui.previousSlot()
                 && holder.page() > 0) {
             SoundService.guiClick(player, core);
-            AuctionHouseGui.openBrowse(
+            replaceBrowse(
                     player,
                     service,
                     holder.page() - 1,
@@ -263,7 +275,7 @@ public final class AuctionHouseGuiListener implements Listener {
 
         if (slot == AuctionHouseGui.sortSlot()) {
             SoundService.guiClick(player, core);
-            AuctionHouseGui.openBrowse(
+            replaceBrowse(
                     player,
                     service,
                     0,
@@ -275,7 +287,7 @@ public final class AuctionHouseGuiListener implements Listener {
 
         if (slot == AuctionHouseGui.worthSlot()) {
             SoundService.guiClick(player, core);
-            player.closeInventory();
+            MenuHistory.close(core, player);
             player.performCommand("worth");
             return;
         }
@@ -295,7 +307,7 @@ public final class AuctionHouseGuiListener implements Listener {
                         )
                 );
                 SoundService.guiCancel(player, core);
-                AuctionHouseGui.openBrowse(
+                replaceBrowse(
                         player,
                         service,
                         0,
@@ -312,13 +324,27 @@ public final class AuctionHouseGuiListener implements Listener {
 
         if (slot == AuctionHouseGui.ownItemsSlot()) {
             SoundService.guiClick(player, core);
-            AuctionHouseGui.openOwn(player, service);
+            MenuHistory.openChild(
+                    core,
+                    player,
+                    () -> AuctionHouseGui.openBrowse(
+                            player,
+                            service,
+                            holder.page(),
+                            holder.sortMode(),
+                            holder.query()
+                    ),
+                    () -> AuctionHouseGui.openOwn(
+                            player,
+                            service
+                    )
+            );
             return;
         }
 
         if (slot == AuctionHouseGui.nextSlot()) {
             SoundService.guiClick(player, core);
-            AuctionHouseGui.openBrowse(
+            replaceBrowse(
                     player,
                     service,
                     holder.page() + 1,
@@ -346,7 +372,7 @@ public final class AuctionHouseGuiListener implements Listener {
                                 "&cThat listing is no longer available"
                         )
                 );
-                AuctionHouseGui.openOwn(
+                replaceOwn(
                         player,
                         service,
                         holder.page()
@@ -355,11 +381,20 @@ public final class AuctionHouseGuiListener implements Listener {
             }
 
             SoundService.guiClick(player, core);
-            AuctionHouseGui.openConfirmCancel(
+            MenuHistory.openChild(
+                    core,
                     player,
-                    service,
-                    listing,
-                    holder.page()
+                    () -> AuctionHouseGui.openOwn(
+                            player,
+                            service,
+                            holder.page()
+                    ),
+                    () -> AuctionHouseGui.openConfirmCancel(
+                            player,
+                            service,
+                            listing,
+                            holder.page()
+                    )
             );
             return;
         }
@@ -367,7 +402,7 @@ public final class AuctionHouseGuiListener implements Listener {
         if (slot == AuctionHouseGui.ownPreviousSlot()
                 && holder.page() > 0) {
             SoundService.guiClick(player, core);
-            AuctionHouseGui.openOwn(
+            replaceOwn(
                     player,
                     service,
                     holder.page() - 1
@@ -376,10 +411,9 @@ public final class AuctionHouseGuiListener implements Listener {
         }
 
         if (slot == AuctionHouseGui.ownBackSlot()) {
-            SoundService.guiClick(player, core);
-            AuctionHouseGui.openBrowse(
+            SoundService.guiBack(player, core);
+            backToBrowse(
                     player,
-                    service,
                     0,
                     AuctionHouseService.SortMode.LOWEST_PRICE,
                     ""
@@ -389,14 +423,14 @@ public final class AuctionHouseGuiListener implements Listener {
 
         if (slot == AuctionHouseGui.ownWorthSlot()) {
             SoundService.guiClick(player, core);
-            player.closeInventory();
+            MenuHistory.close(core, player);
             player.performCommand("worth");
             return;
         }
 
         if (slot == AuctionHouseGui.ownRefreshSlot()) {
             SoundService.guiClick(player, core);
-            AuctionHouseGui.openOwn(
+            replaceOwn(
                     player,
                     service,
                     holder.page()
@@ -406,7 +440,7 @@ public final class AuctionHouseGuiListener implements Listener {
 
         if (slot == AuctionHouseGui.ownListItemSlot()) {
             SoundService.guiClick(player, core);
-            player.closeInventory();
+            MenuHistory.close(core, player);
             player.sendMessage(
                     TextColor.color(
                             "&#bbbbbbHold an item and use "
@@ -418,7 +452,7 @@ public final class AuctionHouseGuiListener implements Listener {
 
         if (slot == AuctionHouseGui.ownNextSlot()) {
             SoundService.guiClick(player, core);
-            AuctionHouseGui.openOwn(
+            replaceOwn(
                     player,
                     service,
                     holder.page() + 1
@@ -435,9 +469,8 @@ public final class AuctionHouseGuiListener implements Listener {
 
         if (slot == AuctionHouseGui.confirmCancelSlot()) {
             SoundService.guiCancel(player, core);
-            AuctionHouseGui.openBrowse(
+            backToBrowse(
                     player,
-                    service,
                     holder.returnPage(),
                     holder.returnSort(),
                     holder.returnQuery()
@@ -470,9 +503,8 @@ public final class AuctionHouseGuiListener implements Listener {
                 );
                 SoundService.guiConfirm(player, core);
 
-                AuctionHouseGui.openBrowse(
+                backToBrowse(
                         player,
-                        service,
                         holder.returnPage(),
                         holder.returnSort(),
                         holder.returnQuery()
@@ -517,9 +549,8 @@ public final class AuctionHouseGuiListener implements Listener {
                                 "&cThat listing is no longer available"
                         )
                 );
-                AuctionHouseGui.openBrowse(
+                backToBrowse(
                         player,
-                        service,
                         holder.returnPage(),
                         holder.returnSort(),
                         holder.returnQuery()
@@ -537,9 +568,8 @@ public final class AuctionHouseGuiListener implements Listener {
 
         if (slot == AuctionHouseGui.confirmCancelSlot()) {
             SoundService.guiCancel(player, core);
-            AuctionHouseGui.openOwn(
+            backToOwn(
                     player,
-                    service,
                     holder.returnPage()
             );
             return;
@@ -570,9 +600,8 @@ public final class AuctionHouseGuiListener implements Listener {
                         )
                 );
                 SoundService.guiConfirm(player, core);
-                AuctionHouseGui.openOwn(
+                backToOwn(
                         player,
-                        service,
                         holder.returnPage()
                 );
             }
@@ -583,9 +612,8 @@ public final class AuctionHouseGuiListener implements Listener {
                                 "&cThat listing is no longer available"
                         )
                 );
-                AuctionHouseGui.openOwn(
+                backToOwn(
                         player,
-                        service,
                         holder.returnPage()
                 );
             }
@@ -634,7 +662,7 @@ public final class AuctionHouseGuiListener implements Listener {
 
         searchTimeoutTasks.put(playerId, timeoutTask);
 
-        player.closeInventory();
+        MenuHistory.closeForInput(core, player);
         player.sendMessage(
                 TextColor.color(
                         "&#bbbbbbType an item name to search auctions"
@@ -665,6 +693,7 @@ public final class AuctionHouseGuiListener implements Listener {
                     TextColor.color("&cAuction search timed out")
             );
             SoundService.guiError(player, core);
+            openBrowse(player, prompt);
         }
     }
 
@@ -693,7 +722,7 @@ public final class AuctionHouseGuiListener implements Listener {
             Player player,
             AuctionHouseGui.BrowseHolder holder
     ) {
-        AuctionHouseGui.openBrowse(
+        replaceBrowse(
                 player,
                 service,
                 holder.page(),
@@ -706,12 +735,85 @@ public final class AuctionHouseGuiListener implements Listener {
             Player player,
             SearchPrompt prompt
     ) {
-        AuctionHouseGui.openBrowse(
+        replaceBrowse(
                 player,
                 service,
                 prompt.page(),
                 prompt.sortMode(),
                 prompt.query()
+        );
+    }
+
+    private void backToBrowse(
+            Player player,
+            int page,
+            AuctionHouseService.SortMode sortMode,
+            String query
+    ) {
+        if (!MenuHistory.back(core, player)) {
+            replaceBrowse(
+                    player,
+                    service,
+                    page,
+                    sortMode,
+                    query
+            );
+        }
+    }
+
+    private void backToOwn(
+            Player player,
+            int page
+    ) {
+        if (!MenuHistory.back(core, player)) {
+            replaceOwn(
+                    player,
+                    service,
+                    page
+            );
+        }
+    }
+
+    private void replaceBrowse(
+            Player player,
+            AuctionHouseService ignored,
+            int page,
+            AuctionHouseService.SortMode sortMode,
+            String query
+    ) {
+        MenuHistory.openWithoutBackTrigger(
+                core,
+                player,
+                () -> AuctionHouseGui.openBrowse(
+                        player,
+                        service,
+                        page,
+                        sortMode,
+                        query
+                )
+        );
+    }
+
+    private void replaceOwn(
+            Player player,
+            AuctionHouseService ignored
+    ) {
+        replaceOwn(player, ignored, 0);
+    }
+
+    private void replaceOwn(
+            Player player,
+            AuctionHouseService ignored,
+            int page
+    ) {
+        MenuHistory.openWithoutBackTrigger(
+                core,
+                player,
+                () -> AuctionHouseGui.openOwn(
+                        player,
+                        service,
+                        page
+                )
         );
     }
 

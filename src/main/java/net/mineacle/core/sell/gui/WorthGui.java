@@ -2,6 +2,7 @@ package net.mineacle.core.sell.gui;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.CenteredToolbar;
+import net.mineacle.core.common.gui.GuiSearchLore;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.Bukkit;
@@ -121,10 +122,7 @@ public final class WorthGui {
                 toolbar(
                         Material.OAK_SIGN,
                         "&dSearch",
-                        List.of(
-                                "&#bbbbbbUse &d/worth <item>",
-                                "&#bbbbbbExample: &d/worth diamond"
-                        )
+                        GuiSearchLore.inactive("item names")
                 )
         );
         inventory.setItem(

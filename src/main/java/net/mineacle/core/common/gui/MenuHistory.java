@@ -85,18 +85,52 @@ public final class MenuHistory {
         openTracked(plugin, player, state, openAction);
     }
 
-    public static void handleClose(
+    /**
+     * Opens the previous tracked menu immediately. Use this for explicit Back
+     * buttons. The remaining stack stays intact, so repeated Back actions and
+     * ESC continue walking through the complete menu path.
+     */
+    public static boolean back(
+            Plugin plugin,
+            Player player
+    ) {
+        if (plugin == null || player == null) {
+            return false;
+        }
+
+        UUID playerId = player.getUniqueId();
+        HistoryState state = STATES.get(playerId);
+
+        if (state == null) {
+            return false;
+        }
+
+        Runnable previous;
+
+        synchronized (state) {
+            if (state.backStack.isEmpty()) {
+                return false;
+            }
+
+            previous = state.backStack.pop();
+        }
+
+        openTracked(plugin, player, state, previous);
+        return true;
+    }
+
+    public static boolean handleClose(
             Plugin plugin,
             Player player
     ) {
         if (player == null) {
-            return;
+            return false;
         }
 
         HistoryState state = STATES.get(player.getUniqueId());
 
         if (state == null) {
-            return;
+            return false;
         }
 
         Inventory inventory;
@@ -105,23 +139,23 @@ public final class MenuHistory {
             inventory = state.currentInventory;
         }
 
-        handleClose(plugin, player, inventory);
+        return handleClose(plugin, player, inventory);
     }
 
-    public static void handleClose(
+    public static boolean handleClose(
             Plugin plugin,
             Player player,
             Inventory closedInventory
     ) {
         if (plugin == null || player == null) {
-            return;
+            return false;
         }
 
         UUID playerId = player.getUniqueId();
         HistoryState state = STATES.get(playerId);
 
         if (state == null) {
-            return;
+            return false;
         }
 
         Runnable previousMenu;
@@ -134,20 +168,20 @@ public final class MenuHistory {
                     state.currentInventory = null;
                 }
 
-                return;
+                return false;
             }
 
             if (state.currentInventory != null
                     && closedInventory != null
                     && closedInventory != state.currentInventory) {
-                return;
+                return false;
             }
 
             state.currentInventory = null;
 
             if (state.backStack.isEmpty()) {
                 STATES.remove(playerId, state);
-                return;
+                return false;
             }
 
             previousMenu = state.backStack.pop();
@@ -176,6 +210,8 @@ public final class MenuHistory {
                 },
                 1L
         );
+
+        return true;
     }
 
     public static boolean isTracked(Player player) {
@@ -183,6 +219,40 @@ public final class MenuHistory {
                 && STATES.containsKey(player.getUniqueId());
     }
 
+    /**
+     * Closes a menu for chat/search input without destroying its back stack.
+     * The workflow can reopen the same menu with openWithoutBackTrigger(...)
+     * and ESC will still return to the menu that preceded it.
+     */
+    public static void closeForInput(
+            Plugin plugin,
+            Player player
+    ) {
+        if (plugin == null || player == null) {
+            return;
+        }
+
+        HistoryState state = STATES.get(player.getUniqueId());
+
+        if (state == null) {
+            player.closeInventory();
+            return;
+        }
+
+        synchronized (state) {
+            if (state.currentInventory != null) {
+                state.suppressedCloses++;
+            }
+
+            state.currentInventory = null;
+        }
+
+        player.closeInventory();
+    }
+
+    /**
+     * Deliberately exits the complete GUI workflow.
+     */
     public static void close(
             Plugin plugin,
             Player player
@@ -263,18 +333,15 @@ public final class MenuHistory {
             state.currentInventory = current;
 
             if (current == null) {
-                state.backStack.clear();
-                state.suppressedCloses = 0;
-                STATES.remove(playerId, state);
+                if (state.backStack.isEmpty()) {
+                    state.suppressedCloses = 0;
+                    STATES.remove(playerId, state);
+                }
+
                 return;
             }
         }
 
-        /*
-         * A replacement inventory normally consumes suppression immediately.
-         * This expiry prevents a stale token from swallowing a very fast
-         * player-initiated close if another plugin skips the close event.
-         */
         Bukkit.getScheduler().runTaskLater(
                 plugin,
                 () -> {

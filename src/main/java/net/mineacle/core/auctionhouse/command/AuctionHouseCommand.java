@@ -4,6 +4,7 @@ import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.gui.AuctionHouseGui;
 import net.mineacle.core.auctionhouse.model.AuctionHouseListing;
 import net.mineacle.core.auctionhouse.service.AuctionHouseService;
+import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
@@ -71,12 +72,16 @@ public final class AuctionHouseCommand implements CommandExecutor, TabCompleter 
         }
 
         if (args.length == 0) {
-            AuctionHouseGui.openBrowse(
+            MenuHistory.openRoot(
+                    core,
                     player,
-                    service,
-                    0,
-                    AuctionHouseService.SortMode.LOWEST_PRICE,
-                    ""
+                    () -> AuctionHouseGui.openBrowse(
+                            player,
+                            service,
+                            0,
+                            AuctionHouseService.SortMode.LOWEST_PRICE,
+                            ""
+                    )
             );
             return true;
         }
@@ -89,18 +94,29 @@ public final class AuctionHouseCommand implements CommandExecutor, TabCompleter 
         if (subcommand.equals("items")
                 || subcommand.equals("myitems")
                 || subcommand.equals("listings")) {
-            AuctionHouseGui.openOwn(player, service);
+            MenuHistory.openRoot(
+                    core,
+                    player,
+                    () -> AuctionHouseGui.openOwn(
+                            player,
+                            service
+                    )
+            );
             return true;
         }
 
         String query = service.sanitizeSearchQuery(String.join(" ", args));
 
-        AuctionHouseGui.openBrowse(
+        MenuHistory.openRoot(
+                core,
                 player,
-                service,
-                0,
-                AuctionHouseService.SortMode.LOWEST_PRICE,
-                query
+                () -> AuctionHouseGui.openBrowse(
+                        player,
+                        service,
+                        0,
+                        AuctionHouseService.SortMode.LOWEST_PRICE,
+                        query
+                )
         );
         return true;
     }

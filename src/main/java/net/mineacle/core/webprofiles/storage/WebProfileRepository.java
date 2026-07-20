@@ -14,17 +14,45 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
-@SuppressWarnings({"SqlNoDataSourceInspection", "SqlDialectInspection"})
+@SuppressWarnings({
+        "SqlNoDataSourceInspection",
+        "SqlDialectInspection"
+})
 public final class WebProfileRepository {
 
     private final Core core;
     private final FileConfiguration config;
     private final String table;
+    private final String fightsTable;
+    private final String fightsBackupTable;
 
-    public WebProfileRepository(Core core, FileConfiguration config) {
+    public WebProfileRepository(
+            Core core,
+            FileConfiguration config
+    ) {
         this.core = core;
         this.config = config;
-        this.table = safeTableName(config.getString("database.table", "mineacle_web_profiles"));
+        this.table = safeTableName(
+                config.getString(
+                        "database.table",
+                        "mineacle_web_profiles"
+                ),
+                "mineacle_web_profiles"
+        );
+        this.fightsTable = safeTableName(
+                config.getString(
+                        "database.fights-table",
+                        "mineacle_web_fights"
+                ),
+                "mineacle_web_fights"
+        );
+        this.fightsBackupTable = safeTableName(
+                config.getString(
+                        "database.fights-reset-backup-table",
+                        "mineacle_web_fights_pre_reset"
+                ),
+                "mineacle_web_fights_pre_reset"
+        );
     }
 
     public void initialize() {
@@ -79,101 +107,119 @@ public final class WebProfileRepository {
                             INDEX idx_first_joined (first_joined_at),
                             INDEX idx_online (online),
                             INDEX idx_updated (updated_at)
-                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                        ) ENGINE=InnoDB
+                        DEFAULT CHARSET=utf8mb4
+                        COLLATE=utf8mb4_unicode_ci
                         """.formatted(table));
             }
 
             migrate();
+            applyConfiguredFightCutoff();
         } catch (Exception exception) {
-            core.getLogger().severe("Could not initialize web profile table: " + exception.getMessage());
+            core.getLogger().severe(
+                    "Could not initialize web profile table: "
+                            + exception.getMessage()
+            );
         }
     }
 
-    public void upsertAll(Collection<WebProfileRecord> records) {
-        if (!config.getBoolean("enabled", true) || records.isEmpty()) {
+    public void upsertAll(
+            Collection<WebProfileRecord> records
+    ) {
+        if (!config.getBoolean("enabled", true)
+                || records == null
+                || records.isEmpty()) {
             return;
         }
 
         try {
             loadDriver();
 
-            try (Connection connection = connection();
-                 PreparedStatement statement = connection.prepareStatement("""
-                         INSERT INTO %s (
-                            uuid,
-                            username,
-                            display_name,
-                            rank_key,
-                            rank_name,
-                            rank_prefix,
-                            rank_color,
-                            rank_weight,
-                            world_key,
-                            world_name,
-                            world_group,
-                            team_id,
-                            team_name,
-                            team_role,
-                            team_joined_at,
-                            balance_cents,
-                            balance_formatted,
-                            playtime_seconds,
-                            playtime_formatted,
-                            kills,
-                            deaths,
-                            kd_ratio,
-                            money_rank,
-                            kills_rank,
-                            playtime_rank,
-                            first_joined_at,
-                            last_seen,
-                            online,
-                            updated_at
-                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                         ON DUPLICATE KEY UPDATE
-                            username = VALUES(username),
-                            display_name = VALUES(display_name),
-                            rank_key = IF(VALUES(online) = 1, VALUES(rank_key), rank_key),
-                            rank_name = IF(VALUES(online) = 1, VALUES(rank_name), rank_name),
-                            rank_prefix = IF(VALUES(online) = 1, VALUES(rank_prefix), rank_prefix),
-                            rank_color = IF(VALUES(online) = 1, VALUES(rank_color), rank_color),
-                            rank_weight = IF(VALUES(online) = 1, VALUES(rank_weight), rank_weight),
-                            world_key = IF(VALUES(world_key) <> '', VALUES(world_key), world_key),
-                            world_name = IF(VALUES(world_name) <> '', VALUES(world_name), world_name),
-                            world_group = IF(VALUES(world_group) <> '', VALUES(world_group), world_group),
-                            team_id = VALUES(team_id),
-                            team_name = VALUES(team_name),
-                            team_role = VALUES(team_role),
-                            team_joined_at = VALUES(team_joined_at),
-                            balance_cents = VALUES(balance_cents),
-                            balance_formatted = VALUES(balance_formatted),
-                            playtime_seconds = VALUES(playtime_seconds),
-                            playtime_formatted = VALUES(playtime_formatted),
-                            kills = VALUES(kills),
-                            deaths = VALUES(deaths),
-                            kd_ratio = VALUES(kd_ratio),
-                            money_rank = VALUES(money_rank),
-                            kills_rank = VALUES(kills_rank),
-                            playtime_rank = VALUES(playtime_rank),
-                            first_joined_at = VALUES(first_joined_at),
-                            last_seen = VALUES(last_seen),
-                            online = VALUES(online),
-                            updated_at = VALUES(updated_at)
-                         """.formatted(table))) {
-                for (WebProfileRecord record : records) {
-                    bind(statement, record);
-                    statement.addBatch();
-                }
+            try (Connection connection = connection()) {
+                connection.setAutoCommit(false);
 
-                statement.executeBatch();
+                try {
+                    detectAndPurgeResetFightHistory(
+                            connection,
+                            records
+                    );
+
+                    try (PreparedStatement statement =
+                                 connection.prepareStatement("""
+                            INSERT INTO %s (
+                               uuid, username, display_name,
+                               rank_key, rank_name, rank_prefix,
+                               rank_color, rank_weight,
+                               world_key, world_name, world_group,
+                               team_id, team_name, team_role,
+                               team_joined_at,
+                               balance_cents, balance_formatted,
+                               playtime_seconds, playtime_formatted,
+                               kills, deaths, kd_ratio,
+                               money_rank, kills_rank, playtime_rank,
+                               first_joined_at, last_seen,
+                               online, updated_at
+                            ) VALUES (
+                               ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                               ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                            )
+                            ON DUPLICATE KEY UPDATE
+                               username = VALUES(username),
+                               display_name = VALUES(display_name),
+                               rank_key = IF(VALUES(online) = 1, VALUES(rank_key), rank_key),
+                               rank_name = IF(VALUES(online) = 1, VALUES(rank_name), rank_name),
+                               rank_prefix = IF(VALUES(online) = 1, VALUES(rank_prefix), rank_prefix),
+                               rank_color = IF(VALUES(online) = 1, VALUES(rank_color), rank_color),
+                               rank_weight = IF(VALUES(online) = 1, VALUES(rank_weight), rank_weight),
+                               world_key = IF(VALUES(world_key) <> '', VALUES(world_key), world_key),
+                               world_name = IF(VALUES(world_name) <> '', VALUES(world_name), world_name),
+                               world_group = IF(VALUES(world_group) <> '', VALUES(world_group), world_group),
+                               team_id = VALUES(team_id),
+                               team_name = VALUES(team_name),
+                               team_role = VALUES(team_role),
+                               team_joined_at = VALUES(team_joined_at),
+                               balance_cents = VALUES(balance_cents),
+                               balance_formatted = VALUES(balance_formatted),
+                               playtime_seconds = VALUES(playtime_seconds),
+                               playtime_formatted = VALUES(playtime_formatted),
+                               kills = VALUES(kills),
+                               deaths = VALUES(deaths),
+                               kd_ratio = VALUES(kd_ratio),
+                               money_rank = VALUES(money_rank),
+                               kills_rank = VALUES(kills_rank),
+                               playtime_rank = VALUES(playtime_rank),
+                               first_joined_at = VALUES(first_joined_at),
+                               last_seen = VALUES(last_seen),
+                               online = VALUES(online),
+                               updated_at = VALUES(updated_at)
+                            """.formatted(table))) {
+                        for (WebProfileRecord record : records) {
+                            bind(statement, record);
+                            statement.addBatch();
+                        }
+
+                        statement.executeBatch();
+                    }
+
+                    connection.commit();
+                } catch (Exception exception) {
+                    connection.rollback();
+                    throw exception;
+                } finally {
+                    connection.setAutoCommit(true);
+                }
             }
         } catch (Exception exception) {
-            core.getLogger().warning("Could not sync web profiles: " + exception.getMessage());
+            core.getLogger().warning(
+                    "Could not sync web profiles: "
+                            + exception.getMessage()
+            );
         }
     }
 
     public Optional<StoredRank> findRank(UUID uuid) {
-        if (!config.getBoolean("enabled", true) || uuid == null) {
+        if (!config.getBoolean("enabled", true)
+                || uuid == null) {
             return Optional.empty();
         }
 
@@ -181,10 +227,14 @@ public final class WebProfileRepository {
             loadDriver();
 
             try (Connection connection = connection();
-                 PreparedStatement statement = connection.prepareStatement(
-                         "SELECT rank_key, rank_name, rank_prefix, rank_color, rank_weight FROM "
-                                 + table + " WHERE uuid = ? LIMIT 1"
-                 )) {
+                 PreparedStatement statement =
+                         connection.prepareStatement(
+                                 "SELECT rank_key, rank_name, "
+                                         + "rank_prefix, rank_color, "
+                                         + "rank_weight FROM "
+                                         + table
+                                         + " WHERE uuid = ? LIMIT 1"
+                         )) {
                 statement.setString(1, uuid.toString());
 
                 try (ResultSet result = statement.executeQuery()) {
@@ -192,18 +242,23 @@ public final class WebProfileRepository {
                         return Optional.empty();
                     }
 
-                    return Optional.of(new StoredRank(
-                            result.getString("rank_key"),
-                            result.getString("rank_name"),
-                            result.getString("rank_prefix"),
-                            result.getString("rank_color"),
-                            result.getInt("rank_weight")
-                    ));
+                    return Optional.of(
+                            new StoredRank(
+                                    result.getString("rank_key"),
+                                    result.getString("rank_name"),
+                                    result.getString("rank_prefix"),
+                                    result.getString("rank_color"),
+                                    result.getInt("rank_weight")
+                            )
+                    );
                 }
             }
         } catch (Exception exception) {
             core.getLogger().warning(
-                    "Could not read stored web profile rank for " + uuid + ": " + exception.getMessage()
+                    "Could not read stored web profile rank for "
+                            + uuid
+                            + ": "
+                            + exception.getMessage()
             );
             return Optional.empty();
         }
@@ -219,10 +274,234 @@ public final class WebProfileRepository {
 
             try (Connection connection = connection();
                  Statement statement = connection.createStatement()) {
-                statement.executeUpdate("UPDATE " + table + " SET online = 0");
+                statement.executeUpdate(
+                        "UPDATE " + table + " SET online = 0"
+                );
             }
         } catch (Exception exception) {
-            core.getLogger().warning("Could not mark web profiles offline: " + exception.getMessage());
+            core.getLogger().warning(
+                    "Could not mark web profiles offline: "
+                            + exception.getMessage()
+            );
+        }
+    }
+
+    private void detectAndPurgeResetFightHistory(
+            Connection connection,
+            Collection<WebProfileRecord> records
+    ) throws Exception {
+        if (!config.getBoolean(
+                "web-fights.reset-detection.enabled",
+                true
+        )) {
+            return;
+        }
+
+        ExistingTotals previous = existingTotals(connection);
+
+        if (previous.players() <= 0L) {
+            return;
+        }
+
+        double coverage = records.size()
+                / (double) previous.players();
+        double requiredCoverage = clamp(
+                config.getDouble(
+                        "web-fights.reset-detection.minimum-profile-coverage",
+                        0.80D
+                ),
+                0.10D,
+                1.0D
+        );
+
+        if (coverage < requiredCoverage) {
+            return;
+        }
+
+        long currentKills = 0L;
+        long currentDeaths = 0L;
+
+        for (WebProfileRecord record : records) {
+            currentKills = safeAdd(
+                    currentKills,
+                    record.kills()
+            );
+            currentDeaths = safeAdd(
+                    currentDeaths,
+                    record.deaths()
+            );
+        }
+
+        /*
+         * Duel history is combat data, so reset detection compares combat
+         * counters only. Playtime can be retained during a combat-stat reset
+         * and must not prevent stale fights from being removed.
+         */
+        long previousCombatEvents = safeAdd(
+                previous.kills(),
+                previous.deaths()
+        );
+        long currentCombatEvents = safeAdd(
+                currentKills,
+                currentDeaths
+        );
+        long minimumPreviousCombatEvents = Math.max(
+                1L,
+                config.getLong(
+                        "web-fights.reset-detection."
+                                + "minimum-previous-combat-events",
+                        10L
+                )
+        );
+        double maximumRemainingRatio = clamp(
+                config.getDouble(
+                        "web-fights.reset-detection.maximum-remaining-ratio",
+                        0.25D
+                ),
+                0.0D,
+                0.95D
+        );
+
+        if (previousCombatEvents
+                < minimumPreviousCombatEvents
+                || currentCombatEvents
+                > previousCombatEvents
+                * maximumRemainingRatio) {
+            return;
+        }
+
+        if (!tableExists(connection, fightsTable)) {
+            return;
+        }
+
+        backupAllFightRows(connection);
+
+        try (Statement statement = connection.createStatement()) {
+            int removed = statement.executeUpdate(
+                    "DELETE FROM " + fightsTable
+            );
+            core.getLogger().warning(
+                    "Detected a global Mineacle stats reset — moved "
+                            + removed
+                            + " stale web fight records to "
+                            + fightsBackupTable
+            );
+        }
+    }
+
+    private ExistingTotals existingTotals(
+            Connection connection
+    ) throws Exception {
+        try (Statement statement = connection.createStatement();
+             ResultSet result = statement.executeQuery(
+                     "SELECT COUNT(*) AS players, "
+                             + "COALESCE(SUM(kills), 0) AS kills, "
+                             + "COALESCE(SUM(deaths), 0) AS deaths, "
+                             + "COALESCE(SUM(playtime_seconds), 0) "
+                             + "AS playtime FROM "
+                             + table
+             )) {
+            if (!result.next()) {
+                return ExistingTotals.empty();
+            }
+
+            return new ExistingTotals(
+                    result.getLong("players"),
+                    result.getLong("kills"),
+                    result.getLong("deaths"),
+                    result.getLong("playtime")
+            );
+        }
+    }
+
+    private void applyConfiguredFightCutoff() throws Exception {
+        long cutoff = Math.max(
+                0L,
+                config.getLong(
+                        "web-fights.delete-ended-before-epoch-millis",
+                        0L
+                )
+        );
+
+        if (cutoff <= 0L) {
+            return;
+        }
+
+        try (Connection connection = connection()) {
+            if (!tableExists(connection, fightsTable)) {
+                return;
+            }
+
+            backupFightRowsBefore(
+                    connection,
+                    cutoff
+            );
+
+            try (PreparedStatement statement =
+                         connection.prepareStatement(
+                                 "DELETE FROM "
+                                         + fightsTable
+                                         + " WHERE ended_at < ?"
+                         )) {
+                statement.setLong(1, cutoff);
+                int removed = statement.executeUpdate();
+
+                if (removed > 0) {
+                    core.getLogger().info(
+                            "Moved "
+                                    + removed
+                                    + " pre-reset web fight records to "
+                                    + fightsBackupTable
+                    );
+                }
+            }
+        }
+    }
+
+    private void backupAllFightRows(
+            Connection connection
+    ) throws Exception {
+        ensureFightBackupTable(connection);
+
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate(
+                    "INSERT IGNORE INTO "
+                            + fightsBackupTable
+                            + " SELECT * FROM "
+                            + fightsTable
+            );
+        }
+    }
+
+    private void backupFightRowsBefore(
+            Connection connection,
+            long cutoff
+    ) throws Exception {
+        ensureFightBackupTable(connection);
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(
+                             "INSERT IGNORE INTO "
+                                     + fightsBackupTable
+                                     + " SELECT * FROM "
+                                     + fightsTable
+                                     + " WHERE ended_at < ?"
+                     )) {
+            statement.setLong(1, cutoff);
+            statement.executeUpdate();
+        }
+    }
+
+    private void ensureFightBackupTable(
+            Connection connection
+    ) throws Exception {
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate(
+                    "CREATE TABLE IF NOT EXISTS "
+                            + fightsBackupTable
+                            + " LIKE "
+                            + fightsTable
+            );
         }
     }
 
@@ -251,20 +530,37 @@ public final class WebProfileRepository {
         }
     }
 
-    private void ensureColumn(Connection connection, String column, String definition) throws Exception {
+    private void ensureColumn(
+            Connection connection,
+            String column,
+            String definition
+    ) throws Exception {
         if (hasColumn(connection, column)) {
             return;
         }
 
         try (Statement statement = connection.createStatement()) {
-            statement.executeUpdate("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition);
+            statement.executeUpdate(
+                    "ALTER TABLE "
+                            + table
+                            + " ADD COLUMN "
+                            + column
+                            + " "
+                            + definition
+            );
         }
     }
 
-    private boolean hasColumn(Connection connection, String column) throws Exception {
-        try (PreparedStatement statement = connection.prepareStatement(
-                "SHOW COLUMNS FROM " + table + " LIKE ?"
-        )) {
+    private boolean hasColumn(
+            Connection connection,
+            String column
+    ) throws Exception {
+        try (PreparedStatement statement =
+                     connection.prepareStatement(
+                             "SHOW COLUMNS FROM "
+                                     + table
+                                     + " LIKE ?"
+                     )) {
             statement.setString(1, column);
 
             try (ResultSet result = statement.executeQuery()) {
@@ -273,20 +569,38 @@ public final class WebProfileRepository {
         }
     }
 
-    private void ensureIndex(Connection connection, String index, String column) throws Exception {
+    private void ensureIndex(
+            Connection connection,
+            String index,
+            String column
+    ) throws Exception {
         if (hasIndex(connection, index)) {
             return;
         }
 
         try (Statement statement = connection.createStatement()) {
-            statement.executeUpdate("CREATE INDEX " + index + " ON " + table + " (" + column + ")");
+            statement.executeUpdate(
+                    "CREATE INDEX "
+                            + index
+                            + " ON "
+                            + table
+                            + " ("
+                            + column
+                            + ")"
+            );
         }
     }
 
-    private boolean hasIndex(Connection connection, String index) throws Exception {
-        try (PreparedStatement statement = connection.prepareStatement(
-                "SHOW INDEX FROM " + table + " WHERE Key_name = ?"
-        )) {
+    private boolean hasIndex(
+            Connection connection,
+            String index
+    ) throws Exception {
+        try (PreparedStatement statement =
+                     connection.prepareStatement(
+                             "SHOW INDEX FROM "
+                                     + table
+                                     + " WHERE Key_name = ?"
+                     )) {
             statement.setString(1, index);
 
             try (ResultSet result = statement.executeQuery()) {
@@ -295,7 +609,26 @@ public final class WebProfileRepository {
         }
     }
 
-    private void bind(PreparedStatement statement, WebProfileRecord record) throws Exception {
+    private boolean tableExists(
+            Connection connection,
+            String tableName
+    ) throws Exception {
+        try (PreparedStatement statement =
+                     connection.prepareStatement(
+                             "SHOW TABLES LIKE ?"
+                     )) {
+            statement.setString(1, tableName);
+
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next();
+            }
+        }
+    }
+
+    private void bind(
+            PreparedStatement statement,
+            WebProfileRecord record
+    ) throws Exception {
         statement.setString(1, record.uuid().toString());
         statement.setString(2, limit(record.username(), 16));
         statement.setString(3, limit(record.displayName(), 32));
@@ -329,41 +662,106 @@ public final class WebProfileRepository {
 
     private Connection connection() throws Exception {
         return DriverManager.getConnection(
-                config.getString("database.jdbc-url", "jdbc:mysql://127.0.0.1:3306/mineacle"),
-                config.getString("database.username", "mineacle_core"),
-                config.getString("database.password", "change-me")
+                config.getString(
+                        "database.jdbc-url",
+                        "jdbc:mysql://127.0.0.1:3306/mineacle"
+                ),
+                config.getString(
+                        "database.username",
+                        "mineacle_core"
+                ),
+                config.getString(
+                        "database.password",
+                        "change-me"
+                )
         );
     }
 
     private void loadDriver() throws ClassNotFoundException {
-        String driver = config.getString("database.driver-class", "com.mysql.cj.jdbc.Driver");
+        String driver = config.getString(
+                "database.driver-class",
+                "com.mysql.cj.jdbc.Driver"
+        );
 
-        if (!driver.isBlank()) {
+        if (driver != null && !driver.isBlank()) {
             Class.forName(driver);
         }
     }
 
-    private String safeTableName(String configured) {
-        String value = configured == null ? "" : configured.trim();
+    private String safeTableName(
+            String configured,
+            String fallback
+    ) {
+        String value = configured == null
+                ? ""
+                : configured.trim();
 
         if (!value.matches("[A-Za-z0-9_]{1,64}")) {
             core.getLogger().warning(
-                    "Invalid web profile table name '" + configured + "', using mineacle_web_profiles"
+                    "Invalid web table name '"
+                            + configured
+                            + "', using "
+                            + fallback
             );
-            return "mineacle_web_profiles";
+            return fallback;
         }
 
         return value.toLowerCase(Locale.ROOT);
     }
 
-    public record StoredRank(String key, String name, String prefix, String color, int weight) {
-    }
-
-    private String limit(String value, int max) {
+    private String limit(String value, int maximum) {
         if (value == null) {
             return "";
         }
 
-        return value.length() <= max ? value : value.substring(0, max);
+        return value.length() <= maximum
+                ? value
+                : value.substring(0, maximum);
+    }
+
+    private long safeAdd(long left, long right) {
+        try {
+            return Math.addExact(
+                    Math.max(0L, left),
+                    Math.max(0L, right)
+            );
+        } catch (ArithmeticException exception) {
+            return Long.MAX_VALUE;
+        }
+    }
+
+    private double clamp(
+            double value,
+            double minimum,
+            double maximum
+    ) {
+        if (!Double.isFinite(value)) {
+            return minimum;
+        }
+
+        return Math.max(
+                minimum,
+                Math.min(maximum, value)
+        );
+    }
+
+    public record StoredRank(
+            String key,
+            String name,
+            String prefix,
+            String color,
+            int weight
+    ) {
+    }
+
+    private record ExistingTotals(
+            long players,
+            long kills,
+            long deaths,
+            long playtimeSeconds
+    ) {
+        private static ExistingTotals empty() {
+            return new ExistingTotals(0L, 0L, 0L, 0L);
+        }
     }
 }

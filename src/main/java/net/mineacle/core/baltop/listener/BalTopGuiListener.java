@@ -22,10 +22,10 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.scheduler.BukkitTask;
 
-import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class BalTopGuiListener implements Listener {
 
@@ -35,8 +35,8 @@ public final class BalTopGuiListener implements Listener {
     private final Core core;
     private final EconomyService economyService;
     private final PlayerStatisticsGui playerStatisticsGui;
-    private final Map<UUID, SearchPrompt> searchPrompts = new HashMap<>();
-    private final Map<UUID, BukkitTask> searchTimeouts = new HashMap<>();
+    private final Map<UUID, SearchPrompt> searchPrompts = new ConcurrentHashMap<>();
+    private final Map<UUID, BukkitTask> searchTimeouts = new ConcurrentHashMap<>();
 
     public BalTopGuiListener(Core core, EconomyService economyService) {
         this.core = core;
@@ -217,7 +217,7 @@ public final class BalTopGuiListener implements Listener {
         );
         searchTimeouts.put(playerId, timeout);
 
-        player.closeInventory();
+        MenuHistory.closeForInput(core, player);
         player.sendMessage(TextColor.color(
                 "&#bbbbbbType a player name to search Balance Top"
         ));

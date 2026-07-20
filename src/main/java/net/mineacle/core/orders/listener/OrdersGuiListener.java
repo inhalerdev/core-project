@@ -265,15 +265,19 @@ public final class OrdersGuiListener
         }
 
         if (slot == YourOrdersGui.BACK_SLOT) {
-            SoundService.guiClick(player, core);
-            MenuHistory.openRoot(
-                    core,
-                    player,
-                    () -> OrdersMainGui.open(
-                            player,
-                            service
-                    )
-            );
+            SoundService.guiBack(player, core);
+
+            if (!MenuHistory.back(core, player)) {
+                MenuHistory.openRoot(
+                        core,
+                        player,
+                        () -> OrdersMainGui.open(
+                                player,
+                                service
+                        )
+                );
+            }
+
             return;
         }
 
@@ -376,15 +380,19 @@ public final class OrdersGuiListener
         if (slot == OrderCreateGui.BACK_SLOT) {
             OrderCreateInputListener.clear(player);
             OrderCreateGui.clearSelected(player);
-            SoundService.guiClick(player, core);
-            MenuHistory.openRoot(
-                    core,
-                    player,
-                    () -> OrdersMainGui.open(
-                            player,
-                            service
-                    )
-            );
+            SoundService.guiBack(player, core);
+
+            if (!MenuHistory.back(core, player)) {
+                MenuHistory.openRoot(
+                        core,
+                        player,
+                        () -> OrdersMainGui.open(
+                                player,
+                                service
+                        )
+                );
+            }
+
             return;
         }
 
@@ -513,7 +521,7 @@ public final class OrdersGuiListener
 
     private void beginMainSearch(Player player) {
         OrderSearchInputListener.beginMain(player);
-        MenuHistory.close(core, player);
+        MenuHistory.closeForInput(core, player);
         SoundService.guiClick(player, core);
 
         player.sendMessage(TextColor.color(
@@ -529,7 +537,7 @@ public final class OrdersGuiListener
 
     private void beginCreateSearch(Player player) {
         OrderSearchInputListener.beginCreate(player);
-        MenuHistory.close(core, player);
+        MenuHistory.closeForInput(core, player);
         SoundService.guiClick(player, core);
 
         player.sendMessage(TextColor.color(
@@ -551,7 +559,7 @@ public final class OrdersGuiListener
                 player,
                 material
         );
-        MenuHistory.close(core, player);
+        MenuHistory.closeForInput(core, player);
         SoundService.guiClick(player, core);
 
         player.sendMessage(TextColor.color(""));

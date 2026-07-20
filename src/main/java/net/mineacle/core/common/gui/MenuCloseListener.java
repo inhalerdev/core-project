@@ -1,5 +1,7 @@
 package net.mineacle.core.common.gui;
 
+import net.mineacle.core.Core;
+import net.mineacle.core.common.sound.SoundService;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -24,22 +26,28 @@ public final class MenuCloseListener implements Listener {
             return;
         }
 
-        MenuHistory.handleClose(
+        boolean reopenedPrevious = MenuHistory.handleClose(
                 plugin,
                 player,
                 event.getInventory()
         );
+
+        if (reopenedPrevious && plugin instanceof Core core) {
+            SoundService.guiBack(player, core);
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerQuit(PlayerQuitEvent event) {
         MenuHistory.clear(event.getPlayer());
+        SoundService.clearPlayer(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPluginDisable(PluginDisableEvent event) {
         if (event.getPlugin().equals(plugin)) {
             MenuHistory.clearAll();
+            SoundService.clearCache();
         }
     }
 }

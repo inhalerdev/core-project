@@ -7,6 +7,7 @@ import org.bukkit.entity.Player;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @SuppressWarnings({"deprecation", "removal"})
@@ -14,9 +15,10 @@ public final class SoundService {
 
     private static final Map<String, Sound> SOUND_CACHE =
             new ConcurrentHashMap<>();
-
     private static final Set<String> INVALID_SOUNDS =
             ConcurrentHashMap.newKeySet();
+    private static final Map<UUID, Map<String, Long>> LAST_PLAYED =
+            new ConcurrentHashMap<>();
 
     private SoundService() {
     }
@@ -44,6 +46,10 @@ public final class SoundService {
                 basePath + ".enabled",
                 true
         )) {
+            return;
+        }
+
+        if (!claimPlayback(player, core, path, basePath)) {
             return;
         }
 
@@ -99,9 +105,54 @@ public final class SoundService {
         }
     }
 
+    public static void clearPlayer(Player player) {
+        if (player != null) {
+            LAST_PLAYED.remove(player.getUniqueId());
+        }
+    }
+
     public static void clearCache() {
         SOUND_CACHE.clear();
         INVALID_SOUNDS.clear();
+        LAST_PLAYED.clear();
+    }
+
+    private static boolean claimPlayback(
+            Player player,
+            Core core,
+            String path,
+            String basePath
+    ) {
+        long fallback = path.startsWith("gui.")
+                ? core.getConfig().getLong(
+                "sounds.gui.minimum-interval-millis",
+                90L
+        )
+                : core.getConfig().getLong(
+                "sounds.minimum-interval-millis",
+                50L
+        );
+        long minimumInterval = Math.max(
+                0L,
+                core.getConfig().getLong(
+                        basePath + ".minimum-interval-millis",
+                        fallback
+                )
+        );
+
+        if (minimumInterval <= 0L) {
+            return true;
+        }
+
+        long now = System.currentTimeMillis();
+        Map<String, Long> playerTimes = LAST_PLAYED.computeIfAbsent(
+                player.getUniqueId(),
+                ignored -> new ConcurrentHashMap<>()
+        );
+        Long previous = playerTimes.put(path, now);
+
+        return previous == null
+                || now - previous >= minimumInterval;
     }
 
     private static Sound resolveEnumSound(String input) {

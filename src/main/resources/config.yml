@@ -204,14 +204,10 @@ origin-rtp:
   messages:
     disabled: '&cRandom teleport is unavailable for %world%'
     already-active: '&cYou already have an active random teleport'
-    queued: '&#bbbbbbQueued for &#ff88ff%world% RTP &#bbbbbb— position &#ff88ff%position%'
+    queued: '&#bbbbbbRandom teleport queued'
     cooldown: '&cYou can use random teleport again in %seconds%s'
-    searching: '&#bbbbbbFinding a safe random &#ff88ff%world% &#bbbbbblocation'
-    location-ready: '&#bbbbbbSafe location found — preparing teleport'
-    countdown: '&#bbbbbbTeleporting to &#ff88ff%world% &#bbbbbbin &#ff88ff%seconds%s'
-    searching-again: '&#bbbbbbWorld border changed — finding another safe location'
-    failed: '&cCould not find a safe random teleport location'
-    teleported: '&#bbbbbbTeleported to a random &#ff88ff%world% &#bbbbbblocation'
+    failed: '&cCould not find a safe spot — try again'
+    teleported: '&#bbbbbbRandom teleport complete'
     cancelled-move: '&cTeleport cancelled — you moved'
 double-jump:
   enabled: true
@@ -228,12 +224,12 @@ sounds:
   enabled: true
   gui:
     click:
-      enabled: true
+      enabled: false
       sound: UI_BUTTON_CLICK
       volume: 1.0
       pitch: 1.0
     back:
-      enabled: true
+      enabled: false
       sound: UI_BUTTON_CLICK
       volume: 1.0
       pitch: 1.0
@@ -253,10 +249,11 @@ sounds:
       volume: 1.0
       pitch: 1.0
     usage:
-      enabled: true
+      enabled: false
       sound: UI_BUTTON_CLICK
       volume: 1.0
       pitch: 1.0
+    minimum-interval-millis: 90
   mineacle-plus:
     blocked:
       enabled: true
@@ -265,12 +262,12 @@ sounds:
       pitch: 1.0
   teleport:
     start:
-      enabled: true
+      enabled: false
       sound: UI_BUTTON_CLICK
       volume: 1.0
       pitch: 1.0
     countdown:
-      enabled: true
+      enabled: false
       sound: BLOCK_NOTE_BLOCK_HAT
       volume: 1.0
       pitch: 1.0
@@ -382,6 +379,7 @@ sounds:
       sound: BLOCK_BEACON_POWER_SELECT
       volume: 1.0
       pitch: 1.25
+  minimum-interval-millis: 50
 fly:
   enabled: true
   permission: mineacle.plus

@@ -156,23 +156,9 @@ public final class OriginRtpQueueService {
 
         enqueueSearch(session, false);
 
-        send(
+        sendActionBar(
                 player,
                 message(destination, "queued")
-                        .replace(
-                                "%position%",
-                                String.valueOf(
-                                        queuePosition(
-                                                request.sessionId()
-                                        )
-                                )
-                        )
-                        .replace(
-                                "%type%",
-                                plus
-                                        ? "Mineacle+"
-                                        : "Default"
-                        )
         );
         SoundService.teleportStart(player, core);
     }
@@ -450,14 +436,6 @@ public final class OriginRtpQueueService {
     ) {
         session.phase = Phase.SEARCHING;
 
-        sendActionBar(
-                player,
-                message(
-                        session.request.destination(),
-                        "searching"
-                )
-        );
-
         CompletableFuture<Location> future =
                 locationService.findSafeLocation(
                         session.request.destination()
@@ -543,13 +521,6 @@ public final class OriginRtpQueueService {
         session.phase = Phase.READY;
         readyQueue.addLast(sessionId);
 
-        sendActionBar(
-                player,
-                message(
-                        session.request.destination(),
-                        "location-ready"
-                )
-        );
     }
 
     private void timeoutSearch(
@@ -600,14 +571,6 @@ public final class OriginRtpQueueService {
             );
             return;
         }
-
-        send(
-                player,
-                countdownMessage(
-                        session.request.destination(),
-                        session.secondsRemaining
-                )
-        );
 
         UUID playerId = player.getUniqueId();
         UUID sessionId =
@@ -666,17 +629,6 @@ public final class OriginRtpQueueService {
             return;
         }
 
-        sendActionBar(
-                player,
-                countdownMessage(
-                        session.request.destination(),
-                        session.secondsRemaining
-                )
-        );
-        SoundService.teleportCountdown(
-                player,
-                core
-        );
     }
 
     private void finishTeleport(
@@ -737,7 +689,7 @@ public final class OriginRtpQueueService {
                     player,
                     message(
                             session.request.destination(),
-                            "searching-again"
+                            "queued"
                     )
             );
             return;
@@ -764,7 +716,7 @@ public final class OriginRtpQueueService {
         applyCooldown(player);
         applyLandingProtection(player);
 
-        send(
+        sendActionBar(
                 player,
                 message(
                         session.request.destination(),
@@ -1079,17 +1031,6 @@ public final class OriginRtpQueueService {
         landingProtection.entrySet().removeIf(
                 entry -> entry.getValue() <= now
         );
-    }
-
-    private String countdownMessage(
-            String destination,
-            int seconds
-    ) {
-        return message(destination, "countdown")
-                .replace(
-                        "%seconds%",
-                        String.valueOf(seconds)
-                );
     }
 
     private String message(

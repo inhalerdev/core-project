@@ -1,6 +1,7 @@
 package net.mineacle.core.orders.gui;
 
 import net.mineacle.core.common.gui.CenteredToolbar;
+import net.mineacle.core.common.gui.GuiSearchLore;
 import net.mineacle.core.orders.service.OrderService;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -308,22 +309,15 @@ public final class OrderCreateGui {
     private static ItemStack searchItem(
             OrdersViewState.CreateState state
     ) {
-        if (!state.hasQuery()) {
-            return OrdersGuiItems.item(
-                    Material.OAK_SIGN,
-                    "&dSearch",
-                    "&#bbbbbbClick to search item names"
-            );
-        }
+        List<String> lore = state.hasQuery()
+                ? GuiSearchLore.active(state.query())
+                : GuiSearchLore.inactive("item names");
 
         return OrdersGuiItems.item(
                 Material.OAK_SIGN,
                 "&dSearch",
-                "&#bbbbbbCurrent: &#ff88ff"
-                        + state.query().replace('_', ' '),
-                "",
-                "&#bbbbbbLeft-click to search again",
-                "&#bbbbbbRight-click to clear search"
+                lore
         );
     }
+
 }

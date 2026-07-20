@@ -102,7 +102,7 @@ public final class OrderCommand
     ) {
         if (args.length == 1) {
             OrderSearchInputListener.beginMain(player);
-            MenuHistory.close(core, player);
+            MenuHistory.closeForInput(core, player);
             SoundService.guiClick(player, core);
 
             player.sendMessage(TextColor.color(

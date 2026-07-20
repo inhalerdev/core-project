@@ -1,80 +1,80 @@
 enabled: true
-
 database:
-  driver-class: "com.mysql.cj.jdbc.Driver"
-  jdbc-url: "jdbc:mysql://mysql.mineacle.net:3306/mineacle_core?sslMode=REQUIRED&tlsVersions=TLSv1.2,TLSv1.3&serverTimezone=UTC&allowPublicKeyRetrieval=true&connectTimeout=10000&socketTimeout=30000&tcpKeepAlive=true"
-  username: "mineacle_core_user"
-  password: "CHANGE-ME-IN-plugins/MineacleCore/webprofiles.yml"
-  table: "mineacle_web_profiles"
-  teams-table: "mineacle_web_teams"
-  fights-table: "mineacle_web_fights"
-
+  driver-class: com.mysql.cj.jdbc.Driver
+  jdbc-url: jdbc:mysql://mysql.mineacle.net:3306/mineacle_core?sslMode=REQUIRED&tlsVersions=TLSv1.2,TLSv1.3&serverTimezone=UTC&allowPublicKeyRetrieval=true&connectTimeout=10000&socketTimeout=30000&tcpKeepAlive=true
+  username: mineacle_core_user
+  password: CHANGE-ME-IN-plugins/MineacleCore/webprofiles.yml
+  table: mineacle_web_profiles
+  teams-table: mineacle_web_teams
+  fights-table: mineacle_web_fights
+  fights-reset-backup-table: mineacle_web_fights_pre_reset
 sync:
-  interval-seconds: 120
+  interval-seconds: 30
   leaderboard-pull-limit: 500
   include-known-offline-players: true
   offline-player-pull-limit: 10000
   mark-offline-on-disable: true
-
 rank:
-  default-key: "default"
-  default-name: "Member"
-  default-prefix: ""
-  default-color: "#bbbbbb"
-
+  default-key: default
+  default-name: Member
+  default-prefix: ''
+  default-color: '#bbbbbb'
   permission-ranks:
     developer:
-      name: "Developer"
-      prefix: "Developer"
-      color: "#ffaa00"
-      permission: "mineacle.rank.developer"
+      name: Developer
+      prefix: Developer
+      color: '#ffaa00'
+      permission: mineacle.rank.developer
       weight: 1000
-
     admin:
-      name: "Admin"
-      prefix: "Admin"
-      color: "#ff5555"
-      permission: "mineacle.rank.admin"
+      name: Admin
+      prefix: Admin
+      color: '#ff5555'
+      permission: mineacle.rank.admin
       weight: 900
-
     plus:
-      name: "Mineacle+"
-      prefix: "Mineacle+"
-      color: "#ff55ff"
-      permission: "mineacle.plus"
+      name: Mineacle+
+      prefix: Mineacle+
+      color: '#ff55ff'
+      permission: mineacle.plus
       weight: 100
-
 worlds:
   mappings:
     spawn1:
-      name: "Spawn 1"
-      group: "spawn"
+      name: Spawn 1
+      group: spawn
     spawn2:
-      name: "Spawn 2"
-      group: "spawn"
+      name: Spawn 2
+      group: spawn
     spawn3:
-      name: "Spawn 3"
-      group: "spawn"
+      name: Spawn 3
+      group: spawn
     overworld:
-      name: "Overworld"
-      group: "survival"
+      name: Overworld
+      group: survival
     overworld_nether:
-      name: "Nether"
-      group: "survival"
+      name: Nether
+      group: survival
     overworld_the_end:
-      name: "End"
-      group: "survival"
-
+      name: End
+      group: survival
+  default-name: Unknown
+  default-group: other
 web-fights:
   enabled: true
   combat-timeout-seconds: 60
+  delete-ended-before-epoch-millis: 1784558881520
+  reset-detection:
+    enabled: true
+    minimum-profile-coverage: 0.8
+    minimum-previous-combat-events: 10
+    maximum-remaining-ratio: 0.25
   allowed-worlds:
-    - "overworld"
-    - "overworld_nether"
-    - "overworld_the_end"
-
+  - overworld
+  - overworld_nether
+  - overworld_the_end
 web-teams:
   enabled: true
-  interval-seconds: 120
+  interval-seconds: 30
   min-members: 1
   min-kills: 0

@@ -5,6 +5,7 @@ import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.auctionhouse.model.AuctionHouseListing;
 import net.mineacle.core.common.gui.CenteredToolbar;
+import net.mineacle.core.common.gui.GuiSearchLore;
 import net.mineacle.core.auctionhouse.service.AuctionHouseService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
@@ -153,7 +154,8 @@ public final class AuctionHouseGui {
                     item(
                             Material.OAK_SIGN,
                             "&dSearch",
-                            "&#bbbbbbClick to search auctions"
+                            GuiSearchLore.inactive("auctions")
+                                    .toArray(String[]::new)
                     )
             );
         } else {
@@ -162,11 +164,7 @@ public final class AuctionHouseGui {
                     item(
                             Material.OAK_SIGN,
                             "&dSearch",
-                            "&#bbbbbbCurrent: &#ff88ff"
-                                    + effectiveQuery,
-                            "",
-                            "&#bbbbbbLeft-click to search again",
-                            "&#bbbbbbRight-click to clear search"
+                            GuiSearchLore.active(effectiveQuery).toArray(String[]::new)
                     )
             );
         }

@@ -2,6 +2,7 @@ package net.mineacle.core.baltop.gui;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.CenteredToolbar;
+import net.mineacle.core.common.gui.GuiSearchLore;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.economy.service.EconomyService;
@@ -347,17 +348,9 @@ public final class BalTopGui {
     }
 
     private static ItemStack searchItem(SearchState search) {
-        List<String> lore = new ArrayList<>();
-
-        if (search != null) {
-            lore.add("&#bbbbbbCurrent: &#ff88ff" + search.displayLabel());
-            lore.add("");
-            lore.add("&#bbbbbbLeft-click to search again");
-            lore.add("&#bbbbbbRight-click to clear search");
-        } else {
-            lore.add("&#bbbbbbClick to search Balance Top");
-            lore.add("&#bbbbbbType a player name in chat");
-        }
+        List<String> lore = search == null
+                ? GuiSearchLore.inactive("players")
+                : GuiSearchLore.active(search.displayLabel());
 
         return toolbar(Material.OAK_SIGN, "&dSearch", lore);
     }

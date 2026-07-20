@@ -66,7 +66,7 @@ public final class BountySearchInputListener implements Listener {
                 );
 
         timeouts.put(playerId, timeout);
-        player.closeInventory();
+        MenuHistory.closeForInput(core, player);
         player.sendMessage(TextColor.color(
                 "&#bbbbbbType a player name to search bounties"
         ));

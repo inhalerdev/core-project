@@ -1,6 +1,7 @@
 package net.mineacle.core.orders.gui;
 
 import net.mineacle.core.common.gui.CenteredToolbar;
+import net.mineacle.core.common.gui.GuiSearchLore;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.orders.model.OrderRecord;
@@ -391,19 +392,9 @@ public final class OrdersMainGui {
     private static ItemStack searchItem(
             OrdersViewState.MainState state
     ) {
-        if (!state.hasQuery()) {
-            return OrdersGuiItems.item(
-                    OrdersGuiItems.material(
-                            "orders.gui.buttons.search.material",
-                            Material.OAK_SIGN
-                    ),
-                    OrdersGuiItems.cfg(
-                            "orders.gui.buttons.search.name",
-                            "&dSearch"
-                    ),
-                    "&#bbbbbbClick to search orders"
-            );
-        }
+        List<String> lore = state.hasQuery()
+                ? GuiSearchLore.active(state.query())
+                : GuiSearchLore.inactive("orders");
 
         return OrdersGuiItems.item(
                 OrdersGuiItems.material(
@@ -414,11 +405,8 @@ public final class OrdersMainGui {
                         "orders.gui.buttons.search.name",
                         "&dSearch"
                 ),
-                "&#bbbbbbCurrent: &#ff88ff"
-                        + state.query().replace('_', ' '),
-                "",
-                "&#bbbbbbLeft-click to search again",
-                "&#bbbbbbRight-click to clear search"
+                lore
         );
     }
+
 }

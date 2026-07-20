@@ -5,6 +5,7 @@ import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.CenteredToolbar;
+import net.mineacle.core.common.gui.GuiSearchLore;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -386,20 +387,9 @@ public final class BountyMainGui {
     }
 
     private static ItemStack searchItem(ViewState state) {
-        List<String> lore = new ArrayList<>();
-
-        if (!state.query().isBlank()) {
-            lore.add(
-                    "&#bbbbbbCurrent: &#bbbbbb"
-                            + state.searchLabel()
-            );
-            lore.add("");
-            lore.add("&#bbbbbbLeft-click to search again");
-            lore.add("&#bbbbbbRight-click to clear search");
-        } else {
-            lore.add("&#bbbbbbClick to search bounties");
-            lore.add("&#bbbbbbType a player name in chat");
-        }
+        List<String> lore = state.query().isBlank()
+                ? GuiSearchLore.inactive("players")
+                : GuiSearchLore.active(state.searchLabel());
 
         return toolbar(
                 Material.OAK_SIGN,
