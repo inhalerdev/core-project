@@ -32,6 +32,14 @@ import java.util.Locale;
 public final class SellWorthPacketListener
         extends PacketAdapter {
 
+    /**
+     * /worth item entries occupy slots 0-44.
+     *
+     * Toolbar and navigation controls occupy slots 45-53 and must never
+     * receive Worth, Value, Unit Price, or Stack Price lore.
+     */
+    private static final int WORTH_CONTENT_SLOTS = 45;
+
     private final SellService sellService;
 
     public SellWorthPacketListener(
@@ -75,15 +83,23 @@ public final class SellWorthPacketListener
                 event.getPacket().getItemModifier();
         int rawSlot = setSlotRawSlot(event);
 
-        for (int index = 0; index < modifier.size(); index++) {
+        for (int index = 0;
+             index < modifier.size();
+             index++) {
             ItemStack item = modifier.readSafely(index);
 
-            if (item != null && !item.getType().isAir()) {
-                modifier.writeSafely(
-                        index,
-                        displayItem(player, item, rawSlot)
-                );
+            if (item == null || item.getType().isAir()) {
+                continue;
             }
+
+            modifier.writeSafely(
+                    index,
+                    displayItem(
+                            player,
+                            item,
+                            rawSlot
+                    )
+            );
         }
     }
 
@@ -166,6 +182,11 @@ public final class SellWorthPacketListener
             ItemStack original,
             int rawSlot
     ) {
+        /*
+         * Always strip stale Mineacle price lore first. This ensures toolbar
+         * controls remain clean even if the client previously received a
+         * priced copy of the same material.
+         */
         ItemStack clean =
                 sellService.stripWorthLore(original);
 
@@ -255,26 +276,53 @@ public final class SellWorthPacketListener
         boolean topSlot = rawSlot >= 0
                 && rawSlot < top.getSize();
 
+        /*
+         * Player-inventory slots may still display their normal item worth.
+         * The restrictions below apply only to the open GUI's top inventory.
+         */
         if (!topSlot) {
             return true;
         }
 
+        /*
+         * /worth is the only Mineacle GUI allowed to show price lore, and
+         * only its actual catalog entries in slots 0-44 may show it.
+         *
+         * Slots 45-53 are toolbar/navigation controls and are always clean.
+         */
         if (WorthGui.isInventory(top)) {
-            return true;
+            return rawSlot < WORTH_CONTENT_SLOTS;
         }
 
         /*
-         * The Sell GUI keeps deposited items visually clean. Its green
-         * summary pane is the single source of the pending payout total.
+         * The Sell GUI keeps deposited items visually clean. Its summary
+         * control is the single source of the pending payout total.
          */
         if (SellGui.isInventory(top)) {
             return false;
         }
 
+        /*
+         * Every other MineacleCore GUI is a control/workflow interface.
+         * No top-inventory item in those menus may receive automatic value
+         * lore, regardless of its material.
+         */
+        if (isMineacleCoreGui(top)) {
+            return false;
+        }
+
+        /*
+         * PhoenixCrates reward entries intentionally retain unit value
+         * display. Stack-price duplication remains disabled there.
+         */
         if (isPhoenixCrateRewardsMenu(view)) {
             return true;
         }
 
+        /*
+         * Outside Mineacle GUI menus, automatic worth lore is limited to
+         * real storage inventories such as chests, barrels and shulkers.
+         */
         return isRealStorageTop(top);
     }
 
@@ -296,6 +344,34 @@ public final class SellWorthPacketListener
                 || !isPhoenixCrateRewardsMenu(view);
     }
 
+    private boolean isMineacleCoreGui(Inventory inventory) {
+        if (inventory == null) {
+            return false;
+        }
+
+        InventoryHolder holder =
+                inventory.getHolder(false);
+
+        if (holder == null) {
+            /*
+             * Legacy Mineacle menus with null holders already fall through
+             * to false because they are not real storage inventories.
+             */
+            return false;
+        }
+
+        Package holderPackage =
+                holder.getClass().getPackage();
+        String packageName = holderPackage == null
+                ? holder.getClass().getName()
+                : holderPackage.getName();
+
+        return packageName.equals("net.mineacle.core")
+                || packageName.startsWith(
+                "net.mineacle.core."
+        );
+    }
+
     private boolean isPhoenixCrateRewardsMenu(
             InventoryView view
     ) {
@@ -305,11 +381,14 @@ public final class SellWorthPacketListener
             return false;
         }
 
-        String title = ChatColor.stripColor(view.getTitle());
+        String title = ChatColor.stripColor(
+                view.getTitle()
+        );
         String lowerTitle = title == null
                 ? ""
                 : title.toLowerCase(Locale.ROOT);
-        InventoryHolder holder = top.getHolder(false);
+        InventoryHolder holder =
+                top.getHolder(false);
         String holderName = holder == null
                 ? ""
                 : holder.getClass()
@@ -325,14 +404,17 @@ public final class SellWorthPacketListener
                 || lowerTitle.contains("preview");
     }
 
-    private boolean isRealStorageTop(Inventory inventory) {
+    private boolean isRealStorageTop(
+            Inventory inventory
+    ) {
         InventoryType type = inventory.getType();
 
         if (type == InventoryType.ENDER_CHEST) {
             return true;
         }
 
-        InventoryHolder holder = inventory.getHolder(false);
+        InventoryHolder holder =
+                inventory.getHolder(false);
 
         if (holder instanceof BlockInventoryHolder
                 || holder instanceof DoubleChest

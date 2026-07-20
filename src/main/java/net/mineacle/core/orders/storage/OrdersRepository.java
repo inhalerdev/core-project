@@ -9,13 +9,13 @@ public interface OrdersRepository {
 
     void load();
 
-    void save();
+    boolean save();
 
     Collection<OrderRecord> all();
 
     OrderRecord get(UUID id);
 
-    void put(OrderRecord order);
+    boolean put(OrderRecord order);
 
-    void remove(UUID id);
+    boolean remove(UUID id);
 }

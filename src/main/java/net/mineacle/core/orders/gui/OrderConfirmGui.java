@@ -1,6 +1,7 @@
 package net.mineacle.core.orders.gui;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
@@ -11,117 +12,300 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 public final class OrderConfirmGui {
 
     public static final int SIZE = 27;
     public static final int CANCEL_SLOT = 11;
-    public static final int INFO_SLOT = 13;
+    public static final int ACTION_SLOT = 13;
     public static final int CONFIRM_SLOT = 15;
-
-    private static final Map<UUID, PendingAction> PENDING = new HashMap<>();
 
     private OrderConfirmGui() {
     }
 
-    public static void openDeliver(Player player, OrderService service, OrderRecord order) {
-        PENDING.put(player.getUniqueId(), new PendingAction(PendingType.DELIVER, order.id()));
+    public static void openDeliver(
+            Player player,
+            OrderService service,
+            OrderRecord order
+    ) {
+        OrdersGuiHolder holder =
+                OrdersGuiHolder.confirm(
+                        OrdersGuiHolder.Confirmation.DELIVER,
+                        order.id()
+                );
+        Inventory inventory = Bukkit.createInventory(
+                holder,
+                SIZE,
+                titleDeliver()
+        );
+        holder.setInventory(inventory);
 
-        int available = service.countItems(player, order.material());
-        int deliverAmount = Math.min(available, order.remainingAmount());
-        EconomyService economy = EconomyModule.economyService();
-        String payout = economy == null ? "$" + (deliverAmount * order.pricePerItemCents()) : economy.format(deliverAmount * order.pricePerItemCents());
+        int available = service.countItems(
+                player,
+                order.material()
+        );
+        int amount = Math.min(
+                available,
+                order.remainingAmount()
+        );
+        long payoutCents = service.previewPayout(
+                order,
+                amount
+        );
+        EconomyService economy =
+                EconomyModule.economyService();
+        String payout = economy == null
+                ? "$" + payoutCents
+                : economy.format(payoutCents);
 
-        Inventory inventory = Bukkit.createInventory(null, SIZE, title("deliver"));
-
-        inventory.setItem(CANCEL_SLOT, OrdersMainGui.item(Material.RED_STAINED_GLASS_PANE, cfg("orders.gui.confirm.cancel.name", "&cCANCEL"), List.of(
-                cfg("orders.gui.confirm.cancel.lore", "&fClick to cancel")
-        )));
-
-        inventory.setItem(INFO_SLOT, OrdersMainGui.item(order.material(), cfg("orders.gui.confirm.deliver.name", "&aCONFIRM DELIVERY"), List.of(
-                cfg("orders.gui.confirm.deliver.lore-1", "&fDelivering: &a%amount%x %item%")
-                        .replace("%amount%", String.valueOf(deliverAmount))
-                        .replace("%item%", service.pretty(order.material())),
-                cfg("orders.gui.confirm.deliver.lore-2", "&fPayout: &a%payout%").replace("%payout%", payout),
-                "",
-                cfg("orders.gui.confirm.deliver.lore-3", "&fClick confirm to deliver")
-        )));
-
-        inventory.setItem(CONFIRM_SLOT, OrdersMainGui.item(Material.LIME_STAINED_GLASS_PANE, cfg("orders.gui.confirm.confirm.name", "&aCONFIRM"), List.of(
-                cfg("orders.gui.confirm.confirm.lore", "&fClick to confirm")
-        )));
+        inventory.setItem(
+                CANCEL_SLOT,
+                cancelItem()
+        );
+        inventory.setItem(
+                ACTION_SLOT,
+                OrdersGuiItems.item(
+                        Material.RED_DYE,
+                        OrdersGuiItems.cfg(
+                                "orders.gui.confirm.deliver.name",
+                                "&dConfirm Delivery"
+                        ),
+                        OrdersGuiItems.cfg(
+                                "orders.gui.confirm.deliver.lore-1",
+                                "&#bbbbbbDelivering: "
+                                        + "&#ff88ff%amount%x %item%"
+                        )
+                                .replace(
+                                        "%amount%",
+                                        String.valueOf(amount)
+                                )
+                                .replace(
+                                        "%item%",
+                                        service.pretty(
+                                                order.material()
+                                        )
+                                ),
+                        OrdersGuiItems.cfg(
+                                "orders.gui.confirm.deliver.lore-2",
+                                "&#bbbbbbPayout: &a%payout%"
+                        ).replace(
+                                "%payout%",
+                                payout
+                        ),
+                        "",
+                        OrdersGuiItems.cfg(
+                                "orders.gui.confirm.deliver.lore-3",
+                                "&#bbbbbbConfirm twice to deliver"
+                        )
+                )
+        );
+        inventory.setItem(
+                CONFIRM_SLOT,
+                confirmItem(false)
+        );
 
         player.openInventory(inventory);
     }
 
-    public static void openCancel(Player player, OrderRecord order) {
-        PENDING.put(player.getUniqueId(), new PendingAction(PendingType.CANCEL, order.id()));
+    public static void openCancel(
+            Player player,
+            OrderService service,
+            OrderRecord order
+    ) {
+        OrdersGuiHolder holder =
+                OrdersGuiHolder.confirm(
+                        OrdersGuiHolder.Confirmation.CANCEL_ORDER,
+                        order.id()
+                );
+        Inventory inventory = Bukkit.createInventory(
+                holder,
+                SIZE,
+                titleCancel()
+        );
+        holder.setInventory(inventory);
 
-        EconomyService economy = EconomyModule.economyService();
-        String refund = economy == null ? "$" + order.escrowRemainingCents() : economy.format(order.escrowRemainingCents());
+        EconomyService economy =
+                EconomyModule.economyService();
+        String refund = economy == null
+                ? "$" + order.escrowRemainingCents()
+                : economy.format(
+                order.escrowRemainingCents()
+        );
 
-        Inventory inventory = Bukkit.createInventory(null, SIZE, title("cancel"));
-
-        inventory.setItem(CANCEL_SLOT, OrdersMainGui.item(Material.RED_STAINED_GLASS_PANE, cfg("orders.gui.confirm.cancel.name", "&cCANCEL"), List.of(
-                cfg("orders.gui.confirm.cancel.lore", "&fClick to cancel")
-        )));
-
-        inventory.setItem(INFO_SLOT, OrdersMainGui.item(order.material(), cfg("orders.gui.confirm.cancel-order.name", "&cCANCEL ORDER"), List.of(
-                cfg("orders.gui.confirm.cancel-order.lore-1", "&fRefund: &a%refund%").replace("%refund%", refund),
-                "",
-                cfg("orders.gui.confirm.cancel-order.lore-2", "&fClick confirm to cancel this order")
-        )));
-
-        inventory.setItem(CONFIRM_SLOT, OrdersMainGui.item(Material.LIME_STAINED_GLASS_PANE, cfg("orders.gui.confirm.confirm.name", "&aCONFIRM"), List.of(
-                cfg("orders.gui.confirm.confirm.lore", "&fClick to confirm")
-        )));
+        inventory.setItem(
+                CANCEL_SLOT,
+                cancelItem()
+        );
+        inventory.setItem(
+                ACTION_SLOT,
+                OrdersGuiItems.item(
+                        Material.RED_DYE,
+                        OrdersGuiItems.cfg(
+                                "orders.gui.confirm.cancel-order.name",
+                                "&cCancel Order"
+                        ),
+                        OrdersGuiItems.cfg(
+                                "orders.gui.confirm.cancel-order.lore-1",
+                                "&#bbbbbbRefund: &a%refund%"
+                        ).replace(
+                                "%refund%",
+                                refund
+                        ),
+                        "",
+                        OrdersGuiItems.cfg(
+                                "orders.gui.confirm.cancel-order.lore-2",
+                                "&#bbbbbbConfirm twice to cancel this order"
+                        )
+                )
+        );
+        inventory.setItem(
+                CONFIRM_SLOT,
+                confirmItem(false)
+        );
 
         player.openInventory(inventory);
     }
 
-    public static boolean isTitle(String title) {
-        if (title == null) {
-            return false;
+    public static boolean confirmReady(
+            OrdersGuiHolder holder
+    ) {
+        return holder != null
+                && holder.armed(
+                System.currentTimeMillis()
+        );
+    }
+
+    public static void arm(
+            Core core,
+            Player player,
+            OrdersGuiHolder holder
+    ) {
+        int seconds = Math.max(
+                1,
+                core.getConfig().getInt(
+                        "orders.confirm-timeout-seconds",
+                        5
+                )
+        );
+        long until = System.currentTimeMillis()
+                + seconds * 1000L;
+        holder.arm(until);
+
+        Inventory inventory = holder.getInventory();
+
+        if (inventory != null) {
+            inventory.setItem(
+                    CONFIRM_SLOT,
+                    confirmItem(true)
+            );
         }
 
-        return title.equals(title("deliver")) || title.equals(title("cancel"));
+        player.sendActionBar(TextColor.color(
+                "&#bbbbbbClick confirm again to continue"
+        ));
+        SoundService.guiConfirm(player, core);
+
+        core.getServer().getScheduler().runTaskLater(
+                core,
+                () -> {
+                    if (!player.isOnline()
+                            || holder.armedUntilMillis()
+                            != until) {
+                        return;
+                    }
+
+                    Inventory current = player
+                            .getOpenInventory()
+                            .getTopInventory();
+
+                    if (current.getHolder()
+                            != holder) {
+                        return;
+                    }
+
+                    holder.disarm();
+                    current.setItem(
+                            CONFIRM_SLOT,
+                            confirmItem(false)
+                    );
+                    player.sendActionBar(TextColor.color(
+                            "&cAction timed out"
+                    ));
+                    SoundService.guiError(player, core);
+                },
+                seconds * 20L
+        );
     }
 
-    public static PendingAction pending(Player player) {
-        return PENDING.get(player.getUniqueId());
-    }
-
-    public static void clear(Player player) {
-        PENDING.remove(player.getUniqueId());
-    }
-
-    private static String title(String type) {
-        if (type.equalsIgnoreCase("cancel")) {
-            return TextColor.color(cfg("orders.gui.titles.confirm-cancel", "CONFIRM CANCEL"));
+    public static void disarm(
+            OrdersGuiHolder holder
+    ) {
+        if (holder == null) {
+            return;
         }
 
-        return TextColor.color(cfg("orders.gui.titles.confirm-deliver", "CONFIRM DELIVERY"));
+        holder.disarm();
+
+        if (holder.getInventory() != null) {
+            holder.getInventory().setItem(
+                    CONFIRM_SLOT,
+                    confirmItem(false)
+            );
+        }
     }
 
-    private static String cfg(String path, String fallback) {
-        Core core = Core.instance();
+    private static org.bukkit.inventory.ItemStack cancelItem() {
+        return OrdersGuiItems.item(
+                Material.RED_STAINED_GLASS_PANE,
+                OrdersGuiItems.cfg(
+                        "orders.gui.confirm.cancel.name",
+                        "&cCancel"
+                ),
+                List.of(
+                        OrdersGuiItems.cfg(
+                                "orders.gui.confirm.cancel.lore",
+                                "&#bbbbbbClick to go back"
+                        )
+                )
+        );
+    }
 
-        if (core == null) {
-            return fallback;
+    private static org.bukkit.inventory.ItemStack confirmItem(
+            boolean armed
+    ) {
+        if (armed) {
+            return OrdersGuiItems.item(
+                    Material.LIME_STAINED_GLASS_PANE,
+                    "&dConfirm Again",
+                    "&#bbbbbbClick again before the timer ends"
+            );
         }
 
-        return core.getConfig().getString(path, fallback);
+        return OrdersGuiItems.item(
+                Material.LIME_STAINED_GLASS_PANE,
+                OrdersGuiItems.cfg(
+                        "orders.gui.confirm.confirm.name",
+                        "&dConfirm"
+                ),
+                OrdersGuiItems.cfg(
+                        "orders.gui.confirm.confirm.lore",
+                        "&#bbbbbbClick twice to confirm"
+                )
+        );
     }
 
-    public record PendingAction(PendingType type, UUID orderId) {
+    private static String titleDeliver() {
+        return OrdersGuiItems.cfg(
+                "orders.gui.titles.confirm-deliver",
+                "Confirm Delivery"
+        );
     }
 
-    public enum PendingType {
-        DELIVER,
-        CANCEL
+    private static String titleCancel() {
+        return OrdersGuiItems.cfg(
+                "orders.gui.titles.confirm-cancel",
+                "Confirm Cancel"
+        );
     }
 }

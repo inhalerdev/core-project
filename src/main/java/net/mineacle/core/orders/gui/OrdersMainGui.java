@@ -1,26 +1,18 @@
 package net.mineacle.core.orders.gui;
 
-import net.mineacle.core.Core;
-import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.orders.model.OrderRecord;
 import net.mineacle.core.orders.service.OrderService;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
-import org.bukkit.Tag;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.Comparator;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.UUID;
 
 public final class OrdersMainGui {
@@ -28,7 +20,7 @@ public final class OrdersMainGui {
     public static final int SIZE = 54;
     public static final int ORDERS_PER_PAGE = 45;
 
-    public static final int PREV_SLOT = 45;
+    public static final int PREVIOUS_SLOT = 45;
     public static final int SORT_SLOT = 47;
     public static final int FILTER_SLOT = 48;
     public static final int REFRESH_SLOT = 49;
@@ -36,379 +28,417 @@ public final class OrdersMainGui {
     public static final int MY_ORDERS_SLOT = 51;
     public static final int NEXT_SLOT = 53;
 
-    private static final Map<UUID, Integer> PAGES = new HashMap<>();
-    private static final Map<UUID, SortMode> SORTS = new HashMap<>();
-    private static final Map<UUID, FilterMode> FILTERS = new HashMap<>();
-    private static final Map<UUID, String> SEARCHES = new HashMap<>();
-
     private OrdersMainGui() {
     }
 
-    public static void open(Player player, OrderService service) {
-        int page = Math.max(1, PAGES.getOrDefault(player.getUniqueId(), 1));
-        List<OrderRecord> orders = filteredOrders(player, service);
-        int maxPage = Math.max(1, (int) Math.ceil(orders.size() / (double) ORDERS_PER_PAGE));
+    public static void open(
+            Player player,
+            OrderService service
+    ) {
+        OrdersViewState.MainState state =
+                OrdersViewState.main(player);
+        List<OrderRecord> orders =
+                filteredOrders(player, service);
+        int maximumPage = maximumPage(orders.size());
 
-        if (page > maxPage) {
-            page = maxPage;
-            PAGES.put(player.getUniqueId(), page);
+        if (state.page() > maximumPage) {
+            state.page(maximumPage);
         }
 
-        Inventory inventory = Bukkit.createInventory(null, SIZE, title(page));
-
+        int page = state.page();
         int start = (page - 1) * ORDERS_PER_PAGE;
-        int end = Math.min(start + ORDERS_PER_PAGE, orders.size());
+        int end = Math.min(
+                start + ORDERS_PER_PAGE,
+                orders.size()
+        );
+        List<OrderRecord> pageOrders = start >= orders.size()
+                ? List.of()
+                : orders.subList(start, end);
+        List<UUID> orderIds = pageOrders.stream()
+                .map(OrderRecord::id)
+                .toList();
 
-        for (int index = start; index < end; index++) {
-            inventory.setItem(index - start, orderItem(service, orders.get(index)));
+        OrdersGuiHolder holder =
+                OrdersGuiHolder.main(page, orderIds);
+        Inventory inventory = Bukkit.createInventory(
+                holder,
+                SIZE,
+                title(page)
+        );
+        holder.setInventory(inventory);
+
+        for (int slot = 0;
+             slot < pageOrders.size();
+             slot++) {
+            inventory.setItem(
+                    slot,
+                    orderItem(
+                            service,
+                            pageOrders.get(slot)
+                    )
+            );
         }
 
         if (orders.isEmpty()) {
-            inventory.setItem(22, item(
-                    Material.BARREL,
-                    "&dNo Orders",
-                    List.of(
-                            "&#bbbbbbNo player orders are open right now",
+            inventory.setItem(
+                    22,
+                    OrdersGuiItems.item(
+                            Material.BARREL,
+                            "&dNo Orders",
+                            "&#bbbbbbNo matching player orders are open",
                             "",
-                            "&#bbbbbbOrders are player requests",
-                            "&#bbbbbbthat usually pay more than /sell"
+                            "&#bbbbbbPlayers create requests",
+                            "&#bbbbbband sellers deliver items for money"
                     )
-            ));
+            );
         }
 
         if (page > 1) {
-            inventory.setItem(PREV_SLOT, item(
-                    material("orders.gui.buttons.previous.material", Material.ARROW),
-                    cfg("orders.gui.buttons.previous.name", "&dBack"),
-                    lore("orders.gui.buttons.previous.lore", List.of("&#bbbbbbPrevious page"))
-            ));
+            inventory.setItem(
+                    PREVIOUS_SLOT,
+                    OrdersGuiItems.item(
+                            OrdersGuiItems.material(
+                                    "orders.gui.buttons.previous.material",
+                                    Material.ARROW
+                            ),
+                            OrdersGuiItems.cfg(
+                                    "orders.gui.buttons.previous.name",
+                                    "&dPrevious"
+                            ),
+                            OrdersGuiItems.lore(
+                                    "orders.gui.buttons.previous.lore",
+                                    List.of(
+                                            "&#bbbbbbClick to view the previous page"
+                                    )
+                            )
+                    )
+            );
         }
 
-        inventory.setItem(SORT_SLOT, sortItem(player));
-        inventory.setItem(FILTER_SLOT, filterItem(player));
+        inventory.setItem(
+                SORT_SLOT,
+                sortItem(state.sort())
+        );
+        inventory.setItem(
+                FILTER_SLOT,
+                filterItem(state.filter())
+        );
+        inventory.setItem(
+                REFRESH_SLOT,
+                OrdersGuiItems.item(
+                        OrdersGuiItems.material(
+                                "orders.gui.buttons.refresh.material",
+                                Material.PAPER
+                        ),
+                        OrdersGuiItems.cfg(
+                                "orders.gui.buttons.refresh.name",
+                                "&dRefresh"
+                        ),
+                        OrdersGuiItems.lore(
+                                "orders.gui.buttons.refresh.lore",
+                                List.of(
+                                        "&#bbbbbbClick to refresh orders"
+                                )
+                        )
+                )
+        );
+        inventory.setItem(
+                SEARCH_SLOT,
+                searchItem(state)
+        );
+        inventory.setItem(
+                MY_ORDERS_SLOT,
+                OrdersGuiItems.playerHead(
+                        player,
+                        OrdersGuiItems.cfg(
+                                "orders.gui.buttons.my-orders.name",
+                                "&dMy Orders"
+                        ),
+                        OrdersGuiItems.lore(
+                                "orders.gui.buttons.my-orders.lore",
+                                List.of(
+                                        "&#bbbbbbView orders you created",
+                                        "&#bbbbbbCollect delivered items",
+                                        "&#bbbbbbOr cancel active requests"
+                                )
+                        )
+                )
+        );
 
-        inventory.setItem(REFRESH_SLOT, item(
-                material("orders.gui.buttons.refresh.material", Material.PAPER),
-                cfg("orders.gui.buttons.refresh.name", "&dOrders"),
-                lore("orders.gui.buttons.refresh.lore", List.of(
-                        "&#bbbbbbClick to refresh",
-                        "",
-                        "&#bbbbbbPlayers want items",
-                        "&#bbbbbbYou deliver and get paid"
-                ))
-        ));
-
-        inventory.setItem(SEARCH_SLOT, item(
-                material("orders.gui.buttons.search.material", Material.OAK_SIGN),
-                cfg("orders.gui.buttons.search.name", "&dSearch"),
-                lore("orders.gui.buttons.search.lore", List.of("&#bbbbbbClick to search orders"))
-        ));
-
-        inventory.setItem(MY_ORDERS_SLOT, item(
-                material("orders.gui.buttons.my-orders.material", Material.PLAYER_HEAD),
-                cfg("orders.gui.buttons.my-orders.name", "&dMy Orders"),
-                lore("orders.gui.buttons.my-orders.lore", List.of(
-                        "&#bbbbbbView orders you created",
-                        "&#bbbbbbCollect delivered items",
-                        "&#bbbbbbor cancel active orders"
-                ))
-        ));
-
-        if (page < maxPage) {
-            inventory.setItem(NEXT_SLOT, item(
-                    material("orders.gui.buttons.next.material", Material.ARROW),
-                    cfg("orders.gui.buttons.next.name", "&dNext"),
-                    lore("orders.gui.buttons.next.lore", List.of("&#bbbbbbNext page"))
-            ));
+        if (page < maximumPage) {
+            inventory.setItem(
+                    NEXT_SLOT,
+                    OrdersGuiItems.item(
+                            OrdersGuiItems.material(
+                                    "orders.gui.buttons.next.material",
+                                    Material.ARROW
+                            ),
+                            OrdersGuiItems.cfg(
+                                    "orders.gui.buttons.next.name",
+                                    "&dNext"
+                            ),
+                            OrdersGuiItems.lore(
+                                    "orders.gui.buttons.next.lore",
+                                    List.of(
+                                            "&#bbbbbbClick to view the next page"
+                                    )
+                            )
+                    )
+            );
         }
 
         player.openInventory(inventory);
     }
 
-    public static String title(int page) {
-        return TextColor.color(cfg("orders.gui.titles.main", "Orders (Page %page%)")
-                .replace("%page%", String.valueOf(page)));
-    }
-
-    public static boolean isTitle(String title) {
-        if (title == null) {
-            return false;
-        }
-
-        String rawTitle = cfg("orders.gui.titles.main", "Orders (Page %page%)");
-        String strippedPattern = ChatColor.stripColor(TextColor.color(rawTitle));
-        String beforePage = strippedPattern.split("%page%", 2)[0];
-
-        return title.startsWith(beforePage);
-    }
-
-    public static int page(Player player) {
-        return Math.max(1, PAGES.getOrDefault(player.getUniqueId(), 1));
-    }
-
-    public static void nextPage(Player player, OrderService service) {
-        List<OrderRecord> orders = filteredOrders(player, service);
-        int maxPage = Math.max(1, (int) Math.ceil(orders.size() / (double) ORDERS_PER_PAGE));
-
-        PAGES.put(player.getUniqueId(), Math.min(maxPage, page(player) + 1));
+    public static void nextPage(
+            Player player,
+            OrderService service
+    ) {
+        OrdersViewState.MainState state =
+                OrdersViewState.main(player);
+        int maximum = maximumPage(
+                filteredOrders(player, service).size()
+        );
+        state.page(
+                Math.min(maximum, state.page() + 1)
+        );
     }
 
     public static void previousPage(Player player) {
-        PAGES.put(player.getUniqueId(), Math.max(1, page(player) - 1));
+        OrdersViewState.MainState state =
+                OrdersViewState.main(player);
+        state.page(state.page() - 1);
     }
 
     public static void cycleSort(Player player) {
-        SortMode current = SORTS.getOrDefault(player.getUniqueId(), SortMode.BestPay);
-        SORTS.put(player.getUniqueId(), current.next());
-        PAGES.put(player.getUniqueId(), 1);
+        OrdersViewState.main(player).cycleSort();
     }
 
     public static void cycleFilter(Player player) {
-        FilterMode current = FILTERS.getOrDefault(player.getUniqueId(), FilterMode.All);
-        FILTERS.put(player.getUniqueId(), current.next());
-        PAGES.put(player.getUniqueId(), 1);
+        OrdersViewState.main(player).cycleFilter();
     }
 
-    public static void setSearch(Player player, String query) {
-        if (query == null || query.isBlank() || query.equalsIgnoreCase("clear")
-                || query.equalsIgnoreCase("cancel") || query.equalsIgnoreCase("cancelled")) {
-            SEARCHES.remove(player.getUniqueId());
-        } else {
-            SEARCHES.put(player.getUniqueId(), query.toLowerCase(Locale.ROOT));
-        }
-
-        PAGES.put(player.getUniqueId(), 1);
+    public static void setSearch(
+            Player player,
+            String query
+    ) {
+        OrdersViewState.main(player).query(query);
     }
 
-    public static List<OrderRecord> pageOrders(Player player, OrderService service) {
-        int page = page(player);
-        List<OrderRecord> orders = filteredOrders(player, service);
-        int start = (page - 1) * ORDERS_PER_PAGE;
-        int end = Math.min(start + ORDERS_PER_PAGE, orders.size());
-
-        if (start >= orders.size()) {
-            return List.of();
-        }
-
-        return orders.subList(start, end);
+    public static void clearSearch(Player player) {
+        OrdersViewState.main(player).clearQuery();
     }
 
-    private static List<OrderRecord> filteredOrders(Player player, OrderService service) {
-        SortMode sort = SORTS.getOrDefault(player.getUniqueId(), SortMode.BestPay);
-        FilterMode filter = FILTERS.getOrDefault(player.getUniqueId(), FilterMode.All);
-        String search = SEARCHES.get(player.getUniqueId());
+    public static boolean hasSearch(Player player) {
+        return OrdersViewState.main(player).hasQuery();
+    }
+
+    public static String search(Player player) {
+        return OrdersViewState.main(player).query();
+    }
+
+    public static ItemStack orderItem(
+            OrderService service,
+            OrderRecord order
+    ) {
+        EconomyService economy =
+                EconomyModule.economyService();
+        long remainingPay = order.escrowRemainingCents();
+        long oneItemPay = order.payoutFor(1);
+        String totalText = economy == null
+                ? "$" + remainingPay
+                : economy.format(remainingPay);
+        String eachText = economy == null
+                ? "$" + oneItemPay
+                : economy.format(oneItemPay);
+
+        return OrdersGuiItems.item(
+                order.material(),
+                "&d" + service.pretty(order.material()),
+                "&#bbbbbbNeed: &#ff88ff"
+                        + order.remainingAmount()
+                        + "x "
+                        + service.pretty(order.material()),
+                "&#bbbbbbPay Remaining: &a" + totalText,
+                "&#bbbbbbNext Item Pays: &a" + eachText,
+                "&#bbbbbbBuyer: "
+                        + "&#ff88ff"
+                        + service.ownerDisplayName(order),
+                "&#bbbbbbProgress: "
+                        + "&#ff88ff"
+                        + order.deliveredAmount()
+                        + "&#bbbbbb/&#ff88ff"
+                        + order.requestedAmount(),
+                "",
+                "&#bbbbbbBring matching items",
+                "&#ff88ffClick to deliver everything available"
+        );
+    }
+
+    public static String title(int page) {
+        return OrdersGuiItems.cfg(
+                "orders.gui.titles.main",
+                "Orders (Page %page%)"
+        ).replace(
+                "%page%",
+                String.valueOf(page)
+        );
+    }
+
+    private static List<OrderRecord> filteredOrders(
+            Player player,
+            OrderService service
+    ) {
+        OrdersViewState.MainState state =
+                OrdersViewState.main(player);
+        String query = state.query();
 
         return service.activeOrders().stream()
-                .filter(order -> filter.matches(order.material()))
-                .filter(order -> search == null || order.material().name().toLowerCase(Locale.ROOT).contains(search))
-                .sorted(sort.comparator())
+                .filter(
+                        order -> state.filter()
+                                .matches(order.material())
+                )
+                .filter(
+                        order -> query.isBlank()
+                                || matchesQuery(
+                                service,
+                                order,
+                                query
+                        )
+                )
+                .sorted(state.sort().comparator())
                 .toList();
     }
 
-    private static ItemStack sortItem(Player player) {
-        SortMode active = SORTS.getOrDefault(player.getUniqueId(), SortMode.BestPay);
+    private static boolean matchesQuery(
+            OrderService service,
+            OrderRecord order,
+            String query
+    ) {
+        String normalizedMaterial = order.material()
+                .name()
+                .toLowerCase(Locale.ROOT);
+        String normalizedPretty = service.pretty(
+                order.material()
+        ).toLowerCase(Locale.ROOT)
+                .replace(' ', '_');
 
-        return item(
-                material("orders.gui.buttons.sort.material", Material.CAULDRON),
-                cfg("orders.gui.buttons.sort.name", "&dSort"),
-                List.of(
-                        "&#bbbbbbClick to sort",
-                        "",
-                        line(active, SortMode.BestPay),
-                        line(active, SortMode.PayEach),
-                        line(active, SortMode.MostNeeded),
-                        line(active, SortMode.Newest)
+        return normalizedMaterial.contains(query)
+                || normalizedPretty.contains(query);
+    }
+
+    private static int maximumPage(int size) {
+        return Math.max(
+                1,
+                (int) Math.ceil(
+                        size / (double) ORDERS_PER_PAGE
                 )
         );
     }
 
-    private static ItemStack filterItem(Player player) {
-        FilterMode active = FILTERS.getOrDefault(player.getUniqueId(), FilterMode.All);
+    private static ItemStack sortItem(
+            OrdersViewState.SortMode active
+    ) {
+        List<String> lore = new ArrayList<>();
+        lore.add(
+                "&#bbbbbbCurrent: &#ff88ff"
+                        + active.label()
+        );
+        lore.add("");
 
-        return item(
-                material("orders.gui.buttons.filter.material", Material.HOPPER),
-                cfg("orders.gui.buttons.filter.name", "&dFilter"),
-                List.of(
-                        "&#bbbbbbClick to filter",
-                        "",
-                        line(active, FilterMode.All),
-                        line(active, FilterMode.Blocks),
-                        line(active, FilterMode.Tools),
-                        line(active, FilterMode.Food),
-                        line(active, FilterMode.Combat),
-                        line(active, FilterMode.Potions),
-                        line(active, FilterMode.Books),
-                        line(active, FilterMode.Ingredients),
-                        line(active, FilterMode.Utilities)
-                )
+        for (OrdersViewState.SortMode mode
+                : OrdersViewState.SortMode.values()) {
+            lore.add(
+                    (mode == active
+                            ? "&#ff88ff"
+                            : "&#bbbbbb")
+                            + mode.label()
+            );
+        }
+
+        lore.add("");
+        lore.add("&#bbbbbbClick to change sort");
+
+        return OrdersGuiItems.item(
+                OrdersGuiItems.material(
+                        "orders.gui.buttons.sort.material",
+                        Material.ANVIL
+                ),
+                OrdersGuiItems.cfg(
+                        "orders.gui.buttons.sort.name",
+                        "&dSort"
+                ),
+                lore
         );
     }
 
-    private static String line(Enum<?> active, Enum<?> value) {
-        return (active == value ? "&#ff88ff" : "&#bbbbbb") + display(value.name());
-    }
+    private static ItemStack filterItem(
+            OrdersViewState.MainFilter active
+    ) {
+        List<String> lore = new ArrayList<>();
+        lore.add(
+                "&#bbbbbbCurrent: &#ff88ff"
+                        + active.label()
+        );
+        lore.add("");
 
-    public static ItemStack orderItem(OrderService service, OrderRecord order) {
-        EconomyService economy = EconomyModule.economyService();
+        for (OrdersViewState.MainFilter mode
+                : OrdersViewState.MainFilter.values()) {
+            lore.add(
+                    (mode == active
+                            ? "&#ff88ff"
+                            : "&#bbbbbb")
+                            + mode.label()
+            );
+        }
 
-        long remaining = Math.max(0L, order.remainingAmount());
-        long totalPayoutCents = remaining * order.pricePerItemCents();
+        lore.add("");
+        lore.add("&#bbbbbbClick to change filter");
 
-        String pay = economy == null ? "$" + totalPayoutCents : economy.format(totalPayoutCents);
-        String payEach = economy == null ? "$" + order.pricePerItemCents() : economy.format(order.pricePerItemCents());
-
-        return item(
-                order.material(),
-                "&d" + service.pretty(order.material()),
-                List.of(
-                        "&#bbbbbbNeed: &#ff88ff" + remaining + "x " + service.pretty(order.material()),
-                        "&#bbbbbbPay: &a" + pay,
-                        "&#bbbbbbPay Each: &a" + payEach,
-                        "&#bbbbbbBuyer: &#ff88ff" + order.ownerName(),
-                        "&#bbbbbbProgress: &#ff88ff" + order.deliveredAmount() + "&#bbbbbb/&#ff88ff" + order.requestedAmount(),
-                        "",
-                        "&#bbbbbbBring matching items",
-                        "&#ff88ffClick to deliver and get paid"
-                )
+        return OrdersGuiItems.item(
+                OrdersGuiItems.material(
+                        "orders.gui.buttons.filter.material",
+                        Material.HOPPER
+                ),
+                OrdersGuiItems.cfg(
+                        "orders.gui.buttons.filter.name",
+                        "&dFilter"
+                ),
+                lore
         );
     }
 
-    public static ItemStack item(Material material, String name, List<String> lore) {
-        ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
-
-        if (meta == null) {
-            return item;
+    private static ItemStack searchItem(
+            OrdersViewState.MainState state
+    ) {
+        if (!state.hasQuery()) {
+            return OrdersGuiItems.item(
+                    OrdersGuiItems.material(
+                            "orders.gui.buttons.search.material",
+                            Material.OAK_SIGN
+                    ),
+                    OrdersGuiItems.cfg(
+                            "orders.gui.buttons.search.name",
+                            "&dSearch"
+                    ),
+                    "&#bbbbbbClick to search orders"
+            );
         }
 
-        meta.setDisplayName(TextColor.color(name));
-        meta.setLore(lore.stream().map(TextColor::color).toList());
-        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-        item.setItemMeta(meta);
-        return item;
-    }
-
-    private static String cfg(String path, String fallback) {
-        Core core = Core.instance();
-
-        if (core == null) {
-            return fallback;
-        }
-
-        return core.getConfig().getString(path, fallback);
-    }
-
-    private static List<String> lore(String path, List<String> fallback) {
-        Core core = Core.instance();
-
-        if (core == null || !core.getConfig().isList(path)) {
-            return fallback;
-        }
-
-        return core.getConfig().getStringList(path);
-    }
-
-    private static Material material(String path, Material fallback) {
-        Core core = Core.instance();
-
-        if (core == null) {
-            return fallback;
-        }
-
-        String raw = core.getConfig().getString(path, fallback.name());
-
-        if (raw == null || raw.isBlank()) {
-            return fallback;
-        }
-
-        try {
-            return Material.valueOf(raw.toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException ignored) {
-            return fallback;
-        }
-    }
-
-    private static String display(String raw) {
-        StringBuilder builder = new StringBuilder();
-
-        for (int index = 0; index < raw.length(); index++) {
-            char character = raw.charAt(index);
-
-            if (index > 0 && Character.isUpperCase(character)) {
-                builder.append(' ');
-            }
-
-            builder.append(character);
-        }
-
-        return builder.toString();
-    }
-
-    private enum SortMode {
-        BestPay,
-        PayEach,
-        MostNeeded,
-        Newest;
-
-        private SortMode next() {
-            SortMode[] values = values();
-            return values[(ordinal() + 1) % values.length];
-        }
-
-        private Comparator<OrderRecord> comparator() {
-            return switch (this) {
-                case PayEach -> Comparator.comparingLong(OrderRecord::pricePerItemCents).reversed();
-                case MostNeeded -> Comparator.comparingInt(OrderRecord::remainingAmount).reversed();
-                case Newest -> Comparator.comparingLong(OrderRecord::createdAtMillis).reversed();
-                case BestPay -> Comparator.comparingLong((OrderRecord order) ->
-                        order.remainingAmount() * order.pricePerItemCents()).reversed();
-            };
-        }
-    }
-
-    private enum FilterMode {
-        All,
-        Blocks,
-        Tools,
-        Food,
-        Combat,
-        Potions,
-        Books,
-        Ingredients,
-        Utilities;
-
-        private FilterMode next() {
-            FilterMode[] values = values();
-            return values[(ordinal() + 1) % values.length];
-        }
-
-        private boolean matches(Material material) {
-            if (this == All) {
-                return true;
-            }
-
-            String name = material.name();
-
-            return switch (this) {
-                case Blocks -> material.isBlock();
-                case Tools -> name.endsWith("_PICKAXE") || name.endsWith("_AXE")
-                        || name.endsWith("_SHOVEL") || name.endsWith("_HOE")
-                        || name.equals("SHEARS") || name.equals("FISHING_ROD");
-                case Food -> material.isEdible();
-                case Combat -> name.endsWith("_SWORD") || name.endsWith("_HELMET")
-                        || name.endsWith("_CHESTPLATE") || name.endsWith("_LEGGINGS")
-                        || name.endsWith("_BOOTS") || name.equals("BOW")
-                        || name.equals("CROSSBOW") || name.equals("SHIELD")
-                        || name.equals("TRIDENT");
-                case Potions -> name.contains("POTION") || name.equals("DRAGON_BREATH");
-                case Books -> name.contains("BOOK") || name.equals("PAPER") || name.equals("MAP");
-                case Ingredients -> Tag.ITEMS_COALS.isTagged(material)
-                        || name.contains("INGOT") || name.contains("NUGGET")
-                        || name.contains("DUST") || name.contains("GEM")
-                        || name.contains("SHARD") || name.contains("SCRAP");
-                case Utilities -> !material.isBlock() && !material.isEdible();
-                case All -> true;
-            };
-        }
+        return OrdersGuiItems.item(
+                OrdersGuiItems.material(
+                        "orders.gui.buttons.search.material",
+                        Material.OAK_SIGN
+                ),
+                OrdersGuiItems.cfg(
+                        "orders.gui.buttons.search.name",
+                        "&dSearch"
+                ),
+                "&#bbbbbbCurrent: &#ff88ff"
+                        + state.query().replace('_', ' '),
+                "",
+                "&#bbbbbbLeft-click to search again",
+                "&#bbbbbbRight-click to clear search"
+        );
     }
 }

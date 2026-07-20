@@ -193,7 +193,7 @@ commands:
     description: Open player orders
     aliases:
     - orders
-    usage: /order
+    usage: /order [create|search|clear]
     permission: mineacleorders.use
   sell:
     description: Open the Sell menu
@@ -362,6 +362,8 @@ permissions:
     default: true
   mineacleorders.admin:
     default: op
+    children:
+      mineacleorders.use: true
   mineaclesell.use:
     default: true
   mineaclesell.admin:

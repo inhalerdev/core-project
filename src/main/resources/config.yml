@@ -472,101 +472,100 @@ bounty:
 orders:
   enabled: true
   creation-tax-percent: 0.0
+  confirm-timeout-seconds: 5
+
   limits:
     max-active-default: 10
     max-active-plus: 25
     max-amount: 2304
-    minimum-price-per-item: 0.01
+    minimum-price-per-item: "0.01"
+
   gui:
     titles:
       main: "Orders (Page %page%)"
-      my-orders: "My Orders"
+      my-orders: "My Orders (Page %page%)"
+      create: "Create Order (Page %page%)"
       confirm-deliver: "Confirm Delivery"
       confirm-cancel: "Confirm Cancel"
-      create: "Create Order"
+
     buttons:
       previous:
         material: ARROW
-        name: "&dBack"
+        name: "&dPrevious"
         lore:
-          - "&#bbbbbbClick to go to the previous page"
+          - "&#bbbbbbClick to view the previous page"
+
       next:
         material: ARROW
         name: "&dNext"
         lore:
-          - "&#bbbbbbClick to go to the next page"
+          - "&#bbbbbbClick to view the next page"
+
       sort:
         material: ANVIL
         name: "&dSort"
+
       filter:
         material: HOPPER
         name: "&dFilter"
+
       refresh:
         material: PAPER
         name: "&dRefresh"
         lore:
-          - "&#bbbbbbClick to refresh"
+          - "&#bbbbbbClick to refresh orders"
+
       search:
         material: OAK_SIGN
         name: "&dSearch"
         lore:
-          - "&#bbbbbbClick to search"
+          - "&#bbbbbbClick to search orders"
+
       my-orders:
         material: PLAYER_HEAD
         name: "&dMy Orders"
         lore:
-          - "&#bbbbbbClick to view your orders"
-    order-lore:
-      buyer: "&#bbbbbbBuyer: &#ff88ff%buyer%"
-      remaining: "&#bbbbbbRemaining: &#ff88ff%remaining%&#bbbbbb/&#ff88ff%requested%"
-      price: "&#bbbbbbMoney Per Item: &#ff88ff%price%"
-      click: "&#bbbbbbClick to deliver"
-    my-order-lore:
-      status: "&#bbbbbbStatus: %status%"
-      delivered: "&#bbbbbbDelivered: &#ff88ff%delivered%&#bbbbbb/&#ff88ff%requested%"
-      escrow: "&#bbbbbbRefundable Escrow: &#ff88ff%escrow%"
-      click: "&#bbbbbbClick to collect, cancel, or refund"
-      closed: "&#bbbbbbClosed"
+          - "&#bbbbbbView orders you created"
+          - "&#bbbbbbCollect delivered items"
+          - "&#bbbbbbOr cancel active requests"
+
     confirm:
       cancel:
         name: "&cCancel"
-        lore: "&#bbbbbbClick to cancel"
+        lore: "&#bbbbbbClick to go back"
+
       confirm:
         name: "&dConfirm"
-        lore: "&#bbbbbbClick to confirm"
+        lore: "&#bbbbbbClick twice to confirm"
+
       deliver:
         name: "&dConfirm Delivery"
         lore-1: "&#bbbbbbDelivering: &#ff88ff%amount%x %item%"
-        lore-2: "&#bbbbbbPayout: &#ff88ff%payout%"
-        lore-3: "&#bbbbbbClick confirm to deliver"
+        lore-2: "&#bbbbbbPayout: &a%payout%"
+        lore-3: "&#bbbbbbConfirm twice to deliver"
+
       cancel-order:
         name: "&cCancel Order"
-        lore-1: "&#bbbbbbRefund: &#ff88ff%refund%"
-        lore-2: "&#bbbbbbClick confirm to cancel this order"
-    create:
-      empty-name: "&cNo Item"
-      empty-lore: "&#bbbbbbHold the item you want to order"
-      item-name: "&dSelected Item"
-      item-lore: "&#bbbbbbThis is the item players will deliver"
-      cancel-name: "&cCancel"
-      cancel-lore: "&#bbbbbbClick to cancel"
-      create-name: "&dCreate Order"
-      create-lore-1: "&#bbbbbbClick and type amount price"
-      create-lore-2: "&#bbbbbbExample: &#ff88ff64 10"
+        lore-1: "&#bbbbbbRefund: &a%refund%"
+        lore-2: "&#bbbbbbConfirm twice to cancel this order"
+
   messages:
+    disabled: "&cOrders are currently disabled"
     invalid-amount: "&cAmount must be greater than 0"
-    max-amount: "&cThat order amount is too high"
-    max-active: "&cYou have too many active orders"
-    hold-item: "&cHold the item you want to order"
+    max-amount: "&cMaximum order amount: %max%"
+    max-active: "&cYou can only have %max% active orders"
+    hold-item: "&cChoose an item from the order menu"
     economy-not-ready: "&cEconomy is not ready"
-    minimum-price: "&cPrice is too low"
+    invalid-price: "&cType a price like 100k, 11.5M, or 250000"
+    minimum-price: "&cMinimum total price: %minimum%"
     not-enough-money: "&cYou do not have enough money"
+    storage-error: "&cCould not save the order"
     created: "&#bbbbbbCreated order for &#ff88ff%amount%x %item%"
     already-complete: "&cThat order is already complete"
     own-order: "&cYou cannot deliver to your own order"
     missing-items: "&cYou do not have the required item"
-    delivered: "&#bbbbbbDelivered &#ff88ff%amount%x %item% &#bbbbbbfor &#ff88ff+%money%"
-    cancelled: "&#bbbbbbCancelled order and refunded &#ff88ff%refund%"
+    delivered: "&#bbbbbbDelivered &#ff88ff%amount%x %item% &#bbbbbbfor &a+%money%"
+    cancelled: "&#bbbbbbCancelled order and refunded &a%refund%"
     collected: "&#bbbbbbCollected &#ff88ff%amount%x %item%"
     nothing-to-collect: "&cThere are no items to collect"
     inventory-full: "&cYour inventory is full"
