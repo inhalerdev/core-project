@@ -8,6 +8,8 @@ import net.mineacle.core.bootstrap.ModuleManager;
 import net.mineacle.core.bounty.BountyModule;
 import net.mineacle.core.chat.ChatModule;
 import net.mineacle.core.common.gui.MenuCloseListener;
+import net.mineacle.core.common.sound.GuiSoundListener;
+import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.doublejump.DoubleJumpModule;
 import net.mineacle.core.duels.DuelsModule;
@@ -75,6 +77,10 @@ public final class Core extends JavaPlugin {
                     new MenuCloseListener(this),
                     this
             );
+            getServer().getPluginManager().registerEvents(
+                    new GuiSoundListener(this),
+                    this
+            );
 
             moduleManager = new ModuleManager(this);
             registerModules();
@@ -111,13 +117,15 @@ public final class Core extends JavaPlugin {
             saveHomesFile();
             saveTeamsFile();
             saveEconomyFile();
+            SoundService.clearCache();
 
             moduleManager = null;
             instance = null;
         }
     }
 
-    public void registerModule(Module module) throws Exception {
+    public void registerModule(Module module)
+            throws Exception {
         if (moduleManager == null) {
             throw new IllegalStateException(
                     "ModuleManager is not initialized"
@@ -133,6 +141,7 @@ public final class Core extends JavaPlugin {
         loadHomesFile();
         loadTeamsFile();
         loadEconomyFile();
+        SoundService.clearCache();
     }
 
     public FileConfiguration getMessagesConfig() {
@@ -153,7 +162,9 @@ public final class Core extends JavaPlugin {
 
     public String getMessage(String path) {
         if (messagesConfig == null) {
-            return TextColor.color("&cMissing message: " + path);
+            return TextColor.color(
+                    "&cMissing message: " + path
+            );
         }
 
         String value = messagesConfig.getString(
@@ -220,7 +231,8 @@ public final class Core extends JavaPlugin {
             return;
         }
 
-        if (!getDataFolder().mkdirs() && !getDataFolder().exists()) {
+        if (!getDataFolder().mkdirs()
+                && !getDataFolder().exists()) {
             throw new IllegalStateException(
                     "Could not create MineacleCore data folder"
             );
@@ -229,40 +241,61 @@ public final class Core extends JavaPlugin {
 
     private void loadMessagesFile() {
         ensureDataFolder();
-        messagesFile = new File(getDataFolder(), "messages.yml");
+        messagesFile = new File(
+                getDataFolder(),
+                "messages.yml"
+        );
 
         if (!messagesFile.exists()) {
             saveResource("messages.yml", false);
         }
 
-        messagesConfig = YamlConfiguration.loadConfiguration(messagesFile);
+        messagesConfig =
+                YamlConfiguration.loadConfiguration(
+                        messagesFile
+                );
     }
 
     private void loadHomesFile() {
         ensureDataFolder();
-        homesFile = new File(getDataFolder(), "homes.yml");
+        homesFile = new File(
+                getDataFolder(),
+                "homes.yml"
+        );
 
         if (!homesFile.exists()) {
             saveResource("homes.yml", false);
         }
 
-        homesConfig = YamlConfiguration.loadConfiguration(homesFile);
+        homesConfig =
+                YamlConfiguration.loadConfiguration(
+                        homesFile
+                );
     }
 
     private void loadTeamsFile() {
         ensureDataFolder();
-        teamsFile = new File(getDataFolder(), "teams.yml");
+        teamsFile = new File(
+                getDataFolder(),
+                "teams.yml"
+        );
 
         if (!teamsFile.exists()) {
             saveResource("teams.yml", false);
         }
 
-        teamsConfig = YamlConfiguration.loadConfiguration(teamsFile);
+        teamsConfig =
+                YamlConfiguration.loadConfiguration(
+                        teamsFile
+                );
     }
 
     private void loadEconomyFile() {
         ensureDataFolder();
-        economyFile = new File(getDataFolder(), "economy.yml");
+        economyFile = new File(
+                getDataFolder(),
+                "economy.yml"
+        );
 
         if (!economyFile.exists()) {
             try {
@@ -280,19 +313,34 @@ public final class Core extends JavaPlugin {
             }
         }
 
-        economyConfig = YamlConfiguration.loadConfiguration(economyFile);
+        economyConfig =
+                YamlConfiguration.loadConfiguration(
+                        economyFile
+                );
     }
 
     public void saveHomesFile() {
-        saveYaml(homesConfig, homesFile, "homes.yml");
+        saveYaml(
+                homesConfig,
+                homesFile,
+                "homes.yml"
+        );
     }
 
     public void saveTeamsFile() {
-        saveYaml(teamsConfig, teamsFile, "teams.yml");
+        saveYaml(
+                teamsConfig,
+                teamsFile,
+                "teams.yml"
+        );
     }
 
     public void saveEconomyFile() {
-        saveYaml(economyConfig, economyFile, "economy.yml");
+        saveYaml(
+                economyConfig,
+                economyFile,
+                "economy.yml"
+        );
     }
 
     private void saveYaml(
@@ -318,7 +366,8 @@ public final class Core extends JavaPlugin {
     private long elapsedMillis(long startedAt) {
         return Math.max(
                 0L,
-                (System.nanoTime() - startedAt) / 1_000_000L
+                (System.nanoTime() - startedAt)
+                        / 1_000_000L
         );
     }
 }
