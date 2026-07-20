@@ -5,6 +5,7 @@ import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.rtp.command.OriginRtpCommand;
 import net.mineacle.core.rtp.listener.OriginRtpMoveListener;
 import net.mineacle.core.rtp.listener.RtpMenuListener;
+import net.mineacle.core.rtp.listener.RtpProtectionListener;
 import net.mineacle.core.rtp.service.OriginRtpQueueService;
 import net.mineacle.core.rtp.service.RtpMenuService;
 import org.bukkit.command.PluginCommand;
@@ -48,6 +49,12 @@ public final class RtpModule extends Module {
 
         core.getServer().getPluginManager().registerEvents(
                 new OriginRtpMoveListener(
+                        queueService
+                ),
+                core
+        );
+        core.getServer().getPluginManager().registerEvents(
+                new RtpProtectionListener(
                         queueService
                 ),
                 core

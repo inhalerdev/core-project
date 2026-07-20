@@ -13,16 +13,19 @@ public record OriginRtpSearchSettings(
         String displayName,
         String worldName,
         boolean useWorldBorder,
-        int centerX,
-        int centerZ,
-        int minRadius,
-        int maxRadius,
-        String shape,
-        int minY,
-        int maxY,
-        int maxAttempts,
+        int worldBorderPadding,
+        int fallbackCenterX,
+        int fallbackCenterZ,
+        int fallbackMaximumRadius,
+        int minimumDistanceFromWorldSpawn,
+        int maximumDistanceFromWorldSpawn,
+        int minimumY,
+        int maximumY,
+        int maximumAttempts,
+        int candidatesPerBatch,
         boolean surfaceOnly,
-        int nearbySafetyRadius,
+        int safePlatformRadius,
+        int maximumGroundHeightDifference,
         Set<Material> unsafeBlocks
 ) {
 
@@ -35,24 +38,6 @@ public record OriginRtpSearchSettings(
         );
         String base = "origin-rtp.destinations."
                 + destination;
-        int minimumRadius = Math.max(
-                0,
-                integer(
-                        core,
-                        base + ".search.min-radius",
-                        "origin-rtp.search.min-radius",
-                        250
-                )
-        );
-        int maximumRadius = Math.max(
-                minimumRadius + 1,
-                integer(
-                        core,
-                        base + ".search.max-radius",
-                        "origin-rtp.search.max-radius",
-                        5000
-                )
-        );
         int minimumY = integer(
                 core,
                 base + ".search.min-y",
@@ -70,10 +55,31 @@ public record OriginRtpSearchSettings(
             maximumY = minimumY + 1;
         }
 
-        Set<Material> unsafe = unsafeBlocks(
-                core,
-                base
+        int minimumDistance = Math.max(
+                0,
+                integer(
+                        core,
+                        base
+                                + ".search.minimum-distance-from-world-spawn",
+                        "origin-rtp.search.minimum-distance-from-world-spawn",
+                        1000
+                )
         );
+        int maximumDistance = Math.max(
+                0,
+                integer(
+                        core,
+                        base
+                                + ".search.maximum-distance-from-world-spawn",
+                        "origin-rtp.search.maximum-distance-from-world-spawn",
+                        0
+                )
+        );
+
+        if (maximumDistance > 0
+                && maximumDistance <= minimumDistance) {
+            maximumDistance = 0;
+        }
 
         return new OriginRtpSearchSettings(
                 destination,
@@ -94,6 +100,16 @@ public record OriginRtpSearchSettings(
                                 true
                         )
                 ),
+                Math.max(
+                        0,
+                        integer(
+                                core,
+                                base
+                                        + ".search.world-border-padding",
+                                "origin-rtp.search.world-border-padding",
+                                32
+                        )
+                ),
                 integer(
                         core,
                         base + ".search.center-x",
@@ -106,15 +122,18 @@ public record OriginRtpSearchSettings(
                         "origin-rtp.search.center-z",
                         0
                 ),
-                minimumRadius,
-                maximumRadius,
-                core.getConfig().getString(
-                        base + ".search.shape",
-                        core.getConfig().getString(
-                                "origin-rtp.search.shape",
-                                "circle"
+                Math.max(
+                        1,
+                        integer(
+                                core,
+                                base
+                                        + ".search.fallback-maximum-radius",
+                                "origin-rtp.search.fallback-maximum-radius",
+                                5000
                         )
                 ),
+                minimumDistance,
+                maximumDistance,
                 minimumY,
                 maximumY,
                 Math.max(
@@ -123,7 +142,20 @@ public record OriginRtpSearchSettings(
                                 core,
                                 base + ".search.max-attempts",
                                 "origin-rtp.search.max-attempts",
-                                128
+                                160
+                        )
+                ),
+                Math.max(
+                        1,
+                        Math.min(
+                                8,
+                                integer(
+                                        core,
+                                        base
+                                                + ".search.candidates-per-batch",
+                                        "origin-rtp.search.candidates-per-batch",
+                                        4
+                                )
                         )
                 ),
                 core.getConfig().getBoolean(
@@ -133,30 +165,46 @@ public record OriginRtpSearchSettings(
                 Math.max(
                         0,
                         Math.min(
-                                4,
+                                2,
                                 integer(
                                         core,
-                                        base + ".search.nearby-safety-radius",
-                                        "origin-rtp.search.nearby-safety-radius",
+                                        base
+                                                + ".search.safe-platform-radius",
+                                        "origin-rtp.search.safe-platform-radius",
                                         1
                                 )
                         )
                 ),
-                Set.copyOf(unsafe)
+                Math.max(
+                        0,
+                        Math.min(
+                                4,
+                                integer(
+                                        core,
+                                        base
+                                                + ".search.maximum-ground-height-difference",
+                                        "origin-rtp.search.maximum-ground-height-difference",
+                                        2
+                                )
+                        )
+                ),
+                Set.copyOf(
+                        unsafeBlocks(core, base)
+                )
         );
     }
 
     public int clampedMinimumY(World world) {
         return Math.max(
                 world.getMinHeight(),
-                minY
+                minimumY
         );
     }
 
     public int clampedMaximumY(World world) {
         return Math.min(
                 world.getMaxHeight() - 3,
-                maxY
+                maximumY
         );
     }
 
@@ -244,6 +292,9 @@ public record OriginRtpSearchSettings(
             materials.add(Material.BEDROCK);
             materials.add(Material.SWEET_BERRY_BUSH);
             materials.add(Material.WITHER_ROSE);
+            materials.add(Material.CAMPFIRE);
+            materials.add(Material.SOUL_CAMPFIRE);
+            materials.add(Material.POINTED_DRIPSTONE);
         }
 
         return materials;

@@ -1,6 +1,7 @@
 package net.mineacle.core.rtp.listener;
 
 import net.mineacle.core.rtp.service.OriginRtpQueueService;
+import org.bukkit.Location;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -25,20 +26,33 @@ public final class OriginRtpMoveListener
             ignoreCancelled = true
     )
     public void onMove(PlayerMoveEvent event) {
-        if (event.getTo() == null
-                || event.getFrom().getWorld()
-                == event.getTo().getWorld()
-                && event.getFrom().getX()
-                == event.getTo().getX()
-                && event.getFrom().getY()
-                == event.getTo().getY()
-                && event.getFrom().getZ()
-                == event.getTo().getZ()) {
+        Location to = event.getTo();
+
+        if (to == null
+                || sameBlock(
+                event.getFrom(),
+                to
+        )) {
             return;
         }
 
         queueService.handleMove(
                 event.getPlayer()
+        );
+    }
+
+    @EventHandler(
+            priority = EventPriority.MONITOR,
+            ignoreCancelled = true
+    )
+    public void onTeleport(PlayerTeleportEvent event) {
+        if (event.getTo() == null) {
+            return;
+        }
+
+        queueService.handleTeleport(
+                event.getPlayer(),
+                event.getTo()
         );
     }
 
@@ -51,26 +65,20 @@ public final class OriginRtpMoveListener
         );
     }
 
-    @EventHandler(
-            priority = EventPriority.MONITOR,
-            ignoreCancelled = true
-    )
-    public void onTeleport(PlayerTeleportEvent event) {
-        if (event.getCause()
-                == PlayerTeleportEvent.TeleportCause.PLUGIN) {
-            return;
-        }
-
-        queueService.handleMove(
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onQuit(PlayerQuitEvent event) {
+        queueService.handleQuit(
                 event.getPlayer()
         );
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onQuit(PlayerQuitEvent event) {
-        queueService.cancel(
-                event.getPlayer(),
-                false
-        );
+    private boolean sameBlock(
+            Location from,
+            Location to
+    ) {
+        return from.getWorld() == to.getWorld()
+                && from.getBlockX() == to.getBlockX()
+                && from.getBlockY() == to.getBlockY()
+                && from.getBlockZ() == to.getBlockZ();
     }
 }

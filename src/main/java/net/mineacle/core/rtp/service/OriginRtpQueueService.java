@@ -3,7 +3,6 @@ package net.mineacle.core.rtp.service;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
-import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
@@ -28,11 +27,13 @@ public final class OriginRtpQueueService {
             new ArrayDeque<>();
     private final Deque<UUID> defaultQueue =
             new ArrayDeque<>();
-    private final Deque<UUID> searchQueue =
+    private final Deque<UUID> readyQueue =
             new ArrayDeque<>();
     private final Map<UUID, Session> sessions =
             new HashMap<>();
     private final Map<UUID, Long> cooldowns =
+            new HashMap<>();
+    private final Map<UUID, Long> landingProtection =
             new HashMap<>();
 
     private BukkitTask processorTask;
@@ -77,9 +78,10 @@ public final class OriginRtpQueueService {
 
         plusQueue.clear();
         defaultQueue.clear();
-        searchQueue.clear();
+        readyQueue.clear();
         sessions.clear();
         cooldowns.clear();
+        landingProtection.clear();
         consecutivePlus = 0;
     }
 
@@ -101,7 +103,7 @@ public final class OriginRtpQueueService {
                                 rawDestination
                         );
 
-        if (!isKnownDestination(destination)
+        if (!knownDestination(destination)
                 || !enabled(destination)) {
             error(
                     player,
@@ -152,15 +154,7 @@ public final class OriginRtpQueueService {
         Session session = new Session(request);
         sessions.put(playerId, session);
 
-        if (plus && plusPriority()) {
-            plusQueue.addLast(
-                    request.sessionId()
-            );
-        } else {
-            defaultQueue.addLast(
-                    request.sessionId()
-            );
-        }
+        enqueueSearch(session, false);
 
         send(
                 player,
@@ -199,7 +193,9 @@ public final class OriginRtpQueueService {
             return;
         }
 
-        removeFromQueues(session.request.sessionId());
+        removeFromQueues(
+                session.request.sessionId()
+        );
         session.cancelTasks();
 
         if (sendMessage) {
@@ -217,6 +213,22 @@ public final class OriginRtpQueueService {
         }
     }
 
+    public void handleQuit(Player player) {
+        if (player == null) {
+            return;
+        }
+
+        cancel(player, false);
+        landingProtection.remove(
+                player.getUniqueId()
+        );
+    }
+
+    /**
+     * Movement is intentionally ignored while the destination is being found.
+     * The player's current position is captured only when the final countdown
+     * begins, matching the prepare-first flow used by fixed-destination systems.
+     */
     public void handleMove(Player player) {
         if (player == null) {
             return;
@@ -227,7 +239,7 @@ public final class OriginRtpQueueService {
         );
 
         if (session == null
-                || session.phase == Phase.QUEUED
+                || session.phase != Phase.COUNTDOWN
                 || !cancelOnMove(
                 session.request.destination()
         )) {
@@ -237,6 +249,35 @@ public final class OriginRtpQueueService {
         if (movedTooFar(
                 session.startLocation,
                 player.getLocation(),
+                session.request.destination()
+        )) {
+            cancel(player, true);
+        }
+    }
+
+    public void handleTeleport(
+            Player player,
+            Location destination
+    ) {
+        if (player == null || destination == null) {
+            return;
+        }
+
+        Session session = sessions.get(
+                player.getUniqueId()
+        );
+
+        if (session == null
+                || session.phase != Phase.COUNTDOWN
+                || !cancelOnMove(
+                session.request.destination()
+        )) {
+            return;
+        }
+
+        if (movedTooFar(
+                session.startLocation,
+                destination,
                 session.request.destination()
         )) {
             cancel(player, true);
@@ -269,42 +310,31 @@ public final class OriginRtpQueueService {
         );
     }
 
+    public boolean hasLandingProtection(Player player) {
+        if (player == null) {
+            return false;
+        }
+
+        UUID playerId = player.getUniqueId();
+        Long until = landingProtection.get(playerId);
+
+        if (until == null) {
+            return false;
+        }
+
+        if (until <= System.currentTimeMillis()) {
+            landingProtection.remove(playerId);
+            return false;
+        }
+
+        return true;
+    }
+
     private void process() {
         removeOfflineSessions();
         startCountdowns();
         startSearches();
-        cleanupCooldowns();
-    }
-
-    private void startCountdowns() {
-        int maximum = Math.max(
-                1,
-                core.getConfig().getInt(
-                        "origin-rtp.queue.max-countdowns-at-once",
-                        3
-                )
-        );
-
-        while (countPhase(Phase.COUNTDOWN) < maximum) {
-            Session session = pollNextQueued();
-
-            if (session == null) {
-                return;
-            }
-
-            Player player = Bukkit.getPlayer(
-                    session.request.playerId()
-            );
-
-            if (player == null || !player.isOnline()) {
-                sessions.remove(
-                        session.request.playerId()
-                );
-                continue;
-            }
-
-            beginCountdown(player, session);
-        }
+        cleanupExpiringState();
     }
 
     private void startSearches() {
@@ -317,18 +347,10 @@ public final class OriginRtpQueueService {
         );
 
         while (countPhase(Phase.SEARCHING) < maximum) {
-            UUID sessionId = searchQueue.pollFirst();
+            Session session = pollNextQueued();
 
-            if (sessionId == null) {
+            if (session == null) {
                 return;
-            }
-
-            Session session = sessionById(sessionId);
-
-            if (session == null
-                    || session.phase
-                    != Phase.WAITING_SEARCH) {
-                continue;
             }
 
             Player player = Bukkit.getPlayer(
@@ -344,6 +366,46 @@ public final class OriginRtpQueueService {
             }
 
             beginSearch(player, session);
+        }
+    }
+
+    private void startCountdowns() {
+        int maximum = Math.max(
+                1,
+                core.getConfig().getInt(
+                        "origin-rtp.queue.max-countdowns-at-once",
+                        3
+                )
+        );
+
+        while (countPhase(Phase.COUNTDOWN) < maximum) {
+            UUID sessionId = readyQueue.pollFirst();
+
+            if (sessionId == null) {
+                return;
+            }
+
+            Session session = sessionById(sessionId);
+
+            if (session == null
+                    || session.phase != Phase.READY
+                    || session.reservedLocation == null) {
+                continue;
+            }
+
+            Player player = Bukkit.getPlayer(
+                    session.request.playerId()
+            );
+
+            if (player == null || !player.isOnline()) {
+                sessions.remove(
+                        session.request.playerId()
+                );
+                session.cancelTasks();
+                continue;
+            }
+
+            beginCountdown(player, session);
         }
     }
 
@@ -382,6 +444,143 @@ public final class OriginRtpQueueService {
         return session;
     }
 
+    private void beginSearch(
+            Player player,
+            Session session
+    ) {
+        session.phase = Phase.SEARCHING;
+
+        sendActionBar(
+                player,
+                message(
+                        session.request.destination(),
+                        "searching"
+                )
+        );
+
+        CompletableFuture<Location> future =
+                locationService.findSafeLocation(
+                        session.request.destination()
+                );
+        session.searchFuture = future;
+
+        UUID playerId = player.getUniqueId();
+        UUID sessionId =
+                session.request.sessionId();
+        int timeoutSeconds = Math.max(
+                5,
+                core.getConfig().getInt(
+                        "origin-rtp.search.timeout-seconds",
+                        30
+                )
+        );
+
+        session.searchTimeoutTask = core.getServer()
+                .getScheduler()
+                .runTaskLater(
+                        core,
+                        () -> timeoutSearch(
+                                playerId,
+                                sessionId
+                        ),
+                        timeoutSeconds * 20L
+                );
+
+        future.whenComplete(
+                (location, throwable) ->
+                        Bukkit.getScheduler().runTask(
+                                core,
+                                () -> completeSearch(
+                                        playerId,
+                                        sessionId,
+                                        location,
+                                        throwable
+                                )
+                        )
+        );
+    }
+
+    private void completeSearch(
+            UUID playerId,
+            UUID sessionId,
+            Location location,
+            Throwable throwable
+    ) {
+        Session session = sessions.get(playerId);
+
+        if (session == null
+                || !session.request.sessionId()
+                .equals(sessionId)
+                || session.phase != Phase.SEARCHING) {
+            return;
+        }
+
+        session.cancelSearchTimeout();
+        session.searchFuture = null;
+
+        Player player = Bukkit.getPlayer(playerId);
+
+        if (player == null || !player.isOnline()) {
+            sessions.remove(playerId);
+            session.cancelTasks();
+            return;
+        }
+
+        if (throwable != null || location == null) {
+            sessions.remove(playerId);
+            session.cancelTasks();
+            error(
+                    player,
+                    message(
+                            session.request.destination(),
+                            "failed"
+                    )
+            );
+            return;
+        }
+
+        session.reservedLocation = location;
+        session.phase = Phase.READY;
+        readyQueue.addLast(sessionId);
+
+        sendActionBar(
+                player,
+                message(
+                        session.request.destination(),
+                        "location-ready"
+                )
+        );
+    }
+
+    private void timeoutSearch(
+            UUID playerId,
+            UUID sessionId
+    ) {
+        Session session = sessions.get(playerId);
+
+        if (session == null
+                || !session.request.sessionId()
+                .equals(sessionId)
+                || session.phase != Phase.SEARCHING) {
+            return;
+        }
+
+        sessions.remove(playerId);
+        session.cancelTasks();
+
+        Player player = Bukkit.getPlayer(playerId);
+
+        if (player != null && player.isOnline()) {
+            error(
+                    player,
+                    message(
+                            session.request.destination(),
+                            "failed"
+                    )
+            );
+        }
+    }
+
     private void beginCountdown(
             Player player,
             Session session
@@ -395,7 +594,10 @@ public final class OriginRtpQueueService {
                         : defaultDelaySeconds();
 
         if (session.secondsRemaining <= 0) {
-            queueSearch(session);
+            finishTeleport(
+                    player.getUniqueId(),
+                    session.request.sessionId()
+            );
             return;
         }
 
@@ -460,12 +662,7 @@ public final class OriginRtpQueueService {
         session.secondsRemaining--;
 
         if (session.secondsRemaining <= 0) {
-            if (session.countdownTask != null) {
-                session.countdownTask.cancel();
-                session.countdownTask = null;
-            }
-
-            queueSearch(session);
+            finishTeleport(playerId, sessionId);
             return;
         }
 
@@ -482,63 +679,22 @@ public final class OriginRtpQueueService {
         );
     }
 
-    private void queueSearch(Session session) {
-        session.phase = Phase.WAITING_SEARCH;
-        searchQueue.addLast(
-                session.request.sessionId()
-        );
-    }
-
-    private void beginSearch(
-            Player player,
-            Session session
-    ) {
-        session.phase = Phase.SEARCHING;
-
-        sendActionBar(
-                player,
-                message(
-                        session.request.destination(),
-                        "searching"
-                )
-        );
-
-        CompletableFuture<Location> future =
-                locationService.findSafeLocation(
-                        session.request.destination()
-                );
-        session.searchFuture = future;
-        UUID playerId = player.getUniqueId();
-        UUID sessionId =
-                session.request.sessionId();
-
-        future.whenComplete(
-                (location, throwable) ->
-                        Bukkit.getScheduler().runTask(
-                                core,
-                                () -> completeSearch(
-                                        playerId,
-                                        sessionId,
-                                        location,
-                                        throwable
-                                )
-                        )
-        );
-    }
-
-    private void completeSearch(
+    private void finishTeleport(
             UUID playerId,
-            UUID sessionId,
-            Location location,
-            Throwable throwable
+            UUID sessionId
     ) {
         Session session = sessions.get(playerId);
 
         if (session == null
                 || !session.request.sessionId()
                 .equals(sessionId)
-                || session.phase != Phase.SEARCHING) {
+                || session.phase != Phase.COUNTDOWN) {
             return;
+        }
+
+        if (session.countdownTask != null) {
+            session.countdownTask.cancel();
+            session.countdownTask = null;
         }
 
         Player player = Bukkit.getPlayer(playerId);
@@ -561,20 +717,34 @@ public final class OriginRtpQueueService {
             return;
         }
 
-        if (throwable != null || location == null) {
-            sessions.remove(playerId);
-            session.cancelTasks();
-            error(
+        Location validated =
+                locationService.revalidateReservedLocation(
+                        session.reservedLocation,
+                        session.request.destination()
+                );
+
+        /*
+         * The border may have changed during the countdown. Re-search with
+         * the same session instead of teleporting outside the live border.
+         */
+        if (validated == null) {
+            session.reservedLocation = null;
+            session.startLocation = null;
+            session.phase = Phase.QUEUED;
+            enqueueSearch(session, true);
+
+            sendActionBar(
                     player,
                     message(
                             session.request.destination(),
-                            "failed"
+                            "searching-again"
                     )
             );
             return;
         }
 
-        boolean teleported = player.teleport(location);
+        session.phase = Phase.TELEPORTING;
+        boolean teleported = player.teleport(validated);
 
         if (!teleported) {
             sessions.remove(playerId);
@@ -592,6 +762,7 @@ public final class OriginRtpQueueService {
         sessions.remove(playerId);
         session.cancelTasks();
         applyCooldown(player);
+        applyLandingProtection(player);
 
         send(
                 player,
@@ -604,6 +775,26 @@ public final class OriginRtpQueueService {
                 player,
                 core
         );
+    }
+
+    private void enqueueSearch(
+            Session session,
+            boolean first
+    ) {
+        session.phase = Phase.QUEUED;
+        UUID sessionId =
+                session.request.sessionId();
+        Deque<UUID> queue =
+                session.request.plus()
+                        && plusPriority()
+                        ? plusQueue
+                        : defaultQueue;
+
+        if (first) {
+            queue.addFirst(sessionId);
+        } else {
+            queue.addLast(sessionId);
+        }
     }
 
     private void removeOfflineSessions() {
@@ -633,7 +824,7 @@ public final class OriginRtpQueueService {
     private void removeFromQueues(UUID sessionId) {
         plusQueue.remove(sessionId);
         defaultQueue.remove(sessionId);
-        searchQueue.remove(sessionId);
+        readyQueue.remove(sessionId);
     }
 
     private Session sessionById(UUID sessionId) {
@@ -718,7 +909,7 @@ public final class OriginRtpQueueService {
         );
     }
 
-    private boolean isKnownDestination(
+    private boolean knownDestination(
             String destination
     ) {
         return destination.equals("overworld")
@@ -827,15 +1018,14 @@ public final class OriginRtpQueueService {
     }
 
     private void applyCooldown(Player player) {
+        String permission = core.getConfig().getString(
+                "origin-rtp.plus.permission",
+                "mineacle.plus"
+        );
         int seconds = Math.max(
                 0,
                 core.getConfig().getInt(
-                        player.hasPermission(
-                                core.getConfig().getString(
-                                        "origin-rtp.plus.permission",
-                                        "mineacle.plus"
-                                )
-                        )
+                        player.hasPermission(permission)
                                 ? "origin-rtp.cooldown.plus-seconds"
                                 : "origin-rtp.cooldown.default-seconds",
                         0
@@ -856,9 +1046,37 @@ public final class OriginRtpQueueService {
         );
     }
 
-    private void cleanupCooldowns() {
+    private void applyLandingProtection(Player player) {
+        int seconds = Math.max(
+                0,
+                core.getConfig().getInt(
+                        "origin-rtp.teleport."
+                                + "post-teleport-protection-seconds",
+                        5
+                )
+        );
+
+        if (seconds <= 0) {
+            landingProtection.remove(
+                    player.getUniqueId()
+            );
+            return;
+        }
+
+        landingProtection.put(
+                player.getUniqueId(),
+                System.currentTimeMillis()
+                        + seconds * 1000L
+        );
+    }
+
+    private void cleanupExpiringState() {
         long now = System.currentTimeMillis();
+
         cooldowns.entrySet().removeIf(
+                entry -> entry.getValue() <= now
+        );
+        landingProtection.entrySet().removeIf(
                 entry -> entry.getValue() <= now
         );
     }
@@ -952,22 +1170,32 @@ public final class OriginRtpQueueService {
 
     private enum Phase {
         QUEUED,
+        SEARCHING,
+        READY,
         COUNTDOWN,
-        WAITING_SEARCH,
-        SEARCHING
+        TELEPORTING
     }
 
     private static final class Session {
 
         private final OriginRtpRequest request;
         private Phase phase = Phase.QUEUED;
+        private Location reservedLocation;
         private Location startLocation;
         private int secondsRemaining;
         private BukkitTask countdownTask;
+        private BukkitTask searchTimeoutTask;
         private CompletableFuture<Location> searchFuture;
 
         private Session(OriginRtpRequest request) {
             this.request = request;
+        }
+
+        private void cancelSearchTimeout() {
+            if (searchTimeoutTask != null) {
+                searchTimeoutTask.cancel();
+                searchTimeoutTask = null;
+            }
         }
 
         private void cancelTasks() {
@@ -975,6 +1203,8 @@ public final class OriginRtpQueueService {
                 countdownTask.cancel();
                 countdownTask = null;
             }
+
+            cancelSearchTimeout();
 
             if (searchFuture != null
                     && !searchFuture.isDone()) {

@@ -142,21 +142,26 @@ origin-rtp:
     plus-seconds: 0
   queue:
     process-every-ticks: 10
-    max-countdowns-at-once: 3
     max-searches-at-once: 2
+    max-countdowns-at-once: 3
     plus-priority-burst: 3
   teleport:
     cancel-on-move: true
     cancel-distance: 2.0
+    post-teleport-protection-seconds: 5
   search:
     use-world-border: true
+    world-border-padding: 32
+    minimum-distance-from-world-spawn: 1000
+    maximum-distance-from-world-spawn: 0
     center-x: 0
     center-z: 0
-    min-radius: 250
-    max-radius: 5000
-    shape: circle
-    max-attempts: 128
-    nearby-safety-radius: 1
+    fallback-maximum-radius: 5000
+    candidates-per-batch: 4
+    max-attempts: 160
+    timeout-seconds: 30
+    safe-platform-radius: 1
+    maximum-ground-height-difference: 2
   unsafe-blocks:
   - WATER
   - LAVA
@@ -168,6 +173,9 @@ origin-rtp:
   - BEDROCK
   - SWEET_BERRY_BUSH
   - WITHER_ROSE
+  - CAMPFIRE
+  - SOUL_CAMPFIRE
+  - POINTED_DRIPSTONE
   destinations:
     overworld:
       enabled: true
@@ -198,8 +206,10 @@ origin-rtp:
     already-active: '&cYou already have an active random teleport'
     queued: '&#bbbbbbQueued for &#ff88ff%world% RTP &#bbbbbb— position &#ff88ff%position%'
     cooldown: '&cYou can use random teleport again in %seconds%s'
+    searching: '&#bbbbbbFinding a safe random &#ff88ff%world% &#bbbbbblocation'
+    location-ready: '&#bbbbbbSafe location found — preparing teleport'
     countdown: '&#bbbbbbTeleporting to &#ff88ff%world% &#bbbbbbin &#ff88ff%seconds%s'
-    searching: '&#bbbbbbSearching for a safe &#ff88ff%world% &#bbbbbblocation'
+    searching-again: '&#bbbbbbWorld border changed — finding another safe location'
     failed: '&cCould not find a safe random teleport location'
     teleported: '&#bbbbbbTeleported to a random &#ff88ff%world% &#bbbbbblocation'
     cancelled-move: '&cTeleport cancelled — you moved'
