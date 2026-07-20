@@ -1,6 +1,14 @@
 enabled: true
-update-interval-seconds: 1
-update-interval-ticks: 2
+
+updates:
+  # Rebuild rank, nickname, colors, and visibility once per second.
+  content-ticks: 20
+
+  # Follow the player's live bounding box for crouching, swimming, and gliding.
+  movement-ticks: 2
+
+  # Remove stale display entities and empty Mineacle scoreboard teams.
+  cleanup-ticks: 600
 
 worlds:
   enabled: false
@@ -8,16 +16,18 @@ worlds:
     - spawn1
     - spawn2
     - spawn3
-    - origins
-    - origins_nether
-    - origins_the_end
+    - overworld
+    - overworld_nether
+    - overworld_the_end
 
 rank:
   enabled: true
   use-placeholderapi: true
   placeholder: "%luckperms_prefix%"
   fallback: ""
-  space-after-prefix: false
+
+  # Java enforces exactly one visible space after every non-empty rank
+  separator: " "
 
 name-color:
   enabled: true
@@ -26,6 +36,15 @@ name-color:
 
 suffix: ""
 
-limits:
-  prefix: 64
-  suffix: 64
+display:
+  # Calculated from the player's current bounding-box maximum
+  vertical-offset: 0.32
+  view-range: 1.0
+  line-width: 200
+  shadowed: true
+  see-through: false
+  default-background: false
+
+collision:
+  # Mineacle nametag teams also disable player collision
+  disabled: true

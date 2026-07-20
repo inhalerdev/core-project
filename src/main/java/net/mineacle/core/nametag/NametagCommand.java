@@ -10,51 +10,92 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
 import java.util.List;
+import java.util.Locale;
 
-public final class NametagCommand implements CommandExecutor, TabCompleter {
+public final class NametagCommand
+        implements CommandExecutor, TabCompleter {
 
     private final Core core;
     private final NametagService service;
 
-    public NametagCommand(Core core, NametagService service) {
+    public NametagCommand(
+            Core core,
+            NametagService service
+    ) {
         this.core = core;
         this.service = service;
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!sender.hasPermission("mineaclenametags.admin")) {
-            sender.sendMessage(TextColor.color("&cYou do not have permission"));
-
-            if (sender instanceof Player player) {
-                SoundService.guiError(player, core);
-            }
-
+    public boolean onCommand(
+            CommandSender sender,
+            Command command,
+            String label,
+            String[] args
+    ) {
+        if (!sender.hasPermission(
+                "mineaclenametags.admin"
+        )) {
+            error(
+                    sender,
+                    core.getMessage("general.no-permission")
+            );
             return true;
         }
 
-        if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
-            service.reload();
-            service.refreshAll();
-            sender.sendMessage(TextColor.color("&#bbbbbbNametags reloaded"));
-
-            if (sender instanceof Player player) {
-                SoundService.guiConfirm(player, core);
-            }
-
+        if (args.length != 1
+                || !args[0].equalsIgnoreCase("reload")) {
+            error(
+                    sender,
+                    "&#bbbbbbUsage: &d/mineaclenametags reload"
+            );
             return true;
         }
 
-        sender.sendMessage(TextColor.color("&#bbbbbbUsage: &#ff88ff/nametags reload"));
+        service.reload();
+        service.refreshAll();
+
+        sender.sendMessage(TextColor.color(
+                "&#bbbbbbNametags reloaded"
+        ));
+
+        if (sender instanceof Player player) {
+            SoundService.guiConfirm(player, core);
+        }
+
         return true;
     }
 
     @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 1 && sender.hasPermission("mineaclenametags.admin") && "reload".startsWith(args[0].toLowerCase())) {
-            return List.of("reload");
+    public List<String> onTabComplete(
+            CommandSender sender,
+            Command command,
+            String alias,
+            String[] args
+    ) {
+        if (!sender.hasPermission(
+                "mineaclenametags.admin"
+        )
+                || args.length != 1) {
+            return List.of();
         }
 
-        return List.of();
+        String partial = args[0]
+                .toLowerCase(Locale.ROOT);
+
+        return "reload".startsWith(partial)
+                ? List.of("reload")
+                : List.of();
+    }
+
+    private void error(
+            CommandSender sender,
+            String message
+    ) {
+        sender.sendMessage(TextColor.color(message));
+
+        if (sender instanceof Player player) {
+            SoundService.guiError(player, core);
+        }
     }
 }

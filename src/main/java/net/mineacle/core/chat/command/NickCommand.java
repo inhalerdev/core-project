@@ -97,7 +97,7 @@ public final class NickCommand
                     "&#bbbbbbYour nickname has been reset"
             ));
             SoundService.guiConfirm(player, core);
-            NametagModule.refreshAll();
+            NametagModule.refresh(player);
             return true;
         }
 
@@ -114,7 +114,7 @@ public final class NickCommand
                                 + nicknameService.displayName(player)
                 ));
                 SoundService.guiConfirm(player, core);
-                NametagModule.refreshAll();
+                NametagModule.refresh(player);
             }
             case UNCHANGED -> player.sendMessage(TextColor.color(
                     "&#bbbbbbYour nickname is already &#bbbbbb"
@@ -166,6 +166,7 @@ public final class NickCommand
 
     private boolean isReset(String input) {
         String normalized = input.toLowerCase(Locale.ROOT);
+
         return normalized.equals("reset")
                 || normalized.equals("clear")
                 || normalized.equals("off");

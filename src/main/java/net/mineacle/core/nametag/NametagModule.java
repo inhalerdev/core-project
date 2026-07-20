@@ -10,7 +10,8 @@ public final class NametagModule extends Module {
 
     private static NametagService service;
 
-    private BukkitTask refreshTask;
+    private BukkitTask contentTask;
+    private BukkitTask movementTask;
     private BukkitTask cleanupTask;
 
     @Override
@@ -26,6 +27,7 @@ public final class NametagModule extends Module {
                 core.getCommand("mineaclenametags");
 
         if (command == null) {
+            service.clear();
             service = null;
             throw new IllegalStateException(
                     "Missing command in plugin.yml: mineaclenametags"
@@ -42,18 +44,21 @@ public final class NametagModule extends Module {
                 core
         );
 
-        long interval = Math.max(
-                1L,
-                service.updateIntervalTicks()
-        );
-
-        refreshTask = core.getServer()
+        contentTask = core.getServer()
                 .getScheduler()
                 .runTaskTimer(
                         core,
                         service::refreshAll,
                         5L,
-                        interval
+                        service.contentUpdateTicks()
+                );
+        movementTask = core.getServer()
+                .getScheduler()
+                .runTaskTimer(
+                        core,
+                        service::tickPositions,
+                        2L,
+                        service.movementUpdateTicks()
                 );
         cleanupTask = core.getServer()
                 .getScheduler()
@@ -61,7 +66,7 @@ public final class NametagModule extends Module {
                         core,
                         service::removeOrphanDisplays,
                         200L,
-                        600L
+                        service.cleanupIntervalTicks()
                 );
 
         service.refreshAll();
@@ -69,15 +74,13 @@ public final class NametagModule extends Module {
 
     @Override
     public void disable() {
-        if (refreshTask != null) {
-            refreshTask.cancel();
-            refreshTask = null;
-        }
+        cancel(contentTask);
+        cancel(movementTask);
+        cancel(cleanupTask);
 
-        if (cleanupTask != null) {
-            cleanupTask.cancel();
-            cleanupTask = null;
-        }
+        contentTask = null;
+        movementTask = null;
+        cleanupTask = null;
 
         if (service != null) {
             service.clear();
@@ -94,6 +97,18 @@ public final class NametagModule extends Module {
     public static void refresh(Player player) {
         if (service != null && player != null) {
             service.refresh(player);
+        }
+    }
+
+    public static void refreshViewer(Player viewer) {
+        if (service != null && viewer != null) {
+            service.refreshViewer(viewer);
+        }
+    }
+
+    private void cancel(BukkitTask task) {
+        if (task != null) {
+            task.cancel();
         }
     }
 }

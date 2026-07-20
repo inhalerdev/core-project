@@ -66,13 +66,13 @@ public final class DisplayNames {
     }
 
     /**
-     * Rank prefixes retain their configured styling. The player identity
-     * following the prefix always resets to Mineacle neutral.
+     * Rank prefixes retain their configured styling. Exactly one visible
+     * space is inserted before the Mineacle display name.
      */
     public static String prefixedDisplayName(
             OfflinePlayer player
     ) {
-        return luckPermsPrefix(player)
+        return luckPermsPrefixWithSpace(player)
                 + "&#bbbbbb"
                 + displayName(player);
     }
@@ -176,10 +176,21 @@ public final class DisplayNames {
                 return "";
             }
 
-            return parsed;
+            /*
+             * Mineacle rank prefixes always end with exactly one visible
+             * separator before the display name. This also repairs console
+             * formatting paths that call luckPermsPrefix(...) directly.
+             */
+            return parsed.replaceFirst("\\s+$", "") + " ";
         } catch (Throwable ignored) {
             return "";
         }
+    }
+
+    public static String luckPermsPrefixWithSpace(
+            OfflinePlayer player
+    ) {
+        return luckPermsPrefix(player);
     }
 
     private static String normalize(String input) {

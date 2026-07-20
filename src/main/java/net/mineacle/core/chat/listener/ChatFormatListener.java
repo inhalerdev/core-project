@@ -104,7 +104,7 @@ public final class ChatFormatListener implements Listener {
             String message
     ) {
         Component identity = legacyPrefix(
-                DisplayNames.luckPermsPrefix(sender)
+                DisplayNames.luckPermsPrefixWithSpace(sender)
         ).append(
                 neutral(DisplayNames.displayName(sender))
         ).hoverEvent(
