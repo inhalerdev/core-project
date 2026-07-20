@@ -1,8 +1,5 @@
 # MineacleCore command security
-#
-# Bukkit, plugin.yml, and LuckPerms decide whether commands can execute.
-# Security filters root visibility only and must never replace command-specific
-# argument completion after a space.
+# Root visibility only — argument completion remains command-owned
 
 enabled: true
 bypass-permission: mineaclesecurity.bypass
@@ -231,6 +228,7 @@ groups:
     - mineaclesecurity
     - mineacleworldmaintenance
     - mute
+    - originrtp
     - realname
     - setwarp
     - speed

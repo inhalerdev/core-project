@@ -131,17 +131,52 @@ placeholders:
     datetime-format: MM/dd/yy | hh:mm
 origin-rtp:
   enabled: true
-  world: overworld
+  plus:
+    permission: mineacle.plus
+    priority: true
+    delay-seconds: 3
+  default:
+    delay-seconds: 5
+  cooldown:
+    default-seconds: 0
+    plus-seconds: 0
+  queue:
+    process-every-ticks: 10
+    max-countdowns-at-once: 3
+    max-searches-at-once: 2
+    plus-priority-burst: 3
+  teleport:
+    cancel-on-move: true
+    cancel-distance: 2.0
+  search:
+    use-world-border: true
+    center-x: 0
+    center-z: 0
+    min-radius: 250
+    max-radius: 5000
+    shape: circle
+    max-attempts: 128
+    nearby-safety-radius: 1
+  unsafe-blocks:
+  - WATER
+  - LAVA
+  - FIRE
+  - SOUL_FIRE
+  - CACTUS
+  - MAGMA_BLOCK
+  - POWDER_SNOW
+  - BEDROCK
+  - SWEET_BERRY_BUSH
+  - WITHER_ROSE
   destinations:
-    origins:
+    overworld:
       enabled: true
       display-name: Overworld
       world: overworld
       search:
-        min-y: 64
-        max-y: 320
-        min-radius: 5000
-        max-radius: 48000
+        min-y: 60
+        max-y: 319
+        surface-only: true
     nether:
       enabled: true
       display-name: Nether
@@ -149,76 +184,25 @@ origin-rtp:
       search:
         min-y: 32
         max-y: 118
-        min-radius: 5000
-        max-radius: 48000
+        surface-only: false
     end:
       enabled: true
-      display-name: End
+      display-name: The End
       world: overworld_the_end
       search:
         min-y: 48
-        max-y: 256
-        min-radius: 5000
-        max-radius: 48000
-  queue:
-    enabled: true
-    process-every-ticks: 10
-    max-processing-at-once: 2
-    default:
-      delay-seconds: 5
-    plus:
-      permission: mineacle.plus
-      delay-seconds: 3
-      priority: true
-  teleport:
-    cancel-on-move: true
-    cancel-distance: 2.0
-  search:
-    use-world-border: false
-    center-x: 0
-    center-z: 1
-    min-radius: 5000
-    max-radius: 48000
-    shape: square
-    min-y: 64
-    max-y: 320
-    max-attempts: 768
-    preload-radius: 1
-    respect-worldguard: false
-    unsafe-blocks:
-    - AIR
-    - CAVE_AIR
-    - VOID_AIR
-    - WATER
-    - LAVA
-    - FIRE
-    - SOUL_FIRE
-    - CACTUS
-    - MAGMA_BLOCK
-    - POWDER_SNOW
-    - BEDROCK
-    - KELP
-    - KELP_PLANT
-    - OAK_LEAVES
-    - SPRUCE_LEAVES
-    - BIRCH_LEAVES
-    - JUNGLE_LEAVES
-    - ACACIA_LEAVES
-    - DARK_OAK_LEAVES
-    - MANGROVE_LEAVES
-    - CHERRY_LEAVES
-    - AZALEA_LEAVES
-    - FLOWERING_AZALEA_LEAVES
+        max-y: 255
+        surface-only: true
   messages:
-    disabled: '&cRTP is disabled'
-    already-queued: '&#ff88ffQueue&#bbbbbb: You are already in the random teleport queue'
-    queued: '&#ff88ffQueue&#bbbbbb: Finding a safe spot in &d%world%'
-    queued-position: '&#ff88ffQueue&#bbbbbb: Position &d#%position% &#bbbbbbfor &d%world%'
-    countdown: '&#bbbbbbTeleporting to &d%world% &#bbbbbbin &d%seconds%s'
-    cancelled: '&cTeleport cancelled — you moved'
-    searching: '&#ff88ffQueue&#bbbbbb: Finding a safe spot in &d%world%'
-    failed: '&#bbbbbbCould not find a &csafe &#bbbbbbspot in &d%world%'
-    teleported: '&#bbbbbbTeleported to &d%world%'
+    disabled: '&cRandom teleport is unavailable for %world%'
+    already-active: '&cYou already have an active random teleport'
+    queued: '&#bbbbbbQueued for &#ff88ff%world% RTP &#bbbbbb— position &#ff88ff%position%'
+    cooldown: '&cYou can use random teleport again in %seconds%s'
+    countdown: '&#bbbbbbTeleporting to &#ff88ff%world% &#bbbbbbin &#ff88ff%seconds%s'
+    searching: '&#bbbbbbSearching for a safe &#ff88ff%world% &#bbbbbblocation'
+    failed: '&cCould not find a safe random teleport location'
+    teleported: '&#bbbbbbTeleported to a random &#ff88ff%world% &#bbbbbblocation'
+    cancelled-move: '&cTeleport cancelled — you moved'
 double-jump:
   enabled: true
   worlds:

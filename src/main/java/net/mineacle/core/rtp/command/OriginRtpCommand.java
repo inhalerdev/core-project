@@ -1,12 +1,13 @@
 package net.mineacle.core.rtp.command;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
+import net.mineacle.core.common.player.DisplayNames;
+import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.rtp.gui.RtpMenuGui;
 import net.mineacle.core.rtp.service.OriginRtpQueueService;
+import net.mineacle.core.rtp.service.OriginRtpSearchSettings;
 import net.mineacle.core.rtp.service.RtpMenuService;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -16,160 +17,373 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
-public final class OriginRtpCommand implements CommandExecutor, TabCompleter {
+public final class OriginRtpCommand
+        implements CommandExecutor, TabCompleter {
 
-    private static final List<String> DESTINATIONS = List.of("origins", "nether", "end");
+    private static final List<String> DESTINATIONS =
+            List.of(
+                    "overworld",
+                    "nether",
+                    "end"
+            );
 
     private final Core core;
     private final OriginRtpQueueService queueService;
     private final RtpMenuService menuService;
 
-    public OriginRtpCommand(Core core, OriginRtpQueueService queueService, RtpMenuService menuService) {
+    public OriginRtpCommand(
+            Core core,
+            OriginRtpQueueService queueService,
+            RtpMenuService menuService
+    ) {
         this.core = core;
         this.queueService = queueService;
         this.menuService = menuService;
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public boolean onCommand(
+            CommandSender sender,
+            Command command,
+            String label,
+            String[] args
+    ) {
+        boolean canonicalAdminRoot =
+                label.equalsIgnoreCase("originrtp");
+
         if (!(sender instanceof Player player)) {
-            if (args.length < 1) {
-                sender.sendMessage("Usage: /originrtp <player> [origins|nether|end]");
-                return true;
-            }
-
-            Player target = Bukkit.getPlayerExact(args[0]);
-
-            if (target == null) {
-                sender.sendMessage(TextColor.color("&cThat player is not online"));
-                return true;
-            }
-
-            String destination = args.length >= 2 ? normalizeDestination(args[1]) : "origins";
-
-            if (destination == null) {
-                sender.sendMessage(TextColor.color("&cUsage: /originrtp <player> [origins|nether|end]"));
-                return true;
-            }
-
-            queueService.request(target, destination);
-            return true;
+            return handleConsole(
+                    sender,
+                    args
+            );
         }
 
         if (!player.hasPermission("mineaclertp.use")) {
-            send(player, "§cYou do not have permission");
+            error(
+                    player,
+                    core.getMessage("general.no-permission")
+            );
             return true;
+        }
+
+        if (canonicalAdminRoot
+                && player.hasPermission(
+                "mineaclertp.admin"
+        )
+                && args.length == 1
+                && args[0].equalsIgnoreCase("reload")) {
+            reload(player);
+            return true;
+        }
+
+        if (canonicalAdminRoot
+                && player.hasPermission(
+                "mineaclertp.admin"
+        )
+                && args.length >= 1
+                && !knownDestination(args[0])) {
+            return handleTarget(
+                    player,
+                    args
+            );
         }
 
         if (args.length == 0) {
-            MenuHistory.openRoot(core, player, () -> RtpMenuGui.open(player, menuService, RtpMenuGui.ORIGINS));
+            MenuHistory.openRoot(
+                    core,
+                    player,
+                    () -> RtpMenuGui.open(
+                            player,
+                            menuService
+                    )
+            );
             return true;
         }
 
-        String destination = normalizeDestination(args[0]);
-
-        if (destination != null) {
-            queueService.request(player, destination);
+        if (args.length != 1
+                || !knownDestination(args[0])) {
+            usage(player);
             return true;
         }
 
-        if (!player.hasPermission("mineaclertp.admin")) {
-            send(player, "§cYou do not have permission");
+        queueService.request(
+                player,
+                canonicalDestination(args[0])
+        );
+        return true;
+    }
+
+    private boolean handleConsole(
+            CommandSender sender,
+            String[] args
+    ) {
+        if (args.length == 1
+                && args[0].equalsIgnoreCase("reload")) {
+            core.reloadConfig();
+            menuService.reload();
+            sender.sendMessage(
+                    TextColor.color(
+                            "&#bbbbbbRTP reloaded"
+                    )
+            );
             return true;
         }
 
-        Player target = Bukkit.getPlayerExact(args[0]);
+        if (args.length < 1 || args.length > 2) {
+            sender.sendMessage(
+                    TextColor.color(
+                            "&#bbbbbbUsage: &d/originrtp "
+                                    + "<player> "
+                                    + "[overworld|nether|end]"
+                    )
+            );
+            return true;
+        }
+
+        Player target = DisplayNames.resolveOnline(
+                args[0]
+        );
 
         if (target == null) {
-            player.sendMessage(TextColor.color("&cThat player is not online"));
+            sender.sendMessage(
+                    TextColor.color(
+                            "&cThat player is not online"
+                    )
+            );
             return true;
         }
 
-        destination = args.length >= 2 ? normalizeDestination(args[1]) : "origins";
+        String destination = args.length == 2
+                ? canonicalDestination(args[1])
+                : "overworld";
 
-        if (destination == null) {
-            player.sendMessage(TextColor.color("&cUsage: /originrtp <player> [origins|nether|end]"));
+        if (!knownDestination(destination)) {
+            sender.sendMessage(
+                    TextColor.color(
+                            "&cUnknown RTP destination"
+                    )
+            );
             return true;
         }
 
         queueService.request(target, destination);
+        sender.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbQueued &#ff88ff"
+                                + DisplayNames.displayName(target)
+                                + " &#bbbbbbfor "
+                                + "&#ff88ff"
+                                + displayName(destination)
+                                + " RTP"
+                )
+        );
         return true;
     }
 
-    private String normalizeDestination(String input) {
-        if (input == null || input.isBlank()) {
-            return null;
+    private boolean handleTarget(
+            Player sender,
+            String[] args
+    ) {
+        if (args.length > 2) {
+            adminUsage(sender);
+            return true;
         }
 
-        String value = input.toLowerCase(Locale.ROOT);
+        Player target = DisplayNames.resolveOnline(
+                args[0]
+        );
 
-        if (value.equals("origin") || value.equals("overworld") || value.equals("world")) {
-            return "origins";
+        if (target == null) {
+            error(
+                    sender,
+                    "&cThat player is not online"
+            );
+            return true;
         }
 
-        if (value.equals("the_nether")) {
-            return "nether";
+        String destination = args.length == 2
+                ? canonicalDestination(args[1])
+                : "overworld";
+
+        if (!knownDestination(destination)) {
+            error(
+                    sender,
+                    "&cUnknown RTP destination"
+            );
+            return true;
         }
 
-        if (value.equals("the_end")) {
-            return "end";
-        }
-
-        if (DESTINATIONS.contains(value)) {
-            return value;
-        }
-
-        return null;
+        queueService.request(target, destination);
+        sender.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbQueued &#ff88ff"
+                                + DisplayNames.displayName(target)
+                                + " &#bbbbbbfor "
+                                + "&#ff88ff"
+                                + displayName(destination)
+                                + " RTP"
+                )
+        );
+        SoundService.guiConfirm(sender, core);
+        return true;
     }
 
-    private void send(Player player, String message) {
+    private void reload(Player player) {
+        core.reloadConfig();
+        menuService.reload();
+
+        player.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbRTP reloaded"
+                )
+        );
+        SoundService.guiConfirm(player, core);
+    }
+
+    private void usage(Player player) {
+        player.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbUsage: &d/rtp "
+                                + "[overworld|nether|end]"
+                )
+        );
+        SoundService.guiError(player, core);
+    }
+
+    private void adminUsage(Player player) {
+        player.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbUsage: &d/originrtp "
+                                + "<player> "
+                                + "[overworld|nether|end]"
+                )
+        );
+        SoundService.guiError(player, core);
+    }
+
+    private void error(
+            Player player,
+            String message
+    ) {
         player.sendMessage(TextColor.color(message));
-        player.sendActionBar(actionBar(message));
+        SoundService.guiError(player, core);
     }
 
-    private Component actionBar(String message) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
+    private boolean knownDestination(String input) {
+        return DESTINATIONS.contains(
+                canonicalDestination(input)
+        );
+    }
+
+    private String canonicalDestination(
+            String input
+    ) {
+        return OriginRtpSearchSettings
+                .canonicalDestination(input);
+    }
+
+    private String displayName(String destination) {
+        return core.getConfig().getString(
+                "origin-rtp.destinations."
+                        + destination
+                        + ".display-name",
+                switch (destination) {
+                    case "nether" -> "Nether";
+                    case "end" -> "The End";
+                    default -> "Overworld";
+                }
+        );
     }
 
     @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> completions = new ArrayList<>();
+    public List<String> onTabComplete(
+            CommandSender sender,
+            Command command,
+            String alias,
+            String[] args
+    ) {
+        boolean canonicalAdminRoot =
+                alias.equalsIgnoreCase("originrtp");
+        boolean admin = !(sender instanceof Player)
+                || sender.hasPermission(
+                "mineaclertp.admin"
+        );
 
         if (args.length == 1) {
-            String partial = args[0].toLowerCase(Locale.ROOT);
+            String partial = normalize(args[0]);
 
-            if (sender instanceof Player player && player.hasPermission("mineaclertp.use")) {
-                for (String destination : DESTINATIONS) {
-                    if (destination.startsWith(partial)) {
-                        completions.add(destination);
-                    }
-                }
+            /*
+             * /rtp and /wild intentionally expose destinations only.
+             * Player names are never suggested from player-facing roots.
+             */
+            if (!canonicalAdminRoot || !admin) {
+                return matching(
+                        DESTINATIONS,
+                        partial
+                );
             }
 
-            if (!(sender instanceof Player) || sender.hasPermission("mineaclertp.admin")) {
-                for (Player online : Bukkit.getOnlinePlayers()) {
-                    if (online.getName().toLowerCase(Locale.ROOT).startsWith(partial)) {
-                        completions.add(online.getName());
-                    }
-                }
+            Set<String> options =
+                    new LinkedHashSet<>(DESTINATIONS);
+            options.add("reload");
+
+            for (Player online
+                    : Bukkit.getOnlinePlayers()) {
+                options.add(
+                        DisplayNames.commandDisplayName(
+                                online
+                        )
+                );
             }
 
-            return completions;
+            return matching(
+                    List.copyOf(options),
+                    partial
+            );
         }
 
-        if (args.length == 2 && (!(sender instanceof Player) || sender.hasPermission("mineaclertp.admin"))) {
-            String partial = args[1].toLowerCase(Locale.ROOT);
+        if (args.length == 2
+                && canonicalAdminRoot
+                && admin
+                && !args[0].equalsIgnoreCase(
+                "reload"
+        )) {
+            return matching(
+                    DESTINATIONS,
+                    normalize(args[1])
+            );
+        }
 
-            for (String destination : DESTINATIONS) {
-                if (destination.startsWith(partial)) {
-                    completions.add(destination);
-                }
+        return List.of();
+    }
+
+    private List<String> matching(
+            List<String> options,
+            String partial
+    ) {
+        List<String> matches = new ArrayList<>();
+
+        for (String option : options) {
+            if (normalize(option)
+                    .startsWith(partial)) {
+                matches.add(option);
             }
         }
 
-        return completions;
+        matches.sort(
+                String.CASE_INSENSITIVE_ORDER
+        );
+        return List.copyOf(matches);
+    }
+
+    private String normalize(String value) {
+        return value == null
+                ? ""
+                : value.toLowerCase(Locale.ROOT);
     }
 }

@@ -1,15 +1,12 @@
 package net.mineacle.core.rtp.service;
 
-import org.bukkit.Location;
-
 import java.util.UUID;
 
 public record OriginRtpRequest(
+        UUID sessionId,
         UUID playerId,
-        String playerName,
-        Location startLocation,
         boolean plus,
-        String rtpKey,
+        String destination,
         long createdAtMillis
 ) {
 }

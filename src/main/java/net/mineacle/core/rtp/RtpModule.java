@@ -21,23 +21,46 @@ public final class RtpModule extends Module {
 
     @Override
     public void enable(Core core) {
-        this.queueService = new OriginRtpQueueService(core);
-        this.menuService = new RtpMenuService(core);
-        this.queueService.start();
+        queueService =
+                new OriginRtpQueueService(core);
+        menuService =
+                new RtpMenuService(core);
 
-        OriginRtpCommand command = new OriginRtpCommand(core, queueService, menuService);
+        PluginCommand command =
+                core.getCommand("originrtp");
 
-        PluginCommand originRtp = core.getCommand("originrtp");
-
-        if (originRtp != null) {
-            originRtp.setExecutor(command);
-            originRtp.setTabCompleter(command);
-        } else {
-            core.getLogger().warning("Missing command in plugin.yml: originrtp");
+        if (command == null) {
+            queueService = null;
+            menuService = null;
+            throw new IllegalStateException(
+                    "Missing command in plugin.yml: originrtp"
+            );
         }
 
-        core.getServer().getPluginManager().registerEvents(new OriginRtpMoveListener(queueService), core);
-        core.getServer().getPluginManager().registerEvents(new RtpMenuListener(core, menuService, queueService), core);
+        OriginRtpCommand executor =
+                new OriginRtpCommand(
+                        core,
+                        queueService,
+                        menuService
+                );
+        command.setExecutor(executor);
+        command.setTabCompleter(executor);
+
+        core.getServer().getPluginManager().registerEvents(
+                new OriginRtpMoveListener(
+                        queueService
+                ),
+                core
+        );
+        core.getServer().getPluginManager().registerEvents(
+                new RtpMenuListener(
+                        core,
+                        queueService
+                ),
+                core
+        );
+
+        queueService.start();
     }
 
     @Override

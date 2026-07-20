@@ -2,288 +2,430 @@ package net.mineacle.core.rtp.service;
 
 import net.mineacle.core.Core;
 import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.WorldBorder;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
 
-import java.util.Random;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadLocalRandom;
 
 public final class OriginRtpLocationService {
 
+    private static final int BORDER_MARGIN = 8;
+
     private final Core core;
-    private final Random random = new Random();
 
     public OriginRtpLocationService(Core core) {
         this.core = core;
     }
 
-    public CompletableFuture<Location> findSafeLocation(String rtpKey) {
-        CompletableFuture<Location> future = new CompletableFuture<>();
-
-        OriginRtpSearchSettings settings = OriginRtpSearchSettings.fromConfig(core, rtpKey);
-        World world = Bukkit.getWorld(settings.worldName());
+    public CompletableFuture<Location> findSafeLocation(
+            String destination
+    ) {
+        CompletableFuture<Location> result =
+                new CompletableFuture<>();
+        OriginRtpSearchSettings settings =
+                OriginRtpSearchSettings.fromConfig(
+                        core,
+                        destination
+                );
+        World world = Bukkit.getWorld(
+                settings.worldName()
+        );
 
         if (world == null) {
-            future.complete(null);
-            return future;
+            result.complete(null);
+            return result;
         }
 
-        tryFind(world, settings, 0, future);
-        return future;
+        attempt(
+                world,
+                settings,
+                0,
+                result
+        );
+        return result;
     }
 
-    private void tryFind(World world, OriginRtpSearchSettings settings, int attempt, CompletableFuture<Location> future) {
-        if (future.isDone()) {
+    private void attempt(
+            World world,
+            OriginRtpSearchSettings settings,
+            int attempt,
+            CompletableFuture<Location> result
+    ) {
+        if (result.isDone()) {
             return;
         }
 
         if (attempt >= settings.maxAttempts()) {
-            future.complete(null);
+            result.complete(null);
             return;
         }
 
-        int[] coordinates = randomCoordinates(world, settings);
-        int x = coordinates[0];
-        int z = coordinates[1];
+        Coordinates coordinates = randomCoordinates(
+                world,
+                settings
+        );
 
-        int chunkX = x >> 4;
-        int chunkZ = z >> 4;
+        if (coordinates == null) {
+            result.complete(null);
+            return;
+        }
 
-        world.getChunkAtAsync(chunkX, chunkZ, true).thenAccept(chunk -> {
-            Bukkit.getScheduler().runTask(core, () -> {
-                preloadNearby(world, chunk, settings.preloadRadius());
+        int chunkX = coordinates.x() >> 4;
+        int chunkZ = coordinates.z() >> 4;
 
-                Location location = safeLocationAt(world, x, z, settings);
+        world.getChunkAtAsync(
+                chunkX,
+                chunkZ,
+                true
+        ).whenComplete((chunk, throwable) ->
+                Bukkit.getScheduler().runTask(
+                        core,
+                        () -> {
+                            if (result.isDone()) {
+                                return;
+                            }
 
-                if (location != null) {
-                    future.complete(location);
-                    return;
-                }
+                            if (throwable != null
+                                    || chunk == null) {
+                                attempt(
+                                        world,
+                                        settings,
+                                        attempt + 1,
+                                        result
+                                );
+                                return;
+                            }
 
-                tryFind(world, settings, attempt + 1, future);
-            });
-        }).exceptionally(throwable -> {
-            Bukkit.getScheduler().runTask(core, () -> tryFind(world, settings, attempt + 1, future));
-            return null;
-        });
+                            Location safe = safeLocationAt(
+                                    world,
+                                    coordinates.x(),
+                                    coordinates.z(),
+                                    settings
+                            );
+
+                            if (safe != null) {
+                                result.complete(safe);
+                                return;
+                            }
+
+                            attempt(
+                                    world,
+                                    settings,
+                                    attempt + 1,
+                                    result
+                            );
+                        }
+                )
+        );
     }
 
-    private int[] randomCoordinates(World world, OriginRtpSearchSettings settings) {
-        if (settings.useWorldBorder()) {
-            WorldBorder border = world.getWorldBorder();
-            Location borderCenter = border.getCenter();
-            double halfSize = border.getSize() / 2.0D;
+    private Coordinates randomCoordinates(
+            World world,
+            OriginRtpSearchSettings settings
+    ) {
+        for (int attempt = 0; attempt < 128; attempt++) {
+            Coordinates candidate =
+                    configuredCandidate(settings);
 
-            int minX = (int) Math.ceil(borderCenter.getX() - halfSize);
-            int maxX = (int) Math.floor(borderCenter.getX() + halfSize);
-            int minZ = (int) Math.ceil(borderCenter.getZ() - halfSize);
-            int maxZ = (int) Math.floor(borderCenter.getZ() + halfSize);
-
-            for (int attempt = 0; attempt < 64; attempt++) {
-                int x = randomBetween(minX, maxX);
-                int z = randomBetween(minZ, maxZ);
-
-                if (distanceFromCenter(x, z, settings.centerX(), settings.centerZ()) >= settings.minRadius()) {
-                    return new int[]{x, z};
-                }
+            if (candidate == null) {
+                continue;
             }
 
-            return new int[]{randomBetween(minX, maxX), randomBetween(minZ, maxZ)};
-        }
-
-        if (settings.shape().equalsIgnoreCase("circle")) {
-            double angle = random.nextDouble() * Math.PI * 2.0D;
-            double radius = settings.minRadius() + (random.nextDouble() * (settings.maxRadius() - settings.minRadius()));
-
-            int x = settings.centerX() + (int) Math.round(Math.cos(angle) * radius);
-            int z = settings.centerZ() + (int) Math.round(Math.sin(angle) * radius);
-
-            return new int[]{x, z};
-        }
-
-        int x;
-        int z;
-
-        do {
-            x = settings.centerX() + randomBetween(-settings.maxRadius(), settings.maxRadius());
-            z = settings.centerZ() + randomBetween(-settings.maxRadius(), settings.maxRadius());
-        } while (distanceFromCenter(x, z, settings.centerX(), settings.centerZ()) < settings.minRadius());
-
-        return new int[]{x, z};
-    }
-
-    private Location safeLocationAt(World world, int x, int z, OriginRtpSearchSettings settings) {
-        Block top = world.getHighestBlockAt(x, z);
-        Block ground = findGroundBelow(top, settings);
-
-        if (ground == null) {
-            return null;
-        }
-
-        int groundY = ground.getY();
-        int feetY = groundY + 1;
-        int headY = groundY + 2;
-
-        if (feetY < settings.minY()) {
-            return null;
-        }
-
-        if (headY > settings.maxY()) {
-            return null;
-        }
-
-        Block feet = world.getBlockAt(x, feetY, z);
-        Block head = world.getBlockAt(x, headY, z);
-
-        if (!isSafeGround(ground, settings)) {
-            return null;
-        }
-
-        if (!isSafeAir(feet, settings)) {
-            return null;
-        }
-
-        if (!isSafeAir(head, settings)) {
-            return null;
-        }
-
-        if (isUnsafeNearby(ground, settings)) {
-            return null;
-        }
-
-        return new Location(world, x + 0.5D, feetY, z + 0.5D, randomYaw(), 0.0F);
-    }
-
-    private Block findGroundBelow(Block start, OriginRtpSearchSettings settings) {
-        if (start == null || start.getWorld() == null) {
-            return null;
-        }
-
-        World world = start.getWorld();
-        int x = start.getX();
-        int z = start.getZ();
-
-        int startY = Math.min(start.getY(), settings.maxY());
-
-        for (int y = startY; y >= settings.minY() - 1; y--) {
-            Block block = world.getBlockAt(x, y, z);
-
-            if (isSafeGround(block, settings)) {
-                return block;
+            if (!settings.useWorldBorder()
+                    || insideBorder(
+                    world.getWorldBorder(),
+                    candidate.x(),
+                    candidate.z()
+            )) {
+                return candidate;
             }
         }
 
         return null;
     }
 
-    private boolean isSafeGround(Block block, OriginRtpSearchSettings settings) {
+    private Coordinates configuredCandidate(
+            OriginRtpSearchSettings settings
+    ) {
+        ThreadLocalRandom random =
+                ThreadLocalRandom.current();
+
+        if (settings.shape()
+                .equalsIgnoreCase("circle")) {
+            double minimumSquared =
+                    (double) settings.minRadius()
+                            * settings.minRadius();
+            double maximumSquared =
+                    (double) settings.maxRadius()
+                            * settings.maxRadius();
+            double radius = Math.sqrt(
+                    random.nextDouble(
+                            minimumSquared,
+                            maximumSquared
+                    )
+            );
+            double angle = random.nextDouble(
+                    0.0D,
+                    Math.PI * 2.0D
+            );
+
+            return new Coordinates(
+                    settings.centerX()
+                            + (int) Math.round(
+                            Math.cos(angle) * radius
+                    ),
+                    settings.centerZ()
+                            + (int) Math.round(
+                            Math.sin(angle) * radius
+                    )
+            );
+        }
+
+        for (int attempt = 0; attempt < 64; attempt++) {
+            int x = random.nextInt(
+                    -settings.maxRadius(),
+                    settings.maxRadius() + 1
+            ) + settings.centerX();
+            int z = random.nextInt(
+                    -settings.maxRadius(),
+                    settings.maxRadius() + 1
+            ) + settings.centerZ();
+
+            if (distanceSquared(
+                    x,
+                    z,
+                    settings.centerX(),
+                    settings.centerZ()
+            ) >= (long) settings.minRadius()
+                    * settings.minRadius()) {
+                return new Coordinates(x, z);
+            }
+        }
+
+        return null;
+    }
+
+    private boolean insideBorder(
+            WorldBorder border,
+            int x,
+            int z
+    ) {
+        if (border == null) {
+            return true;
+        }
+
+        Location center = border.getCenter();
+        double half = Math.max(
+                0.0D,
+                border.getSize() / 2.0D
+                        - BORDER_MARGIN
+        );
+
+        return x + 0.5D >= center.getX() - half
+                && x + 0.5D <= center.getX() + half
+                && z + 0.5D >= center.getZ() - half
+                && z + 0.5D <= center.getZ() + half;
+    }
+
+    private Location safeLocationAt(
+            World world,
+            int x,
+            int z,
+            OriginRtpSearchSettings settings
+    ) {
+        int minimumY = settings.clampedMinimumY(world);
+        int maximumY = settings.clampedMaximumY(world);
+
+        if (maximumY <= minimumY) {
+            return null;
+        }
+
+        if (settings.surfaceOnly()) {
+            int groundY = Math.min(
+                    world.getHighestBlockAt(x, z).getY(),
+                    maximumY
+            );
+
+            return safeAtGround(
+                    world,
+                    x,
+                    groundY,
+                    z,
+                    settings,
+                    minimumY,
+                    maximumY
+            );
+        }
+
+        for (int groundY = maximumY;
+             groundY >= minimumY;
+             groundY--) {
+            Location safe = safeAtGround(
+                    world,
+                    x,
+                    groundY,
+                    z,
+                    settings,
+                    minimumY,
+                    maximumY
+            );
+
+            if (safe != null) {
+                return safe;
+            }
+        }
+
+        return null;
+    }
+
+    private Location safeAtGround(
+            World world,
+            int x,
+            int groundY,
+            int z,
+            OriginRtpSearchSettings settings,
+            int minimumY,
+            int maximumY
+    ) {
+        if (groundY < minimumY
+                || groundY + 2 > maximumY) {
+            return null;
+        }
+
+        Block ground = world.getBlockAt(
+                x,
+                groundY,
+                z
+        );
+        Block feet = world.getBlockAt(
+                x,
+                groundY + 1,
+                z
+        );
+        Block head = world.getBlockAt(
+                x,
+                groundY + 2,
+                z
+        );
+
+        if (!safeGround(ground, settings)
+                || !safeSpace(feet, settings)
+                || !safeSpace(head, settings)
+                || unsafeNearby(
+                world,
+                x,
+                groundY,
+                z,
+                settings
+        )) {
+            return null;
+        }
+
+        return new Location(
+                world,
+                x + 0.5D,
+                groundY + 1.0D,
+                z + 0.5D,
+                ThreadLocalRandom.current()
+                        .nextFloat() * 360.0F,
+                0.0F
+        );
+    }
+
+    private boolean safeGround(
+            Block block,
+            OriginRtpSearchSettings settings
+    ) {
         if (block == null) {
             return false;
         }
 
         Material material = block.getType();
 
-        if (settings.unsafeBlocks().contains(material)) {
-            return false;
-        }
-
-        if (!material.isSolid()) {
+        if (!material.isSolid()
+                || settings.unsafeBlocks()
+                .contains(material)) {
             return false;
         }
 
         String name = material.name();
 
-        return !name.endsWith("_LEAVES") && !name.endsWith("_LOG") && !name.endsWith("_WOOD");
+        return !name.endsWith("_LEAVES")
+                && !name.endsWith("_LOG")
+                && !name.endsWith("_WOOD")
+                && !name.endsWith("_STEM")
+                && !name.endsWith("_HYPHAE");
     }
 
-    private boolean isSafeAir(Block block, OriginRtpSearchSettings settings) {
+    private boolean safeSpace(
+            Block block,
+            OriginRtpSearchSettings settings
+    ) {
         if (block == null) {
             return false;
         }
 
         Material material = block.getType();
 
-        if (material == Material.AIR || material == Material.CAVE_AIR || material == Material.VOID_AIR) {
-            return true;
-        }
-
-        if (settings.unsafeBlocks().contains(material)) {
+        if (settings.unsafeBlocks()
+                .contains(material)) {
             return false;
         }
 
-        return block.isPassable();
+        return material.isAir()
+                || block.isPassable();
     }
 
-    private boolean isUnsafeNearby(Block ground, OriginRtpSearchSettings settings) {
-        Block[] nearby = {
-                ground,
-                ground.getRelative(BlockFace.NORTH),
-                ground.getRelative(BlockFace.SOUTH),
-                ground.getRelative(BlockFace.EAST),
-                ground.getRelative(BlockFace.WEST),
-                ground.getRelative(BlockFace.UP),
-                ground.getRelative(BlockFace.DOWN)
-        };
+    private boolean unsafeNearby(
+            World world,
+            int centerX,
+            int groundY,
+            int centerZ,
+            OriginRtpSearchSettings settings
+    ) {
+        int radius = settings.nearbySafetyRadius();
 
-        for (Block block : nearby) {
-            Material material = block.getType();
+        for (int x = centerX - radius;
+             x <= centerX + radius;
+             x++) {
+            for (int z = centerZ - radius;
+                 z <= centerZ + radius;
+                 z++) {
+                for (int y = groundY;
+                     y <= groundY + 2;
+                     y++) {
+                    Material material = world
+                            .getBlockAt(x, y, z)
+                            .getType();
 
-            if (material == Material.WATER
-                    || material == Material.LAVA
-                    || material == Material.FIRE
-                    || material == Material.SOUL_FIRE
-                    || material == Material.CACTUS
-                    || material == Material.MAGMA_BLOCK
-                    || material == Material.POWDER_SNOW) {
-                return true;
-            }
-
-            if (settings.unsafeBlocks().contains(material)
-                    && material != Material.AIR
-                    && material != Material.CAVE_AIR
-                    && material != Material.VOID_AIR) {
-                return true;
+                    if (settings.unsafeBlocks()
+                            .contains(material)) {
+                        return true;
+                    }
+                }
             }
         }
 
         return false;
     }
 
-    private void preloadNearby(World world, Chunk center, int radius) {
-        if (radius <= 0) {
-            return;
-        }
+    private long distanceSquared(
+            int x,
+            int z,
+            int centerX,
+            int centerZ
+    ) {
+        long deltaX = (long) x - centerX;
+        long deltaZ = (long) z - centerZ;
 
-        int centerX = center.getX();
-        int centerZ = center.getZ();
-
-        for (int x = centerX - radius; x <= centerX + radius; x++) {
-            for (int z = centerZ - radius; z <= centerZ + radius; z++) {
-                world.getChunkAtAsync(x, z, true);
-            }
-        }
+        return deltaX * deltaX
+                + deltaZ * deltaZ;
     }
 
-    private int randomBetween(int min, int max) {
-        if (max <= min) {
-            return min;
-        }
-
-        return min + random.nextInt((max - min) + 1);
-    }
-
-    private double distanceFromCenter(int x, int z, int centerX, int centerZ) {
-        double dx = x - centerX;
-        double dz = z - centerZ;
-        return Math.sqrt((dx * dx) + (dz * dz));
-    }
-
-    private float randomYaw() {
-        return random.nextFloat() * 360.0F;
+    private record Coordinates(int x, int z) {
     }
 }

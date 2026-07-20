@@ -168,11 +168,11 @@ commands:
     usage: /delwarp <name>
     permission: mineaclewarps.admin
   originrtp:
-    description: Queue for random teleport
+    description: Open Random Teleport or choose a destination
     aliases:
     - rtp
     - wild
-    usage: /rtp
+    usage: /rtp [overworld|nether|end]
     permission: mineaclertp.use
   doublejump:
     description: Reload Double Jump configuration
@@ -342,6 +342,8 @@ permissions:
     default: true
   mineaclertp.admin:
     default: op
+    children:
+      mineaclertp.use: true
   mineacledoublejump.admin:
     default: op
   mineaclefly.command:
