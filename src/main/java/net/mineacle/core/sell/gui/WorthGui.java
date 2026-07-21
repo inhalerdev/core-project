@@ -4,6 +4,7 @@ import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.CenteredToolbar;
 import net.mineacle.core.common.gui.GuiSearchLore;
 import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.sell.model.ItemValuation;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -16,12 +17,12 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.EnumMap;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class WorthGui {
 
@@ -44,11 +45,13 @@ public final class WorthGui {
             5L * 60L * 1000L;
 
     private static final Map<UUID, Integer> PAGES =
-            new java.util.HashMap<>();
+            new HashMap<>();
     private static final Map<UUID, SortMode> SORTS =
-            new java.util.HashMap<>();
+            new HashMap<>();
     private static final Map<UUID, FilterMode> FILTERS =
-            new java.util.HashMap<>();
+            new HashMap<>();
+    private static final Map<UUID, SearchState> SEARCHES =
+            new ConcurrentHashMap<>();
 
     private static final List<Material> CATALOG =
             new ArrayList<>();
@@ -117,12 +120,19 @@ public final class WorthGui {
                 )
         );
 
+        SearchState search = SEARCHES.get(
+                player.getUniqueId()
+        );
         inventory.setItem(
                 SEARCH_SLOT,
                 toolbar(
                         Material.OAK_SIGN,
                         "&dSearch",
-                        GuiSearchLore.inactive("item names")
+                        search == null
+                                ? GuiSearchLore.inactive("item names")
+                                : GuiSearchLore.active(
+                                search.displayLabel()
+                        )
                 )
         );
         inventory.setItem(
@@ -187,6 +197,52 @@ public final class WorthGui {
         );
     }
 
+    public static void setSearch(
+            Player player,
+            String query,
+            String displayLabel
+    ) {
+        if (player == null
+                || query == null
+                || query.isBlank()) {
+            clearSearch(player);
+            return;
+        }
+
+        String label = displayLabel == null
+                || displayLabel.isBlank()
+                ? query.trim()
+                : displayLabel.trim();
+
+        SEARCHES.put(
+                player.getUniqueId(),
+                new SearchState(
+                        query.trim(),
+                        label
+                )
+        );
+    }
+
+    public static void clearSearch(Player player) {
+        if (player != null) {
+            SEARCHES.remove(player.getUniqueId());
+        }
+    }
+
+    public static boolean hasSearch(Player player) {
+        return player != null
+                && SEARCHES.containsKey(
+                player.getUniqueId()
+        );
+    }
+
+    public static boolean hasMatches(
+            Player player,
+            SellService sellService
+    ) {
+        return !filtered(player, sellService).isEmpty();
+    }
+
     public static void clearCatalogCache() {
         CATALOG.clear();
         catalogBuiltAt = 0L;
@@ -201,6 +257,15 @@ public final class WorthGui {
         PAGES.remove(playerId);
         SORTS.remove(playerId);
         FILTERS.remove(playerId);
+        SEARCHES.remove(playerId);
+    }
+
+    public static void clearAllState() {
+        PAGES.clear();
+        SORTS.clear();
+        FILTERS.clear();
+        SEARCHES.clear();
+        clearCatalogCache();
     }
 
     private static String title(int page) {
@@ -219,16 +284,9 @@ public final class WorthGui {
         }
 
         CATALOG.clear();
-
-        for (Material material : Material.values()) {
-            if (!shouldShowInWorth(material)
-                    || sellService.baseWorthCents(material) <= 0L) {
-                continue;
-            }
-
-            CATALOG.add(material);
-        }
-
+        CATALOG.addAll(
+                sellService.worthCatalogMaterials()
+        );
         catalogBuiltAt = now;
     }
 
@@ -237,9 +295,27 @@ public final class WorthGui {
             SellService sellService
     ) {
         FilterMode filter = filter(player);
+        SearchState search = SEARCHES.get(
+                player.getUniqueId()
+        );
+        String query = search == null
+                ? ""
+                : normalize(search.query());
         List<Material> result = CATALOG.stream()
                 .filter(material ->
-                        filter.matches(sellService, material)
+                        filter.matches(
+                                sellService,
+                                material
+                        )
+                )
+                .filter(material ->
+                        query.isBlank()
+                                || normalize(
+                                material.name()
+                        ).contains(query)
+                                || normalize(
+                                sellService.pretty(material)
+                        ).contains(query)
                 )
                 .collect(
                         java.util.stream.Collectors.toCollection(
@@ -268,38 +344,86 @@ public final class WorthGui {
             return item;
         }
 
-        long unit = sellService.unitWorthCents(
+        ItemValuation valuation = sellService.appraise(
                 player,
-                material
+                item
         );
         int stackSize = Math.max(
                 1,
                 material.getMaxStackSize()
         );
-        long stackPrice;
-
-        try {
-            stackPrice = Math.multiplyExact(unit, stackSize);
-        } catch (ArithmeticException exception) {
-            stackPrice = Long.MAX_VALUE;
-        }
+        long stackAppraisal = multiply(
+                valuation.appraisedTotalCents(),
+                stackSize
+        );
+        long stackSell = multiply(
+                valuation.serverSellCents(),
+                stackSize
+        );
 
         List<String> lore = new ArrayList<>();
         lore.add(
-                "&#bbbbbbWorth: &a"
-                        + sellService.format(unit)
+                "&#bbbbbbAppraised Worth: &a"
+                        + sellService.format(
+                        valuation.appraisedTotalCents()
+                )
         );
 
-        if (material != Material.DRAGON_EGG) {
+        if (stackSize > 1) {
             lore.add(
-                    "&#bbbbbbStack Price: &a"
-                            + sellService.format(stackPrice)
+                    "&#bbbbbbStack Appraisal: &a"
+                            + sellService.format(
+                            stackAppraisal
+                    )
             );
-        } else {
-            lore.add("");
-            lore.add("&cNot sellable");
+        }
+
+        lore.add("");
+
+        if (valuation.sellable()) {
             lore.add(
-                    "&#bbbbbbUnique server trophy item"
+                    "&#bbbbbbServer Sell: &a"
+                            + sellService.format(
+                            valuation.serverSellCents()
+                    )
+            );
+
+            if (stackSize > 1) {
+                lore.add(
+                        "&#bbbbbbStack Sell: &a"
+                                + sellService.format(
+                                stackSell
+                        )
+                );
+            }
+        } else {
+            lore.add("&cPlayer Market Only");
+            lore.add(
+                    "&#bbbbbbUse /ah or direct player trading"
+            );
+        }
+
+        if (!valuation.explicitlyPriced()) {
+            lore.add("");
+            lore.add(
+                    "&#bbbbbbEstimated appraisal"
+            );
+            lore.add(
+                    "&#bbbbbbNot accepted by /sell"
+            );
+        }
+
+        if (Math.abs(
+                valuation.combinedMarketMultiplier()
+                        - 1.0D
+        ) >= 0.01D) {
+            lore.add("");
+            lore.add(
+                    "&#bbbbbbMarket: &#ff88ff"
+                            + SellService.formatMultiplier(
+                            valuation.combinedMarketMultiplier()
+                    )
+                            + "x"
             );
         }
 
@@ -310,7 +434,9 @@ public final class WorthGui {
                 )
         );
         meta.setLore(
-                lore.stream().map(TextColor::color).toList()
+                lore.stream()
+                        .map(TextColor::color)
+                        .toList()
         );
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
@@ -344,9 +470,12 @@ public final class WorthGui {
 
         return toolbar(
                 Material.ARROW,
-                previous ? "&dPrevious Page" : "&dNext Page",
+                previous
+                        ? "&dPrevious Page"
+                        : "&dNext Page",
                 List.of(
-                        "&#bbbbbbPage &#ff88ff" + targetPage
+                        "&#bbbbbbPage &#ff88ff"
+                                + targetPage
                 )
         );
     }
@@ -370,7 +499,11 @@ public final class WorthGui {
 
         lore.add("");
         lore.add("&#bbbbbbClick to change sort");
-        return toolbar(Material.ANVIL, "&dSort", lore);
+        return toolbar(
+                Material.ANVIL,
+                "&dSort",
+                lore
+        );
     }
 
     private static ItemStack filterToolbar(
@@ -394,7 +527,11 @@ public final class WorthGui {
 
         lore.add("");
         lore.add("&#bbbbbbClick to change filter");
-        return toolbar(Material.HOPPER, "&dFilter", lore);
+        return toolbar(
+                Material.HOPPER,
+                "&dFilter",
+                lore
+        );
     }
 
     private static ItemStack toolbar(
@@ -411,33 +548,13 @@ public final class WorthGui {
 
         meta.setDisplayName(TextColor.color(name));
         meta.setLore(
-                lore.stream().map(TextColor::color).toList()
+                lore.stream()
+                        .map(TextColor::color)
+                        .toList()
         );
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
-    }
-
-    private static boolean shouldShowInWorth(
-            Material material
-    ) {
-        if (material == null
-                || material == Material.AIR
-                || !material.isItem()) {
-            return false;
-        }
-
-        String name = material.name();
-
-        if (name.endsWith("_SPAWN_EGG")
-                || name.startsWith("LEGACY_")
-                || name.startsWith("POTTED_")
-                || name.startsWith("INFESTED_")
-                || name.contains("COMMAND_BLOCK")) {
-            return false;
-        }
-
-        return !BLOCKED_WORTH_ITEMS.contains(name);
     }
 
     private static SortMode sort(Player player) {
@@ -452,6 +569,30 @@ public final class WorthGui {
                 player.getUniqueId(),
                 FilterMode.ALL
         );
+    }
+
+    private static String normalize(String value) {
+        return value == null
+                ? ""
+                : value.toLowerCase(Locale.ROOT)
+                .replace('_', ' ')
+                .replace('-', ' ')
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    private static long multiply(
+            long value,
+            int multiplier
+    ) {
+        try {
+            return Math.multiplyExact(
+                    value,
+                    multiplier
+            );
+        } catch (ArithmeticException exception) {
+            return Long.MAX_VALUE;
+        }
     }
 
     private enum SortMode {
@@ -516,7 +657,10 @@ public final class WorthGui {
         MOB_DROPS("Mob Drops"),
         NETHER("Nether"),
         END("End"),
-        COMBAT("Combat"),
+        EQUIPMENT("Equipment"),
+        CONSUMABLES("Consumables"),
+        UTILITY("Utility"),
+        RARE("Rare"),
         BLOCKS("Blocks"),
         MISC("Misc");
 
@@ -528,7 +672,9 @@ public final class WorthGui {
 
         private FilterMode next() {
             FilterMode[] modes = values();
-            return modes[(ordinal() + 1) % modes.length];
+            return modes[
+                    (ordinal() + 1) % modes.length
+                    ];
         }
 
         private boolean matches(
@@ -543,35 +689,16 @@ public final class WorthGui {
                     sellService.category(material);
 
             return category.equals(
-                    name().toLowerCase(java.util.Locale.ROOT)
+                    name().toLowerCase(Locale.ROOT)
             );
         }
     }
 
-    private static final Set<String> BLOCKED_WORTH_ITEMS =
-            new HashSet<>(Set.of(
-                    "BARRIER",
-                    "BEDROCK",
-                    "COMMAND_BLOCK",
-                    "CHAIN_COMMAND_BLOCK",
-                    "REPEATING_COMMAND_BLOCK",
-                    "COMMAND_BLOCK_MINECART",
-                    "STRUCTURE_BLOCK",
-                    "STRUCTURE_VOID",
-                    "JIGSAW",
-                    "LIGHT",
-                    "DEBUG_STICK",
-                    "KNOWLEDGE_BOOK",
-                    "SPAWNER",
-                    "TRIAL_SPAWNER",
-                    "VAULT",
-                    "END_PORTAL_FRAME",
-                    "FARMLAND",
-                    "FROGSPAWN",
-                    "REINFORCED_DEEPSLATE",
-                    "PLAYER_HEAD",
-                    "PLAYER_WALL_HEAD"
-            ));
+    private record SearchState(
+            String query,
+            String displayLabel
+    ) {
+    }
 
     private static final class Holder
             implements InventoryHolder {

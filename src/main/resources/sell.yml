@@ -1,61 +1,64 @@
 settings:
   allow-all-items-with-fallback: true
-  deny-custom-items: false
+  deny-custom-items: true
   deny-filled-containers: true
   deny-enchanted-items: false
-
   blocked-items:
-    - BEDROCK
-    - BARRIER
-    - COMMAND_BLOCK
-    - CHAIN_COMMAND_BLOCK
-    - REPEATING_COMMAND_BLOCK
-    - STRUCTURE_BLOCK
-    - STRUCTURE_VOID
-    - JIGSAW
-    - DEBUG_STICK
-    - PLAYER_HEAD
-
-  # These may appear in /worth but cannot be sold to the server.
+  - BEDROCK
+  - BARRIER
+  - COMMAND_BLOCK
+  - CHAIN_COMMAND_BLOCK
+  - REPEATING_COMMAND_BLOCK
+  - COMMAND_BLOCK_MINECART
+  - STRUCTURE_BLOCK
+  - STRUCTURE_VOID
+  - JIGSAW
+  - LIGHT
+  - DEBUG_STICK
+  - KNOWLEDGE_BOOK
+  - SPAWNER
+  - TRIAL_SPAWNER
+  - VAULT
+  - END_PORTAL_FRAME
+  - FARMLAND
+  - FROGSPAWN
+  - REINFORCED_DEEPSLATE
+  - PLAYER_HEAD
+  - PLAYER_WALL_HEAD
   unsellable-items:
-    - DRAGON_EGG
-
+  - DRAGON_EGG
+  - ELYTRA
+  - BEACON
+  - NETHER_STAR
+  - ENCHANTED_GOLDEN_APPLE
+  - HEART_OF_THE_SEA
+  - CONDUIT
+  - RECOVERY_COMPASS
+  allow-fallback-items-for-sell: false
 durability:
   enabled: true
-
-  # A nearly broken item keeps 10% of its market-adjusted base value.
-  minimum-base-multiplier: 0.10
-
-  # Enchantments retain at least half of their configured value.
-  minimum-enchant-multiplier: 0.50
-
+  minimum-base-multiplier: 0.15
+  minimum-enchant-multiplier: 0.65
+  mending-minimum-base-multiplier: 0.35
+  mending-minimum-enchant-multiplier: 0.95
 market:
   enabled: true
-
-  # Items using category fallback prices stay static unless explicitly enabled.
   fallback-items-enabled: false
-
-  # MySQL/MariaDB uses the database section from webprofiles.yml.
-  # sell-market.yml remains an automatic local fallback/checkpoint.
   storage: mysql
   database-config-file: webprofiles.yml
   table-prefix: mineacle_sell
-
   reprice-interval-minutes: 15
   flush-seconds: 30
   bucket-minutes: 60
   retention-days: 7
-
   minimum-multiplier: 0.35
   maximum-multiplier: 1.75
   maximum-change-per-refresh-percent: 8.0
   minimum-observation-hours: 6
-
   weights:
-    last-6-hours: 0.60
-    last-24-hours: 0.30
-    last-7-days: 0.10
-
+    last-6-hours: 0.6
+    last-24-hours: 0.3
+    last-7-days: 0.1
   categories:
     blocks:
       enabled: true
@@ -75,8 +78,14 @@ market:
       enabled: false
     misc:
       enabled: false
-
-  # Expected server-wide units sold per day.
+    equipment:
+      enabled: false
+    consumables:
+      enabled: false
+    utility:
+      enabled: false
+    rare:
+      enabled: false
   targets:
     blocks: 50000
     ores: 2000
@@ -87,428 +96,876 @@ market:
     end: 1500
     combat: 250
     misc: 500
-
+    equipment: 100
+    consumables: 1000
+    utility: 500
+    rare: 25
   featured:
     rotation-hours: 12
     active-items: 8
-    minimum-multiplier: 1.10
+    minimum-multiplier: 1.1
     maximum-multiplier: 1.35
-
     pool:
-      - SUGAR_CANE
-      - WHEAT
-      - CARROT
-      - POTATO
-      - PUMPKIN
-      - MELON_SLICE
-      - GUNPOWDER
-      - BONE
-      - STRING
-      - ROTTEN_FLESH
-      - SPIDER_EYE
-      - SLIME_BALL
-      - COAL
-      - IRON_INGOT
-      - COPPER_INGOT
-      - GOLD_INGOT
-      - REDSTONE
-      - LAPIS_LAZULI
-      - AMETHYST_SHARD
-      - DIAMOND
-      - EMERALD
-      - BLAZE_ROD
-      - BLAZE_POWDER
-      - GHAST_TEAR
-      - MAGMA_CREAM
-      - QUARTZ
-      - ENDER_PEARL
-      - SHULKER_SHELL
-      - OAK_LOG
-      - SPRUCE_LOG
-      - BIRCH_LOG
-      - JUNGLE_LOG
-      - ACACIA_LOG
-      - DARK_OAK_LOG
-      - CHERRY_LOG
-      - MANGROVE_LOG
-
+    - SUGAR_CANE
+    - WHEAT
+    - CARROT
+    - POTATO
+    - PUMPKIN
+    - MELON_SLICE
+    - GUNPOWDER
+    - BONE
+    - STRING
+    - ROTTEN_FLESH
+    - SPIDER_EYE
+    - SLIME_BALL
+    - COAL
+    - IRON_INGOT
+    - COPPER_INGOT
+    - GOLD_INGOT
+    - REDSTONE
+    - LAPIS_LAZULI
+    - AMETHYST_SHARD
+    - DIAMOND
+    - EMERALD
+    - BLAZE_ROD
+    - BLAZE_POWDER
+    - GHAST_TEAR
+    - MAGMA_CREAM
+    - QUARTZ
+    - ENDER_PEARL
+    - SHULKER_SHELL
+    - OAK_LOG
+    - SPRUCE_LOG
+    - BIRCH_LOG
+    - JUNGLE_LOG
+    - ACACIA_LOG
+    - DARK_OAK_LOG
+    - CHERRY_LOG
+    - MANGROVE_LOG
     excluded-items:
-      - DRAGON_EGG
-      - ELYTRA
-      - NETHER_STAR
-      - NETHERITE_BLOCK
-      - NETHERITE_INGOT
-      - TOTEM_OF_UNDYING
-      - ENCHANTED_GOLDEN_APPLE
-      - PLAYER_HEAD
-
+    - DRAGON_EGG
+    - ELYTRA
+    - NETHER_STAR
+    - NETHERITE_BLOCK
+    - NETHERITE_INGOT
+    - TOTEM_OF_UNDYING
+    - ENCHANTED_GOLDEN_APPLE
+    - PLAYER_HEAD
 fallback-prices:
-  blocks: "0.03"
-  ores: "1"
-  wood: "0.12"
-  farming: "0.08"
-  mob_drops: "0.15"
-  nether: "0.20"
-  end: "0.35"
-  combat: "0.50"
-  misc: "0.01"
-
+  blocks: '0.10'
+  ores: '2'
+  wood: '0.25'
+  farming: '0.10'
+  mob_drops: '0.25'
+  nether: '0.50'
+  end: '1'
+  equipment: '250'
+  consumables: '2'
+  utility: '15'
+  rare: '2500'
+  misc: '0.25'
 categories:
   blocks:
-    display-name: "Blocks"
+    display-name: Blocks
   ores:
-    display-name: "Ores"
+    display-name: Ores
   wood:
-    display-name: "Wood"
+    display-name: Wood
   farming:
-    display-name: "Farming"
+    display-name: Farming
   mob_drops:
-    display-name: "Mob Drops"
+    display-name: Mob Drops
   nether:
-    display-name: "Nether"
+    display-name: Nether
   end:
-    display-name: "End"
-  combat:
-    display-name: "Combat"
+    display-name: End
+  equipment:
+    display-name: Equipment
+  consumables:
+    display-name: Consumables
+  utility:
+    display-name: Utility
+  rare:
+    display-name: Rare
   misc:
-    display-name: "Misc"
-
+    display-name: Misc
 enchant-values:
   enabled: true
-
-  # These values are integer cents.
   default-per-level-cents: 2500
-  treasure-multiplier: 2.0
-  unsafe-multiplier: 1.25
-
+  treasure-multiplier: 1.25
+  unsafe-multiplier: 1.0
+  allow-unsafe-levels: false
+  enchanted-book-multiplier: 1.15
+  applied-item-multiplier: 1.0
+  package-bonus:
+    four-plus: 1.1
+    six-plus: 1.2
+    eight-plus: 1.35
   enchants:
-    MENDING: 10000
-    PROTECTION: 3500
-    SHARPNESS: 3500
-    EFFICIENCY: 3000
-    UNBREAKING: 2500
-    FORTUNE: 5000
-    SILK_TOUCH: 7500
-
+    AQUA_AFFINITY: 9000
+    BANE_OF_ARTHROPODS: 1800
+    BINDING_CURSE: 0
+    BLAST_PROTECTION: 3500
+    BREACH: 8000
+    CHANNELING: 12000
+    DENSITY: 7500
+    DEPTH_STRIDER: 6500
+    EFFICIENCY: 5000
+    FEATHER_FALLING: 5500
+    FIRE_ASPECT: 4500
+    FIRE_PROTECTION: 3000
+    FLAME: 6500
+    FORTUNE: 9000
+    FROST_WALKER: 10000
+    IMPALING: 5000
+    INFINITY: 15000
+    KNOCKBACK: 2500
+    LOOTING: 9000
+    LOYALTY: 6500
+    LUCK_OF_THE_SEA: 3500
+    LURE: 3000
+    MENDING: 40000
+    MULTISHOT: 9000
+    PIERCING: 3500
+    POWER: 5000
+    PROJECTILE_PROTECTION: 2800
+    PROTECTION: 6000
+    PUNCH: 4000
+    QUICK_CHARGE: 5500
+    RESPIRATION: 6000
+    RIPTIDE: 8500
+    SHARPNESS: 6000
+    SILK_TOUCH: 20000
+    SMITE: 3500
+    SOUL_SPEED: 10000
+    SWEEPING_EDGE: 4500
+    SWIFT_SNEAK: 12000
+    THORNS: 5500
+    UNBREAKING: 4500
+    VANISHING_CURSE: 0
+    WIND_BURST: 30000
 prices:
   DRAGON_EGG:
-    base-price: "50000"
-    category: end
+    base-price: '5000000'
+    category: rare
     market-enabled: false
-
+    buyback-multiplier: 0.0
   NETHERITE_BLOCK:
-    base-price: "27000"
+    base-price: '27000'
     category: ores
     market-enabled: false
-
   ELYTRA:
-    base-price: "15000"
-    category: end
+    base-price: '100000'
+    category: equipment
     market-enabled: false
-
+    buyback-multiplier: 0.0
+    enchant-buyback-multiplier: 0.0
   BEACON:
-    base-price: "12000"
-    category: misc
+    base-price: '75000'
+    category: rare
     market-enabled: false
-
+    buyback-multiplier: 0.0
   NETHER_STAR:
-    base-price: "10000"
-    category: misc
+    base-price: '60000'
+    category: rare
     market-enabled: false
-
+    buyback-multiplier: 0.0
   ENCHANTED_GOLDEN_APPLE:
-    base-price: "5000"
-    category: combat
+    base-price: '50000'
+    category: rare
     market-enabled: false
-
+    buyback-multiplier: 0.0
   NETHERITE_INGOT:
-    base-price: "3000"
+    base-price: '3000'
     category: ores
     target-units-per-day: 25
-    minimum-multiplier: 0.60
-    maximum-multiplier: 1.40
-
+    minimum-multiplier: 0.6
+    maximum-multiplier: 1.4
   TOTEM_OF_UNDYING:
-    base-price: "2500"
-    category: combat
+    base-price: '15000'
+    category: rare
     market-enabled: false
-
+    buyback-multiplier: 0.25
   DIAMOND_BLOCK:
-    base-price: "2250"
+    base-price: '2250'
     category: ores
     target-units-per-day: 35
-
   EMERALD_BLOCK:
-    base-price: "1800"
+    base-price: '1800'
     category: ores
     target-units-per-day: 45
-
   NETHERITE_SCRAP:
-    base-price: "750"
+    base-price: '750'
     category: ores
     target-units-per-day: 100
-
   ANCIENT_DEBRIS:
-    base-price: "750"
+    base-price: '750'
     category: ores
     target-units-per-day: 100
-
   GOLDEN_APPLE:
-    base-price: "750"
+    base-price: '750'
     category: combat
     market-enabled: false
-
   END_CRYSTAL:
-    base-price: "350"
+    base-price: '350'
     category: combat
     market-enabled: false
-
   DIAMOND:
-    base-price: "250"
+    base-price: '250'
     category: ores
     target-units-per-day: 300
-    minimum-multiplier: 0.50
-    maximum-multiplier: 1.60
-
+    minimum-multiplier: 0.5
+    maximum-multiplier: 1.6
   EMERALD:
-    base-price: "200"
+    base-price: '200'
     category: ores
     target-units-per-day: 400
     minimum-multiplier: 0.45
     maximum-multiplier: 1.65
-
   GOLD_BLOCK:
-    base-price: "126"
+    base-price: '126'
     category: ores
     target-units-per-day: 500
-
   IRON_BLOCK:
-    base-price: "72"
+    base-price: '72'
     category: ores
     target-units-per-day: 1500
-
   COPPER_BLOCK:
-    base-price: "27"
+    base-price: '27'
     category: ores
     target-units-per-day: 2500
-
   AMETHYST_BLOCK:
-    base-price: "24"
+    base-price: '24'
     category: ores
     target-units-per-day: 1200
-
   COAL_BLOCK:
-    base-price: "18"
+    base-price: '18'
     category: ores
     target-units-per-day: 3000
-
   LAPIS_BLOCK:
-    base-price: "18"
+    base-price: '18'
     category: ores
     target-units-per-day: 2000
-
   REDSTONE_BLOCK:
-    base-price: "13.50"
+    base-price: '13.50'
     category: ores
     target-units-per-day: 3000
-
   QUARTZ_BLOCK:
-    base-price: "8"
+    base-price: '8'
     category: nether
     target-units-per-day: 4000
-
   RAW_GOLD_BLOCK:
-    base-price: "126"
+    base-price: '126'
     category: ores
     target-units-per-day: 500
-
   RAW_IRON_BLOCK:
-    base-price: "72"
+    base-price: '72'
     category: ores
     target-units-per-day: 1500
-
   RAW_COPPER_BLOCK:
-    base-price: "27"
+    base-price: '27'
     category: ores
     target-units-per-day: 2500
-
   GOLD_INGOT:
-    base-price: "14"
+    base-price: '14'
     category: ores
     target-units-per-day: 4500
-
   IRON_INGOT:
-    base-price: "8"
+    base-price: '8'
     category: ores
     target-units-per-day: 12000
-
   AMETHYST_SHARD:
-    base-price: "6"
+    base-price: '6'
     category: ores
     target-units-per-day: 6000
-
   COPPER_INGOT:
-    base-price: "3"
+    base-price: '3'
     category: ores
     target-units-per-day: 18000
-
   COAL:
-    base-price: "2"
+    base-price: '2'
     category: ores
     target-units-per-day: 20000
-
   QUARTZ:
-    base-price: "2"
+    base-price: '2'
     category: nether
     target-units-per-day: 18000
-
   LAPIS_LAZULI:
-    base-price: "2"
+    base-price: '2'
     category: ores
     target-units-per-day: 14000
-
   ENDER_PEARL:
-    base-price: "2"
+    base-price: '2'
     category: end
     target-units-per-day: 12000
-
   REDSTONE:
-    base-price: "1.50"
+    base-price: '1.50'
     category: ores
     target-units-per-day: 25000
-
   BLAZE_ROD:
-    base-price: "1.50"
+    base-price: '1.50'
     category: nether
     target-units-per-day: 6000
-
   CHARCOAL:
-    base-price: "1.50"
+    base-price: '1.50'
     category: ores
     target-units-per-day: 10000
-
   OAK_LOG:
-    base-price: "1.25"
+    base-price: '1.25'
     category: wood
     target-units-per-day: 12000
-
   SPRUCE_LOG:
-    base-price: "1.25"
+    base-price: '1.25'
     category: wood
     target-units-per-day: 12000
-
   BIRCH_LOG:
-    base-price: "1.25"
+    base-price: '1.25'
     category: wood
     target-units-per-day: 10000
-
   JUNGLE_LOG:
-    base-price: "1.25"
+    base-price: '1.25'
     category: wood
     target-units-per-day: 8000
-
   ACACIA_LOG:
-    base-price: "1.25"
+    base-price: '1.25'
     category: wood
     target-units-per-day: 8000
-
   DARK_OAK_LOG:
-    base-price: "1.25"
+    base-price: '1.25'
     category: wood
     target-units-per-day: 10000
-
   CHERRY_LOG:
-    base-price: "1.25"
+    base-price: '1.25'
     category: wood
     target-units-per-day: 8000
-
   MANGROVE_LOG:
-    base-price: "1.25"
+    base-price: '1.25'
     category: wood
     target-units-per-day: 8000
-
   GHAST_TEAR:
-    base-price: "4"
+    base-price: '4'
     category: nether
     target-units-per-day: 1000
-
   SHULKER_SHELL:
-    base-price: "20"
+    base-price: '20'
     category: end
     target-units-per-day: 800
-
   BLAZE_POWDER:
-    base-price: "0.75"
+    base-price: '0.75'
     category: nether
     target-units-per-day: 10000
-
   MAGMA_CREAM:
-    base-price: "0.70"
+    base-price: '0.70'
     category: nether
     target-units-per-day: 5000
-
   SLIME_BALL:
-    base-price: "0.60"
+    base-price: '0.60'
     category: mob_drops
     target-units-per-day: 10000
-
   PUMPKIN:
-    base-price: "0.35"
+    base-price: '0.35'
     category: farming
     target-units-per-day: 18000
-
   WHEAT:
-    base-price: "0.25"
+    base-price: '0.25'
     category: farming
     target-units-per-day: 30000
-
   GUNPOWDER:
-    base-price: "0.25"
+    base-price: '0.25'
     category: mob_drops
     target-units-per-day: 20000
-
   CARROT:
-    base-price: "0.22"
+    base-price: '0.22'
     category: farming
     target-units-per-day: 30000
-
   POTATO:
-    base-price: "0.22"
+    base-price: '0.22'
     category: farming
     target-units-per-day: 30000
-
   SUGAR_CANE:
-    base-price: "0.18"
+    base-price: '0.18'
     category: farming
     target-units-per-day: 50000
     minimum-multiplier: 0.25
-    maximum-multiplier: 2.00
-
+    maximum-multiplier: 2.0
   SPIDER_EYE:
-    base-price: "0.18"
+    base-price: '0.18'
     category: mob_drops
     target-units-per-day: 12000
-
   BONE:
-    base-price: "0.12"
+    base-price: '0.12'
     category: mob_drops
     target-units-per-day: 25000
-
   STRING:
-    base-price: "0.10"
+    base-price: '0.10'
     category: mob_drops
     target-units-per-day: 25000
-
   ROTTEN_FLESH:
-    base-price: "0.08"
+    base-price: '0.08'
     category: mob_drops
     target-units-per-day: 35000
-
   MELON_SLICE:
-    base-price: "0.08"
+    base-price: '0.08'
     category: farming
     target-units-per-day: 50000
-
+  CONDUIT:
+    base-price: '30000'
+    category: rare
+    market-enabled: false
+    buyback-multiplier: 0.0
+  HEART_OF_THE_SEA:
+    base-price: '10000'
+    category: rare
+    market-enabled: false
+    buyback-multiplier: 0.0
+  RECOVERY_COMPASS:
+    base-price: '5000'
+    category: rare
+    market-enabled: false
+    buyback-multiplier: 0.0
+  ENCHANTED_BOOK:
+    base-price: '1000'
+    category: utility
+    market-enabled: false
+    buyback-multiplier: 0.0
+    enchant-buyback-multiplier: 0.0
+  WOODEN_SWORD:
+    base-price: '15'
+    category: equipment
+    market-enabled: false
+  WOODEN_SHOVEL:
+    base-price: '12'
+    category: equipment
+    market-enabled: false
+  WOODEN_PICKAXE:
+    base-price: '20'
+    category: equipment
+    market-enabled: false
+  WOODEN_AXE:
+    base-price: '25'
+    category: equipment
+    market-enabled: false
+  WOODEN_HOE:
+    base-price: '12'
+    category: equipment
+    market-enabled: false
+  STONE_SWORD:
+    base-price: '30'
+    category: equipment
+    market-enabled: false
+  STONE_SHOVEL:
+    base-price: '25'
+    category: equipment
+    market-enabled: false
+  STONE_PICKAXE:
+    base-price: '40'
+    category: equipment
+    market-enabled: false
+  STONE_AXE:
+    base-price: '50'
+    category: equipment
+    market-enabled: false
+  STONE_HOE:
+    base-price: '25'
+    category: equipment
+    market-enabled: false
+  GOLDEN_SWORD:
+    base-price: '250'
+    category: equipment
+    market-enabled: false
+  GOLDEN_SHOVEL:
+    base-price: '200'
+    category: equipment
+    market-enabled: false
+  GOLDEN_PICKAXE:
+    base-price: '350'
+    category: equipment
+    market-enabled: false
+  GOLDEN_AXE:
+    base-price: '400'
+    category: equipment
+    market-enabled: false
+  GOLDEN_HOE:
+    base-price: '200'
+    category: equipment
+    market-enabled: false
+  GOLDEN_HELMET:
+    base-price: '400'
+    category: equipment
+    market-enabled: false
+  GOLDEN_CHESTPLATE:
+    base-price: '650'
+    category: equipment
+    market-enabled: false
+  GOLDEN_LEGGINGS:
+    base-price: '550'
+    category: equipment
+    market-enabled: false
+  GOLDEN_BOOTS:
+    base-price: '300'
+    category: equipment
+    market-enabled: false
+  IRON_SWORD:
+    base-price: '300'
+    category: equipment
+    market-enabled: false
+  IRON_SHOVEL:
+    base-price: '200'
+    category: equipment
+    market-enabled: false
+  IRON_PICKAXE:
+    base-price: '450'
+    category: equipment
+    market-enabled: false
+  IRON_AXE:
+    base-price: '500'
+    category: equipment
+    market-enabled: false
+  IRON_HOE:
+    base-price: '250'
+    category: equipment
+    market-enabled: false
+  IRON_HELMET:
+    base-price: '700'
+    category: equipment
+    market-enabled: false
+  IRON_CHESTPLATE:
+    base-price: '1200'
+    category: equipment
+    market-enabled: false
+  IRON_LEGGINGS:
+    base-price: '1000'
+    category: equipment
+    market-enabled: false
+  IRON_BOOTS:
+    base-price: '600'
+    category: equipment
+    market-enabled: false
+  DIAMOND_SWORD:
+    base-price: '2500'
+    category: equipment
+    market-enabled: false
+  DIAMOND_SHOVEL:
+    base-price: '1500'
+    category: equipment
+    market-enabled: false
+  DIAMOND_PICKAXE:
+    base-price: '3500'
+    category: equipment
+    market-enabled: false
+  DIAMOND_AXE:
+    base-price: '3500'
+    category: equipment
+    market-enabled: false
+  DIAMOND_HOE:
+    base-price: '2000'
+    category: equipment
+    market-enabled: false
+  DIAMOND_HELMET:
+    base-price: '3500'
+    category: equipment
+    market-enabled: false
+  DIAMOND_CHESTPLATE:
+    base-price: '6000'
+    category: equipment
+    market-enabled: false
+  DIAMOND_LEGGINGS:
+    base-price: '5000'
+    category: equipment
+    market-enabled: false
+  DIAMOND_BOOTS:
+    base-price: '3000'
+    category: equipment
+    market-enabled: false
+  NETHERITE_SWORD:
+    base-price: '12000'
+    category: equipment
+    market-enabled: false
+  NETHERITE_SHOVEL:
+    base-price: '9000'
+    category: equipment
+    market-enabled: false
+  NETHERITE_PICKAXE:
+    base-price: '15000'
+    category: equipment
+    market-enabled: false
+  NETHERITE_AXE:
+    base-price: '15000'
+    category: equipment
+    market-enabled: false
+  NETHERITE_HOE:
+    base-price: '10000'
+    category: equipment
+    market-enabled: false
+  NETHERITE_HELMET:
+    base-price: '15000'
+    category: equipment
+    market-enabled: false
+  NETHERITE_CHESTPLATE:
+    base-price: '24000'
+    category: equipment
+    market-enabled: false
+  NETHERITE_LEGGINGS:
+    base-price: '21000'
+    category: equipment
+    market-enabled: false
+  NETHERITE_BOOTS:
+    base-price: '13000'
+    category: equipment
+    market-enabled: false
+  LEATHER_HELMET:
+    base-price: '100'
+    category: equipment
+    market-enabled: false
+  LEATHER_CHESTPLATE:
+    base-price: '250'
+    category: equipment
+    market-enabled: false
+  LEATHER_LEGGINGS:
+    base-price: '200'
+    category: equipment
+    market-enabled: false
+  LEATHER_BOOTS:
+    base-price: '100'
+    category: equipment
+    market-enabled: false
+  CHAINMAIL_HELMET:
+    base-price: '900'
+    category: equipment
+    market-enabled: false
+  CHAINMAIL_CHESTPLATE:
+    base-price: '1600'
+    category: equipment
+    market-enabled: false
+  CHAINMAIL_LEGGINGS:
+    base-price: '1400'
+    category: equipment
+    market-enabled: false
+  CHAINMAIL_BOOTS:
+    base-price: '800'
+    category: equipment
+    market-enabled: false
+  TURTLE_HELMET:
+    base-price: '5000'
+    category: equipment
+    market-enabled: false
+  WOLF_ARMOR:
+    base-price: '3500'
+    category: equipment
+    market-enabled: false
+  BOW:
+    base-price: '500'
+    category: equipment
+    market-enabled: false
+  CROSSBOW:
+    base-price: '750'
+    category: equipment
+    market-enabled: false
+  TRIDENT:
+    base-price: '18000'
+    category: equipment
+    market-enabled: false
+  MACE:
+    base-price: '25000'
+    category: equipment
+    market-enabled: false
+  SHIELD:
+    base-price: '250'
+    category: equipment
+    market-enabled: false
+  FISHING_ROD:
+    base-price: '250'
+    category: equipment
+    market-enabled: false
+  SHEARS:
+    base-price: '125'
+    category: equipment
+    market-enabled: false
+  BRUSH:
+    base-price: '500'
+    category: equipment
+    market-enabled: false
+  FLINT_AND_STEEL:
+    base-price: '75'
+    category: equipment
+    market-enabled: false
+  LEATHER_HORSE_ARMOR:
+    base-price: '1500'
+    category: utility
+    market-enabled: false
+  IRON_HORSE_ARMOR:
+    base-price: '5000'
+    category: utility
+    market-enabled: false
+  GOLDEN_HORSE_ARMOR:
+    base-price: '7500'
+    category: utility
+    market-enabled: false
+  DIAMOND_HORSE_ARMOR:
+    base-price: '15000'
+    category: utility
+    market-enabled: false
+  SADDLE:
+    base-price: '2000'
+    category: utility
+    market-enabled: false
+  NAME_TAG:
+    base-price: '1500'
+    category: utility
+    market-enabled: false
+  SPYGLASS:
+    base-price: '750'
+    category: utility
+    market-enabled: false
+  HEAVY_CORE:
+    base-price: '20000'
+    category: rare
+    market-enabled: false
+  NETHERITE_UPGRADE_SMITHING_TEMPLATE:
+    base-price: '20000'
+    category: rare
+    market-enabled: false
+  SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE:
+    base-price: '15000'
+    category: rare
+    market-enabled: false
+  FLOW_ARMOR_TRIM_SMITHING_TEMPLATE:
+    base-price: '10000'
+    category: rare
+    market-enabled: false
+  BOLT_ARMOR_TRIM_SMITHING_TEMPLATE:
+    base-price: '10000'
+    category: rare
+    market-enabled: false
+  WARD_ARMOR_TRIM_SMITHING_TEMPLATE:
+    base-price: '7500'
+    category: rare
+    market-enabled: false
+  EYE_ARMOR_TRIM_SMITHING_TEMPLATE:
+    base-price: '7500'
+    category: rare
+    market-enabled: false
+  TIDE_ARMOR_TRIM_SMITHING_TEMPLATE:
+    base-price: '7500'
+    category: rare
+    market-enabled: false
+  SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE:
+    base-price: '7500'
+    category: rare
+    market-enabled: false
+  SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE:
+    base-price: '5000'
+    category: rare
+    market-enabled: false
+  DUNE_ARMOR_TRIM_SMITHING_TEMPLATE:
+    base-price: '5000'
+    category: rare
+    market-enabled: false
+  COAST_ARMOR_TRIM_SMITHING_TEMPLATE:
+    base-price: '5000'
+    category: rare
+    market-enabled: false
+  WILD_ARMOR_TRIM_SMITHING_TEMPLATE:
+    base-price: '5000'
+    category: rare
+    market-enabled: false
+  VEX_ARMOR_TRIM_SMITHING_TEMPLATE:
+    base-price: '5000'
+    category: rare
+    market-enabled: false
+  SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE:
+    base-price: '5000'
+    category: rare
+    market-enabled: false
+  RIB_ARMOR_TRIM_SMITHING_TEMPLATE:
+    base-price: '5000'
+    category: rare
+    market-enabled: false
+  WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE:
+    base-price: '5000'
+    category: rare
+    market-enabled: false
+  SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE:
+    base-price: '5000'
+    category: rare
+    market-enabled: false
+  RAISER_ARMOR_TRIM_SMITHING_TEMPLATE:
+    base-price: '5000'
+    category: rare
+    market-enabled: false
+  HOST_ARMOR_TRIM_SMITHING_TEMPLATE:
+    base-price: '5000'
+    category: rare
+    market-enabled: false
+  OMINOUS_TRIAL_KEY:
+    base-price: '5000'
+    category: rare
+    market-enabled: false
+  TRIAL_KEY:
+    base-price: '2500'
+    category: rare
+    market-enabled: false
+  ECHO_SHARD:
+    base-price: '750'
+    category: rare
+    market-enabled: false
+  DISC_FRAGMENT_5:
+    base-price: '500'
+    category: rare
+    market-enabled: false
+  BREEZE_ROD:
+    base-price: '1000'
+    category: mob_drops
+    market-enabled: false
+    target-units-per-day: 1000
+  WIND_CHARGE:
+    base-price: '1'
+    category: mob_drops
+    market-enabled: false
+    target-units-per-day: 10000
+  ARMADILLO_SCUTE:
+    base-price: '50'
+    category: mob_drops
+    market-enabled: false
+    target-units-per-day: 2000
 messages:
-  sold-chat: "&#bbbbbbSold &#ff88ff%amount%x items &#bbbbbbfor &a+%money%"
-  sold-actionbar: "&a+%money%"
+  sold-chat: '&#bbbbbbSold &#ff88ff%amount%x items &#bbbbbbfor &a+%money%'
+  sold-actionbar: '&a+%money%'
+valuation:
+  category-buyback:
+    blocks:
+      base: 1.0
+      enchants: 1.0
+    ores:
+      base: 1.0
+      enchants: 1.0
+    wood:
+      base: 1.0
+      enchants: 1.0
+    farming:
+      base: 1.0
+      enchants: 1.0
+    mob_drops:
+      base: 1.0
+      enchants: 1.0
+    nether:
+      base: 0.95
+      enchants: 0.95
+    end:
+      base: 0.9
+      enchants: 0.9
+    equipment:
+      base: 0.3
+      enchants: 0.35
+    consumables:
+      base: 0.85
+      enchants: 0.85
+    utility:
+      base: 0.45
+      enchants: 0.5
+    rare:
+      base: 0.0
+      enchants: 0.0
+    misc:
+      base: 0.5
+      enchants: 0.5

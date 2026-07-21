@@ -9,6 +9,7 @@ import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.sell.gui.SellGui;
 import net.mineacle.core.sell.gui.WorthGui;
+import net.mineacle.core.sell.model.ItemValuation;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
@@ -183,6 +184,15 @@ public final class SellWorthPacketListener
             int rawSlot
     ) {
         /*
+         * Worth catalog entries already contain a complete curated appraisal
+         * breakdown. Preserve that GUI-authored lore exactly instead of
+         * rebuilding it as generic storage hover lore.
+         */
+        if (isWorthCatalogSlot(player, rawSlot)) {
+            return original.clone();
+        }
+
+        /*
          * Always strip stale Mineacle price lore first. This ensures toolbar
          * controls remain clean even if the client previously received a
          * priced copy of the same material.
@@ -196,6 +206,10 @@ public final class SellWorthPacketListener
 
         long stackWorth = sellService.visualWorthCents(
                 player.getUniqueId(),
+                clean
+        );
+        ItemValuation valuation = sellService.appraise(
+                player,
                 clean
         );
 
@@ -223,12 +237,31 @@ public final class SellWorthPacketListener
                 ? new ArrayList<>(meta.getLore())
                 : new ArrayList<>();
 
+        if (valuation.sellable()) {
+            lore.add(
+                    0,
+                    TextColor.color(
+                            "&#bbbbbbServer Sell: &a"
+                                    + sellService.format(
+                                    valuation.serverSellCents()
+                            )
+                    )
+            );
+        } else if (valuation.priced()) {
+            lore.add(
+                    0,
+                    TextColor.color(
+                            "&cPlayer Market Only"
+                    )
+            );
+        }
+
         if (clean.getAmount() > 1
                 && shouldShowStackPrice(player, rawSlot)) {
             lore.add(
                     0,
                     TextColor.color(
-                            "&#bbbbbbStack Price: &a"
+                            "&#bbbbbbStack Appraisal: &a"
                                     + sellService.format(
                                     stackWorth
                             )
@@ -239,7 +272,7 @@ public final class SellWorthPacketListener
         lore.add(
                 0,
                 TextColor.color(
-                        "&#bbbbbbWorth: &a"
+                        "&#bbbbbbAppraised Worth: &a"
                                 + sellService.format(unitWorth)
                 )
         );
@@ -247,6 +280,23 @@ public final class SellWorthPacketListener
         meta.setLore(lore);
         item.setItemMeta(meta);
         return item;
+    }
+
+    private boolean isWorthCatalogSlot(
+            Player player,
+            int rawSlot
+    ) {
+        InventoryView view = player.getOpenInventory();
+
+        if (view == null) {
+            return false;
+        }
+
+        Inventory top = view.getTopInventory();
+        return top != null
+                && WorthGui.isInventory(top)
+                && rawSlot >= 0
+                && rawSlot < WORTH_CONTENT_SLOTS;
     }
 
     private boolean shouldShowWorth(

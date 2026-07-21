@@ -22,6 +22,7 @@ public final class SellModule extends Module {
     private static SellService sellService;
 
     private SellWorthPacketListener packetListener;
+    private WorthGuiListener worthGuiListener;
     private BukkitTask marketTask;
 
     public static SellService sellService() {
@@ -49,8 +50,12 @@ public final class SellModule extends Module {
                 new SellGuiListener(core, sellService),
                 core
         );
+        worthGuiListener = new WorthGuiListener(
+                core,
+                sellService
+        );
         core.getServer().getPluginManager().registerEvents(
-                new WorthGuiListener(core, sellService),
+                worthGuiListener,
                 core
         );
         core.getServer().getPluginManager().registerEvents(
@@ -112,6 +117,11 @@ public final class SellModule extends Module {
             ProtocolLibrary.getProtocolManager()
                     .removePacketListener(packetListener);
             packetListener = null;
+        }
+
+        if (worthGuiListener != null) {
+            worthGuiListener.shutdown();
+            worthGuiListener = null;
         }
 
         if (sellService != null) {

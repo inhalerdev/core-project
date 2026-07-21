@@ -193,10 +193,19 @@ public final class MarketPricingService {
     public synchronized double combinedMultiplier(
             Material material
     ) {
-        return roundMultiplier(
-                marketMultiplier(material)
-                        * featuredMultiplier(material)
-        );
+        double combined = marketMultiplier(material)
+                * featuredMultiplier(material);
+        MarketDefinition definition = definitions.get(material);
+
+        if (definition != null) {
+            combined = clamp(
+                    combined,
+                    definition.minimumMultiplier(),
+                    definition.maximumMultiplier()
+            );
+        }
+
+        return roundMultiplier(combined);
     }
 
     public synchronized boolean isFeatured(Material material) {

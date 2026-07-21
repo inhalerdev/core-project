@@ -10,8 +10,8 @@ import net.mineacle.core.sell.gui.SellGui;
 import net.mineacle.core.sell.gui.SellHistoryGui;
 import net.mineacle.core.sell.gui.SellMultiGui;
 import net.mineacle.core.sell.gui.WorthGui;
+import net.mineacle.core.sell.model.ItemValuation;
 import net.mineacle.core.sell.model.SaleResult;
-import net.mineacle.core.sell.model.SellQuote;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -44,7 +44,8 @@ public final class SellCommand
             List.of(
                     "reprice",
                     "rotate",
-                    "reset"
+                    "reset",
+                    "audit"
             );
 
     private final Core core;
@@ -163,12 +164,14 @@ public final class SellCommand
             return;
         }
 
-        long unit = sellService.unitWorthCents(
+        ItemStack item = new ItemStack(material);
+        ItemValuation valuation = sellService.appraise(
                 player,
-                material
+                item
         );
 
-        if (unit <= 0L) {
+        if (!valuation.priced()
+                || valuation.appraisedTotalCents() <= 0L) {
             error(player, "&cThat item has no worth");
             return;
         }
@@ -177,34 +180,63 @@ public final class SellCommand
                 1,
                 material.getMaxStackSize()
         );
-        long stackPrice;
-
-        try {
-            stackPrice = Math.multiplyExact(unit, stackSize);
-        } catch (ArithmeticException exception) {
-            stackPrice = Long.MAX_VALUE;
-        }
+        long stackAppraisal = multiply(
+                valuation.appraisedTotalCents(),
+                stackSize
+        );
+        long stackSell = multiply(
+                valuation.serverSellCents(),
+                stackSize
+        );
 
         player.sendMessage(TextColor.color(
                 "&#bbbbbbItem: &#ff88ff"
                         + sellService.pretty(material)
         ));
         player.sendMessage(TextColor.color(
-                "&#bbbbbbWorth: &a"
-                        + sellService.format(unit)
+                "&#bbbbbbAppraised Worth: &a"
+                        + sellService.format(
+                        valuation.appraisedTotalCents()
+                )
         ));
 
-        if (material == Material.DRAGON_EGG) {
+        if (stackSize > 1) {
             player.sendMessage(TextColor.color(
-                    "&cNot sellable"
+                    "&#bbbbbbStack Appraisal: &a"
+                            + sellService.format(
+                            stackAppraisal
+                    )
             ));
+        }
+
+        if (valuation.sellable()) {
             player.sendMessage(TextColor.color(
-                    "&#bbbbbbUnique server trophy item"
+                    "&#bbbbbbServer Sell: &a"
+                            + sellService.format(
+                            valuation.serverSellCents()
+                    )
             ));
+
+            if (stackSize > 1) {
+                player.sendMessage(TextColor.color(
+                        "&#bbbbbbStack Sell: &a"
+                                + sellService.format(
+                                stackSell
+                        )
+                ));
+            }
         } else {
             player.sendMessage(TextColor.color(
-                    "&#bbbbbbStack Price: &a"
-                            + sellService.format(stackPrice)
+                    "&cPlayer Market Only"
+            ));
+            player.sendMessage(TextColor.color(
+                    "&#bbbbbbUse /ah or direct player trading"
+            ));
+        }
+
+        if (!valuation.explicitlyPriced()) {
+            player.sendMessage(TextColor.color(
+                    "&#bbbbbbEstimated appraisal — not accepted by /sell"
             ));
         }
 
@@ -220,8 +252,8 @@ public final class SellCommand
             return;
         }
 
-        SellQuote quote = sellService.displayQuote(
-                player.getUniqueId(),
+        ItemValuation valuation = sellService.appraise(
+                player,
                 item
         );
         long visualWorth = sellService.visualWorthCents(
@@ -229,7 +261,7 @@ public final class SellCommand
                 item
         );
 
-        if (visualWorth <= 0L) {
+        if (!valuation.priced() || visualWorth <= 0L) {
             error(player, "&cThis item has no worth");
             return;
         }
@@ -241,24 +273,52 @@ public final class SellCommand
                         + sellService.pretty(item.getType())
         ));
         player.sendMessage(TextColor.color(
-                "&#bbbbbbWorth: &a"
-                        + sellService.format(
-                        sellService.visualUnitWorthCents(
-                                player.getUniqueId(),
-                                item
-                        )
-                )
-        ));
-        player.sendMessage(TextColor.color(
-                "&#bbbbbbStack Price: &a"
+                "&#bbbbbbAppraised Worth: &a"
                         + sellService.format(visualWorth)
         ));
 
-        if (quote.damaged()) {
+        if (valuation.appraisedEnchantCents() > 0L) {
+            player.sendMessage(TextColor.color(
+                    "&#bbbbbbEnchant Value: &a"
+                            + sellService.format(
+                            valuation.appraisedEnchantCents()
+                    )
+            ));
+        }
+
+        if (valuation.sellable()) {
+            player.sendMessage(TextColor.color(
+                    "&#bbbbbbServer Sell: &a"
+                            + sellService.format(
+                            valuation.serverSellCents()
+                    )
+            ));
+        } else {
+            player.sendMessage(TextColor.color(
+                    "&cPlayer Market Only"
+            ));
+            player.sendMessage(TextColor.color(
+                    "&#bbbbbbUse /ah or direct player trading"
+            ));
+        }
+
+        if (valuation.damaged()) {
             player.sendMessage(TextColor.color(
                     "&#bbbbbbDurability: &#ff88ff"
-                            + quote.durabilityPercent()
+                            + valuation.durabilityPercent()
                             + "%"
+            ));
+        }
+
+        if (valuation.mending()) {
+            player.sendMessage(TextColor.color(
+                    "&#bbbbbbMending: &#ff88ffValue protected"
+            ));
+        }
+
+        if (!valuation.explicitlyPriced()) {
+            player.sendMessage(TextColor.color(
+                    "&#bbbbbbEstimated appraisal — not accepted by /sell"
             ));
         }
 
@@ -451,7 +511,7 @@ public final class SellCommand
             error(
                     player,
                     "&cUsage: /sell market "
-                            + "<item|reprice|rotate|reset>"
+                            + "<item|reprice|rotate|reset|audit>"
             );
             return;
         }
@@ -487,6 +547,32 @@ public final class SellCommand
                 SoundService.guiConfirm(player, core);
                 return;
             }
+            case "audit" -> {
+                SellService.CatalogCoverage coverage =
+                        sellService.catalogCoverage();
+                player.sendMessage(TextColor.color(
+                        "&#bbbbbbWorth Catalog: &#ff88ff"
+                                + coverage.visibleItems()
+                ));
+                player.sendMessage(TextColor.color(
+                        "&#bbbbbbExplicit Appraisals: &#ff88ff"
+                                + coverage.explicitlyPricedItems()
+                ));
+                player.sendMessage(TextColor.color(
+                        "&#bbbbbbFallback Estimates: &#ff88ff"
+                                + coverage.fallbackAppraisals()
+                ));
+                player.sendMessage(TextColor.color(
+                        "&#bbbbbbServer Sellable: &#ff88ff"
+                                + coverage.serverSellableItems()
+                ));
+                player.sendMessage(TextColor.color(
+                        "&#bbbbbbPlayer Market Only: &#ff88ff"
+                                + coverage.playerMarketOnlyItems()
+                ));
+                SoundService.economyBalance(player, core);
+                return;
+            }
             default -> {
             }
         }
@@ -520,7 +606,7 @@ public final class SellCommand
                         + sellService.pretty(material)
         ));
         player.sendMessage(TextColor.color(
-                "&#bbbbbbBase Price: &a"
+                "&#bbbbbbBase Appraisal: &a"
                         + sellService.format(
                         sellService.baseWorthCents(material)
                 )
@@ -531,9 +617,18 @@ public final class SellCommand
                         + "x"
         ));
         player.sendMessage(TextColor.color(
-                "&#bbbbbbFinal Unit Price: &a"
+                "&#bbbbbbCurrent Appraisal: &a"
                         + sellService.format(
                         sellService.unitWorthCents(
+                                player,
+                                material
+                        )
+                )
+        ));
+        player.sendMessage(TextColor.color(
+                "&#bbbbbbServer Sell: &a"
+                        + sellService.format(
+                        sellService.serverUnitSellCents(
                                 player,
                                 material
                         )
@@ -560,6 +655,17 @@ public final class SellCommand
                 )
         ));
         SoundService.economyBalance(player, core);
+    }
+
+    private long multiply(
+            long value,
+            int multiplier
+    ) {
+        try {
+            return Math.multiplyExact(value, multiplier);
+        } catch (ArithmeticException exception) {
+            return Long.MAX_VALUE;
+        }
     }
 
     private void error(Player player, String message) {
