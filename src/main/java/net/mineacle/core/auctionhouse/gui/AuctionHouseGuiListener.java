@@ -177,6 +177,7 @@ public final class AuctionHouseGuiListener implements Listener {
                         service,
                         0,
                         prompt.sortMode(),
+                        prompt.filterMode(),
                         ""
                 );
                 return;
@@ -209,6 +210,7 @@ public final class AuctionHouseGuiListener implements Listener {
                     service,
                     0,
                     prompt.sortMode(),
+                    prompt.filterMode(),
                     service.sanitizeSearchQuery(rawQuery)
             );
         });
@@ -250,6 +252,7 @@ public final class AuctionHouseGuiListener implements Listener {
                             service,
                             holder.page(),
                             holder.sortMode(),
+                            holder.filterMode(),
                             holder.query()
                     ),
                     () -> AuctionHouseGui.openConfirmBuy(
@@ -258,6 +261,7 @@ public final class AuctionHouseGuiListener implements Listener {
                             listing,
                             holder.page(),
                             holder.sortMode(),
+                            holder.filterMode(),
                             holder.query()
                     )
             );
@@ -272,6 +276,7 @@ public final class AuctionHouseGuiListener implements Listener {
                     service,
                     holder.page() - 1,
                     holder.sortMode(),
+                    holder.filterMode(),
                     holder.query()
             );
             return;
@@ -284,15 +289,22 @@ public final class AuctionHouseGuiListener implements Listener {
                     service,
                     0,
                     holder.sortMode().next(),
+                    holder.filterMode(),
                     holder.query()
             );
             return;
         }
 
-        if (slot == AuctionHouseGui.worthSlot()) {
+        if (slot == AuctionHouseGui.filterSlot()) {
             SoundService.guiClick(player, core);
-            MenuHistory.close(core, player);
-            player.performCommand("worth");
+            replaceBrowse(
+                    player,
+                    service,
+                    0,
+                    holder.sortMode(),
+                    holder.filterMode().next(),
+                    holder.query()
+            );
             return;
         }
 
@@ -316,6 +328,7 @@ public final class AuctionHouseGuiListener implements Listener {
                         service,
                         0,
                         holder.sortMode(),
+                        holder.filterMode(),
                         ""
                 );
                 return;
@@ -336,6 +349,7 @@ public final class AuctionHouseGuiListener implements Listener {
                             service,
                             holder.page(),
                             holder.sortMode(),
+                            holder.filterMode(),
                             holder.query()
                     ),
                     () -> AuctionHouseGui.openOwn(
@@ -353,6 +367,7 @@ public final class AuctionHouseGuiListener implements Listener {
                     service,
                     holder.page() + 1,
                     holder.sortMode(),
+                    holder.filterMode(),
                     holder.query()
             );
         }
@@ -420,15 +435,9 @@ public final class AuctionHouseGuiListener implements Listener {
                     player,
                     0,
                     AuctionHouseService.SortMode.LOWEST_PRICE,
+                    AuctionHouseService.FilterMode.ALL,
                     ""
             );
-            return;
-        }
-
-        if (slot == AuctionHouseGui.ownWorthSlot()) {
-            SoundService.guiClick(player, core);
-            MenuHistory.close(core, player);
-            player.performCommand("worth");
             return;
         }
 
@@ -477,6 +486,7 @@ public final class AuctionHouseGuiListener implements Listener {
                     player,
                     holder.returnPage(),
                     holder.returnSort(),
+                    holder.returnFilter(),
                     holder.returnQuery()
             );
             return;
@@ -511,6 +521,7 @@ public final class AuctionHouseGuiListener implements Listener {
                         player,
                         holder.returnPage(),
                         holder.returnSort(),
+                        holder.returnFilter(),
                         holder.returnQuery()
                 );
             }
@@ -557,6 +568,7 @@ public final class AuctionHouseGuiListener implements Listener {
                         player,
                         holder.returnPage(),
                         holder.returnSort(),
+                        holder.returnFilter(),
                         holder.returnQuery()
                 );
             }
@@ -650,6 +662,7 @@ public final class AuctionHouseGuiListener implements Listener {
         SearchPrompt prompt = new SearchPrompt(
                 holder.page(),
                 holder.sortMode(),
+                holder.filterMode(),
                 holder.query()
         );
 
@@ -733,6 +746,7 @@ public final class AuctionHouseGuiListener implements Listener {
                 service,
                 holder.page(),
                 holder.sortMode(),
+                holder.filterMode(),
                 holder.query()
         );
     }
@@ -746,6 +760,7 @@ public final class AuctionHouseGuiListener implements Listener {
                 service,
                 prompt.page(),
                 prompt.sortMode(),
+                prompt.filterMode(),
                 prompt.query()
         );
     }
@@ -754,6 +769,7 @@ public final class AuctionHouseGuiListener implements Listener {
             Player player,
             int page,
             AuctionHouseService.SortMode sortMode,
+            AuctionHouseService.FilterMode filterMode,
             String query
     ) {
         if (!MenuHistory.back(core, player)) {
@@ -762,6 +778,7 @@ public final class AuctionHouseGuiListener implements Listener {
                     service,
                     page,
                     sortMode,
+                    filterMode,
                     query
             );
         }
@@ -785,6 +802,7 @@ public final class AuctionHouseGuiListener implements Listener {
             AuctionHouseService ignored,
             int page,
             AuctionHouseService.SortMode sortMode,
+            AuctionHouseService.FilterMode filterMode,
             String query
     ) {
         MenuHistory.openWithoutBackTrigger(
@@ -795,6 +813,7 @@ public final class AuctionHouseGuiListener implements Listener {
                         service,
                         page,
                         sortMode,
+                        filterMode,
                         query
                 )
         );
@@ -831,6 +850,7 @@ public final class AuctionHouseGuiListener implements Listener {
     private record SearchPrompt(
             int page,
             AuctionHouseService.SortMode sortMode,
+            AuctionHouseService.FilterMode filterMode,
             String query
     ) {
     }

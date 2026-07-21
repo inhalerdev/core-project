@@ -12,6 +12,7 @@ import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.Tag;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.enchantments.Enchantment;
@@ -60,6 +61,98 @@ public final class AuctionHouseService {
                 case HIGHEST_PRICE -> "Highest Price";
                 case RECENTLY_LISTED -> "Recently Listed";
             };
+        }
+    }
+
+    public enum FilterMode {
+        ALL("All"),
+        BLOCKS("Blocks"),
+        TOOLS("Tools"),
+        FOOD("Food"),
+        COMBAT("Combat"),
+        POTIONS("Potions"),
+        BOOKS("Books"),
+        INGREDIENTS("Ingredients"),
+        UTILITIES("Utilities");
+
+        private final String label;
+
+        FilterMode(String label) {
+            this.label = label;
+        }
+
+        public String label() {
+            return label;
+        }
+
+        public FilterMode next() {
+            FilterMode[] values = values();
+            return values[(ordinal() + 1) % values.length];
+        }
+
+        public boolean matches(Material material) {
+            if (material == null || material.isAir()) {
+                return false;
+            }
+
+            if (this == ALL) {
+                return true;
+            }
+
+            String name = material.name();
+
+            return switch (this) {
+                case BLOCKS -> material.isBlock();
+                case TOOLS -> isTool(name);
+                case FOOD -> material.isEdible();
+                case COMBAT -> isCombat(name);
+                case POTIONS -> name.contains("POTION")
+                        || name.equals("DRAGON_BREATH");
+                case BOOKS -> name.contains("BOOK")
+                        || name.equals("PAPER")
+                        || name.endsWith("_MAP")
+                        || name.equals("MAP");
+                case INGREDIENTS -> Tag.ITEMS_COALS
+                        .isTagged(material)
+                        || name.contains("INGOT")
+                        || name.contains("NUGGET")
+                        || name.contains("DUST")
+                        || name.contains("GEM")
+                        || name.contains("SHARD")
+                        || name.contains("SCRAP")
+                        || name.startsWith("RAW_");
+                case UTILITIES -> !material.isBlock()
+                        && !material.isEdible()
+                        && !isTool(name)
+                        && !isCombat(name);
+                case ALL -> true;
+            };
+        }
+
+        private static boolean isTool(String name) {
+            return name.endsWith("_PICKAXE")
+                    || name.endsWith("_AXE")
+                    || name.endsWith("_SHOVEL")
+                    || name.endsWith("_HOE")
+                    || name.equals("SHEARS")
+                    || name.equals("FISHING_ROD")
+                    || name.equals("BRUSH")
+                    || name.equals("FLINT_AND_STEEL");
+        }
+
+        private static boolean isCombat(String name) {
+            return name.endsWith("_SWORD")
+                    || name.endsWith("_HELMET")
+                    || name.endsWith("_CHESTPLATE")
+                    || name.endsWith("_LEGGINGS")
+                    || name.endsWith("_BOOTS")
+                    || name.equals("BOW")
+                    || name.equals("CROSSBOW")
+                    || name.equals("SHIELD")
+                    || name.equals("TRIDENT")
+                    || name.equals("MACE")
+                    || name.equals("ARROW")
+                    || name.endsWith("_ARROW");
         }
     }
 
@@ -273,16 +366,28 @@ public final class AuctionHouseService {
             String query,
             SortMode sortMode
     ) {
+        return search(query, sortMode, FilterMode.ALL);
+    }
+
+    public synchronized List<AuctionHouseListing> search(
+            String query,
+            SortMode sortMode,
+            FilterMode filterMode
+    ) {
         String normalizedQuery = normalizeSearchQuery(query);
         SortMode effectiveSort = sortMode == null
                 ? SortMode.LOWEST_PRICE
                 : sortMode;
+        FilterMode effectiveFilter = filterMode == null
+                ? FilterMode.ALL
+                : filterMode;
 
         List<AuctionHouseListing> result = new ArrayList<>();
 
         for (AuctionHouseListing listing : listings.values()) {
-            if (normalizedQuery.isBlank()
-                    || matches(listing.item(), normalizedQuery)) {
+            if (effectiveFilter.matches(listing.item().getType())
+                    && (normalizedQuery.isBlank()
+                    || matches(listing.item(), normalizedQuery))) {
                 result.add(listing);
             }
         }

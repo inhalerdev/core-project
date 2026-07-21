@@ -16,6 +16,7 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,12 +31,12 @@ public final class AuctionHouseGui {
     private static final int[] BROWSE_TOOLBAR =
             CenteredToolbar.interiorSlots(SIZE, 5);
     private static final int[] OWN_TOOLBAR =
-            CenteredToolbar.interiorSlots(SIZE, 4);
+            CenteredToolbar.interiorSlots(SIZE, 3);
 
     private static final int SLOT_PREVIOUS =
             CenteredToolbar.previousSlot(SIZE);
-    private static final int SLOT_FILTER = BROWSE_TOOLBAR[0];
-    private static final int SLOT_WORTH = BROWSE_TOOLBAR[1];
+    private static final int SLOT_SORT = BROWSE_TOOLBAR[0];
+    private static final int SLOT_FILTER = BROWSE_TOOLBAR[1];
     private static final int SLOT_REFRESH = BROWSE_TOOLBAR[2];
     private static final int SLOT_SEARCH = BROWSE_TOOLBAR[3];
     private static final int SLOT_OWN_ITEMS = BROWSE_TOOLBAR[4];
@@ -45,9 +46,8 @@ public final class AuctionHouseGui {
     private static final int SLOT_OWN_PREVIOUS =
             CenteredToolbar.previousSlot(SIZE);
     private static final int SLOT_OWN_BACK = OWN_TOOLBAR[0];
-    private static final int SLOT_OWN_WORTH = OWN_TOOLBAR[1];
-    private static final int SLOT_OWN_REFRESH = OWN_TOOLBAR[2];
-    private static final int SLOT_OWN_LIST_ITEM = OWN_TOOLBAR[3];
+    private static final int SLOT_OWN_REFRESH = OWN_TOOLBAR[1];
+    private static final int SLOT_OWN_LIST_ITEM = OWN_TOOLBAR[2];
     private static final int SLOT_OWN_NEXT =
             CenteredToolbar.nextSlot(SIZE);
 
@@ -65,14 +65,36 @@ public final class AuctionHouseGui {
             AuctionHouseService.SortMode sortMode,
             String query
     ) {
+        openBrowse(
+                player,
+                service,
+                page,
+                sortMode,
+                AuctionHouseService.FilterMode.ALL,
+                query
+        );
+    }
+
+    public static void openBrowse(
+            Player player,
+            AuctionHouseService service,
+            int page,
+            AuctionHouseService.SortMode sortMode,
+            AuctionHouseService.FilterMode filterMode,
+            String query
+    ) {
         AuctionHouseService.SortMode effectiveSort = sortMode == null
                 ? AuctionHouseService.SortMode.LOWEST_PRICE
                 : sortMode;
+        AuctionHouseService.FilterMode effectiveFilter = filterMode == null
+                ? AuctionHouseService.FilterMode.ALL
+                : filterMode;
         String effectiveQuery = service.sanitizeSearchQuery(query);
 
         List<AuctionHouseListing> listings = service.search(
                 effectiveQuery,
-                effectiveSort
+                effectiveSort,
+                effectiveFilter
         );
 
         int maxPage = Math.max(
@@ -84,6 +106,7 @@ public final class AuctionHouseGui {
         BrowseHolder holder = new BrowseHolder(
                 effectivePage,
                 effectiveSort,
+                effectiveFilter,
                 effectiveQuery
         );
 
@@ -126,17 +149,13 @@ public final class AuctionHouseGui {
         );
 
         inventory.setItem(
-                SLOT_FILTER,
+                SLOT_SORT,
                 sortItem(effectiveSort)
         );
 
         inventory.setItem(
-                SLOT_WORTH,
-                item(
-                        Material.AMETHYST_SHARD,
-                        "&dWorth",
-                        "&#bbbbbbClick to open Worth"
-                )
+                SLOT_FILTER,
+                filterItem(effectiveFilter)
         );
 
         inventory.setItem(
@@ -171,10 +190,11 @@ public final class AuctionHouseGui {
 
         inventory.setItem(
                 SLOT_OWN_ITEMS,
-                item(
-                        Material.CHEST,
-                        "&dYour Items",
-                        "&#bbbbbbClick to view your listings"
+                playerHead(
+                        player,
+                        "&dYour Listings",
+                        "&#bbbbbbView items you listed",
+                        "&#bbbbbbCancel active listings"
                 )
         );
 
@@ -224,7 +244,7 @@ public final class AuctionHouseGui {
                 holder,
                 SIZE,
                 legacy(
-                        "Auction -> Your Items (Page "
+                        "Auction -> Your Listings (Page "
                                 + (effectivePage + 1)
                                 + ")"
                 )
@@ -294,15 +314,6 @@ public final class AuctionHouseGui {
         );
 
         inventory.setItem(
-                SLOT_OWN_WORTH,
-                item(
-                        Material.AMETHYST_SHARD,
-                        "&dWorth",
-                        "&#bbbbbbClick to open Worth"
-                )
-        );
-
-        inventory.setItem(
                 SLOT_OWN_REFRESH,
                 item(
                         Material.PAPER,
@@ -340,12 +351,14 @@ public final class AuctionHouseGui {
             AuctionHouseListing listing,
             int returnPage,
             AuctionHouseService.SortMode returnSort,
+            AuctionHouseService.FilterMode returnFilter,
             String returnQuery
     ) {
         ConfirmBuyHolder holder = new ConfirmBuyHolder(
                 listing.id(),
                 returnPage,
                 returnSort,
+                returnFilter,
                 returnQuery
         );
 
@@ -530,6 +543,36 @@ public final class AuctionHouseGui {
         );
     }
 
+    private static ItemStack filterItem(
+            AuctionHouseService.FilterMode current
+    ) {
+        List<String> lore = new ArrayList<>();
+        lore.add(
+                "&#bbbbbbCurrent: &#ff88ff"
+                        + current.label()
+        );
+        lore.add("");
+
+        for (AuctionHouseService.FilterMode mode
+                : AuctionHouseService.FilterMode.values()) {
+            lore.add(
+                    (mode == current
+                            ? "&#ff88ff"
+                            : "&#bbbbbb")
+                            + mode.label()
+            );
+        }
+
+        lore.add("");
+        lore.add("&#bbbbbbClick to change filter");
+
+        return item(
+                Material.HOPPER,
+                "&dFilter",
+                lore.toArray(String[]::new)
+        );
+    }
+
     public static ItemStack item(
             Material material,
             String name,
@@ -562,23 +605,36 @@ public final class AuctionHouseGui {
         return item;
     }
 
+    private static ItemStack playerHead(
+            Player player,
+            String name,
+            String... loreLines
+    ) {
+        ItemStack item = item(
+                Material.PLAYER_HEAD,
+                name,
+                loreLines
+        );
+        ItemMeta meta = item.getItemMeta();
+
+        if (meta instanceof SkullMeta skullMeta) {
+            skullMeta.setOwningPlayer(player);
+            item.setItemMeta(skullMeta);
+        }
+
+        return item;
+    }
+
     public static int previousSlot() {
         return SLOT_PREVIOUS;
     }
 
     public static int sortSlot() {
-        return SLOT_FILTER;
+        return SLOT_SORT;
     }
 
-    /**
-     * Compatibility alias for callers compiled against the former name.
-     */
     public static int filterSlot() {
-        return sortSlot();
-    }
-
-    public static int worthSlot() {
-        return SLOT_WORTH;
+        return SLOT_FILTER;
     }
 
     public static int refreshSlot() {
@@ -603,10 +659,6 @@ public final class AuctionHouseGui {
 
     public static int ownBackSlot() {
         return SLOT_OWN_BACK;
-    }
-
-    public static int ownWorthSlot() {
-        return SLOT_OWN_WORTH;
     }
 
     public static int ownRefreshSlot() {
@@ -658,16 +710,19 @@ public final class AuctionHouseGui {
         private final Map<Integer, UUID> slotListings = new HashMap<>();
         private final int page;
         private final AuctionHouseService.SortMode sortMode;
+        private final AuctionHouseService.FilterMode filterMode;
         private final String query;
         private Inventory inventory;
 
         private BrowseHolder(
                 int page,
                 AuctionHouseService.SortMode sortMode,
+                AuctionHouseService.FilterMode filterMode,
                 String query
         ) {
             this.page = page;
             this.sortMode = sortMode;
+            this.filterMode = filterMode;
             this.query = query == null ? "" : query;
         }
 
@@ -681,6 +736,10 @@ public final class AuctionHouseGui {
 
         public AuctionHouseService.SortMode sortMode() {
             return sortMode;
+        }
+
+        public AuctionHouseService.FilterMode filterMode() {
+            return filterMode;
         }
 
         public String query() {
@@ -722,6 +781,7 @@ public final class AuctionHouseGui {
         private final UUID listingId;
         private final int returnPage;
         private final AuctionHouseService.SortMode returnSort;
+        private final AuctionHouseService.FilterMode returnFilter;
         private final String returnQuery;
         private Inventory inventory;
 
@@ -729,6 +789,7 @@ public final class AuctionHouseGui {
                 UUID listingId,
                 int returnPage,
                 AuctionHouseService.SortMode returnSort,
+                AuctionHouseService.FilterMode returnFilter,
                 String returnQuery
         ) {
             this.listingId = listingId;
@@ -736,6 +797,9 @@ public final class AuctionHouseGui {
             this.returnSort = returnSort == null
                     ? AuctionHouseService.SortMode.LOWEST_PRICE
                     : returnSort;
+            this.returnFilter = returnFilter == null
+                    ? AuctionHouseService.FilterMode.ALL
+                    : returnFilter;
             this.returnQuery = returnQuery == null ? "" : returnQuery;
         }
 
@@ -749,6 +813,10 @@ public final class AuctionHouseGui {
 
         public AuctionHouseService.SortMode returnSort() {
             return returnSort;
+        }
+
+        public AuctionHouseService.FilterMode returnFilter() {
+            return returnFilter;
         }
 
         public String returnQuery() {
