@@ -1,6 +1,7 @@
 package net.mineacle.core.webprofiles.storage;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.webprofiles.model.WebFightRecord;
 import net.mineacle.core.webprofiles.model.WebProfileRecord;
 import org.bukkit.configuration.file.FileConfiguration;
 
@@ -25,6 +26,8 @@ public final class WebProfileRepository {
     private final String table;
     private final String fightsTable;
     private final String fightsBackupTable;
+
+    private volatile FightIdMode fightIdMode;
 
     public WebProfileRepository(
             Core core,
@@ -114,6 +117,7 @@ public final class WebProfileRepository {
             }
 
             migrate();
+            initializeFightTable();
             applyConfiguredFightCutoff();
         } catch (Exception exception) {
             core.getLogger().severe(
@@ -217,6 +221,188 @@ public final class WebProfileRepository {
         }
     }
 
+    public boolean insertFight(
+            WebFightRecord record
+    ) {
+        if (!config.getBoolean("enabled", true)
+                || !config.getBoolean(
+                "web-fights.enabled",
+                true
+        )
+                || record == null) {
+            return false;
+        }
+
+        try {
+            loadDriver();
+
+            try (Connection connection = connection()) {
+                FightIdMode idMode =
+                        resolveFightIdMode(connection);
+                String columns = idMode
+                        == FightIdMode.AUTO_INCREMENT
+                        ? """
+                           winner_uuid,
+                           winner_username,
+                           winner_display_name,
+                           loser_uuid,
+                           loser_username,
+                           loser_display_name,
+                           world_key,
+                           world_name,
+                           winner_hearts,
+                           loser_hearts,
+                           started_at,
+                           ended_at,
+                           duration_seconds
+                           """
+                        : """
+                           fight_id,
+                           winner_uuid,
+                           winner_username,
+                           winner_display_name,
+                           loser_uuid,
+                           loser_username,
+                           loser_display_name,
+                           world_key,
+                           world_name,
+                           winner_hearts,
+                           loser_hearts,
+                           started_at,
+                           ended_at,
+                           duration_seconds
+                           """;
+                String placeholders = idMode
+                        == FightIdMode.AUTO_INCREMENT
+                        ? "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?"
+                        : "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?";
+
+                try (PreparedStatement statement =
+                             connection.prepareStatement(
+                                     "INSERT INTO "
+                                             + fightsTable
+                                             + " ("
+                                             + columns
+                                             + ") VALUES ("
+                                             + placeholders
+                                             + ")"
+                             )) {
+                    int index = 1;
+
+                    if (idMode
+                            == FightIdMode.EXPLICIT_UUID) {
+                        statement.setString(
+                                index++,
+                                record.fightId().toString()
+                        );
+                    } else if (idMode
+                            == FightIdMode.EXPLICIT_LONG) {
+                        statement.setLong(
+                                index++,
+                                numericFightId(
+                                        record.fightId()
+                                )
+                        );
+                    }
+
+                    statement.setString(
+                            index++,
+                            record.winnerUuid().toString()
+                    );
+                    statement.setString(
+                            index++,
+                            limit(
+                                    record.winnerUsername(),
+                                    16
+                            )
+                    );
+                    statement.setString(
+                            index++,
+                            limit(
+                                    record.winnerDisplayName(),
+                                    32
+                            )
+                    );
+                    statement.setString(
+                            index++,
+                            record.loserUuid().toString()
+                    );
+                    statement.setString(
+                            index++,
+                            limit(
+                                    record.loserUsername(),
+                                    16
+                            )
+                    );
+                    statement.setString(
+                            index++,
+                            limit(
+                                    record.loserDisplayName(),
+                                    32
+                            )
+                    );
+                    statement.setString(
+                            index++,
+                            limit(
+                                    record.worldKey(),
+                                    64
+                            )
+                    );
+                    statement.setString(
+                            index++,
+                            limit(
+                                    record.worldName(),
+                                    32
+                            )
+                    );
+                    statement.setDouble(
+                            index++,
+                            nonNegative(
+                                    record.winnerHearts()
+                            )
+                    );
+                    statement.setDouble(
+                            index++,
+                            nonNegative(
+                                    record.loserHearts()
+                            )
+                    );
+                    statement.setLong(
+                            index++,
+                            Math.max(
+                                    0L,
+                                    record.startedAt()
+                            )
+                    );
+                    statement.setLong(
+                            index++,
+                            Math.max(
+                                    0L,
+                                    record.endedAt()
+                            )
+                    );
+                    statement.setLong(
+                            index,
+                            Math.max(
+                                    1L,
+                                    record.durationSeconds()
+                            )
+                    );
+
+                    return statement.executeUpdate() == 1;
+                }
+            }
+        } catch (Exception exception) {
+            core.getLogger().warning(
+                    "Could not post web fight "
+                            + record.fightId()
+                            + ": "
+                            + exception.getMessage()
+            );
+            return false;
+        }
+    }
+
     public Optional<StoredRank> findRank(UUID uuid) {
         if (!config.getBoolean("enabled", true)
                 || uuid == null) {
@@ -283,6 +469,113 @@ public final class WebProfileRepository {
                     "Could not mark web profiles offline: "
                             + exception.getMessage()
             );
+        }
+    }
+
+    private FightIdMode resolveFightIdMode(
+            Connection connection
+    ) throws Exception {
+        FightIdMode cached = fightIdMode;
+
+        if (cached != null) {
+            return cached;
+        }
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(
+                             "SHOW COLUMNS FROM "
+                                     + fightsTable
+                                     + " LIKE 'fight_id'"
+                     );
+             ResultSet result = statement.executeQuery()) {
+            if (!result.next()) {
+                throw new IllegalStateException(
+                        "The web fights table is missing fight_id"
+                );
+            }
+
+            String type = result.getString("Type");
+            String extra = result.getString("Extra");
+            String normalizedType = type == null
+                    ? ""
+                    : type.toLowerCase(Locale.ROOT);
+            String normalizedExtra = extra == null
+                    ? ""
+                    : extra.toLowerCase(Locale.ROOT);
+
+            if (normalizedExtra.contains(
+                    "auto_increment"
+            )) {
+                cached = FightIdMode.AUTO_INCREMENT;
+            } else if (normalizedType.contains("int")) {
+                cached = FightIdMode.EXPLICIT_LONG;
+            } else {
+                cached = FightIdMode.EXPLICIT_UUID;
+            }
+        }
+
+        fightIdMode = cached;
+        return cached;
+    }
+
+    private long numericFightId(UUID uuid) {
+        long value = uuid.getMostSignificantBits()
+                ^ uuid.getLeastSignificantBits();
+
+        if (value == Long.MIN_VALUE) {
+            return 1L;
+        }
+
+        value = Math.abs(value);
+        return value == 0L ? 1L : value;
+    }
+
+    private void initializeFightTable()
+            throws Exception {
+        if (!config.getBoolean(
+                "web-fights.enabled",
+                true
+        )) {
+            return;
+        }
+
+        try (Connection connection = connection();
+             Statement statement =
+                     connection.createStatement()) {
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS %s (
+                        fight_id CHAR(36) PRIMARY KEY,
+                        winner_uuid CHAR(36) NOT NULL,
+                        winner_username VARCHAR(16) NOT NULL,
+                        winner_display_name VARCHAR(32) NOT NULL,
+                        loser_uuid CHAR(36) NOT NULL,
+                        loser_username VARCHAR(16) NOT NULL,
+                        loser_display_name VARCHAR(32) NOT NULL,
+                        world_key VARCHAR(64) NOT NULL DEFAULT '',
+                        world_name VARCHAR(32) NOT NULL DEFAULT '',
+                        winner_hearts DECIMAL(8,2) NOT NULL DEFAULT 0,
+                        loser_hearts DECIMAL(8,2) NOT NULL DEFAULT 0,
+                        started_at BIGINT NOT NULL DEFAULT 0,
+                        ended_at BIGINT NOT NULL DEFAULT 0,
+                        duration_seconds BIGINT NOT NULL DEFAULT 0,
+                        INDEX idx_fights_winner_ended (
+                            winner_uuid,
+                            ended_at
+                        ),
+                        INDEX idx_fights_loser_ended (
+                            loser_uuid,
+                            ended_at
+                        ),
+                        INDEX idx_fights_ended (
+                            ended_at
+                        ),
+                        INDEX idx_fights_world (
+                            world_key
+                        )
+                    ) ENGINE=InnoDB
+                    DEFAULT CHARSET=utf8mb4
+                    COLLATE=utf8mb4_unicode_ci
+                    """.formatted(fightsTable));
         }
     }
 
@@ -661,6 +954,22 @@ public final class WebProfileRepository {
     }
 
     private Connection connection() throws Exception {
+        String password = config.getString(
+                "database.password",
+                "change-me"
+        );
+
+        if (password == null
+                || password.isBlank()
+                || password.equalsIgnoreCase("change-me")
+                || password.toUpperCase(Locale.ROOT)
+                .startsWith("CHANGE-ME-")) {
+            throw new IllegalStateException(
+                    "The live webprofiles.yml database password "
+                            + "is still a placeholder"
+            );
+        }
+
         return DriverManager.getConnection(
                 config.getString(
                         "database.jdbc-url",
@@ -670,10 +979,7 @@ public final class WebProfileRepository {
                         "database.username",
                         "mineacle_core"
                 ),
-                config.getString(
-                        "database.password",
-                        "change-me"
-                )
+                password
         );
     }
 
@@ -730,6 +1036,15 @@ public final class WebProfileRepository {
         }
     }
 
+    private double nonNegative(double value) {
+        if (!Double.isFinite(value)
+                || value < 0.0D) {
+            return 0.0D;
+        }
+
+        return value;
+    }
+
     private double clamp(
             double value,
             double minimum,
@@ -743,6 +1058,12 @@ public final class WebProfileRepository {
                 minimum,
                 Math.min(maximum, value)
         );
+    }
+
+    private enum FightIdMode {
+        AUTO_INCREMENT,
+        EXPLICIT_UUID,
+        EXPLICIT_LONG
     }
 
     public record StoredRank(

@@ -73,6 +73,7 @@ web-fights:
   - overworld
   - overworld_nether
   - overworld_the_end
+  log-inserts: true
 web-teams:
   enabled: true
   interval-seconds: 30
