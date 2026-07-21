@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
+import net.mineacle.core.common.teleport.TeleportMovement;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -234,8 +235,7 @@ public final class OriginRtpQueueService {
 
         if (movedTooFar(
                 session.startLocation,
-                player.getLocation(),
-                session.request.destination()
+                player.getLocation()
         )) {
             cancel(player, true);
         }
@@ -263,8 +263,7 @@ public final class OriginRtpQueueService {
 
         if (movedTooFar(
                 session.startLocation,
-                destination,
-                session.request.destination()
+                destination
         )) {
             cancel(player, true);
         }
@@ -621,8 +620,7 @@ public final class OriginRtpQueueService {
         )
                 && movedTooFar(
                 session.startLocation,
-                player.getLocation(),
-                session.request.destination()
+                player.getLocation()
         )) {
             cancel(player, true);
             return;
@@ -691,8 +689,7 @@ public final class OriginRtpQueueService {
         )
                 && movedTooFar(
                 session.startLocation,
-                player.getLocation(),
-                session.request.destination()
+                player.getLocation()
         )) {
             cancel(player, true);
             return;
@@ -859,23 +856,13 @@ public final class OriginRtpQueueService {
 
     private boolean movedTooFar(
             Location start,
-            Location current,
-            String destination
+            Location current
     ) {
-        if (start == null
-                || current == null
-                || start.getWorld() == null
-                || current.getWorld() == null
-                || !start.getWorld().equals(
-                current.getWorld()
-        )) {
-            return true;
-        }
-
-        double allowed = cancelDistance(destination);
-
-        return start.distanceSquared(current)
-                > allowed * allowed;
+        return TeleportMovement.movedTooFar(
+                core,
+                start,
+                current
+        );
     }
 
     private boolean enabled(String destination) {
@@ -915,23 +902,6 @@ public final class OriginRtpQueueService {
                 core.getConfig().getBoolean(
                         "origin-rtp.teleport.cancel-on-move",
                         true
-                )
-        );
-    }
-
-    private double cancelDistance(
-            String destination
-    ) {
-        return Math.max(
-                0.01D,
-                core.getConfig().getDouble(
-                        "origin-rtp.destinations."
-                                + destination
-                                + ".teleport.cancel-distance",
-                        core.getConfig().getDouble(
-                                "origin-rtp.teleport.cancel-distance",
-                                2.0D
-                        )
                 )
         );
     }

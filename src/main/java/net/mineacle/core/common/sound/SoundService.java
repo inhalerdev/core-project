@@ -43,7 +43,7 @@ public final class SoundService {
             return;
         }
 
-        String basePath = "sounds." + path;
+        String basePath = "sounds." + settingsPath(path);
 
         if (!core.getConfig().getBoolean(
                 basePath + ".enabled",
@@ -184,7 +184,8 @@ public final class SoundService {
             Core core,
             String path
     ) {
-        String basePath = "sounds." + path;
+        String settingsPath = settingsPath(path);
+        String basePath = "sounds." + settingsPath;
 
         if (!core.getConfig().getBoolean(
                 basePath + ".enabled",
@@ -193,7 +194,7 @@ public final class SoundService {
                 || !claimPlayback(
                 player,
                 core,
-                path,
+                settingsPath,
                 basePath
         )) {
             return;
@@ -210,8 +211,8 @@ public final class SoundService {
 
         float volume = nonNegative(
                 core.getConfig().getDouble(
-                        basePath + ".volume",
-                        0.6D
+                        "sounds.volume",
+                        0.8D
                 )
         );
         float pitch = nonNegative(
@@ -380,6 +381,23 @@ public final class SoundService {
         }
 
         return 60;
+    }
+
+    private static String settingsPath(String path) {
+        String normalized = path.toLowerCase(Locale.ROOT);
+
+        if (normalized.equals("gui.click")
+                || normalized.equals("gui.back")
+                || normalized.equals("gui.page")
+                || normalized.equals("gui.sort")
+                || normalized.equals("gui.filter")
+                || normalized.equals("gui.search")
+                || normalized.equals("gui.refresh")
+                || normalized.equals("gui.select")) {
+            return "gui.select";
+        }
+
+        return path;
     }
 
     private static Sound resolveEnumSound(String input) {

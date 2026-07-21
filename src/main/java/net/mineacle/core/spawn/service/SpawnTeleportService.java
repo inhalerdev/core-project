@@ -3,6 +3,7 @@ package net.mineacle.core.spawn.service;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.common.sound.SoundService;
+import net.mineacle.core.common.teleport.TeleportMovement;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.spawn.model.SpawnPoint;
 import org.bukkit.Location;
@@ -84,7 +85,12 @@ public final class SpawnTeleportService {
             return;
         }
 
-        if (spawnService.cancelOnMove() && movedTooFar(pending.startLocation(), player.getLocation())) {
+        if (spawnService.cancelOnMove()
+                && TeleportMovement.movedTooFar(
+                spawnService.core(),
+                pending.startLocation(),
+                player.getLocation()
+        )) {
             cancel(player, true);
             return;
         }
@@ -150,22 +156,6 @@ public final class SpawnTeleportService {
 
         sendActionBar(player, message);
         SoundService.teleportComplete(player, spawnService.core());
-    }
-
-    private boolean movedTooFar(Location start, Location current) {
-        if (start == null || current == null) {
-            return true;
-        }
-
-        if (start.getWorld() == null || current.getWorld() == null) {
-            return true;
-        }
-
-        if (!start.getWorld().equals(current.getWorld())) {
-            return true;
-        }
-
-        return start.distanceSquared(current) > spawnService.cancelMoveDistance() * spawnService.cancelMoveDistance();
     }
 
     private void sendActionBar(Player player, String message) {

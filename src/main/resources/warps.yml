@@ -9,7 +9,6 @@ teleport:
   default-delay-seconds: 5
   plus-delay-seconds: 3
   cancel-on-move: true
-  cancel-distance: 1.0
 
 messages:
   no-permission: "&cYou do not have permission"

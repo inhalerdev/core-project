@@ -8,7 +8,6 @@ teleport:
   plus-delay-seconds: 3
   plus-permission: mineacle.plus
   cancel-on-move: true
-  cancel-distance: 1.0
 
 first-join:
   enabled: true

@@ -105,10 +105,6 @@ public final class SpawnService {
         return spawnConfig.getBoolean("teleport.cancel-on-move", true);
     }
 
-    public double cancelMoveDistance() {
-        return Math.max(0.01D, spawnConfig.getDouble("teleport.cancel-distance", 2.0D));
-    }
-
     public int maxPlayersDisplay() {
         return Math.max(1, spawnConfig.getInt("max-players-display", 100));
     }

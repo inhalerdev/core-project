@@ -9,7 +9,6 @@ teleport:
   default-countdown-seconds: 5
   plus-countdown-seconds: 3
   plus-permission: mineacle.plus
-  cancel-distance: 2.0
 
 duel-request:
   timeout-seconds: 60

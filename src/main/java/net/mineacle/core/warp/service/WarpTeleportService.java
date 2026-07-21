@@ -3,6 +3,7 @@ package net.mineacle.core.warp.service;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
+import net.mineacle.core.common.teleport.TeleportMovement;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.warp.model.WarpPoint;
 import org.bukkit.Location;
@@ -35,7 +36,6 @@ public final class WarpTeleportService {
         }
 
         Location origin = player.getLocation().clone();
-        double allowedDistance = Math.max(0.01D, core.getConfig().getDouble("warps.teleport.cancel-distance", 1.0D));
 
         sendActionBar(player, warpService.startingMessage(point.displayName(), seconds));
         SoundService.teleportStart(player, core);
@@ -51,7 +51,11 @@ public final class WarpTeleportService {
                     return;
                 }
 
-                if (moved(origin, player.getLocation(), allowedDistance)) {
+                if (TeleportMovement.movedTooFar(
+                        core,
+                        origin,
+                        player.getLocation()
+                )) {
                     WarpTeleportService.this.cancel(player, true);
                     this.cancel();
                     return;
@@ -104,22 +108,6 @@ public final class WarpTeleportService {
         sendActionBar(player, warpService.teleportMessage(point.displayName()));
         player.sendMessage(warpService.teleportMessage(point.displayName()));
         SoundService.teleportComplete(player, core);
-    }
-
-    private boolean moved(Location origin, Location current, double allowedDistance) {
-        if (origin == null || current == null) {
-            return true;
-        }
-
-        if (origin.getWorld() == null || current.getWorld() == null) {
-            return true;
-        }
-
-        if (!origin.getWorld().equals(current.getWorld())) {
-            return true;
-        }
-
-        return origin.distanceSquared(current) > allowedDistance * allowedDistance;
     }
 
     private void sendActionBar(Player player, String message) {

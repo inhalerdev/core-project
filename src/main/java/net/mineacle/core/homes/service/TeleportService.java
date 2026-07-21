@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
+import net.mineacle.core.common.teleport.TeleportMovement;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -149,7 +150,7 @@ public final class TeleportService {
             return;
         }
 
-        if (movedTooFar(origin, to, cancelDistance(teleportContext))) {
+        if (TeleportMovement.movedTooFar(core, origin, to)) {
             cancel(uuid);
             String message = TextColor.color(CANCELLED_MOVE_MESSAGE);
             player.sendActionBar(actionBar(message));
@@ -204,34 +205,6 @@ public final class TeleportService {
         }
 
         return core.getConfig().getBoolean("homes.teleport.cancel-on-move", true);
-    }
-
-    private double cancelDistance(String teleportContext) {
-        if (teleportContext != null && teleportContext.equalsIgnoreCase("TPA")) {
-            return Math.max(0.01D, core.getConfig().getDouble("tpa.cancel-distance", 1.0D));
-        }
-
-        if (teleportContext != null && teleportContext.equalsIgnoreCase("Team Home")) {
-            return Math.max(0.01D, core.getConfig().getDouble("homes.team-home.cancel-distance", 1.0D));
-        }
-
-        return Math.max(0.01D, core.getConfig().getDouble("homes.teleport.cancel-distance", 1.0D));
-    }
-
-    private boolean movedTooFar(Location start, Location current, double allowedDistance) {
-        if (start == null || current == null) {
-            return true;
-        }
-
-        if (start.getWorld() == null || current.getWorld() == null) {
-            return true;
-        }
-
-        if (!start.getWorld().equals(current.getWorld())) {
-            return true;
-        }
-
-        return start.distanceSquared(current) > allowedDistance * allowedDistance;
     }
 
     private String countdownMessage(

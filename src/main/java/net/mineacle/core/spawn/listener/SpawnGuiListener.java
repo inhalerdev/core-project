@@ -96,7 +96,6 @@ public final class SpawnGuiListener implements Listener {
                     .replace("%spawn%", TextColor.color(point.displayName()));
 
             player.sendActionBar(actionBar(message));
-            SoundService.teleportComplete(player, spawnService.core());
             return;
         }
 

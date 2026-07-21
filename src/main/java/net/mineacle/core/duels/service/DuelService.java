@@ -7,6 +7,7 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
+import net.mineacle.core.common.teleport.TeleportMovement;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.duels.model.DuelInvite;
 import org.bukkit.Bukkit;
@@ -76,7 +77,6 @@ public final class DuelService {
     private int defaultTeleportSeconds;
     private int plusTeleportSeconds;
     private String plusPermission;
-    private double cancelDistanceSquared;
     private String destinationWorld;
     private double destinationCenterX;
     private double destinationCenterZ;
@@ -601,9 +601,7 @@ public final class DuelService {
                 continue;
             }
 
-            Player moved = pending.movedPlayer(
-                    cancelDistanceSquared
-            );
+            Player moved = pending.movedPlayer();
 
             if (moved != null) {
                 cancelPendingTeleportMoved(pending, moved);
@@ -761,9 +759,7 @@ public final class DuelService {
             return;
         }
 
-        Player moved = pending.movedPlayer(
-                cancelDistanceSquared
-        );
+        Player moved = pending.movedPlayer();
 
         if (moved != null) {
             cancelPendingTeleportMoved(pending, moved);
@@ -1486,17 +1482,6 @@ public final class DuelService {
             plusPermission = "mineacle.plus";
         }
 
-        double cancelDistance = finiteClamped(
-                config.getDouble(
-                        "teleport.cancel-distance",
-                        2.0D
-                ),
-                0.1D,
-                64.0D,
-                2.0D
-        );
-        cancelDistanceSquared = cancelDistance * cancelDistance;
-
         destinationWorld = config.getString(
                 "destination.world",
                 "overworld"
@@ -1708,7 +1693,6 @@ public final class DuelService {
                 "teleport.plus-permission",
                 "mineacle.plus"
         );
-        config.addDefault("teleport.cancel-distance", 2.0D);
         config.addDefault(
                 "duel-request.timeout-seconds",
                 60
@@ -1985,20 +1969,17 @@ public final class DuelService {
             return players;
         }
 
-        private Player movedPlayer(double distanceSquared) {
+        private Player movedPlayer() {
             for (Player player : onlinePlayers()) {
                 Location start = startLocations.get(
                         player.getUniqueId()
                 );
 
-                if (start == null
-                        || start.getWorld() == null
-                        || !start.getWorld().equals(
-                        player.getWorld()
-                )
-                        || start.distanceSquared(
+                if (TeleportMovement.movedTooFar(
+                        core,
+                        start,
                         player.getLocation()
-                ) > distanceSquared) {
+                )) {
                     return player;
                 }
             }
