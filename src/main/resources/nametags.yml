@@ -4,9 +4,6 @@ updates:
   # Rebuild rank, nickname, colors, and visibility once per second.
   content-ticks: 20
 
-  # Follow the player's live bounding box for crouching, swimming, and gliding.
-  movement-ticks: 2
-
   # Remove stale display entities and empty Mineacle scoreboard teams.
   cleanup-ticks: 600
 

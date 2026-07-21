@@ -39,6 +39,7 @@ import java.util.logging.Level;
 public final class NametagService {
 
     private static final String TEAM_PREFIX = "mn_";
+    private static final long MOVEMENT_UPDATE_TICKS = 1L;
 
     private final Core core;
     private final File file;
@@ -53,7 +54,6 @@ public final class NametagService {
 
     private boolean enabled;
     private long contentUpdateTicks;
-    private long movementUpdateTicks;
     private long cleanupIntervalTicks;
     private double verticalOffset;
     private float viewRange;
@@ -100,14 +100,6 @@ public final class NametagService {
                 ),
                 5L,
                 20L * 60L
-        );
-        movementUpdateTicks = clampLong(
-                config.getLong(
-                        "updates.movement-ticks",
-                        2L
-                ),
-                1L,
-                20L
         );
         cleanupIntervalTicks = clampLong(
                 config.getLong(
@@ -230,7 +222,7 @@ public final class NametagService {
     }
 
     public long movementUpdateTicks() {
-        return movementUpdateTicks;
+        return MOVEMENT_UPDATE_TICKS;
     }
 
     public long cleanupIntervalTicks() {
@@ -481,12 +473,14 @@ public final class NametagService {
         display.setSeeThrough(seeThrough);
         display.setDefaultBackground(defaultBackground);
         display.setViewRange(viewRange);
-        display.setTeleportDuration(
-                (int) Math.min(59L, movementUpdateTicks)
-        );
-        display.setInterpolationDuration(
-                (int) Math.min(59L, movementUpdateTicks)
-        );
+        /*
+         * Position interpolation makes a separately tracked display chase
+         * the player. Movement is already updated every server tick, so
+         * applying each position immediately keeps both entities together.
+         */
+        display.setTeleportDuration(0);
+        display.setInterpolationDelay(0);
+        display.setInterpolationDuration(0);
         display.getPersistentDataContainer().set(
                 displayOwnerKey,
                 PersistentDataType.STRING,
@@ -625,7 +619,10 @@ public final class NametagService {
         }
 
         boolean shouldSee =
-                viewer.getWorld() == owner.getWorld()
+                !viewer.getUniqueId().equals(
+                        owner.getUniqueId()
+                )
+                        && viewer.getWorld() == owner.getWorld()
                         && viewer.canSee(owner)
                         && enabledInWorld(owner)
                         && !shouldHideCustomTag(owner);
