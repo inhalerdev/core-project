@@ -572,6 +572,8 @@ public final class OriginRtpQueueService {
             return;
         }
 
+        sendCountdownActionBar(player, session);
+
         UUID playerId = player.getUniqueId();
         UUID sessionId =
                 session.request.sessionId();
@@ -629,13 +631,28 @@ public final class OriginRtpQueueService {
             return;
         }
 
-        /*
-         * RTP intentionally keeps its player-facing countdown silent in text,
-         * but still gives one clean audio tick per remaining second.
-         */
+        sendCountdownActionBar(player, session);
         SoundService.teleportCountdown(
                 player,
                 core
+        );
+    }
+
+    private void sendCountdownActionBar(
+            Player player,
+            Session session
+    ) {
+        sendActionBar(
+                player,
+                message(
+                        session.request.destination(),
+                        "countdown"
+                ).replace(
+                        "%seconds%",
+                        String.valueOf(
+                                session.secondsRemaining
+                        )
+                )
         );
     }
 
@@ -1057,7 +1074,9 @@ public final class OriginRtpQueueService {
         if (raw == null) {
             raw = core.getConfig().getString(
                     "origin-rtp.messages." + key,
-                    "&cMissing RTP message: " + key
+                    key.equals("countdown")
+                            ? "&#bbbbbbTeleporting to &d%world% &#bbbbbbin &d%seconds%s"
+                            : "&cMissing RTP message: " + key
             );
         }
 

@@ -2,7 +2,6 @@ package net.mineacle.core.sell.gui;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.CenteredToolbar;
-import net.mineacle.core.common.gui.GuiSearchLore;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.sell.model.ItemValuation;
 import net.mineacle.core.sell.service.SellService;
@@ -22,21 +21,19 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 public final class WorthGui {
 
     public static final int SIZE = 54;
 
     private static final int[] TOOLBAR =
-            CenteredToolbar.interiorSlots(SIZE, 4);
+            CenteredToolbar.interiorSlots(SIZE, 3);
 
     public static final int PREVIOUS_SLOT =
             CenteredToolbar.previousSlot(SIZE);
-    public static final int SEARCH_SLOT = TOOLBAR[0];
-    public static final int SORT_SLOT = TOOLBAR[1];
-    public static final int FILTER_SLOT = TOOLBAR[2];
-    public static final int REFRESH_SLOT = TOOLBAR[3];
+    public static final int SORT_SLOT = TOOLBAR[0];
+    public static final int FILTER_SLOT = TOOLBAR[1];
+    public static final int REFRESH_SLOT = TOOLBAR[2];
     public static final int NEXT_SLOT =
             CenteredToolbar.nextSlot(SIZE);
 
@@ -50,8 +47,6 @@ public final class WorthGui {
             new HashMap<>();
     private static final Map<UUID, FilterMode> FILTERS =
             new HashMap<>();
-    private static final Map<UUID, SearchState> SEARCHES =
-            new ConcurrentHashMap<>();
 
     private static final List<Material> CATALOG =
             new ArrayList<>();
@@ -120,21 +115,6 @@ public final class WorthGui {
                 )
         );
 
-        SearchState search = SEARCHES.get(
-                player.getUniqueId()
-        );
-        inventory.setItem(
-                SEARCH_SLOT,
-                toolbar(
-                        Material.OAK_SIGN,
-                        "&dSearch",
-                        search == null
-                                ? GuiSearchLore.inactive("item names")
-                                : GuiSearchLore.active(
-                                search.displayLabel()
-                        )
-                )
-        );
         inventory.setItem(
                 SORT_SLOT,
                 sortToolbar(sort(player))
@@ -197,52 +177,6 @@ public final class WorthGui {
         );
     }
 
-    public static void setSearch(
-            Player player,
-            String query,
-            String displayLabel
-    ) {
-        if (player == null
-                || query == null
-                || query.isBlank()) {
-            clearSearch(player);
-            return;
-        }
-
-        String label = displayLabel == null
-                || displayLabel.isBlank()
-                ? query.trim()
-                : displayLabel.trim();
-
-        SEARCHES.put(
-                player.getUniqueId(),
-                new SearchState(
-                        query.trim(),
-                        label
-                )
-        );
-    }
-
-    public static void clearSearch(Player player) {
-        if (player != null) {
-            SEARCHES.remove(player.getUniqueId());
-        }
-    }
-
-    public static boolean hasSearch(Player player) {
-        return player != null
-                && SEARCHES.containsKey(
-                player.getUniqueId()
-        );
-    }
-
-    public static boolean hasMatches(
-            Player player,
-            SellService sellService
-    ) {
-        return !filtered(player, sellService).isEmpty();
-    }
-
     public static void clearCatalogCache() {
         CATALOG.clear();
         catalogBuiltAt = 0L;
@@ -257,14 +191,12 @@ public final class WorthGui {
         PAGES.remove(playerId);
         SORTS.remove(playerId);
         FILTERS.remove(playerId);
-        SEARCHES.remove(playerId);
     }
 
     public static void clearAllState() {
         PAGES.clear();
         SORTS.clear();
         FILTERS.clear();
-        SEARCHES.clear();
         clearCatalogCache();
     }
 
@@ -295,27 +227,12 @@ public final class WorthGui {
             SellService sellService
     ) {
         FilterMode filter = filter(player);
-        SearchState search = SEARCHES.get(
-                player.getUniqueId()
-        );
-        String query = search == null
-                ? ""
-                : normalize(search.query());
         List<Material> result = CATALOG.stream()
                 .filter(material ->
                         filter.matches(
                                 sellService,
                                 material
                         )
-                )
-                .filter(material ->
-                        query.isBlank()
-                                || normalize(
-                                material.name()
-                        ).contains(query)
-                                || normalize(
-                                sellService.pretty(material)
-                        ).contains(query)
                 )
                 .collect(
                         java.util.stream.Collectors.toCollection(
@@ -571,16 +488,6 @@ public final class WorthGui {
         );
     }
 
-    private static String normalize(String value) {
-        return value == null
-                ? ""
-                : value.toLowerCase(Locale.ROOT)
-                .replace('_', ' ')
-                .replace('-', ' ')
-                .replaceAll("\\s+", " ")
-                .trim();
-    }
-
     private static long multiply(
             long value,
             int multiplier
@@ -692,12 +599,6 @@ public final class WorthGui {
                     name().toLowerCase(Locale.ROOT)
             );
         }
-    }
-
-    private record SearchState(
-            String query,
-            String displayLabel
-    ) {
     }
 
     private static final class Holder

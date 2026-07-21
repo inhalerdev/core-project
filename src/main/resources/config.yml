@@ -205,6 +205,7 @@ origin-rtp:
     disabled: '&cRandom teleport is unavailable for %world%'
     already-active: '&cYou already have an active random teleport'
     queued: '&#bbbbbbRandom teleport queued'
+    countdown: '&#bbbbbbTeleporting to &d%world% &#bbbbbbin &d%seconds%s'
     cooldown: '&cYou can use random teleport again in %seconds%s'
     failed: '&cCould not find a safe spot — try again'
     teleported: '&#bbbbbbRandom teleport complete'

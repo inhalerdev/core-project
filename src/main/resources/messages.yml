@@ -3,6 +3,9 @@ general:
   no-permission: "&cThis feature is not available for your rank"
   reload-success: "&aMineacleCore files reloaded"
 
+tpa:
+  teleporting: "&#bbbbbbTeleporting to &d%target% &#bbbbbbin &d%seconds%s"
+
 homes:
   blocked-world: "&cYou cannot set a home in this world"
   blocked-team-home-world: "&cYou cannot set a team home in this world"

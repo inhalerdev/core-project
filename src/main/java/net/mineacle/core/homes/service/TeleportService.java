@@ -18,6 +18,8 @@ import java.util.UUID;
 public final class TeleportService {
 
     private static final String CANCELLED_MOVE_MESSAGE = "&cTeleport cancelled — you moved";
+    private static final String COUNTDOWN_MESSAGE =
+            "&#bbbbbbTeleporting to &d%target% &#bbbbbbin &d%seconds%s";
 
     private final Core core;
     private final Map<UUID, Location> teleportOrigins = new HashMap<>();
@@ -75,9 +77,11 @@ public final class TeleportService {
         teleportOrigins.put(uuid, player.getLocation().clone());
         teleportContexts.put(uuid, safeContext);
 
-        String startMessage = core.getMessage("homes.teleporting")
-                .replace("%target%", safeDisplayedTarget)
-                .replace("%seconds%", String.valueOf(delaySeconds));
+        String startMessage = countdownMessage(
+                safeDisplayedTarget,
+                safeContext,
+                delaySeconds
+        );
 
         player.sendActionBar(actionBar(startMessage));
         SoundService.teleportStart(player, core);
@@ -108,9 +112,11 @@ public final class TeleportService {
                     return;
                 }
 
-                String message = core.getMessage("homes.teleporting")
-                        .replace("%target%", safeDisplayedTarget)
-                        .replace("%seconds%", String.valueOf(countdown));
+                String message = countdownMessage(
+                        safeDisplayedTarget,
+                        safeContext,
+                        countdown
+                );
 
                 player.sendActionBar(actionBar(message));
                 SoundService.teleportCountdown(player, core);
@@ -216,6 +222,30 @@ public final class TeleportService {
         }
 
         return start.distanceSquared(current) > allowedDistance * allowedDistance;
+    }
+
+    private String countdownMessage(
+            String displayedTarget,
+            String teleportContext,
+            int seconds
+    ) {
+        String path = teleportContext.equalsIgnoreCase("TPA")
+                ? "tpa.teleporting"
+                : "homes.teleporting";
+        String message = core.getMessagesConfig() == null
+                ? COUNTDOWN_MESSAGE
+                : core.getMessagesConfig().getString(
+                        path,
+                        COUNTDOWN_MESSAGE
+                );
+
+        if (message == null || message.isBlank()) {
+            message = COUNTDOWN_MESSAGE;
+        }
+
+        return TextColor.color(message)
+                .replace("%target%", displayedTarget)
+                .replace("%seconds%", String.valueOf(seconds));
     }
 
     private Component actionBar(String message) {
