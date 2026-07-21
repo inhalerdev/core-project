@@ -83,7 +83,7 @@ public final class BountySearchInputListener implements Listener {
     }
 
     @EventHandler(
-            priority = EventPriority.HIGHEST,
+            priority = EventPriority.LOWEST,
             ignoreCancelled = false
     )
     public void onChat(AsyncChatEvent event) {

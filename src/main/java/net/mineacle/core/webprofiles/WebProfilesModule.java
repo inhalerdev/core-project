@@ -2,9 +2,7 @@ package net.mineacle.core.webprofiles;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
-import net.mineacle.core.webprofiles.listener.WebFightListener;
 import net.mineacle.core.webprofiles.listener.WebProfileListener;
-import net.mineacle.core.webprofiles.service.WebFightService;
 import net.mineacle.core.webprofiles.service.WebProfileSyncService;
 import net.mineacle.core.webprofiles.service.WebTeamSyncService;
 import net.mineacle.core.webprofiles.storage.WebProfileRepository;
@@ -18,7 +16,6 @@ public final class WebProfilesModule extends Module {
 
     private WebProfileSyncService syncService;
     private WebTeamSyncService teamSyncService;
-    private WebFightService fightService;
 
     @Override
     public String name() {
@@ -57,15 +54,6 @@ public final class WebProfilesModule extends Module {
                 );
         syncService.start();
 
-        fightService =
-                new WebFightService(
-                        core,
-                        config,
-                        repository,
-                        syncService
-                );
-        fightService.start();
-
         WebTeamRepository teamRepository =
                 new WebTeamRepository(
                         core,
@@ -88,23 +76,10 @@ public final class WebProfilesModule extends Module {
                         ),
                         core
                 );
-        core.getServer()
-                .getPluginManager()
-                .registerEvents(
-                        new WebFightListener(
-                                fightService
-                        ),
-                        core
-                );
     }
 
     @Override
     public void disable() {
-        if (fightService != null) {
-            fightService.stop();
-            fightService = null;
-        }
-
         if (teamSyncService != null) {
             teamSyncService.stop();
             teamSyncService = null;

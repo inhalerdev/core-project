@@ -125,7 +125,10 @@ public final class BalTopGuiListener implements Listener {
         event.setResult(org.bukkit.event.Event.Result.DENY);
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    @EventHandler(
+            priority = EventPriority.LOWEST,
+            ignoreCancelled = false
+    )
     public void onSearchChat(AsyncChatEvent event) {
         Player player = event.getPlayer();
         SearchPrompt prompt = searchPrompts.remove(player.getUniqueId());
