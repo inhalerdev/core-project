@@ -127,6 +127,142 @@ public final class WebProfileRepository {
         }
     }
 
+
+    public long fightHistoryCount() throws Exception {
+        if (!config.getBoolean(
+                "web-fights.enabled",
+                true
+        )) {
+            return 0L;
+        }
+
+        loadDriver();
+
+        try (Connection connection = connection()) {
+            if (!tableExists(
+                    connection,
+                    fightsTable
+            )) {
+                return 0L;
+            }
+
+            try (Statement statement =
+                         connection.createStatement();
+                 ResultSet result =
+                         statement.executeQuery(
+                                 "SELECT COUNT(*) FROM "
+                                         + fightsTable
+                         )) {
+                return result.next()
+                        ? Math.max(
+                        0L,
+                        result.getLong(1)
+                )
+                        : 0L;
+            }
+        }
+    }
+
+    /**
+     * Archives every live fight row and then clears the website fight table.
+     *
+     * The operation is transactional. A failed backup or delete rolls back
+     * both steps, leaving live fight history unchanged.
+     */
+    public FightClearResult clearFightHistoryWithBackup()
+            throws Exception {
+        if (!config.getBoolean(
+                "web-fights.enabled",
+                true
+        )) {
+            return new FightClearResult(
+                    0L,
+                    0L,
+                    fightsBackupTable
+            );
+        }
+
+        loadDriver();
+
+        try (Connection connection = connection()) {
+            connection.setAutoCommit(false);
+
+            try {
+                if (!tableExists(
+                        connection,
+                        fightsTable
+                )) {
+                    connection.commit();
+
+                    return new FightClearResult(
+                            0L,
+                            0L,
+                            fightsBackupTable
+                    );
+                }
+
+                ensureFightBackupTable(connection);
+
+                long liveRows = countRows(
+                        connection,
+                        fightsTable
+                );
+                long backupRowsBefore = countRows(
+                        connection,
+                        fightsBackupTable
+                );
+
+                try (Statement statement =
+                             connection.createStatement()) {
+                    statement.executeUpdate(
+                            "INSERT IGNORE INTO "
+                                    + fightsBackupTable
+                                    + " SELECT * FROM "
+                                    + fightsTable
+                    );
+                }
+
+                long backupRowsAfter = countRows(
+                        connection,
+                        fightsBackupTable
+                );
+                long archived = Math.max(
+                        0L,
+                        backupRowsAfter
+                                - backupRowsBefore
+                );
+                long removed;
+
+                try (Statement statement =
+                             connection.createStatement()) {
+                    removed = Math.max(
+                            0L,
+                            statement.executeUpdate(
+                                    "DELETE FROM "
+                                            + fightsTable
+                            )
+                    );
+                }
+
+                connection.commit();
+
+                return new FightClearResult(
+                        Math.min(
+                                liveRows,
+                                removed
+                        ),
+                        archived,
+                        fightsBackupTable
+                );
+            } catch (Exception exception) {
+                connection.rollback();
+                throw exception;
+            } finally {
+                connection.setAutoCommit(true);
+            }
+        }
+    }
+
     public void upsertAll(
             Collection<WebProfileRecord> records
     ) {
@@ -902,6 +1038,27 @@ public final class WebProfileRepository {
         }
     }
 
+
+    private long countRows(
+            Connection connection,
+            String tableName
+    ) throws Exception {
+        try (Statement statement =
+                     connection.createStatement();
+             ResultSet result =
+                     statement.executeQuery(
+                             "SELECT COUNT(*) FROM "
+                                     + tableName
+                     )) {
+            return result.next()
+                    ? Math.max(
+                    0L,
+                    result.getLong(1)
+            )
+                    : 0L;
+        }
+    }
+
     private boolean tableExists(
             Connection connection,
             String tableName
@@ -1085,4 +1242,12 @@ public final class WebProfileRepository {
             return new ExistingTotals(0L, 0L, 0L, 0L);
         }
     }
+
+    public record FightClearResult(
+            long removedRows,
+            long archivedRows,
+            String backupTable
+    ) {
+    }
+
 }

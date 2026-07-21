@@ -285,6 +285,12 @@ commands:
     - ecsee
     usage: /echest <player>
     permission: mineacleadmin.echest
+  mineacleweb:
+    description: Manage Mineacle website synchronization
+    aliases:
+    - webprofiles
+    usage: /mineacleweb fights <status|clear>
+    permission: mineacleweb.admin
 permissions:
   mineacleguide.use:
     default: true
@@ -421,3 +427,5 @@ permissions:
     children:
       mineacleauctionhouse.use: true
       mineacleauctionhouse.sell: true
+  mineacleweb.admin:
+    default: op

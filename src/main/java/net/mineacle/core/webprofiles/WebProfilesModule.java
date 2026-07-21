@@ -2,11 +2,13 @@ package net.mineacle.core.webprofiles;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
+import net.mineacle.core.webprofiles.command.MineacleWebCommand;
 import net.mineacle.core.webprofiles.listener.WebProfileListener;
 import net.mineacle.core.webprofiles.service.WebProfileSyncService;
 import net.mineacle.core.webprofiles.service.WebTeamSyncService;
 import net.mineacle.core.webprofiles.storage.WebProfileRepository;
 import net.mineacle.core.webprofiles.storage.WebTeamRepository;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -66,6 +68,23 @@ public final class WebProfilesModule extends Module {
                         teamRepository
                 );
         teamSyncService.start();
+
+        PluginCommand command =
+                core.getCommand("mineacleweb");
+
+        if (command == null) {
+            throw new IllegalStateException(
+                    "Missing command in plugin.yml: mineacleweb"
+            );
+        }
+
+        MineacleWebCommand executor =
+                new MineacleWebCommand(
+                        core,
+                        repository
+                );
+        command.setExecutor(executor);
+        command.setTabCompleter(executor);
 
         core.getServer()
                 .getPluginManager()

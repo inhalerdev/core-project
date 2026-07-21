@@ -179,6 +179,7 @@ groups:
     - lobby
     - m
     - mineacle
+    - mineacleweb
     - money
     - orders
     - originrtp
@@ -194,6 +195,7 @@ groups:
     - tpyes
     - w
     - warps
+    - webprofiles
     - wild
   plus:
     permission: mineacle.plus
@@ -226,6 +228,7 @@ groups:
     - mineaclehomes
     - mineaclenametags
     - mineaclesecurity
+    - mineacleweb
     - mineacleworldmaintenance
     - mute
     - originrtp
@@ -247,3 +250,4 @@ groups:
     - nametags
     - w
     - walkspeed
+    - webprofiles
