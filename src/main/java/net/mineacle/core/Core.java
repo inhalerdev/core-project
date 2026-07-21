@@ -7,6 +7,7 @@ import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.bootstrap.ModuleManager;
 import net.mineacle.core.bounty.BountyModule;
 import net.mineacle.core.chat.ChatModule;
+import net.mineacle.core.collision.CollisionModule;
 import net.mineacle.core.common.gui.MenuCloseListener;
 import net.mineacle.core.common.sound.GuiSoundListener;
 import net.mineacle.core.common.sound.SoundService;
@@ -194,6 +195,7 @@ public final class Core extends JavaPlugin {
         registerModule(new EconomyModule());
         registerModule(new BalTopModule());
         registerModule(new ChatModule());
+        registerModule(new CollisionModule());
         registerModule(new LinksModule());
         registerModule(new SecurityModule());
         registerModule(new AdminInspectModule());

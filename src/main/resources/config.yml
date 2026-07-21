@@ -302,10 +302,11 @@ sounds:
       volume: 1.0
       pitch: 1.0
     countdown:
-      enabled: false
+      enabled: true
       sound: BLOCK_NOTE_BLOCK_HAT
-      volume: 1.0
-      pitch: 1.0
+      volume: 0.7
+      pitch: 1.2
+      minimum-interval-millis: 700
     cancelled:
       enabled: true
       sound: BLOCK_NOTE_BLOCK_BASS
@@ -604,3 +605,13 @@ shulker-preview:
   - crate
   messages:
     no-permission: '&cThis is a Mineacle+ feature'
+player-collision:
+  enabled: true
+  disabled-worlds:
+  - spawn1
+  - spawn2
+  - spawn3
+  reapply-delay-ticks:
+  - 1
+  - 20
+  enforce-every-ticks: 100

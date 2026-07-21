@@ -14,13 +14,15 @@ import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.stats.StatsModule;
 import net.mineacle.core.stats.service.StatsService;
+import net.mineacle.core.teams.model.TeamRecord;
 import net.mineacle.core.teams.service.TeamService;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
-public final class ChatFormatListener implements Listener {
+public final class ChatFormatListener
+        implements Listener {
 
     private final Core core;
     private final ChatService chatService;
@@ -87,14 +89,21 @@ public final class ChatFormatListener implements Listener {
         for (Player recipient
                 : chatService.chatRecipients(sender)) {
             recipient.sendMessage(
-                    chatComponent(sender, recipient, message)
+                    chatComponent(
+                            sender,
+                            recipient,
+                            message
+                    )
             );
         }
 
         core.getServer()
                 .getConsoleSender()
                 .sendMessage(
-                        chatService.formatChat(sender, message)
+                        chatService.formatChat(
+                                sender,
+                                message
+                        )
                 );
     }
 
@@ -104,11 +113,17 @@ public final class ChatFormatListener implements Listener {
             String message
     ) {
         Component identity = legacyPrefix(
-                DisplayNames.luckPermsPrefixWithSpace(sender)
+                DisplayNames.luckPermsPrefixWithSpace(
+                        sender
+                )
         ).append(
-                neutral(DisplayNames.displayName(sender))
+                neutral(
+                        DisplayNames.displayName(sender)
+                )
         ).hoverEvent(
-                HoverEvent.showText(hoverStats(sender))
+                HoverEvent.showText(
+                        hoverStats(sender)
+                )
         );
 
         if (!sender.getUniqueId()
@@ -129,34 +144,86 @@ public final class ChatFormatListener implements Listener {
     }
 
     private Component hoverStats(Player player) {
-        EconomyService economy = EconomyModule.economyService();
-        StatsService stats = StatsModule.statsService();
+        EconomyService economy =
+                EconomyModule.economyService();
+        StatsService stats =
+                StatsModule.statsService();
 
         String money = economy == null
                 ? "$0"
                 : economy.format(
-                economy.getBalanceCents(player.getUniqueId())
+                economy.getBalanceCents(
+                        player.getUniqueId()
+                )
         );
         long kills = stats == null
                 ? 0L
-                : stats.kills(player.getUniqueId());
+                : stats.kills(
+                player.getUniqueId()
+        );
         long deaths = stats == null
                 ? 0L
-                : stats.deaths(player.getUniqueId());
+                : stats.deaths(
+                player.getUniqueId()
+        );
         String playtime = stats == null
                 ? "0m"
-                : stats.playtime(player.getUniqueId());
+                : stats.playtime(
+                player.getUniqueId()
+        );
 
-        return neutral(DisplayNames.displayName(player))
-                .append(Component.newline())
+        Component hover = neutral(
+                DisplayNames.displayName(player)
+        );
+        TeamRecord team = teamService == null
+                ? null
+                : teamService.getTeamByPlayer(
+                player.getUniqueId()
+        );
+
+        /*
+         * Team information is a real conditional row, not a reserved blank
+         * line. Team changes are read when each chat message is rendered, so
+         * the next message always reflects the current team state.
+         */
+        if (team != null
+                && team.name() != null
+                && !team.name().isBlank()) {
+            hover = hover
+                    .append(Component.newline())
+                    .append(teamLine(team.name()));
+        }
+
+        return hover
                 .append(Component.newline())
                 .append(moneyLine("Money", money))
                 .append(Component.newline())
-                .append(statLine("Kills", String.valueOf(kills)))
+                .append(
+                        statLine(
+                                "Kills",
+                                String.valueOf(kills)
+                        )
+                )
                 .append(Component.newline())
-                .append(statLine("Deaths", String.valueOf(deaths)))
+                .append(
+                        statLine(
+                                "Deaths",
+                                String.valueOf(deaths)
+                        )
+                )
                 .append(Component.newline())
-                .append(statLine("Playtime", playtime));
+                .append(
+                        statLine(
+                                "Playtime",
+                                playtime
+                        )
+                );
+    }
+
+    private Component teamLine(String teamName) {
+        return primary("◆ ")
+                .append(neutral("Team "))
+                .append(secondary(teamName));
     }
 
     private Component moneyLine(
@@ -178,7 +245,10 @@ public final class ChatFormatListener implements Listener {
                                 )
                         )
                 )
-                .decoration(TextDecoration.ITALIC, false);
+                .decoration(
+                        TextDecoration.ITALIC,
+                        false
+                );
     }
 
     private Component statLine(
@@ -199,9 +269,14 @@ public final class ChatFormatListener implements Listener {
                 .LegacyComponentSerializer
                 .legacySection()
                 .deserialize(
-                        net.mineacle.core.common.text.TextColor.color(text)
+                        net.mineacle.core.common.text.TextColor.color(
+                                text
+                        )
                 )
-                .decoration(TextDecoration.ITALIC, false);
+                .decoration(
+                        TextDecoration.ITALIC,
+                        false
+                );
     }
 
     private Component neutral(String text) {
@@ -211,7 +286,10 @@ public final class ChatFormatListener implements Listener {
                                 0xBBBBBB
                         )
                 )
-                .decoration(TextDecoration.ITALIC, false);
+                .decoration(
+                        TextDecoration.ITALIC,
+                        false
+                );
     }
 
     private Component primary(String text) {
@@ -221,7 +299,10 @@ public final class ChatFormatListener implements Listener {
                                 0xFF55FF
                         )
                 )
-                .decoration(TextDecoration.ITALIC, false);
+                .decoration(
+                        TextDecoration.ITALIC,
+                        false
+                );
     }
 
     private Component secondary(String text) {
@@ -231,6 +312,9 @@ public final class ChatFormatListener implements Listener {
                                 0xFF88FF
                         )
                 )
-                .decoration(TextDecoration.ITALIC, false);
+                .decoration(
+                        TextDecoration.ITALIC,
+                        false
+                );
     }
 }

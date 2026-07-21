@@ -629,6 +629,14 @@ public final class OriginRtpQueueService {
             return;
         }
 
+        /*
+         * RTP intentionally keeps its player-facing countdown silent in text,
+         * but still gives one clean audio tick per remaining second.
+         */
+        SoundService.teleportCountdown(
+                player,
+                core
+        );
     }
 
     private void finishTeleport(
