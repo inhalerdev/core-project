@@ -238,7 +238,7 @@ public final class TeamsGuiListener implements Listener {
         org.bukkit.Location home = teamHomeService.getTeamHome(team.teamId());
 
         if (home != null) {
-            SoundService.guiClick(player, core);
+            SoundService.guiSelect(player, core);
             player.closeInventory();
 
             teleportService.begin(player, "Team Home", () -> {

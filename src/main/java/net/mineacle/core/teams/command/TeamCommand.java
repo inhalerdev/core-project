@@ -368,7 +368,7 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        SoundService.guiClick(player, core);
+        SoundService.guiSelect(player, core);
         teleportService.begin(player, "Team Home", () -> {
             player.teleport(home);
             sendBoth(player, "&#bbbbbbTeleported to &dTeam Home");

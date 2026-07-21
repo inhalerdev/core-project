@@ -72,7 +72,7 @@ public final class SpawnGuiListener implements Listener {
             return;
         }
 
-        SoundService.guiClick(player, spawnService.core());
+        SoundService.guiSelect(player, spawnService.core());
         player.closeInventory();
 
         /*

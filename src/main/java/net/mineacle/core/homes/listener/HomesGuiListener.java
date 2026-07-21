@@ -106,7 +106,7 @@ public final class HomesGuiListener implements Listener {
                 return;
             }
 
-            SoundService.guiClick(player, core);
+            SoundService.guiSelect(player, core);
             player.closeInventory();
             teleportService.begin(player, homeService.getDisplayName(uuid, id), () -> {
                 player.teleport(target);
@@ -210,7 +210,7 @@ public final class HomesGuiListener implements Listener {
                 return;
             }
 
-            SoundService.guiClick(player, core);
+            SoundService.guiSelect(player, core);
             player.closeInventory();
             teleportService.begin(player, "Team Home", () -> {
                 player.teleport(home);

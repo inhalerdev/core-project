@@ -80,7 +80,7 @@ public final class TpaGuiListener implements Listener {
         }
 
         target.closeInventory();
-        SoundService.guiConfirm(target, core);
+        SoundService.guiSelect(target, core);
 
         sendBoth(requester, "&#bbbbbbTeleport request accepted");
         sendBoth(target, "&#bbbbbbTeleport request accepted");

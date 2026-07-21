@@ -91,7 +91,6 @@ public final class TpaCommand implements CommandExecutor, TabCompleter {
 
         if (tpaService.isAutoAccepting(target.getUniqueId()) && type == TpaRequestType.TO_TARGET) {
             sendBoth(requester, "&#bbbbbbTeleport request auto accepted");
-            SoundService.teleportRequest(requester, core);
 
             teleportService.beginTpa(
                     requester,

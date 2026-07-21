@@ -370,7 +370,13 @@ public final class SoundService {
         }
 
         if (normalized.contains("countdown")) {
-            return 10;
+            /*
+             * A teleport countdown tick is the selection feedback for flows
+             * such as TPA where the first number is announced immediately.
+             * Let it replace a same-tick GUI selection sound so the player
+             * hears one clean sound instead of two overlapping sounds.
+             */
+            return 70;
         }
 
         return 60;

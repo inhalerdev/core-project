@@ -41,17 +41,18 @@ public final class TeleportService {
     }
 
     public void begin(Player player, String targetName, Runnable action) {
-        beginInternal(player, targetName, targetName, action);
+        beginInternal(player, targetName, targetName, false, action);
     }
 
     public void beginTpa(Player player, String destinationPlayerName, Runnable action) {
-        beginInternal(player, destinationPlayerName, "TPA", action);
+        beginInternal(player, destinationPlayerName, "TPA", true, action);
     }
 
     private void beginInternal(
             Player player,
             String displayedTarget,
             String teleportContext,
+            boolean tickInitialNumber,
             Runnable action
     ) {
         UUID uuid = player.getUniqueId();
@@ -84,7 +85,12 @@ public final class TeleportService {
         );
 
         player.sendActionBar(actionBar(startMessage));
-        SoundService.teleportStart(player, core);
+
+        if (tickInitialNumber) {
+            SoundService.teleportCountdown(player, core);
+        } else {
+            SoundService.teleportStart(player, core);
+        }
 
         new BukkitRunnable() {
             int countdown = delaySeconds;
@@ -158,7 +164,11 @@ public final class TeleportService {
         }
 
         if (teleportContext != null && teleportContext.equalsIgnoreCase("Team Home")) {
-            return teleportDelay(player, "homes.team-home.teleport-delay-seconds", "homes.team-home.plus-delay-seconds");
+            return teleportDelay(
+                    player,
+                    "homes.team-home.teleport-delay-seconds",
+                    "homes.team-home.plus-teleport-delay-seconds"
+            );
         }
 
         return teleportDelay(player, "homes.teleport.delay-seconds", "homes.teleport.plus-delay-seconds");

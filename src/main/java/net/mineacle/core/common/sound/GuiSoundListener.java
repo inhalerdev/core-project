@@ -179,6 +179,11 @@ public final class GuiSoundListener
             return;
         }
 
+        if (teleportSelection(text)) {
+            SoundService.guiSelect(player, core);
+            return;
+        }
+
         if (confirm(text, item.getType())) {
             SoundService.guiConfirm(player, core);
             return;
@@ -524,6 +529,19 @@ public final class GuiSoundListener
                 || text.contains("claim reward")
                 || material == Material.LIME_DYE
                 || material == Material.EMERALD_BLOCK;
+    }
+
+    private boolean teleportSelection(String text) {
+        boolean teleportAction = text.contains("teleport")
+                || text.contains("tpa request");
+        boolean selectionAction = text.contains("click")
+                || text.contains("accept")
+                || text.contains("confirm")
+                || text.contains("select")
+                || text.contains("choose")
+                || text.contains("return");
+
+        return teleportAction && selectionAction;
     }
 
     private boolean back(String text) {

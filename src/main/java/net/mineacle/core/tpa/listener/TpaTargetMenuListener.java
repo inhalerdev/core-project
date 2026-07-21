@@ -113,7 +113,7 @@ public final class TpaTargetMenuListener implements Listener {
         String targetName = DisplayNames.displayName(target);
 
         sendBoth(requester, "&#bbbbbbTeleport request sent to &#ff88ff" + targetName);
-        SoundService.teleportRequest(requester, core);
+        SoundService.guiSelect(requester, core);
 
         target.sendMessage(requestMessage(
                 "&#bbbbbb" + requesterName + " &#ff88ffwants to teleport to you",

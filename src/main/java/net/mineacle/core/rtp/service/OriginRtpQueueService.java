@@ -573,6 +573,10 @@ public final class OriginRtpQueueService {
         }
 
         sendCountdownActionBar(player, session);
+        SoundService.teleportCountdown(
+                player,
+                core
+        );
 
         UUID playerId = player.getUniqueId();
         UUID sessionId =
