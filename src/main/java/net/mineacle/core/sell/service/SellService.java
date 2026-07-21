@@ -12,6 +12,7 @@ import net.mineacle.core.sell.model.SellHistoryEntry;
 import net.mineacle.core.sell.model.SellQuote;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.block.ShulkerBox;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -25,11 +26,14 @@ import org.bukkit.inventory.meta.BundleMeta;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
@@ -38,6 +42,7 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -48,8 +53,21 @@ import java.util.logging.Level;
 public final class SellService {
 
     private static final int MAX_CONTAINER_DEPTH = 3;
+    private static final int SELL_POLICY_VERSION = 2;
+    private static final Set<Material>
+            BUILT_IN_PLAYER_MARKET_ONLY_MATERIALS = Set.of(
+            Material.DRAGON_EGG,
+            Material.ELYTRA,
+            Material.BEACON,
+            Material.NETHER_STAR,
+            Material.ENCHANTED_GOLDEN_APPLE,
+            Material.HEART_OF_THE_SEA,
+            Material.CONDUIT,
+            Material.RECOVERY_COMPASS
+    );
 
     private final Core core;
+    private final NamespacedKey injectedWorthLoreKey;
 
     private File sellFile;
     private FileConfiguration sellConfig;
@@ -91,6 +109,10 @@ public final class SellService {
 
     public SellService(Core core) {
         this.core = core;
+        this.injectedWorthLoreKey = new NamespacedKey(
+                core,
+                "injected_worth_lore"
+        );
         reload();
     }
 
@@ -129,8 +151,8 @@ public final class SellService {
     public synchronized void reload() {
         ensureSellFile();
         sellConfig = YamlConfiguration.loadConfiguration(sellFile);
-        ensureDefaults();
         migrateLegacySettings();
+        ensureDefaults();
         loadConfigurationSnapshot();
 
         if (marketPricingService == null) {
@@ -207,7 +229,15 @@ public final class SellService {
         for (ItemStack item : originalItems) {
             SellQuote quote = quote(playerId, item);
 
-            if (!quote.sellable() || quote.totalCents() <= 0L) {
+            /*
+             * This is the final payout boundary. Keep the material policy
+             * check separate from the detailed item quote so an enchanted,
+             * renamed or otherwise modified variant can never turn a
+             * Player Market Only material into a server sale.
+             */
+            if (!isServerSellableMaterial(item.getType())
+                    || !quote.sellable()
+                    || quote.totalCents() <= 0L) {
                 returnedItems.add(item.clone());
                 continue;
             }
@@ -479,16 +509,11 @@ public final class SellService {
                 enforceContainerRules
         );
 
-        if (rejection == null
-                && !allowFallbackItemsForSell
-                && !explicitlyPricedMaterials.contains(material)) {
-            rejection = "fallback-appraisal";
-        }
-
-        if (rejection == null
-                && baseBuyback <= 0.0D
-                && enchantBuyback <= 0.0D) {
-            rejection = "player-market-only";
+        if (rejection == null) {
+            rejection = materialSellRestriction(
+                    material,
+                    baseBuyback
+            );
         }
 
         long serverBase = rejection == null
@@ -678,6 +703,7 @@ public final class SellService {
                     )
             );
             meta.setLore(lore);
+            markInjectedWorthLore(meta, 1);
             item.setItemMeta(meta);
             inventory.setItem(slot, item);
         }
@@ -691,21 +717,40 @@ public final class SellService {
         ItemStack item = rawItem.clone();
         ItemMeta meta = item.getItemMeta();
 
-        if (meta == null
-                || !meta.hasLore()
-                || meta.getLore() == null) {
+        if (meta == null || !hasInjectedWorthLore(meta)) {
             return item;
         }
 
-        List<String> cleaned = new ArrayList<>();
+        if (!meta.hasLore() || meta.getLore() == null) {
+            meta.getPersistentDataContainer().remove(
+                    injectedWorthLoreKey
+            );
+            item.setItemMeta(meta);
+            return item;
+        }
 
-        for (String line : meta.getLore()) {
-            if (!isWorthLine(line)) {
-                cleaned.add(line);
+        List<String> cleaned = new ArrayList<>(meta.getLore());
+        int injectedLines = injectedWorthLoreLines(meta);
+
+        for (int index = 0;
+             index < injectedLines && !cleaned.isEmpty();
+             index++) {
+            /*
+             * Injected lines are always a contiguous prefix. Remove only
+             * that prefix; never scan all lore by text, because legitimate
+             * custom lore may itself begin with labels such as "Price:".
+             */
+            if (!isWorthLine(cleaned.get(0))) {
+                break;
             }
+
+            cleaned.remove(0);
         }
 
         meta.setLore(cleaned.isEmpty() ? null : cleaned);
+        meta.getPersistentDataContainer().remove(
+                injectedWorthLoreKey
+        );
         item.setItemMeta(meta);
         return item;
     }
@@ -718,14 +763,41 @@ public final class SellService {
         }
 
         ItemMeta meta = item.getItemMeta();
+        return meta != null && hasInjectedWorthLore(meta);
+    }
 
-        if (meta == null
-                || !meta.hasLore()
-                || meta.getLore() == null) {
-            return false;
+    /**
+     * Marks a client-facing copy that contains Mineacle-injected price lore.
+     * If the client later echoes that copy back in an inventory transaction,
+     * the normalizer can remove only Mineacle's own lines without guessing
+     * from user-visible text.
+     */
+    public void markInjectedWorthLore(
+            ItemMeta meta,
+            int injectedLines
+    ) {
+        if (meta == null || injectedLines <= 0) {
+            return;
         }
 
-        return meta.getLore().stream().anyMatch(this::isWorthLine);
+        meta.getPersistentDataContainer().set(
+                injectedWorthLoreKey,
+                PersistentDataType.INTEGER,
+                injectedLines
+        );
+    }
+
+    private boolean hasInjectedWorthLore(ItemMeta meta) {
+        return injectedWorthLoreLines(meta) > 0;
+    }
+
+    private int injectedWorthLoreLines(ItemMeta meta) {
+        Integer lines = meta.getPersistentDataContainer().get(
+                injectedWorthLoreKey,
+                PersistentDataType.INTEGER
+        );
+
+        return lines == null ? 0 : Math.max(0, lines);
     }
 
     public long stackWorthCents(
@@ -885,6 +957,36 @@ public final class SellService {
                 && explicitlyPricedMaterials.contains(material);
     }
 
+    /**
+     * Returns whether the material itself is eligible for server buyback.
+     * Item-specific checks such as custom metadata, filled containers and
+     * value are still applied by {@link #quote(UUID, ItemStack)}.
+     */
+    public boolean isServerSellableMaterial(Material material) {
+        if (material == null
+                || material == Material.AIR
+                || !material.isItem()
+                || blockedMaterials.contains(material)) {
+            return false;
+        }
+
+        MarketDefinition definition = definitions.get(material);
+
+        if (definition == null || definition.baseCents() <= 0L) {
+            return false;
+        }
+
+        double baseBuyback = buybackMultiplier(
+                material,
+                definition.category()
+        );
+
+        return materialSellRestriction(
+                material,
+                baseBuyback
+        ) == null;
+    }
+
     public boolean isWorthVisible(Material material) {
         if (material == null
                 || material == Material.AIR
@@ -975,6 +1077,31 @@ public final class SellService {
                 0.0D,
                 1.0D
         );
+    }
+
+    private String materialSellRestriction(
+            Material material,
+            double baseBuyback
+    ) {
+        if (unsellableMaterials.contains(material)) {
+            return "player-market-only";
+        }
+
+        if (!allowFallbackItemsForSell
+                && !explicitlyPricedMaterials.contains(material)) {
+            return "fallback-appraisal";
+        }
+
+        /*
+         * Base buyback is the material-level server-sale switch. Enchantment
+         * value may increase an allowed item's payout, but it must never
+         * unlock an otherwise market-only material.
+         */
+        if (baseBuyback <= 0.0D) {
+            return "player-market-only";
+        }
+
+        return null;
     }
 
     private double enchantBuybackMultiplier(
@@ -1768,6 +1895,8 @@ public final class SellService {
     }
 
     private void migrateLegacySettings() {
+        migrateSellPolicy();
+
         if (sellConfig.contains(
                 "settings.deny-damaged-tools"
         )) {
@@ -1793,6 +1922,51 @@ public final class SellService {
                 );
             }
         }
+    }
+
+    private void migrateSellPolicy() {
+        int currentVersion = sellConfig.getInt(
+                "settings.policy-version",
+                0
+        );
+
+        if (currentVersion >= SELL_POLICY_VERSION) {
+            return;
+        }
+
+        /*
+         * July 19 configurations shipped with custom-item selling enabled
+         * and only DRAGON_EGG in the protected list. Upgrade that unsafe
+         * snapshot once, while allowing administrators to make deliberate
+         * edits after this policy version has been written.
+         */
+        sellConfig.set(
+                "settings.deny-custom-items",
+                true
+        );
+        sellConfig.set(
+                "settings.allow-fallback-items-for-sell",
+                false
+        );
+
+        Set<String> protectedItems = new LinkedHashSet<>(
+                sellConfig.getStringList(
+                        "settings.unsellable-items"
+                )
+        );
+        BUILT_IN_PLAYER_MARKET_ONLY_MATERIALS
+                .stream()
+                .map(Material::name)
+                .sorted()
+                .forEach(protectedItems::add);
+        sellConfig.set(
+                "settings.unsellable-items",
+                new ArrayList<>(protectedItems)
+        );
+        sellConfig.set(
+                "settings.policy-version",
+                SELL_POLICY_VERSION
+        );
     }
 
     private void migrateLegacyHistory() {
@@ -1905,7 +2079,9 @@ public final class SellService {
             return false;
         }
 
-        return meta.hasCustomModelData()
+        return meta.hasDisplayName()
+                || meta.hasLore()
+                || meta.hasCustomModelData()
                 || !meta.getPersistentDataContainer()
                 .getKeys()
                 .isEmpty();
@@ -2298,9 +2474,38 @@ public final class SellService {
     }
 
     private void ensureDefaults() {
+        /*
+         * Merge every newly bundled Sell/Worth key into an existing server
+         * configuration. Manual defaults alone previously left upgraded
+         * servers without newer buyback policy, which made their behavior
+         * differ from a fresh installation using the same plugin jar.
+         */
+        var bundledStream = core.getResource("sell.yml");
+
+        if (bundledStream != null) {
+            try (InputStreamReader reader = new InputStreamReader(
+                    bundledStream,
+                    StandardCharsets.UTF_8
+            )) {
+                sellConfig.setDefaults(
+                        YamlConfiguration.loadConfiguration(reader)
+                );
+            } catch (IOException exception) {
+                core.getLogger().log(
+                        Level.WARNING,
+                        "Could not load bundled sell.yml defaults",
+                        exception
+                );
+            }
+        }
+
         sellConfig.addDefault(
                 "settings.allow-all-items-with-fallback",
                 true
+        );
+        sellConfig.addDefault(
+                "settings.policy-version",
+                SELL_POLICY_VERSION
         );
         sellConfig.addDefault(
                 "settings.allow-fallback-items-for-sell",
@@ -2320,7 +2525,11 @@ public final class SellService {
         );
         sellConfig.addDefault(
                 "settings.unsellable-items",
-                List.of("DRAGON_EGG")
+                BUILT_IN_PLAYER_MARKET_ONLY_MATERIALS
+                        .stream()
+                        .map(Material::name)
+                        .sorted()
+                        .toList()
         );
         sellConfig.addDefault(
                 "durability.enabled",

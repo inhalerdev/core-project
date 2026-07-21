@@ -236,6 +236,7 @@ public final class SellWorthPacketListener
                 && meta.getLore() != null
                 ? new ArrayList<>(meta.getLore())
                 : new ArrayList<>();
+        int injectedLines = 0;
 
         if (valuation.sellable()) {
             lore.add(
@@ -247,6 +248,7 @@ public final class SellWorthPacketListener
                             )
                     )
             );
+            injectedLines++;
         } else if (valuation.priced()) {
             lore.add(
                     0,
@@ -254,6 +256,7 @@ public final class SellWorthPacketListener
                             "&cPlayer Market Only"
                     )
             );
+            injectedLines++;
         }
 
         if (clean.getAmount() > 1
@@ -267,6 +270,7 @@ public final class SellWorthPacketListener
                             )
                     )
             );
+            injectedLines++;
         }
 
         lore.add(
@@ -276,8 +280,13 @@ public final class SellWorthPacketListener
                                 + sellService.format(unitWorth)
                 )
         );
+        injectedLines++;
 
         meta.setLore(lore);
+        sellService.markInjectedWorthLore(
+                meta,
+                injectedLines
+        );
         item.setItemMeta(meta);
         return item;
     }
