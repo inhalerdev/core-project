@@ -393,7 +393,9 @@ public final class SoundService {
                 || normalized.equals("gui.filter")
                 || normalized.equals("gui.search")
                 || normalized.equals("gui.refresh")
-                || normalized.equals("gui.select")) {
+                || normalized.equals("gui.select")
+                || normalized.equals("gui.delete")
+                || normalized.equals("homes.delete")) {
             return "gui.select";
         }
 

@@ -1,6 +1,16 @@
 enabled: true
 
 links:
+  web:
+    url: "https://mineacle.net/"
+    title: "&dMineacle Website"
+    lines:
+      - "&#bbbbbbExplore Mineacle player profiles and leaderboards"
+      - "&#bbbbbbView network information, updates, and more"
+    button: "&d› &#bbbbbbmineacle.net"
+    button-line: "&d› &#bbbbbbmineacle.net"
+    hover: "&#bbbbbbClick to open &#ff88ffmineacle.net"
+
   store:
     url: "https://store.mineacle.net"
     title: "&dMineacle Store"

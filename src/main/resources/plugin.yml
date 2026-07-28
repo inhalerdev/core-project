@@ -235,6 +235,10 @@ commands:
     description: View the Mineacle Store link
     usage: /store
     permission: mineaclelinks.use
+  web:
+    description: View the Mineacle website link
+    usage: /web
+    permission: mineaclelinks.use
   x:
     description: View the Mineacle X link
     usage: /x

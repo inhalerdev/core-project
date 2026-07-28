@@ -42,6 +42,8 @@ import java.util.UUID;
 
 public final class AuctionHouseService {
 
+    private static final int MINIMUM_DEFAULT_LISTING_SLOTS = 18;
+
     public enum SortMode {
         LOWEST_PRICE,
         HIGHEST_PRICE,
@@ -300,22 +302,29 @@ public final class AuctionHouseService {
             return 0;
         }
 
-        if (player.hasPermission("mineacleauctionhouse.admin")) {
-            return Math.max(1, config.getInt("listing.admin-slots", 999));
-        }
-
-        String plusPermission = config.getString(
-                "listing.plus-permission",
-                "mineacle.plus"
+        int defaultLimit = Math.max(
+                MINIMUM_DEFAULT_LISTING_SLOTS,
+                config.getInt(
+                        "listing.default-slots",
+                        MINIMUM_DEFAULT_LISTING_SLOTS
+                )
         );
 
-        if (plusPermission != null
-                && !plusPermission.isBlank()
-                && player.hasPermission(plusPermission)) {
-            return Math.max(1, config.getInt("listing.plus-slots", 12));
+        if (player.hasPermission("mineacleauctionhouse.admin")) {
+            return Math.max(
+                    defaultLimit,
+                    config.getInt("listing.admin-slots", 999)
+            );
         }
 
-        return Math.max(0, config.getInt("listing.default-slots", 3));
+        if (hasElevatedListingTier(player)) {
+            return Math.max(
+                    defaultLimit,
+                    config.getInt("listing.plus-slots", defaultLimit)
+            );
+        }
+
+        return defaultLimit;
     }
 
     public boolean canList(Player player) {
@@ -333,6 +342,18 @@ public final class AuctionHouseService {
         }
 
         if (config.getBoolean("listing.allow-default", true)) {
+            return true;
+        }
+
+        return hasElevatedListingTier(player);
+    }
+
+    public boolean hasElevatedListingTier(Player player) {
+        if (player == null) {
+            return false;
+        }
+
+        if (player.hasPermission("mineacleauctionhouse.admin")) {
             return true;
         }
 

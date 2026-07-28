@@ -164,6 +164,7 @@ groups:
     - tpauto
     - tpdeny
     - warp
+    - web
     - worth
     - x
     hidden-commands:

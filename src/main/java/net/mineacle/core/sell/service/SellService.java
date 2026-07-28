@@ -679,9 +679,13 @@ public final class SellService {
             }
 
             ItemStack item = stripWorthLore(raw);
-            long worth = visualWorthCents(playerId, item);
+            ItemValuation valuation = appraise(
+                    playerId,
+                    item,
+                    true
+            );
 
-            if (worth <= 0L) {
+            if (!valuation.priced()) {
                 inventory.setItem(slot, item);
                 continue;
             }
@@ -699,7 +703,12 @@ public final class SellService {
             lore.add(
                     0,
                     TextColor.color(
-                            "&#bbbbbbWorth: &a" + format(worth)
+                            valuation.sellable()
+                                    ? "&#bbbbbbWorth: &a"
+                                    + format(
+                                    valuation.serverSellCents()
+                            )
+                                    : "&cPlayer Market Only"
                     )
             );
             meta.setLore(lore);

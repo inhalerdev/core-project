@@ -275,9 +275,9 @@ sounds:
       pitch: 0.85
     delete:
       enabled: true
-      sound: BLOCK_BEACON_DEACTIVATE
+      sound: UI_BUTTON_CLICK
       volume: 0.8
-      pitch: 1.15
+      pitch: 1.05
     error:
       enabled: true
       sound: BLOCK_NOTE_BLOCK_BASS
@@ -345,9 +345,9 @@ sounds:
       pitch: 1.0
     delete:
       enabled: true
-      sound: BLOCK_NOTE_BLOCK_BASS
+      sound: UI_BUTTON_CLICK
       volume: 0.8
-      pitch: 1.0
+      pitch: 1.05
   teams:
     invite:
       enabled: true

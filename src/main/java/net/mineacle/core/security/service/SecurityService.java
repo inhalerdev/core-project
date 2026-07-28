@@ -43,6 +43,7 @@ public final class SecurityService {
 
         config = YamlConfiguration.loadConfiguration(file);
         loadGroups();
+        ensureDefaultVisibleCommand("web");
     }
 
     public boolean enabled() {
@@ -312,6 +313,32 @@ public final class SecurityService {
                 Set.of(),
                 Map.of()
         ));
+    }
+
+    private void ensureDefaultVisibleCommand(String command) {
+        CommandGroup group = groups.get("default");
+
+        if (group == null) {
+            return;
+        }
+
+        Set<String> visibleCommands =
+                new LinkedHashSet<>(group.visibleCommands());
+        visibleCommands.add(normalize(command));
+
+        groups.put(
+                group.name(),
+                new CommandGroup(
+                        group.name(),
+                        group.permission(),
+                        group.priority(),
+                        group.inherits(),
+                        visibleCommands,
+                        group.hiddenCommands(),
+                        group.allowedCommands(),
+                        group.subcommands()
+                )
+        );
     }
 
     private List<CommandGroup> activeGroups(Player player) {

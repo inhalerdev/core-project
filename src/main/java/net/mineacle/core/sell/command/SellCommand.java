@@ -170,73 +170,29 @@ public final class SellCommand
                 item
         );
 
-        if (!valuation.priced()
-                || valuation.appraisedTotalCents() <= 0L) {
+        if (!valuation.priced()) {
             error(player, "&cThat item has no worth");
             return;
         }
-
-        int stackSize = Math.max(
-                1,
-                material.getMaxStackSize()
-        );
-        long stackAppraisal = multiply(
-                valuation.appraisedTotalCents(),
-                stackSize
-        );
-        long stackSell = multiply(
-                valuation.serverSellCents(),
-                stackSize
-        );
 
         player.sendMessage(TextColor.color(
                 "&#bbbbbbItem: &#ff88ff"
                         + sellService.pretty(material)
         ));
-        player.sendMessage(TextColor.color(
-                "&#bbbbbbAppraised Worth: &a"
-                        + sellService.format(
-                        valuation.appraisedTotalCents()
-                )
-        ));
-
-        if (stackSize > 1) {
-            player.sendMessage(TextColor.color(
-                    "&#bbbbbbStack Appraisal: &a"
-                            + sellService.format(
-                            stackAppraisal
-                    )
-            ));
-        }
 
         if (valuation.sellable()) {
             player.sendMessage(TextColor.color(
-                    "&#bbbbbbServer Sell: &a"
+                    "&#bbbbbbWorth: &a"
                             + sellService.format(
                             valuation.serverSellCents()
                     )
             ));
-
-            if (stackSize > 1) {
-                player.sendMessage(TextColor.color(
-                        "&#bbbbbbStack Sell: &a"
-                                + sellService.format(
-                                stackSell
-                        )
-                ));
-            }
         } else {
             player.sendMessage(TextColor.color(
                     "&cPlayer Market Only"
             ));
             player.sendMessage(TextColor.color(
                     "&#bbbbbbUse /ah or direct player trading"
-            ));
-        }
-
-        if (!valuation.explicitlyPriced()) {
-            player.sendMessage(TextColor.color(
-                    "&#bbbbbbEstimated appraisal — not accepted by /sell"
             ));
         }
 
@@ -256,12 +212,7 @@ public final class SellCommand
                 player,
                 item
         );
-        long visualWorth = sellService.visualWorthCents(
-                player.getUniqueId(),
-                item
-        );
-
-        if (!valuation.priced() || visualWorth <= 0L) {
+        if (!valuation.priced()) {
             error(player, "&cThis item has no worth");
             return;
         }
@@ -272,23 +223,9 @@ public final class SellCommand
                         + "x "
                         + sellService.pretty(item.getType())
         ));
-        player.sendMessage(TextColor.color(
-                "&#bbbbbbAppraised Worth: &a"
-                        + sellService.format(visualWorth)
-        ));
-
-        if (valuation.appraisedEnchantCents() > 0L) {
-            player.sendMessage(TextColor.color(
-                    "&#bbbbbbEnchant Value: &a"
-                            + sellService.format(
-                            valuation.appraisedEnchantCents()
-                    )
-            ));
-        }
-
         if (valuation.sellable()) {
             player.sendMessage(TextColor.color(
-                    "&#bbbbbbServer Sell: &a"
+                    "&#bbbbbbWorth: &a"
                             + sellService.format(
                             valuation.serverSellCents()
                     )
@@ -299,26 +236,6 @@ public final class SellCommand
             ));
             player.sendMessage(TextColor.color(
                     "&#bbbbbbUse /ah or direct player trading"
-            ));
-        }
-
-        if (valuation.damaged()) {
-            player.sendMessage(TextColor.color(
-                    "&#bbbbbbDurability: &#ff88ff"
-                            + valuation.durabilityPercent()
-                            + "%"
-            ));
-        }
-
-        if (valuation.mending()) {
-            player.sendMessage(TextColor.color(
-                    "&#bbbbbbMending: &#ff88ffValue protected"
-            ));
-        }
-
-        if (!valuation.explicitlyPriced()) {
-            player.sendMessage(TextColor.color(
-                    "&#bbbbbbEstimated appraisal — not accepted by /sell"
             ));
         }
 

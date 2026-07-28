@@ -184,9 +184,9 @@ public final class SellWorthPacketListener
             int rawSlot
     ) {
         /*
-         * Worth catalog entries already contain a complete curated appraisal
-         * breakdown. Preserve that GUI-authored lore exactly instead of
-         * rebuilding it as generic storage hover lore.
+         * Worth catalog entries already contain the final server sell value.
+         * Preserve that GUI-authored lore exactly instead of rebuilding it as
+         * generic storage hover lore.
          */
         if (isWorthCatalogSlot(player, rawSlot)) {
             return original.clone();
@@ -204,26 +204,14 @@ public final class SellWorthPacketListener
             return clean;
         }
 
-        long stackWorth = sellService.visualWorthCents(
-                player.getUniqueId(),
-                clean
-        );
         ItemValuation valuation = sellService.appraise(
                 player,
                 clean
         );
 
-        if (stackWorth <= 0L) {
+        if (!valuation.priced()) {
             return clean;
         }
-
-        long unitWorth =
-                clean.getAmount() > 1
-                        ? sellService.visualUnitWorthCents(
-                        player.getUniqueId(),
-                        clean
-                )
-                        : stackWorth;
 
         ItemStack item = clean.clone();
         ItemMeta meta = item.getItemMeta();
@@ -236,56 +224,22 @@ public final class SellWorthPacketListener
                 && meta.getLore() != null
                 ? new ArrayList<>(meta.getLore())
                 : new ArrayList<>();
-        int injectedLines = 0;
-
-        if (valuation.sellable()) {
-            lore.add(
-                    0,
-                    TextColor.color(
-                            "&#bbbbbbServer Sell: &a"
-                                    + sellService.format(
-                                    valuation.serverSellCents()
-                            )
-                    )
-            );
-            injectedLines++;
-        } else if (valuation.priced()) {
-            lore.add(
-                    0,
-                    TextColor.color(
-                            "&cPlayer Market Only"
-                    )
-            );
-            injectedLines++;
-        }
-
-        if (clean.getAmount() > 1
-                && shouldShowStackPrice(player, rawSlot)) {
-            lore.add(
-                    0,
-                    TextColor.color(
-                            "&#bbbbbbStack Appraisal: &a"
-                                    + sellService.format(
-                                    stackWorth
-                            )
-                    )
-            );
-            injectedLines++;
-        }
-
         lore.add(
                 0,
                 TextColor.color(
-                        "&#bbbbbbAppraised Worth: &a"
-                                + sellService.format(unitWorth)
+                        valuation.sellable()
+                                ? "&#bbbbbbWorth: &a"
+                                + sellService.format(
+                                valuation.serverSellCents()
+                        )
+                                : "&cPlayer Market Only"
                 )
         );
-        injectedLines++;
 
         meta.setLore(lore);
         sellService.markInjectedWorthLore(
                 meta,
-                injectedLines
+                1
         );
         item.setItemMeta(meta);
         return item;
@@ -383,24 +337,6 @@ public final class SellWorthPacketListener
          * real storage inventories such as chests, barrels and shulkers.
          */
         return isRealStorageTop(top);
-    }
-
-    private boolean shouldShowStackPrice(
-            Player player,
-            int rawSlot
-    ) {
-        InventoryView view = player.getOpenInventory();
-
-        if (view == null) {
-            return true;
-        }
-
-        Inventory top = view.getTopInventory();
-
-        return top == null
-                || rawSlot < 0
-                || rawSlot >= top.getSize()
-                || !isPhoenixCrateRewardsMenu(view);
     }
 
     private boolean isMineacleCoreGui(Inventory inventory) {

@@ -36,6 +36,7 @@ public final class LinksModule extends Module {
         register(core, "rules", command);
         register(core, "discord", command);
         register(core, "store", command);
+        register(core, "web", command);
         register(core, "x", command);
 
         core.getServer().getPluginManager().registerEvents(

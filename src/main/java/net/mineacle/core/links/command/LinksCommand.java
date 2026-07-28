@@ -68,7 +68,7 @@ public final class LinksCommand
                     player,
                     () -> guideRulesGui.openRules(player)
             );
-            case "discord", "store", "x" ->
+            case "discord", "store", "web", "x" ->
                     linksService.sendLink(player, root);
             default -> error(
                     player,

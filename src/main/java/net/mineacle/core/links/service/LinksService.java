@@ -14,8 +14,12 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -24,6 +28,7 @@ import java.util.Map;
 public final class LinksService {
 
     private static final List<String> ORDER = List.of(
+            "web",
             "store",
             "discord",
             "x"
@@ -46,58 +51,55 @@ public final class LinksService {
 
         FileConfiguration configuration =
                 YamlConfiguration.loadConfiguration(file);
+        applyBundledDefaults(configuration);
         enabled = configuration.getBoolean("enabled", true);
 
         Map<String, LinkDefinition> loaded =
                 new LinkedHashMap<>();
-        ConfigurationSection section =
-                configuration.getConfigurationSection("links");
 
-        if (section != null) {
-            for (String rawKey : section.getKeys(false)) {
-                String key = normalize(rawKey);
-                ConfigurationSection linkSection =
-                        section.getConfigurationSection(rawKey);
+        for (String key : ORDER) {
+            ConfigurationSection linkSection =
+                    configuration.getConfigurationSection(
+                            "links." + key
+                    );
 
-                if (linkSection == null
-                        || !ORDER.contains(key)) {
-                    continue;
-                }
-
-                loaded.put(
-                        key,
-                        new LinkDefinition(
-                                key,
-                                linkSection.getString(
-                                        "title",
-                                        "&dMineacle"
-                                ),
-                                List.copyOf(
-                                        linkSection.getStringList(
-                                                "lines"
-                                        )
-                                ),
-                                linkSection.getString(
-                                        "button",
-                                        "&d› &#bbbbbbOpen"
-                                ),
-                                linkSection.getString(
-                                        "button-line",
-                                        "&d› &#bbbbbbOpen"
-                                ),
-                                linkSection.getString(
-                                        "hover",
-                                        "&#bbbbbbClick to open"
-                                ),
-                                validUrl(
-                                        linkSection.getString(
-                                                "url",
-                                                ""
-                                        )
-                                )
-                        )
-                );
+            if (linkSection == null) {
+                continue;
             }
+
+            loaded.put(
+                    key,
+                    new LinkDefinition(
+                            key,
+                            linkSection.getString(
+                                    "title",
+                                    "&dMineacle"
+                            ),
+                            List.copyOf(
+                                    linkSection.getStringList(
+                                            "lines"
+                                    )
+                            ),
+                            linkSection.getString(
+                                    "button",
+                                    "&d› &#bbbbbbOpen"
+                            ),
+                            linkSection.getString(
+                                    "button-line",
+                                    "&d› &#bbbbbbOpen"
+                            ),
+                            linkSection.getString(
+                                    "hover",
+                                    "&#bbbbbbClick to open"
+                            ),
+                            validUrl(
+                                    linkSection.getString(
+                                            "url",
+                                            ""
+                                    )
+                            )
+                    )
+            );
         }
 
         links = Map.copyOf(loaded);
@@ -278,6 +280,34 @@ public final class LinksService {
         if (!file.isFile()) {
             throw new IllegalStateException(
                     "Could not initialize links.yml"
+            );
+        }
+    }
+
+    private void applyBundledDefaults(
+            FileConfiguration configuration
+    ) {
+        try (InputStream stream =
+                     core.getResource("links.yml")) {
+            if (stream == null) {
+                return;
+            }
+
+            try (InputStreamReader reader =
+                         new InputStreamReader(
+                                 stream,
+                                 StandardCharsets.UTF_8
+                         )) {
+                configuration.setDefaults(
+                        YamlConfiguration.loadConfiguration(
+                                reader
+                        )
+                );
+            }
+        } catch (IOException exception) {
+            core.getLogger().warning(
+                    "Could not load bundled links defaults: "
+                            + exception.getMessage()
             );
         }
     }

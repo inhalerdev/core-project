@@ -284,6 +284,20 @@ public final class AuctionHouseGui {
                 continue;
             }
 
+            if (service.hasElevatedListingTier(player)) {
+                inventory.setItem(
+                        slot,
+                        item(
+                                Material.RED_STAINED_GLASS_PANE,
+                                "&cListing Limit Reached",
+                                "&#bbbbbbYour auction limit is &d"
+                                        + limit,
+                                "&#bbbbbbCancel a listing to free a slot"
+                        )
+                );
+                continue;
+            }
+
             inventory.setItem(
                     slot,
                     item(
