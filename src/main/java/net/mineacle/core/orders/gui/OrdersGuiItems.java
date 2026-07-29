@@ -145,15 +145,7 @@ public final class OrdersGuiItems {
             int targetPage
     ) {
         if (!enabled) {
-            return item(
-                    Material.GRAY_STAINED_GLASS_PANE,
-                    previous
-                            ? "&#bbbbbbPrevious Page"
-                            : "&#bbbbbbNext Page",
-                    "&#bbbbbbNo "
-                            + (previous ? "previous" : "next")
-                            + " page"
-            );
+            return null;
         }
 
         return item(
@@ -164,8 +156,8 @@ public final class OrdersGuiItems {
     }
 
     public static boolean isDisabledNavigation(ItemStack item) {
-        return item != null
-                && item.getType()
+        return item == null
+                || item.getType()
                 == Material.GRAY_STAINED_GLASS_PANE;
     }
 

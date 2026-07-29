@@ -100,7 +100,7 @@ nickname:
   op-name-color: '#bbbbbb'
 chat:
   enabled: true
-  format: '%luckperms_prefix% &#bbbbbb%mineacle_chat_displayname%&#bbbbbb: &#bbbbbb%message%'
+  format: '%luckperms_prefix%&#bbbbbb%mineacle_chat_displayname%&#bbbbbb: &#bbbbbb%message%'
   worlds:
     mode: grouped
     groups:
@@ -275,9 +275,9 @@ sounds:
       pitch: 0.85
     delete:
       enabled: true
-      sound: UI_BUTTON_CLICK
+      sound: BLOCK_BEACON_DEACTIVATE
       volume: 0.8
-      pitch: 1.05
+      pitch: 1.15
     error:
       enabled: true
       sound: BLOCK_NOTE_BLOCK_BASS
@@ -345,9 +345,9 @@ sounds:
       pitch: 1.0
     delete:
       enabled: true
-      sound: UI_BUTTON_CLICK
+      sound: BLOCK_NOTE_BLOCK_BASS
       volume: 0.8
-      pitch: 1.05
+      pitch: 1.0
   teams:
     invite:
       enabled: true

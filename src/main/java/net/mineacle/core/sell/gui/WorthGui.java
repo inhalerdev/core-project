@@ -265,17 +265,83 @@ public final class WorthGui {
                 player,
                 item
         );
+        int stackSize = Math.max(
+                1,
+                material.getMaxStackSize()
+        );
+        long stackAppraisal = multiply(
+                valuation.appraisedTotalCents(),
+                stackSize
+        );
+        long stackSell = multiply(
+                valuation.serverSellCents(),
+                stackSize
+        );
+
         List<String> lore = new ArrayList<>();
+        lore.add(
+                "&#bbbbbbAppraised Worth: &a"
+                        + sellService.format(
+                        valuation.appraisedTotalCents()
+                )
+        );
+
+        if (stackSize > 1) {
+            lore.add(
+                    "&#bbbbbbStack Appraisal: &a"
+                            + sellService.format(
+                            stackAppraisal
+                    )
+            );
+        }
+
+        lore.add("");
 
         if (valuation.sellable()) {
             lore.add(
-                    "&#bbbbbbWorth: &a"
+                    "&#bbbbbbServer Sell: &a"
                             + sellService.format(
                             valuation.serverSellCents()
                     )
             );
+
+            if (stackSize > 1) {
+                lore.add(
+                        "&#bbbbbbStack Sell: &a"
+                                + sellService.format(
+                                stackSell
+                        )
+                );
+            }
         } else {
             lore.add("&cPlayer Market Only");
+            lore.add(
+                    "&#bbbbbbUse /ah or direct player trading"
+            );
+        }
+
+        if (!valuation.explicitlyPriced()) {
+            lore.add("");
+            lore.add(
+                    "&#bbbbbbEstimated appraisal"
+            );
+            lore.add(
+                    "&#bbbbbbNot accepted by /sell"
+            );
+        }
+
+        if (Math.abs(
+                valuation.combinedMarketMultiplier()
+                        - 1.0D
+        ) >= 0.01D) {
+            lore.add("");
+            lore.add(
+                    "&#bbbbbbMarket: &#ff88ff"
+                            + SellService.formatMultiplier(
+                            valuation.combinedMarketMultiplier()
+                    )
+                            + "x"
+            );
         }
 
         meta.setDisplayName(
@@ -295,8 +361,8 @@ public final class WorthGui {
     }
 
     public static boolean isDisabledNavigation(ItemStack item) {
-        return item != null
-                && item.getType()
+        return item == null
+                || item.getType()
                 == Material.GRAY_STAINED_GLASS_PANE;
     }
 
@@ -306,17 +372,7 @@ public final class WorthGui {
             int targetPage
     ) {
         if (!enabled) {
-            return toolbar(
-                    Material.GRAY_STAINED_GLASS_PANE,
-                    previous
-                            ? "&#bbbbbbPrevious Page"
-                            : "&#bbbbbbNext Page",
-                    List.of(
-                            "&#bbbbbbNo "
-                                    + (previous ? "previous" : "next")
-                                    + " page"
-                    )
-            );
+            return null;
         }
 
         return toolbar(
@@ -422,6 +478,20 @@ public final class WorthGui {
         );
     }
 
+    private static long multiply(
+            long value,
+            int multiplier
+    ) {
+        try {
+            return Math.multiplyExact(
+                    value,
+                    multiplier
+            );
+        } catch (ArithmeticException exception) {
+            return Long.MAX_VALUE;
+        }
+    }
+
     private enum SortMode {
         HIGHEST_PRICE("Highest Price"),
         LOWEST_PRICE("Lowest Price"),
@@ -444,38 +514,22 @@ public final class WorthGui {
         ) {
             return switch (this) {
                 case HIGHEST_PRICE -> Comparator
-                        .comparing(
+                        .comparingLong(
                                 (Material material) ->
-                                        !sellService
-                                                .isServerSellableMaterial(
-                                                        material
-                                                )
+                                        sellService.unitWorthCents(
+                                                player,
+                                                material
+                                        )
                         )
-                        .thenComparing(
-                                Comparator.comparingLong(
-                                        (Material material) ->
-                                                sellService
-                                                        .serverUnitSellCents(
-                                                                player,
-                                                                material
-                                                        )
-                                ).reversed()
-                        )
+                        .reversed()
                         .thenComparing(
                                 sellService::pretty,
                                 String.CASE_INSENSITIVE_ORDER
                         );
                 case LOWEST_PRICE -> Comparator
-                        .comparing(
+                        .comparingLong(
                                 (Material material) ->
-                                        !sellService
-                                                .isServerSellableMaterial(
-                                                        material
-                                                )
-                        )
-                        .thenComparingLong(
-                                (Material material) ->
-                                        sellService.serverUnitSellCents(
+                                        sellService.unitWorthCents(
                                                 player,
                                                 material
                                         )

@@ -4,9 +4,12 @@ listing:
   # When true, every player with mineacleauctionhouse.use may list items
   allow-default: true
   default-slots: 18
-  plus-slots: 18
+  plus-slots: 27
   admin-slots: 999
   plus-permission: mineacle.plus
+  plus-groups:
+    - plus
+    - mineacleplus
   min-price: 1.0
   max-price: 1000000000.0
 

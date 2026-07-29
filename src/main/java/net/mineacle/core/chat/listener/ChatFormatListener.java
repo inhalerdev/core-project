@@ -113,9 +113,7 @@ public final class ChatFormatListener
             String message
     ) {
         Component identity = legacyPrefix(
-                DisplayNames.luckPermsPrefixWithSpace(
-                        sender
-                )
+                compactRankPrefix(sender)
         ).append(
                 neutral(
                         DisplayNames.displayName(sender)
@@ -150,12 +148,12 @@ public final class ChatFormatListener
                 StatsModule.statsService();
 
         String money = economy == null
-                ? "$0"
-                : economy.format(
+                ? "0"
+                : withoutCurrencySymbol(economy.format(
                 economy.getBalanceCents(
                         player.getUniqueId()
                 )
-        );
+        ));
         long kills = stats == null
                 ? 0L
                 : stats.kills(
@@ -172,8 +170,10 @@ public final class ChatFormatListener
                 player.getUniqueId()
         );
 
-        Component hover = neutral(
-                DisplayNames.displayName(player)
+        Component hover = legacyPrefix(
+                compactRankPrefix(player)
+        ).append(
+                neutral(DisplayNames.displayName(player))
         );
         TeamRecord team = teamService == null
                 ? null
@@ -191,73 +191,70 @@ public final class ChatFormatListener
                 && !team.name().isBlank()) {
             hover = hover
                     .append(Component.newline())
-                    .append(teamLine(team.name()));
+                    .append(
+                            legacyPrefix(
+                                    "&#ff88ff🔥&#bbbbbb "
+                                            + team.name()
+                            )
+                    );
         }
 
         return hover
                 .append(Component.newline())
-                .append(moneyLine("Money", money))
-                .append(Component.newline())
                 .append(
-                        statLine(
-                                "Kills",
-                                String.valueOf(kills)
+                        legacyPrefix(
+                                "&a$ &#bbbbbb" + money
                         )
                 )
                 .append(Component.newline())
                 .append(
-                        statLine(
-                                "Deaths",
-                                String.valueOf(deaths)
+                        legacyPrefix(
+                                "&e⌚&#bbbbbb " + playtime
                         )
                 )
                 .append(Component.newline())
                 .append(
-                        statLine(
-                                "Playtime",
-                                playtime
+                        legacyPrefix(
+                                "&c🗡 &#bbbbbb" + kills
+                        )
+                )
+                .append(Component.newline())
+                .append(
+                        legacyPrefix(
+                                "&#ffa033☠&#bbbbbb " + deaths
                         )
                 );
     }
 
-    private Component teamLine(String teamName) {
-        return primary("◆ ")
-                .append(neutral("Team "))
-                .append(secondary(teamName));
+    private String compactRankPrefix(Player player) {
+        String prefix = DisplayNames.luckPermsPrefix(player);
+
+        if (prefix == null || prefix.isEmpty()) {
+            return "";
+        }
+
+        /*
+         * DisplayNames.luckPermsPrefix intentionally adds one separator for
+         * normal player-facing text. Chat places the neutral display name
+         * directly against the rank, so remove that separator here.
+         */
+        return prefix.endsWith(" ")
+                ? prefix.substring(0, prefix.length() - 1)
+                : prefix.stripTrailing();
     }
 
-    private Component moneyLine(
-            String label,
-            String value
-    ) {
-        return Component.text(
-                        "$ ",
-                        net.kyori.adventure.text.format.TextColor.color(
-                                0x55FF55
-                        )
-                )
-                .append(neutral(label + " "))
-                .append(
-                        Component.text(
-                                value,
-                                net.kyori.adventure.text.format.TextColor.color(
-                                        0x55FF55
-                                )
-                        )
-                )
-                .decoration(
-                        TextDecoration.ITALIC,
-                        false
-                );
-    }
+    private String withoutCurrencySymbol(String value) {
+        if (value == null || value.isBlank()) {
+            return "0";
+        }
 
-    private Component statLine(
-            String label,
-            String value
-    ) {
-        return primary("• ")
-                .append(neutral(label + " "))
-                .append(secondary(value));
+        if (value.startsWith("-$")) {
+            return "-" + value.substring(2);
+        }
+
+        return value.startsWith("$")
+                ? value.substring(1)
+                : value;
     }
 
     private Component legacyPrefix(String text) {
@@ -292,29 +289,4 @@ public final class ChatFormatListener
                 );
     }
 
-    private Component primary(String text) {
-        return Component.text(
-                        text == null ? "" : text,
-                        net.kyori.adventure.text.format.TextColor.color(
-                                0xFF55FF
-                        )
-                )
-                .decoration(
-                        TextDecoration.ITALIC,
-                        false
-                );
-    }
-
-    private Component secondary(String text) {
-        return Component.text(
-                        text == null ? "" : text,
-                        net.kyori.adventure.text.format.TextColor.color(
-                                0xFF88FF
-                        )
-                )
-                .decoration(
-                        TextDecoration.ITALIC,
-                        false
-                );
-    }
 }

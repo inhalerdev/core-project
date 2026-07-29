@@ -455,8 +455,8 @@ public final class AuctionHouseGui {
     }
 
     public static boolean isDisabledNavigation(ItemStack item) {
-        return item != null
-                && item.getType()
+        return item == null
+                || item.getType()
                 == Material.GRAY_STAINED_GLASS_PANE;
     }
 
@@ -466,15 +466,7 @@ public final class AuctionHouseGui {
             int targetPage
     ) {
         if (!enabled) {
-            return item(
-                    Material.GRAY_STAINED_GLASS_PANE,
-                    previous
-                            ? "&#bbbbbbPrevious Page"
-                            : "&#bbbbbbNext Page",
-                    "&#bbbbbbNo "
-                            + (previous ? "previous" : "next")
-                            + " page"
-            );
+            return null;
         }
 
         return item(

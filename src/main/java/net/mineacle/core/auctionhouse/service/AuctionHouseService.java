@@ -1,5 +1,6 @@
 package net.mineacle.core.auctionhouse.service;
 
+import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.milkbowl.vault.economy.Economy;
@@ -43,6 +44,7 @@ import java.util.UUID;
 public final class AuctionHouseService {
 
     private static final int MINIMUM_DEFAULT_LISTING_SLOTS = 18;
+    private static final int MINIMUM_PLUS_LISTING_SLOTS = 27;
 
     public enum SortMode {
         LOWEST_PRICE,
@@ -319,8 +321,14 @@ public final class AuctionHouseService {
 
         if (hasElevatedListingTier(player)) {
             return Math.max(
-                    defaultLimit,
-                    config.getInt("listing.plus-slots", defaultLimit)
+                    Math.max(
+                            defaultLimit,
+                            MINIMUM_PLUS_LISTING_SLOTS
+                    ),
+                    config.getInt(
+                            "listing.plus-slots",
+                            MINIMUM_PLUS_LISTING_SLOTS
+                    )
             );
         }
 
@@ -362,9 +370,114 @@ public final class AuctionHouseService {
                 "mineacle.plus"
         );
 
-        return plusPermission != null
+        if (plusPermission != null
                 && !plusPermission.isBlank()
-                && player.hasPermission(plusPermission);
+                && player.hasPermission(plusPermission)) {
+            return true;
+        }
+
+        return hasLuckPermsPlusGroup(player);
+    }
+
+    private boolean hasLuckPermsPlusGroup(Player player) {
+        List<String> configuredGroups =
+                config.getStringList("listing.plus-groups");
+        List<String> plusGroups = configuredGroups.isEmpty()
+                ? List.of("plus", "mineacleplus")
+                : configuredGroups;
+
+        for (String configuredGroup : plusGroups) {
+            String group = permissionGroupName(configuredGroup);
+
+            if (!group.isBlank()
+                    && player.hasPermission("group." + group)) {
+                return true;
+            }
+        }
+
+        if (Bukkit.getPluginManager()
+                .getPlugin("PlaceholderAPI") == null) {
+            return false;
+        }
+
+        for (String configuredGroup : plusGroups) {
+            String group = permissionGroupName(configuredGroup);
+
+            if (group.isBlank()) {
+                continue;
+            }
+
+            String inGroup = parsePlaceholder(
+                    player,
+                    "%luckperms_in_group_" + group + "%"
+            );
+
+            if ("true".equalsIgnoreCase(inGroup)) {
+                return true;
+            }
+        }
+
+        for (String placeholder : List.of(
+                "%luckperms_primary_group%",
+                "%luckperms_primary_group_name%"
+        )) {
+            String primaryGroup = normalizeGroup(
+                    parsePlaceholder(player, placeholder)
+            );
+
+            if (primaryGroup.isBlank()) {
+                continue;
+            }
+
+            for (String configuredGroup : plusGroups) {
+                if (primaryGroup.equals(
+                        normalizeGroup(configuredGroup)
+                )) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private String parsePlaceholder(
+            Player player,
+            String placeholder
+    ) {
+        try {
+            String parsed = PlaceholderAPI.setPlaceholders(
+                    player,
+                    placeholder
+            );
+
+            if (parsed == null
+                    || parsed.isBlank()
+                    || parsed.equalsIgnoreCase(placeholder)
+                    || parsed.contains("%luckperms_")) {
+                return "";
+            }
+
+            return parsed.trim();
+        } catch (Throwable ignored) {
+            return "";
+        }
+    }
+
+    private String permissionGroupName(String configuredGroup) {
+        if (configuredGroup == null) {
+            return "";
+        }
+
+        return configuredGroup.trim()
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9_-]", "");
+    }
+
+    private String normalizeGroup(String value) {
+        return TextColor.strip(value)
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]", "");
     }
 
     public synchronized int activeListingCount(UUID owner) {

@@ -147,8 +147,8 @@ public final class BountyMainGui {
     }
 
     public static boolean isDisabledNavigation(ItemStack item) {
-        return item != null
-                && item.getType()
+        return item == null
+                || item.getType()
                 == Material.GRAY_STAINED_GLASS_PANE;
     }
 
@@ -158,17 +158,7 @@ public final class BountyMainGui {
             int targetPage
     ) {
         if (!enabled) {
-            return toolbar(
-                    Material.GRAY_STAINED_GLASS_PANE,
-                    previous
-                            ? "&#bbbbbbPrevious Page"
-                            : "&#bbbbbbNext Page",
-                    List.of(
-                            "&#bbbbbbNo "
-                                    + (previous ? "previous" : "next")
-                                    + " page"
-                    )
-            );
+            return null;
         }
 
         return toolbar(
