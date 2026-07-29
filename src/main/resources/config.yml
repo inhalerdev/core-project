@@ -159,6 +159,10 @@ origin-rtp:
     timeout-seconds: 30
     safe-platform-radius: 1
     maximum-ground-height-difference: 2
+    hazard-check-radius: 2
+    candidate-pool-multiplier: 8
+    recent-destination-history: 0
+    minimum-recent-destination-distance: 0
   unsafe-blocks:
   - WATER
   - LAVA
@@ -173,6 +177,17 @@ origin-rtp:
   - CAMPFIRE
   - SOUL_CAMPFIRE
   - POINTED_DRIPSTONE
+  - CHORUS_PLANT
+  - CHORUS_FLOWER
+  - END_GATEWAY
+  - END_PORTAL
+  - END_PORTAL_FRAME
+  - NETHER_PORTAL
+  - RESPAWN_ANCHOR
+  - TWISTING_VINES
+  - TWISTING_VINES_PLANT
+  - WEEPING_VINES
+  - WEEPING_VINES_PLANT
   destinations:
     overworld:
       enabled: true
@@ -190,6 +205,14 @@ origin-rtp:
         min-y: 32
         max-y: 118
         surface-only: false
+        minimum-exploration-distance-from-world-spawn: 5000
+        fallback-maximum-radius: 29000000
+        prefer-unexplored-chunks: true
+        candidate-pool-multiplier: 8
+        recent-destination-history: 16
+        minimum-recent-destination-distance: 4096
+        randomized-vertical-search: true
+        hazard-check-radius: 2
     end:
       enabled: true
       display-name: The End
@@ -198,6 +221,14 @@ origin-rtp:
         min-y: 48
         max-y: 255
         surface-only: true
+        minimum-exploration-distance-from-world-spawn: 5000
+        fallback-maximum-radius: 29000000
+        prefer-unexplored-chunks: true
+        candidate-pool-multiplier: 8
+        recent-destination-history: 16
+        minimum-recent-destination-distance: 4096
+        randomized-vertical-search: false
+        hazard-check-radius: 2
   messages:
     disabled: '&cRandom teleport is unavailable for %world%'
     already-active: '&cYou already have an active random teleport'

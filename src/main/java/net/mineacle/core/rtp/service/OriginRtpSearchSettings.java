@@ -26,6 +26,12 @@ public record OriginRtpSearchSettings(
         boolean surfaceOnly,
         int safePlatformRadius,
         int maximumGroundHeightDifference,
+        int hazardCheckRadius,
+        boolean preferUnexploredChunks,
+        int candidatePoolMultiplier,
+        int recentDestinationHistory,
+        int minimumRecentDestinationDistance,
+        boolean randomizedVerticalSearch,
         Set<Material> unsafeBlocks
 ) {
 
@@ -55,7 +61,7 @@ public record OriginRtpSearchSettings(
             maximumY = minimumY + 1;
         }
 
-        int minimumDistance = Math.max(
+        int configuredMinimumDistance = Math.max(
                 0,
                 integer(
                         core,
@@ -63,6 +69,17 @@ public record OriginRtpSearchSettings(
                                 + ".search.minimum-distance-from-world-spawn",
                         "origin-rtp.search.minimum-distance-from-world-spawn",
                         1000
+                )
+        );
+        int minimumDistance = Math.max(
+                configuredMinimumDistance,
+                Math.max(
+                        0,
+                        core.getConfig().getInt(
+                                base
+                                        + ".search.minimum-exploration-distance-from-world-spawn",
+                                defaultExplorationDistance(destination)
+                        )
                 )
         );
         int maximumDistance = Math.max(
@@ -123,13 +140,16 @@ public record OriginRtpSearchSettings(
                         0
                 ),
                 Math.max(
-                        1,
-                        integer(
-                                core,
-                                base
-                                        + ".search.fallback-maximum-radius",
-                                "origin-rtp.search.fallback-maximum-radius",
-                                5000
+                        defaultFallbackMaximumRadius(destination),
+                        Math.max(
+                                1,
+                                integer(
+                                        core,
+                                        base
+                                                + ".search.fallback-maximum-radius",
+                                        "origin-rtp.search.fallback-maximum-radius",
+                                        5000
+                                )
                         )
                 ),
                 minimumDistance,
@@ -187,6 +207,67 @@ public record OriginRtpSearchSettings(
                                         2
                                 )
                         )
+                ),
+                Math.max(
+                        0,
+                        Math.min(
+                                4,
+                                integer(
+                                        core,
+                                        base
+                                                + ".search.hazard-check-radius",
+                                        "origin-rtp.search.hazard-check-radius",
+                                        2
+                                )
+                        )
+                ),
+                destinationBoolean(
+                        core,
+                        base
+                                + ".search.prefer-unexplored-chunks",
+                        defaultPreferUnexplored(destination)
+                ),
+                Math.max(
+                        1,
+                        Math.min(
+                                16,
+                                integer(
+                                        core,
+                                        base
+                                                + ".search.candidate-pool-multiplier",
+                                        "origin-rtp.search.candidate-pool-multiplier",
+                                        8
+                                )
+                        )
+                ),
+                Math.max(
+                        0,
+                        Math.min(
+                                64,
+                                integer(
+                                        core,
+                                        base
+                                                + ".search.recent-destination-history",
+                                        "origin-rtp.search.recent-destination-history",
+                                        defaultRecentHistory(destination)
+                                )
+                        )
+                ),
+                Math.max(
+                        0,
+                        integer(
+                                core,
+                                base
+                                        + ".search.minimum-recent-destination-distance",
+                                "origin-rtp.search.minimum-recent-destination-distance",
+                                defaultRecentDistance(destination)
+                        )
+                ),
+                destinationBoolean(
+                        core,
+                        base
+                                + ".search.randomized-vertical-search",
+                        destination.equals("nether")
                 ),
                 Set.copyOf(
                         unsafeBlocks(core, base)
@@ -281,23 +362,52 @@ public record OriginRtpSearchSettings(
             materials.add(material);
         }
 
-        if (materials.isEmpty()) {
-            materials.add(Material.WATER);
-            materials.add(Material.LAVA);
-            materials.add(Material.FIRE);
-            materials.add(Material.SOUL_FIRE);
-            materials.add(Material.CACTUS);
-            materials.add(Material.MAGMA_BLOCK);
-            materials.add(Material.POWDER_SNOW);
-            materials.add(Material.BEDROCK);
-            materials.add(Material.SWEET_BERRY_BUSH);
-            materials.add(Material.WITHER_ROSE);
-            materials.add(Material.CAMPFIRE);
-            materials.add(Material.SOUL_CAMPFIRE);
-            materials.add(Material.POINTED_DRIPSTONE);
-        }
+        /*
+         * These are mandatory safety exclusions rather than optional defaults.
+         * Adding them unconditionally makes the fix work with an existing
+         * config.yml whose old unsafe-block list is already non-empty.
+         */
+        materials.add(Material.WATER);
+        materials.add(Material.LAVA);
+        materials.add(Material.FIRE);
+        materials.add(Material.SOUL_FIRE);
+        materials.add(Material.CACTUS);
+        materials.add(Material.MAGMA_BLOCK);
+        materials.add(Material.POWDER_SNOW);
+        materials.add(Material.BEDROCK);
+        materials.add(Material.SWEET_BERRY_BUSH);
+        materials.add(Material.WITHER_ROSE);
+        materials.add(Material.CAMPFIRE);
+        materials.add(Material.SOUL_CAMPFIRE);
+        materials.add(Material.POINTED_DRIPSTONE);
+        materials.add(Material.CHORUS_PLANT);
+        materials.add(Material.CHORUS_FLOWER);
+        materials.add(Material.END_GATEWAY);
+        materials.add(Material.END_PORTAL);
+        materials.add(Material.END_PORTAL_FRAME);
+        materials.add(Material.NETHER_PORTAL);
+        materials.add(Material.RESPAWN_ANCHOR);
+        materials.add(Material.TWISTING_VINES);
+        materials.add(Material.TWISTING_VINES_PLANT);
+        materials.add(Material.WEEPING_VINES);
+        materials.add(Material.WEEPING_VINES_PLANT);
 
         return materials;
+    }
+
+    private static boolean destinationBoolean(
+            Core core,
+            String path,
+            boolean defaultValue
+    ) {
+        if (core.getConfig().contains(path)) {
+            return core.getConfig().getBoolean(
+                    path,
+                    defaultValue
+            );
+        }
+
+        return defaultValue;
     }
 
     private static int integer(
@@ -357,5 +467,48 @@ public record OriginRtpSearchSettings(
             case "end" -> 255;
             default -> 319;
         };
+    }
+
+    private static int defaultExplorationDistance(
+            String destination
+    ) {
+        return switch (destination) {
+            case "nether", "end" -> 5000;
+            default -> 0;
+        };
+    }
+
+    private static int defaultFallbackMaximumRadius(
+            String destination
+    ) {
+        return switch (destination) {
+            case "nether", "end" -> 29_000_000;
+            default -> 1;
+        };
+    }
+
+    private static boolean defaultPreferUnexplored(
+            String destination
+    ) {
+        return destination.equals("nether")
+                || destination.equals("end");
+    }
+
+    private static int defaultRecentHistory(
+            String destination
+    ) {
+        return destination.equals("nether")
+                || destination.equals("end")
+                ? 16
+                : 0;
+    }
+
+    private static int defaultRecentDistance(
+            String destination
+    ) {
+        return destination.equals("nether")
+                || destination.equals("end")
+                ? 4096
+                : 0;
     }
 }

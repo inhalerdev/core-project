@@ -24,7 +24,7 @@ menus:
         name: '&dNether'
         lore:
         - '&#bbbbbbUses the current Nether border'
-        - '&#bbbbbbAt least 1,000 blocks from world spawn'
+        - '&#bbbbbbExplores at least %minimum_distance% blocks from spawn'
         - '&#bbbbbbOnline: &#ff88ff%online%'
         - ''
         - '&#ff88ffClick to random teleport'
@@ -36,7 +36,7 @@ menus:
         name: '&dThe End'
         lore:
         - '&#bbbbbbUses the current End border'
-        - '&#bbbbbbAt least 1,000 blocks from world spawn'
+        - '&#bbbbbbExplores at least %minimum_distance% blocks from spawn'
         - '&#bbbbbbOnline: &#ff88ff%online%'
         - ''
         - '&#ff88ffClick to random teleport'

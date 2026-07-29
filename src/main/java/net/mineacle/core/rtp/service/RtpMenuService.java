@@ -120,13 +120,38 @@ public final class RtpMenuService {
         String online = String.valueOf(
                 online(item.destination())
         );
+        OriginRtpSearchSettings settings =
+                OriginRtpSearchSettings.fromConfig(
+                        core,
+                        item.destination()
+                );
+        String minimumDistance = String.format(
+                Locale.US,
+                "%,d",
+                settings.minimumDistanceFromWorldSpawn()
+        );
 
         for (String line : item.lore()) {
+            String resolved = line;
+
+            if ((item.destination().equals("nether")
+                    || item.destination().equals("end"))
+                    && resolved.contains(
+                    "At least 1,000 blocks from world spawn"
+            )) {
+                resolved = "&#bbbbbbExplores at least "
+                        + "%minimum_distance% blocks from spawn";
+            }
+
             parsed.add(
-                    parse(player, line)
+                    parse(player, resolved)
                             .replace(
                                     "%online%",
                                     online
+                            )
+                            .replace(
+                                    "%minimum_distance%",
+                                    minimumDistance
                             )
             );
         }

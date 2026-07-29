@@ -8,10 +8,14 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.WorldBorder;
 import org.bukkit.block.Block;
+import org.bukkit.block.data.Waterlogged;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
@@ -19,7 +23,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public final class OriginRtpLocationService {
 
+    private static final int WORLD_SAFE_LIMIT =
+            29_999_000;
+
     private final Core core;
+    private final Map<String, ArrayDeque<Coordinates>>
+            recentDestinations = new HashMap<>();
 
     public OriginRtpLocationService(Core core) {
         this.core = core;
@@ -111,11 +120,29 @@ public final class OriginRtpLocationService {
             return null;
         }
 
-        return safeLocationAt(
+        int groundY = reserved.getBlockY() - 1;
+        int minimumY = settings.clampedMinimumY(expected);
+        int maximumY = settings.clampedMaximumY(expected);
+
+        if (!safeLandingAt(
                 expected,
                 x,
+                groundY,
                 z,
-                settings
+                settings,
+                minimumY,
+                maximumY
+        )) {
+            return null;
+        }
+
+        return new Location(
+                expected,
+                x + 0.5D,
+                groundY + 1.0D,
+                z + 0.5D,
+                reserved.getYaw(),
+                reserved.getPitch()
         );
     }
 
@@ -153,8 +180,22 @@ public final class OriginRtpLocationService {
                 settings.candidatesPerBatch(),
                 settings.maximumAttempts() - attemptsUsed
         );
+        int poolSize = Math.min(
+                64,
+                Math.max(
+                        batchSize,
+                        batchSize
+                                * settings
+                                .candidatePoolMultiplier()
+                )
+        );
         List<Coordinates> candidates =
-                area.randomCandidates(batchSize);
+                prioritizeCandidates(
+                        world,
+                        area.randomCandidates(poolSize),
+                        batchSize,
+                        settings
+                );
 
         if (candidates.isEmpty()) {
             result.complete(null);
@@ -168,7 +209,10 @@ public final class OriginRtpLocationService {
             loadRequiredChunks(
                     world,
                     candidate,
-                    settings.safePlatformRadius()
+                    Math.max(
+                            settings.safePlatformRadius(),
+                            settings.hazardCheckRadius()
+                    )
             ).whenComplete(
                     (ignored, throwable) ->
                             Bukkit.getScheduler().runTask(
@@ -204,6 +248,10 @@ public final class OriginRtpLocationService {
                                                         );
 
                                                 if (safe != null) {
+                                                    rememberDestination(
+                                                            settings,
+                                                            candidate
+                                                    );
                                                     result.complete(safe);
                                                     return;
                                                 }
@@ -265,6 +313,181 @@ public final class OriginRtpLocationService {
         );
     }
 
+    private List<Coordinates> prioritizeCandidates(
+            World world,
+            List<Coordinates> pool,
+            int requested,
+            OriginRtpSearchSettings settings
+    ) {
+        if (pool.isEmpty() || requested <= 0) {
+            return List.of();
+        }
+
+        List<Coordinates> selected =
+                new ArrayList<>(requested);
+        Set<Long> used = new HashSet<>();
+        List<Coordinates> recent =
+                recentSnapshot(settings.destination());
+
+        if (settings.preferUnexploredChunks()) {
+            addCandidates(
+                    world,
+                    pool,
+                    selected,
+                    used,
+                    requested,
+                    recent,
+                    settings.minimumRecentDestinationDistance(),
+                    true,
+                    true
+            );
+        }
+
+        addCandidates(
+                world,
+                pool,
+                selected,
+                used,
+                requested,
+                recent,
+                settings.minimumRecentDestinationDistance(),
+                false,
+                true
+        );
+
+        if (settings.preferUnexploredChunks()) {
+            addCandidates(
+                    world,
+                    pool,
+                    selected,
+                    used,
+                    requested,
+                    recent,
+                    0,
+                    true,
+                    false
+            );
+        }
+
+        addCandidates(
+                world,
+                pool,
+                selected,
+                used,
+                requested,
+                recent,
+                0,
+                false,
+                false
+        );
+
+        return List.copyOf(selected);
+    }
+
+    private void addCandidates(
+            World world,
+            List<Coordinates> pool,
+            List<Coordinates> selected,
+            Set<Long> used,
+            int requested,
+            List<Coordinates> recent,
+            int minimumRecentDistance,
+            boolean requireUnexplored,
+            boolean requireFarFromRecent
+    ) {
+        for (Coordinates candidate : pool) {
+            if (selected.size() >= requested) {
+                return;
+            }
+
+            long packed = candidate.packed();
+
+            if (used.contains(packed)) {
+                continue;
+            }
+
+            if (requireUnexplored
+                    && world.isChunkGenerated(
+                    candidate.x() >> 4,
+                    candidate.z() >> 4
+            )) {
+                continue;
+            }
+
+            if (requireFarFromRecent
+                    && !farFromRecent(
+                    candidate,
+                    recent,
+                    minimumRecentDistance
+            )) {
+                continue;
+            }
+
+            used.add(packed);
+            selected.add(candidate);
+        }
+    }
+
+    private boolean farFromRecent(
+            Coordinates candidate,
+            List<Coordinates> recent,
+            int minimumDistance
+    ) {
+        if (minimumDistance <= 0 || recent.isEmpty()) {
+            return true;
+        }
+
+        long minimumSquared =
+                (long) minimumDistance * minimumDistance;
+
+        for (Coordinates previous : recent) {
+            long deltaX =
+                    (long) candidate.x() - previous.x();
+            long deltaZ =
+                    (long) candidate.z() - previous.z();
+
+            if (deltaX * deltaX + deltaZ * deltaZ
+                    < minimumSquared) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private List<Coordinates> recentSnapshot(
+            String destination
+    ) {
+        ArrayDeque<Coordinates> history =
+                recentDestinations.get(destination);
+
+        return history == null || history.isEmpty()
+                ? List.of()
+                : List.copyOf(history);
+    }
+
+    private void rememberDestination(
+            OriginRtpSearchSettings settings,
+            Coordinates coordinates
+    ) {
+        int maximum = settings.recentDestinationHistory();
+
+        if (maximum <= 0) {
+            return;
+        }
+
+        ArrayDeque<Coordinates> history =
+                recentDestinations.computeIfAbsent(
+                        settings.destination(),
+                        ignored -> new ArrayDeque<>()
+                );
+        history.addFirst(coordinates);
+
+        while (history.size() > maximum) {
+            history.removeLast();
+        }
+    }
+
     private Location safeLocationAt(
             World world,
             int x,
@@ -291,7 +514,7 @@ public final class OriginRtpLocationService {
             return null;
         }
 
-        if (!safePlatform(
+        if (!safeLandingAt(
                 world,
                 x,
                 centerGroundY,
@@ -322,16 +545,43 @@ public final class OriginRtpLocationService {
             int minimumY,
             int maximumY
     ) {
-        int startY = settings.surfaceOnly()
-                ? Math.min(
-                world.getHighestBlockAt(x, z).getY(),
-                maximumY
+        if (settings.surfaceOnly()) {
+            int startY = Math.min(
+                    world.getHighestBlockAt(x, z).getY(),
+                    maximumY
+            );
+
+            for (int groundY = startY;
+                 groundY >= minimumY;
+                 groundY--) {
+                if (safeColumn(
+                        world,
+                        x,
+                        groundY,
+                        z,
+                        settings
+                )) {
+                    return groundY;
+                }
+            }
+
+            return Integer.MIN_VALUE;
+        }
+
+        int height = maximumY - minimumY + 1;
+        int startY = settings.randomizedVerticalSearch()
+                ? ThreadLocalRandom.current().nextInt(
+                minimumY,
+                maximumY + 1
         )
                 : maximumY;
 
-        for (int groundY = startY;
-             groundY >= minimumY;
-             groundY--) {
+        for (int offset = 0; offset < height; offset++) {
+            int groundY = minimumY + Math.floorMod(
+                    startY - minimumY - offset,
+                    height
+            );
+
             if (safeColumn(
                     world,
                     x,
@@ -344,6 +594,42 @@ public final class OriginRtpLocationService {
         }
 
         return Integer.MIN_VALUE;
+    }
+
+    private boolean safeLandingAt(
+            World world,
+            int x,
+            int groundY,
+            int z,
+            OriginRtpSearchSettings settings,
+            int minimumY,
+            int maximumY
+    ) {
+        return groundY >= minimumY
+                && groundY <= maximumY
+                && safeColumn(
+                world,
+                x,
+                groundY,
+                z,
+                settings
+        )
+                && safePlatform(
+                world,
+                x,
+                groundY,
+                z,
+                settings,
+                minimumY,
+                maximumY
+        )
+                && !unsafeNearby(
+                world,
+                x,
+                groundY,
+                z,
+                settings
+        );
     }
 
     private boolean safePlatform(
@@ -447,6 +733,36 @@ public final class OriginRtpLocationService {
                 && safeSpace(head, settings);
     }
 
+    private boolean unsafeNearby(
+            World world,
+            int centerX,
+            int groundY,
+            int centerZ,
+            OriginRtpSearchSettings settings
+    ) {
+        int radius = settings.hazardCheckRadius();
+
+        for (int x = centerX - radius;
+             x <= centerX + radius;
+             x++) {
+            for (int z = centerZ - radius;
+                 z <= centerZ + radius;
+                 z++) {
+                for (int y = groundY;
+                     y <= groundY + 3;
+                     y++) {
+                    Block block = world.getBlockAt(x, y, z);
+
+                    if (unsafeMaterial(block, settings)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
     private boolean safeGround(
             Block block,
             OriginRtpSearchSettings settings
@@ -458,6 +774,7 @@ public final class OriginRtpLocationService {
         Material material = block.getType();
 
         if (!material.isSolid()
+                || isWaterlogged(block)
                 || settings.unsafeBlocks()
                 .contains(material)) {
             return false;
@@ -490,8 +807,7 @@ public final class OriginRtpLocationService {
 
         Material material = block.getType();
 
-        if (settings.unsafeBlocks()
-                .contains(material)) {
+        if (unsafeMaterial(block, settings)) {
             return false;
         }
 
@@ -499,7 +815,31 @@ public final class OriginRtpLocationService {
                 || block.isPassable();
     }
 
+    private boolean unsafeMaterial(
+            Block block,
+            OriginRtpSearchSettings settings
+    ) {
+        return block == null
+                || block.isLiquid()
+                || isWaterlogged(block)
+                || settings.unsafeBlocks().contains(
+                block.getType()
+        );
+    }
+
+    private boolean isWaterlogged(Block block) {
+        return block != null
+                && block.getBlockData()
+                instanceof Waterlogged waterlogged
+                && waterlogged.isWaterlogged();
+    }
+
     private record Coordinates(int x, int z) {
+
+        private long packed() {
+            return ((long) x << 32)
+                    ^ (z & 0xffffffffL);
+        }
     }
 
     private record SearchArea(
@@ -568,19 +908,19 @@ public final class OriginRtpLocationService {
             }
 
             minimumX = Math.max(
-                    Integer.MIN_VALUE + 1L,
+                    -WORLD_SAFE_LIMIT,
                     minimumX
             );
             maximumX = Math.min(
-                    Integer.MAX_VALUE - 1L,
+                    WORLD_SAFE_LIMIT,
                     maximumX
             );
             minimumZ = Math.max(
-                    Integer.MIN_VALUE + 1L,
+                    -WORLD_SAFE_LIMIT,
                     minimumZ
             );
             maximumZ = Math.min(
-                    Integer.MAX_VALUE - 1L,
+                    WORLD_SAFE_LIMIT,
                     maximumZ
             );
 
@@ -641,12 +981,12 @@ public final class OriginRtpLocationService {
                     continue;
                 }
 
-                long packed = ((long) x << 32)
-                        ^ (z & 0xffffffffL);
+                Coordinates candidate =
+                        new Coordinates(x, z);
 
-                if (unique.add(packed)) {
+                if (unique.add(candidate.packed())) {
                     candidates.add(
-                            new Coordinates(x, z)
+                            candidate
                     );
                 }
             }
