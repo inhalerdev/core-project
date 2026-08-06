@@ -2,7 +2,9 @@ package net.mineacle.core.webprofiles;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
+import net.mineacle.core.webprofiles.auth.WebVerificationRepository;
 import net.mineacle.core.webprofiles.command.MineacleWebCommand;
+import net.mineacle.core.webprofiles.command.VerifyCommand;
 import net.mineacle.core.webprofiles.listener.WebProfileListener;
 import net.mineacle.core.webprofiles.service.WebProfileSyncService;
 import net.mineacle.core.webprofiles.service.WebTeamSyncService;
@@ -85,6 +87,30 @@ public final class WebProfilesModule extends Module {
                 );
         command.setExecutor(executor);
         command.setTabCompleter(executor);
+
+        WebVerificationRepository verificationRepository =
+                new WebVerificationRepository(
+                        core,
+                        config
+                );
+        verificationRepository.initialize();
+
+        PluginCommand verifyCommand =
+                core.getCommand("verify");
+
+        if (verifyCommand == null) {
+            throw new IllegalStateException(
+                    "Missing command in plugin.yml: verify"
+            );
+        }
+
+        VerifyCommand verifyExecutor =
+                new VerifyCommand(
+                        core,
+                        verificationRepository
+                );
+        verifyCommand.setExecutor(verifyExecutor);
+        verifyCommand.setTabCompleter(verifyExecutor);
 
         core.getServer()
                 .getPluginManager()
