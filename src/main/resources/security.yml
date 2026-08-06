@@ -163,6 +163,7 @@ groups:
     - tpahere
     - tpauto
     - tpdeny
+    - verify
     - warp
     - web
     - worth
