@@ -295,6 +295,10 @@ commands:
     - webprofiles
     usage: /mineacleweb fights <status|clear>
     permission: mineacleweb.admin
+  verify:
+    description: Verify your Minecraft account for the Mineacle website
+    usage: /verify <code>
+    permission: mineacleweb.verify
 permissions:
   mineacleguide.use:
     default: true
@@ -431,5 +435,7 @@ permissions:
     children:
       mineacleauctionhouse.use: true
       mineacleauctionhouse.sell: true
+  mineacleweb.verify:
+    default: true
   mineacleweb.admin:
     default: op
