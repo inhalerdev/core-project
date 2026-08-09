@@ -1,6 +1,5 @@
 package net.mineacle.core.common.player;
 
-import me.clip.placeholderapi.PlaceholderAPI;
 import net.mineacle.core.chat.ChatModule;
 import net.mineacle.core.chat.service.NicknameService;
 import net.mineacle.core.common.text.TextColor;
@@ -50,13 +49,6 @@ public final class DisplayNames {
 
         String nickname = service.nickname(player);
         return nickname == null ? "" : nickname;
-    }
-
-    /**
-     * Public Mineacle player names always use the neutral name color.
-     */
-    public static String nameColor(OfflinePlayer player) {
-        return "&#bbbbbb";
     }
 
     public static String coloredDisplayName(
@@ -153,38 +145,22 @@ public final class DisplayNames {
                 .startsWith(normalized);
     }
 
+    /**
+     * Compatibility name retained for existing callers. The value now comes
+     * from Mineacle's public rank resolver, so composite ranks such as
+     * Media + Plus render as one intentional prefix instead of whichever
+     * single LuckPerms prefix happens to win primary-prefix resolution.
+     */
     public static String luckPermsPrefix(
             OfflinePlayer player
     ) {
-        if (player == null
-                || Bukkit.getPluginManager()
-                .getPlugin("PlaceholderAPI") == null) {
+        String parsed = RankDisplayResolver.prefix(player);
+
+        if (parsed == null || parsed.isBlank()) {
             return "";
         }
 
-        try {
-            String placeholder = "%luckperms_prefix%";
-            String parsed = PlaceholderAPI.setPlaceholders(
-                    player,
-                    placeholder
-            );
-
-            if (parsed == null
-                    || parsed.isBlank()
-                    || parsed.equalsIgnoreCase(placeholder)
-                    || parsed.contains(placeholder)) {
-                return "";
-            }
-
-            /*
-             * Mineacle rank prefixes always end with exactly one visible
-             * separator before the display name. This also repairs console
-             * formatting paths that call luckPermsPrefix(...) directly.
-             */
-            return parsed.replaceFirst("\\s+$", "") + " ";
-        } catch (Throwable ignored) {
-            return "";
-        }
+        return parsed.replaceFirst("\\s+$", "") + " ";
     }
 
     public static String luckPermsPrefixWithSpace(
@@ -204,8 +180,7 @@ public final class DisplayNames {
         if (service != null) {
             String prefix = service.prefix();
 
-            if (prefix != null
-                    && !prefix.isBlank()
+            if (!prefix.isBlank()
                     && cleaned.startsWith(prefix)) {
                 cleaned = cleaned.substring(prefix.length());
             }

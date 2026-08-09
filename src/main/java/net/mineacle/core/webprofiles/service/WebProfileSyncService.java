@@ -18,6 +18,7 @@ import net.mineacle.core.teams.model.TeamRecord;
 import net.mineacle.core.teams.service.TeamService;
 import net.mineacle.core.webprofiles.model.WebProfileRecord;
 import net.mineacle.core.webprofiles.storage.WebProfileRepository;
+import net.mineacle.core.webprofiles.storage.WebRankRepository;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
@@ -35,16 +36,18 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 
 public final class WebProfileSyncService {
 
     private final Core core;
     private final FileConfiguration config;
     private final WebProfileRepository repository;
+    private final WebRankRepository rankRepository;
     private final LuckPerms luckPerms;
-    private final Set<UUID> pendingRankRefreshes =
-            ConcurrentHashMap.newKeySet();
+    private final ExecutorService offlineRankExecutor;
 
     private BukkitTask syncTask;
     private EventSubscription<UserDataRecalculateEvent>
@@ -58,6 +61,21 @@ public final class WebProfileSyncService {
         this.core = core;
         this.config = config;
         this.repository = repository;
+        this.rankRepository = new WebRankRepository(
+                core,
+                config
+        );
+        this.offlineRankExecutor =
+                Executors.newSingleThreadExecutor(
+                        runnable -> {
+                            Thread thread = new Thread(
+                                    runnable,
+                                    "Mineacle-WebRankSync"
+                            );
+                            thread.setDaemon(true);
+                            return thread;
+                        }
+                );
 
         RegisteredServiceProvider<LuckPerms> registration =
                 core.getServer()
@@ -103,7 +121,7 @@ public final class WebProfileSyncService {
                         core,
                         UserDataRecalculateEvent.class,
                         event -> queueLuckPermsRankRefresh(
-                                event.getUser().getUniqueId()
+                                event.getUser()
                         )
                 );
 
@@ -118,7 +136,7 @@ public final class WebProfileSyncService {
             luckPermsRankSubscription = null;
         }
 
-        pendingRankRefreshes.clear();
+        offlineRankExecutor.shutdownNow();
 
         if (syncTask != null) {
             syncTask.cancel();
@@ -138,25 +156,58 @@ public final class WebProfileSyncService {
         }
     }
 
-    // LuckPerms events are asynchronous. Never read Bukkit Player state
-    // inside the callback. Collapse repeated recalculation events by UUID
-    // and move the actual player/profile work back to the server thread.
-    private void queueLuckPermsRankRefresh(UUID uuid) {
-        if (uuid == null
-                || !core.isEnabled()
-                || !pendingRankRefreshes.add(uuid)) {
+    // LuckPerms recalculation events are asynchronous. Bukkit player access
+    // and rank resolution are moved back to the server thread. Offline rank
+    // writes are serialized on one daemon worker so rapid LP changes such as
+    // Media + Plus cannot be lost or finish out of order.
+    private void queueLuckPermsRankRefresh(User recalculatedUser) {
+        if (recalculatedUser == null || !core.isEnabled()) {
             return;
         }
+
+        UUID uuid = recalculatedUser.getUniqueId();
 
         core.getServer().getScheduler().runTask(
                 core,
                 () -> {
-                    pendingRankRefreshes.remove(uuid);
+                    if (!core.isEnabled()) {
+                        return;
+                    }
 
                     Player player = Bukkit.getPlayer(uuid);
 
                     if (player != null && player.isOnline()) {
                         syncPlayer(player, true);
+                        return;
+                    }
+
+                    User latestUser = luckPerms
+                            .getUserManager()
+                            .getUser(uuid);
+                    User rankSource = latestUser == null
+                            ? recalculatedUser
+                            : latestUser;
+                    Rank rank = luckPermsRank(rankSource);
+                    String username = rankSource.getUsername();
+
+                    if (offlineRankExecutor.isShutdown()) {
+                        return;
+                    }
+
+                    try {
+                        offlineRankExecutor.execute(
+                                () -> rankRepository.upsertRank(
+                                        uuid,
+                                        username,
+                                        rank.key(),
+                                        rank.name(),
+                                        rank.prefix(),
+                                        rank.color(),
+                                        rank.weight()
+                                )
+                        );
+                    } catch (RejectedExecutionException ignored) {
+                        // Plugin shutdown raced this already-queued LP event.
                     }
                 }
         );
@@ -524,15 +575,20 @@ public final class WebProfileSyncService {
     // MineacleCore maps that result into normalized website fields.
     // Non-contextual query options keep the public rank global across worlds.
     private Rank luckPermsRank(Player player) {
-        ConfigurationSection mappings = rankMappings();
-
-        if (mappings == null) {
-            return defaultRank();
-        }
-
         User user = luckPerms
                 .getPlayerAdapter(Player.class)
                 .getUser(player);
+
+        return luckPermsRank(user);
+    }
+
+    private Rank luckPermsRank(User user) {
+        ConfigurationSection mappings = rankMappings();
+
+        if (mappings == null || user == null) {
+            return defaultRank();
+        }
+
         QueryOptions queryOptions = QueryOptions.nonContextual();
         Map<String, Group> inheritedGroups = new LinkedHashMap<>();
 

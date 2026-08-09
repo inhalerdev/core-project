@@ -20,7 +20,7 @@ worlds:
 rank:
   enabled: true
   use-placeholderapi: true
-  placeholder: "%luckperms_prefix%"
+  placeholder: "%mineaclerank_prefix%"
   fallback: ""
 
   # Java enforces exactly one visible space after every non-empty rank

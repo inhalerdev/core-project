@@ -14,6 +14,7 @@ import org.bukkit.scheduler.BukkitTask;
 public final class PlaceholdersModule extends Module {
 
     private MineaclePlaceholderExpansion expansion;
+    private MineacleRankPlaceholderExpansion rankExpansion;
     private MineacleTeamsPlaceholderExpansion teamsExpansion;
     private PlaceholderSnapshotService snapshots;
     private BukkitTask refreshTask;
@@ -63,6 +64,17 @@ public final class PlaceholdersModule extends Module {
             );
         }
 
+        rankExpansion =
+                new MineacleRankPlaceholderExpansion(core);
+
+        if (!rankExpansion.register()) {
+            expansion.unregister();
+            clear();
+            throw new IllegalStateException(
+                    "Could not register %mineaclerank_*% placeholders"
+            );
+        }
+
         teamsExpansion =
                 new MineacleTeamsPlaceholderExpansion(
                         core,
@@ -70,6 +82,7 @@ public final class PlaceholdersModule extends Module {
                 );
 
         if (!teamsExpansion.register()) {
+            rankExpansion.unregister();
             expansion.unregister();
             clear();
             throw new IllegalStateException(
@@ -110,6 +123,10 @@ public final class PlaceholdersModule extends Module {
             expansion.unregister();
         }
 
+        if (rankExpansion != null) {
+            rankExpansion.unregister();
+        }
+
         if (teamsExpansion != null) {
             teamsExpansion.unregister();
         }
@@ -119,6 +136,7 @@ public final class PlaceholdersModule extends Module {
 
     private void clear() {
         expansion = null;
+        rankExpansion = null;
         teamsExpansion = null;
         snapshots = null;
     }
