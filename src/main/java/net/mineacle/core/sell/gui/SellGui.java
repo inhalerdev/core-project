@@ -1,6 +1,5 @@
 package net.mineacle.core.sell.gui;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.CenteredToolbar;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.sell.model.SellQuote;
@@ -26,7 +25,7 @@ public final class SellGui {
     }
 
     public static void open(
-            Core core,
+            Core.Core core,
             Player player,
             SellService sellService
     ) {
@@ -42,7 +41,7 @@ public final class SellGui {
         player.openInventory(inventory);
     }
 
-    public static void open(Core core, Player player) {
+    public static void open(Core.Core core, Player player) {
         SellService sellService =
                 net.mineacle.core.sell.SellModule.sellService();
 
@@ -56,7 +55,7 @@ public final class SellGui {
                 && inventory.getHolder(false) instanceof Holder;
     }
 
-    public static String title(Core core) {
+    public static String title(Core.Core core) {
         return TextColor.color(
                 core.getConfig().getString(
                         "sell.gui.title",

@@ -1,6 +1,5 @@
 package net.mineacle.core.tpa.service;
 
-import net.mineacle.core.Core;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -12,11 +11,11 @@ import java.util.UUID;
 
 public final class TpaService {
 
-    private final Core core;
+    private final Core.Core core;
     private final Map<UUID, TpaRequest> requestsByTarget = new HashMap<>();
     private final Set<UUID> autoAccept = new HashSet<>();
 
-    public TpaService(Core core) {
+    public TpaService(Core.Core core) {
         this.core = core;
     }
 

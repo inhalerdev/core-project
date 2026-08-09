@@ -1,6 +1,5 @@
 package net.mineacle.core.sell.gui;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.CenteredToolbar;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.sell.model.ItemValuation;
@@ -56,7 +55,7 @@ public final class WorthGui {
     }
 
     public static void open(
-            Core core,
+            Core.Core core,
             Player player,
             SellService sellService,
             int page

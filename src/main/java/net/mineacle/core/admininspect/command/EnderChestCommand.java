@@ -1,11 +1,10 @@
 package net.mineacle.core.admininspect.command;
 
-import net.mineacle.core.Core;
 import org.bukkit.entity.Player;
 
 public final class EnderChestCommand extends AbstractInspectCommand {
 
-    public EnderChestCommand(Core core) {
+    public EnderChestCommand(Core.Core core) {
         super(
                 core,
                 "mineacleadmin.echest",

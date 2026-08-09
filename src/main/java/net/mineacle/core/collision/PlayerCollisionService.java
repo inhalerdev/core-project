@@ -1,6 +1,5 @@
 package net.mineacle.core.collision;
 
-import net.mineacle.core.Core;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
@@ -11,11 +10,11 @@ import java.util.stream.Collectors;
 
 public final class PlayerCollisionService {
 
-    private final Core core;
+    private final Core.Core core;
 
     private volatile Settings settings;
 
-    public PlayerCollisionService(Core core) {
+    public PlayerCollisionService(Core.Core core) {
         this.core = core;
         reload();
     }

@@ -1,6 +1,5 @@
 package net.mineacle.core.nametag;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
@@ -20,7 +19,7 @@ public final class NametagModule extends Module {
     }
 
     @Override
-    public void enable(Core core) {
+    public void enable(Core.Core core) {
         service = new NametagService(core);
 
         PluginCommand command =

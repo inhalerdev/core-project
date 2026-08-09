@@ -1,6 +1,5 @@
 package net.mineacle.core.nametag;
 
-import net.mineacle.core.Core;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -12,11 +11,11 @@ import org.bukkit.event.player.PlayerRespawnEvent;
 
 public final class NametagListener implements Listener {
 
-    private final Core core;
+    private final Core.Core core;
     private final NametagService service;
 
     public NametagListener(
-            Core core,
+            Core.Core core,
             NametagService service
     ) {
         this.core = core;

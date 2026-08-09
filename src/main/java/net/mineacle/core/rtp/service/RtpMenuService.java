@@ -1,7 +1,6 @@
 package net.mineacle.core.rtp.service;
 
 import me.clip.placeholderapi.PlaceholderAPI;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -22,13 +21,13 @@ public final class RtpMenuService {
 
     public static final String MAIN_MENU = "main";
 
-    private final Core core;
+    private final Core.Core core;
     private final File file;
 
     private volatile Map<String, MenuDefinition> menus =
             Map.of();
 
-    public RtpMenuService(Core core) {
+    public RtpMenuService(Core.Core core) {
         this.core = core;
         this.file = new File(
                 core.getDataFolder(),

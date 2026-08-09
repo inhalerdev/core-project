@@ -3,7 +3,6 @@ package net.mineacle.core.doublejump.command;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
@@ -45,11 +44,11 @@ public final class FlyCommand
     private static final List<String> SPEED_VALUE_OPTIONS =
             SPEED_OPTIONS.subList(1, SPEED_OPTIONS.size());
 
-    private final Core core;
+    private final Core.Core core;
     private final DoubleJumpListener listener;
 
     public FlyCommand(
-            Core core,
+            Core.Core core,
             DoubleJumpListener listener
     ) {
         this.core = core;

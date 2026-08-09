@@ -1,6 +1,5 @@
 package net.mineacle.core.webprofiles.command;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.webprofiles.storage.WebProfileRepository;
@@ -13,7 +12,6 @@ import org.bukkit.entity.Player;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class MineacleWebCommand
@@ -22,13 +20,13 @@ public final class MineacleWebCommand
     private static final long CONFIRMATION_WINDOW_MILLIS =
             30_000L;
 
-    private final Core core;
+    private final Core.Core core;
     private final WebProfileRepository repository;
     private final Map<String, Long> clearConfirmations =
             new ConcurrentHashMap<>();
 
     public MineacleWebCommand(
-            Core core,
+            Core.Core core,
             WebProfileRepository repository
     ) {
         this.core = core;

@@ -1,6 +1,5 @@
 package net.mineacle.core.admininspect;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.admininspect.command.EnderChestCommand;
 import net.mineacle.core.admininspect.command.InvSeeCommand;
 import net.mineacle.core.bootstrap.Module;
@@ -16,7 +15,7 @@ public final class AdminInspectModule extends Module {
     }
 
     @Override
-    public void enable(Core core) {
+    public void enable(Core.Core core) {
         register(core, "invsee", new InvSeeCommand(core));
         register(core, "echest", new EnderChestCommand(core));
     }
@@ -26,7 +25,7 @@ public final class AdminInspectModule extends Module {
         // This module does not own tasks, files, or other runtime state.
     }
 
-    private void register(Core core, String commandName, CommandExecutor executor) {
+    private void register(Core.Core core, String commandName, CommandExecutor executor) {
         PluginCommand command = core.getCommand(commandName);
 
         if (command == null) {

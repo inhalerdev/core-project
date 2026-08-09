@@ -1,6 +1,5 @@
 package net.mineacle.core.homes.service;
 
-import net.mineacle.core.Core;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 
@@ -26,7 +25,7 @@ public final class HomeWorldMigration {
     private HomeWorldMigration() {
     }
 
-    public static MigrationResult migrateAll(Core core) {
+    public static MigrationResult migrateAll(Core.Core core) {
         if (core == null) {
             return new MigrationResult(0, 0, 0);
         }
@@ -57,7 +56,7 @@ public final class HomeWorldMigration {
     }
 
     public static boolean migratePersonalHome(
-            Core core,
+            Core.Core core,
             String path
     ) {
         if (core == null || path == null || path.isBlank()) {
@@ -83,7 +82,7 @@ public final class HomeWorldMigration {
     }
 
     public static boolean migrateTeamHome(
-            Core core,
+            Core.Core core,
             String teamId
     ) {
         if (core == null || teamId == null || teamId.isBlank()) {
@@ -110,7 +109,7 @@ public final class HomeWorldMigration {
         return true;
     }
 
-    private static int migratePersonalHomes(Core core) {
+    private static int migratePersonalHomes(Core.Core core) {
         FileConfiguration homes = core.getHomesConfig();
         ConfigurationSection players =
                 homes.getConfigurationSection("homes");
@@ -166,7 +165,7 @@ public final class HomeWorldMigration {
         return worldPaths.size();
     }
 
-    private static int migrateTeamHomes(Core core) {
+    private static int migrateTeamHomes(Core.Core core) {
         FileConfiguration teams = core.getTeamsConfig();
         ConfigurationSection teamHomes =
                 teams.getConfigurationSection("team-homes");
@@ -211,7 +210,7 @@ public final class HomeWorldMigration {
         return worldPaths.size();
     }
 
-    private static int migrateConfigWorldLists(Core core) {
+    private static int migrateConfigWorldLists(Core.Core core) {
         FileConfiguration config = core.getConfig();
         int changedEntries = 0;
         boolean changed = false;
@@ -299,7 +298,7 @@ public final class HomeWorldMigration {
     }
 
     private static void backupOnce(
-            Core core,
+            Core.Core core,
             String sourceName,
             String backupName
     ) {

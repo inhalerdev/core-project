@@ -3,7 +3,6 @@ package net.mineacle.core.orders.gui;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -84,7 +83,7 @@ public final class OrdersGuiItems {
             String path,
             String fallback
     ) {
-        Core core = Core.instance();
+        Core.Core core = Core.Core.instance();
 
         if (core == null) {
             return fallback;
@@ -100,7 +99,7 @@ public final class OrdersGuiItems {
             String path,
             List<String> fallback
     ) {
-        Core core = Core.instance();
+        Core.Core core = Core.Core.instance();
 
         if (core == null
                 || !core.getConfig().isList(path)) {
@@ -114,7 +113,7 @@ public final class OrdersGuiItems {
             String path,
             Material fallback
     ) {
-        Core core = Core.instance();
+        Core.Core core = Core.Core.instance();
 
         if (core == null) {
             return fallback;

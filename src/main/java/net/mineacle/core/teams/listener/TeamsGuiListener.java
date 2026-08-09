@@ -3,7 +3,6 @@ package net.mineacle.core.teams.listener;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
@@ -38,7 +37,7 @@ public final class TeamsGuiListener implements Listener {
     private static final String META_ACTION = "simple_team_action";
     private static final String META_CONFIRM = "simple_team_confirm";
 
-    private final Core core;
+    private final Core.Core core;
     private final TeamService teamService;
     private final TeamInviteService inviteService;
     private final TeamHomeService teamHomeService;
@@ -47,7 +46,7 @@ public final class TeamsGuiListener implements Listener {
     private final PlayerStatisticsGui playerStatisticsGui;
 
     public TeamsGuiListener(
-            Core core,
+            Core.Core core,
             TeamService teamService,
             TeamInviteService inviteService,
             TeamHomeService teamHomeService,

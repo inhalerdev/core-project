@@ -2,7 +2,6 @@ package net.mineacle.core.hide;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.nametag.NametagModule;
@@ -19,14 +18,14 @@ import java.util.UUID;
 
 public final class HideService {
 
-    private final Core core;
+    private final Core.Core core;
     private final File file;
     private final Set<UUID> hidden = new HashSet<>();
 
     private FileConfiguration config;
     private BukkitTask actionbarTask;
 
-    public HideService(Core core) {
+    public HideService(Core.Core core) {
         this.core = core;
         this.file = new File(
                 core.getDataFolder(),

@@ -3,7 +3,6 @@ package net.mineacle.core.teams.command;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
@@ -37,7 +36,7 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
     private static final String META_ACTION = "simple_team_action";
     private static final String META_CONFIRM = "simple_team_confirm";
 
-    private final Core core;
+    private final Core.Core core;
     private final TeamService teamService;
     private final TeamInviteService inviteService;
     private final TeamHomeService teamHomeService;
@@ -45,7 +44,7 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
     private final HomeService homeService;
 
     public TeamCommand(
-            Core core,
+            Core.Core core,
             TeamService teamService,
             TeamInviteService inviteService,
             TeamHomeService teamHomeService,

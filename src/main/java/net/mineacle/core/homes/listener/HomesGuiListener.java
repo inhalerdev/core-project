@@ -3,7 +3,6 @@ package net.mineacle.core.homes.listener;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.homes.gui.ConfirmDeleteHomeGui;
@@ -31,12 +30,12 @@ public final class HomesGuiListener implements Listener {
     private static final String META_TEAM_HOME_PENDING = "mh_teamHomePending";
     private static final String META_TEAM_HOME_CONFIRM = "mh_teamHomeConfirm";
 
-    private final Core core;
+    private final Core.Core core;
     private final HomeService homeService;
     private final HomeWorldRules worldRules;
     private final TeleportService teleportService;
 
-    public HomesGuiListener(Core core, HomeService homeService, HomeWorldRules worldRules, TeleportService teleportService) {
+    public HomesGuiListener(Core.Core core, HomeService homeService, HomeWorldRules worldRules, TeleportService teleportService) {
         this.core = core;
         this.homeService = homeService;
         this.worldRules = worldRules;

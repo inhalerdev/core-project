@@ -1,6 +1,5 @@
 package net.mineacle.core.homes.gui;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -20,7 +19,7 @@ public final class ConfirmDeleteHomeGui {
     private ConfirmDeleteHomeGui() {
     }
 
-    public static void openPlayerDelete(Core core, Player player, int id, String displayName) {
+    public static void openPlayerDelete(Core.Core core, Player player, int id, String displayName) {
         String title = TextColor.strip(core.getMessage("homes.gui.delete-title"));
         Inventory inventory = Bukkit.createInventory(null, 27, title);
 
@@ -52,7 +51,7 @@ public final class ConfirmDeleteHomeGui {
         player.openInventory(inventory);
     }
 
-    public static void openTeamDelete(Core core, Player player) {
+    public static void openTeamDelete(Core.Core core, Player player) {
         String title = TextColor.strip(core.getMessage("homes.gui.team-delete-title"));
         Inventory inventory = Bukkit.createInventory(null, 27, title);
 

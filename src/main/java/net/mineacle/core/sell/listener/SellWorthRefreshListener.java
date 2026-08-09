@@ -1,6 +1,5 @@
 package net.mineacle.core.sell.listener;
 
-import net.mineacle.core.Core;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -17,9 +16,9 @@ import org.bukkit.event.player.PlayerJoinEvent;
 
 public final class SellWorthRefreshListener implements Listener {
 
-    private final Core core;
+    private final Core.Core core;
 
-    public SellWorthRefreshListener(Core core) {
+    public SellWorthRefreshListener(Core.Core core) {
         this.core = core;
     }
 

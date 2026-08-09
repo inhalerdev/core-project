@@ -1,13 +1,12 @@
 package net.mineacle.core.chat.service;
 
-import net.mineacle.core.Core;
 import org.bukkit.entity.Player;
 
 public final class NicknameSettings {
 
-    private final Core core;
+    private final Core.Core core;
 
-    public NicknameSettings(Core core) {
+    public NicknameSettings(Core.Core core) {
         this.core = core;
     }
 

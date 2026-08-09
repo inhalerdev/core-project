@@ -2,7 +2,6 @@ package net.mineacle.core.hide;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.command.Command;
@@ -16,11 +15,11 @@ import java.util.List;
 public final class HideCommand
         implements CommandExecutor, TabCompleter {
 
-    private final Core core;
+    private final Core.Core core;
     private final HideService service;
 
     public HideCommand(
-            Core core,
+            Core.Core core,
             HideService service
     ) {
         this.core = core;

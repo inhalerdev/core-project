@@ -1,6 +1,5 @@
 package net.mineacle.core.security.service;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
@@ -21,12 +20,12 @@ import java.util.Set;
 
 public final class SecurityService {
 
-    private final Core core;
+    private final Core.Core core;
     private final File file;
     private FileConfiguration config;
     private final Map<String, CommandGroup> groups = new LinkedHashMap<>();
 
-    public SecurityService(Core core) {
+    public SecurityService(Core.Core core) {
         this.core = core;
         this.file = new File(core.getDataFolder(), "security.yml");
         reload();

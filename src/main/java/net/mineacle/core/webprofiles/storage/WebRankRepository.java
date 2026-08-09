@@ -1,6 +1,5 @@
 package net.mineacle.core.webprofiles.storage;
 
-import net.mineacle.core.Core;
 import org.bukkit.configuration.file.FileConfiguration;
 
 import java.sql.Connection;
@@ -15,12 +14,12 @@ import java.util.UUID;
 })
 public final class WebRankRepository {
 
-    private final Core core;
+    private final Core.Core core;
     private final FileConfiguration config;
     private final String table;
 
     public WebRankRepository(
-            Core core,
+            Core.Core core,
             FileConfiguration config
     ) {
         this.core = core;

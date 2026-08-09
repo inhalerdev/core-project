@@ -1,6 +1,5 @@
 package net.mineacle.core.tpa.command;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.tpa.gui.TpaTargetMenuGui;
@@ -20,9 +19,9 @@ public final class TpaMenuCommand implements CommandExecutor, TabCompleter {
 
     public static final String META_TARGET = "mineacle_tpa_menu_target";
 
-    private final Core core;
+    private final Core.Core core;
 
-    public TpaMenuCommand(Core core) {
+    public TpaMenuCommand(Core.Core core) {
         this.core = core;
     }
 

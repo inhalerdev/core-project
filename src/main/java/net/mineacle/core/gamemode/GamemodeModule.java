@@ -1,6 +1,5 @@
 package net.mineacle.core.gamemode;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.gamemode.command.GamemodeShortcutCommand;
 import org.bukkit.GameMode;
@@ -14,7 +13,7 @@ public final class GamemodeModule extends Module {
     }
 
     @Override
-    public void enable(Core core) {
+    public void enable(Core.Core core) {
         register(core, "gmc", GameMode.CREATIVE);
         register(core, "gms", GameMode.SURVIVAL);
         register(core, "gmsp", GameMode.SPECTATOR);
@@ -26,7 +25,7 @@ public final class GamemodeModule extends Module {
     }
 
     private void register(
-            Core core,
+            Core.Core core,
             String commandName,
             GameMode gameMode
     ) {

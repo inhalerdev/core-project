@@ -1,6 +1,5 @@
 package net.mineacle.core.worldmaintenance;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.worldmaintenance.command.WorldMaintenanceCommand;
 import net.mineacle.core.worldmaintenance.listener.WorldMaintenanceListener;
@@ -21,7 +20,7 @@ public final class WorldMaintenanceModule extends Module {
     }
 
     @Override
-    public void enable(Core core) {
+    public void enable(Core.Core core) {
         File file = new File(core.getDataFolder(), "worldmaintenance.yml");
 
         if (!file.exists()) {
@@ -64,7 +63,7 @@ public final class WorldMaintenanceModule extends Module {
         }
     }
 
-    private void register(Core core, String name, org.bukkit.command.CommandExecutor executor) {
+    private void register(Core.Core core, String name, org.bukkit.command.CommandExecutor executor) {
         PluginCommand pluginCommand = core.getCommand(name);
 
         if (pluginCommand == null) {

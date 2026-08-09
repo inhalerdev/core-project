@@ -1,6 +1,5 @@
 package net.mineacle.core.sell.storage;
 
-import net.mineacle.core.Core;
 import org.bukkit.configuration.file.FileConfiguration;
 
 import java.sql.Connection;
@@ -20,7 +19,7 @@ import java.util.UUID;
 public final class SqlSellMarketRepository
         implements SellMarketRepository {
 
-    private final Core core;
+    private final Core.Core core;
     private final String driverClass;
     private final String jdbcUrl;
     private final String username;
@@ -30,7 +29,7 @@ public final class SqlSellMarketRepository
     private final String historyTable;
 
     public SqlSellMarketRepository(
-            Core core,
+            Core.Core core,
             FileConfiguration databaseConfig,
             String configuredPrefix
     ) {

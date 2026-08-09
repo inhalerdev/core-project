@@ -1,6 +1,5 @@
 package net.mineacle.core.stats;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
@@ -29,7 +28,7 @@ public final class StatsModule extends Module {
     }
 
     @Override
-    public void enable(Core core) {
+    public void enable(Core.Core core) {
         EconomyService economyService = EconomyModule.economyService();
 
         this.storageService = new StatsStorageService(core);

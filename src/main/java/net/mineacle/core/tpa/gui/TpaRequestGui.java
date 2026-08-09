@@ -1,6 +1,5 @@
 package net.mineacle.core.tpa.gui;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.tpa.service.TpaRequest;
@@ -30,7 +29,7 @@ public final class TpaRequestGui {
     private TpaRequestGui() {
     }
 
-    public static void open(Core core, Player viewer, TpaRequest request) {
+    public static void open(Core.Core core, Player viewer, TpaRequest request) {
         if (request == null) {
             viewer.sendMessage(TextColor.color("&cYou have no pending teleport requests"));
             return;

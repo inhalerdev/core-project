@@ -4,7 +4,6 @@ import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.baltop.gui.BalTopGui;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.DisplayNames;
@@ -32,13 +31,13 @@ public final class BalTopGuiListener implements Listener {
     private static final long SEARCH_TIMEOUT_TICKS = 20L * 30L;
     private static final int MAX_SEARCH_LENGTH = 32;
 
-    private final Core core;
+    private final Core.Core core;
     private final EconomyService economyService;
     private final PlayerStatisticsGui playerStatisticsGui;
     private final Map<UUID, SearchPrompt> searchPrompts = new ConcurrentHashMap<>();
     private final Map<UUID, BukkitTask> searchTimeouts = new ConcurrentHashMap<>();
 
-    public BalTopGuiListener(Core core, EconomyService economyService) {
+    public BalTopGuiListener(Core.Core core, EconomyService economyService) {
         this.core = core;
         this.economyService = economyService;
         this.playerStatisticsGui = new PlayerStatisticsGui();

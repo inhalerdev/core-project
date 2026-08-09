@@ -4,7 +4,6 @@ import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.guide.gui.GuideMenuHolder;
@@ -30,11 +29,11 @@ import java.util.Map;
 
 public final class GuideMenuService {
 
-    private final Core core;
+    private final Core.Core core;
     private final Map<String, File> files = new HashMap<>();
     private final Map<String, FileConfiguration> menus = new HashMap<>();
 
-    public GuideMenuService(Core core) {
+    public GuideMenuService(Core.Core core) {
         this.core = core;
         files.put("guide", new File(core.getDataFolder(), "guide.yml"));
         files.put("rules", new File(core.getDataFolder(), "rules.yml"));

@@ -1,6 +1,5 @@
 package net.mineacle.core.homes.service;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.homes.model.HomeRecord;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -15,9 +14,9 @@ public final class HomeService {
 
     private static final int ABSOLUTE_MAX_HOMES = 5;
 
-    private final Core core;
+    private final Core.Core core;
 
-    public HomeService(Core core) {
+    public HomeService(Core.Core core) {
         this.core = core;
         HomeWorldMigration.migrateAll(core);
     }

@@ -1,6 +1,5 @@
 package net.mineacle.core.guide;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.guide.command.GuideCommand;
 import net.mineacle.core.guide.listener.GuideMenuListener;
@@ -17,7 +16,7 @@ public final class GuideModule extends Module {
     }
 
     @Override
-    public void enable(Core core) {
+    public void enable(Core.Core core) {
         service = new GuideMenuService(core);
         service.reload();
 
@@ -39,7 +38,7 @@ public final class GuideModule extends Module {
         service = null;
     }
 
-    private void register(Core core, String name, GuideCommand executor) {
+    private void register(Core.Core core, String name, GuideCommand executor) {
         PluginCommand command = core.getCommand(name);
 
         if (command == null) {

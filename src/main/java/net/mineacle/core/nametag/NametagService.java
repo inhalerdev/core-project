@@ -4,7 +4,6 @@ import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.hide.HideModule;
@@ -29,19 +28,17 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.logging.Level;
 
 public final class NametagService {
 
     private static final String TEAM_PREFIX = "mn_";
     private static final long MOVEMENT_UPDATE_TICKS = 1L;
 
-    private final Core core;
+    private final Core.Core core;
     private final File file;
     private final NamespacedKey displayOwnerKey;
 
@@ -73,7 +70,7 @@ public final class NametagService {
     private boolean worldRestrictionEnabled;
     private Set<String> enabledWorlds = Set.of();
 
-    public NametagService(Core core) {
+    public NametagService(Core.Core core) {
         this.core = core;
         this.file = new File(
                 core.getDataFolder(),

@@ -3,7 +3,6 @@ package net.mineacle.core.links.gui;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.links.service.GuideRulesService;
 import net.mineacle.core.links.service.GuideRulesService.MenuDefinition;
@@ -22,11 +21,11 @@ import java.util.Map;
 
 public final class GuideRulesGui {
 
-    private final Core core;
+    private final Core.Core core;
     private final GuideRulesService service;
 
     public GuideRulesGui(
-            Core core,
+            Core.Core core,
             GuideRulesService service
     ) {
         this.core = core;

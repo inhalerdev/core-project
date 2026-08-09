@@ -1,6 +1,5 @@
 package net.mineacle.core.baltop.command;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.baltop.gui.BalTopGui;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.DisplayNames;
@@ -21,10 +20,10 @@ import java.util.UUID;
 
 public final class BalTopCommand implements CommandExecutor, TabCompleter {
 
-    private final Core core;
+    private final Core.Core core;
     private final EconomyService economyService;
 
-    public BalTopCommand(Core core, EconomyService economyService) {
+    public BalTopCommand(Core.Core core, EconomyService economyService) {
         this.core = core;
         this.economyService = economyService;
     }

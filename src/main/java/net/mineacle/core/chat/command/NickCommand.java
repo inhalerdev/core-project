@@ -1,6 +1,5 @@
 package net.mineacle.core.chat.command;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.chat.service.NicknameService;
 import net.mineacle.core.chat.service.NicknameSettings;
 import net.mineacle.core.common.player.PlayerTabComplete;
@@ -19,12 +18,12 @@ import java.util.Locale;
 public final class NickCommand
         implements CommandExecutor, TabCompleter {
 
-    private final Core core;
+    private final Core.Core core;
     private final NicknameService nicknameService;
     private final NicknameSettings nicknameSettings;
 
     public NickCommand(
-            Core core,
+            Core.Core core,
             NicknameService nicknameService,
             NicknameSettings nicknameSettings
     ) {

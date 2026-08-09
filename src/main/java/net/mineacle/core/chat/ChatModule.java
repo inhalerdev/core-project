@@ -1,6 +1,5 @@
 package net.mineacle.core.chat;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.chat.command.IgnoreCommand;
 import net.mineacle.core.chat.command.IgnoreListCommand;
@@ -44,7 +43,7 @@ public final class ChatModule extends Module {
     }
 
     @Override
-    public void enable(Core core) throws Exception {
+    public void enable(Core.Core core) throws Exception {
         nicknameSettings = new NicknameSettings(core);
         nicknameService = new NicknameService(core);
         chatService = new ChatService(core, nicknameService);
@@ -123,7 +122,7 @@ public final class ChatModule extends Module {
     }
 
     private void registerNick(
-            Core core,
+            Core.Core core,
             NickCommand executor
     ) {
         PluginCommand command = requiredCommand(core, "nick");
@@ -141,7 +140,7 @@ public final class ChatModule extends Module {
     }
 
     private void register(
-            Core core,
+            Core.Core core,
             String commandName,
             CommandExecutor executor
     ) {
@@ -154,7 +153,7 @@ public final class ChatModule extends Module {
     }
 
     private PluginCommand requiredCommand(
-            Core core,
+            Core.Core core,
             String commandName
     ) {
         PluginCommand command = core.getCommand(commandName);
