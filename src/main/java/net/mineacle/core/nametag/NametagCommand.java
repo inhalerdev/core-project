@@ -8,6 +8,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.Locale;
@@ -28,26 +29,31 @@ public final class NametagCommand
 
     @Override
     public boolean onCommand(
-            CommandSender sender,
-            Command command,
-            String label,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String label,
+            @NotNull String @NotNull [] args
     ) {
         if (!sender.hasPermission(
                 "mineaclenametags.admin"
         )) {
             error(
                     sender,
-                    core.getMessage("general.no-permission")
+                    core.getMessage(
+                            "general.no-permission"
+                    )
             );
             return true;
         }
 
         if (args.length != 1
-                || !args[0].equalsIgnoreCase("reload")) {
+                || !args[0].equalsIgnoreCase(
+                "reload"
+        )) {
             error(
                     sender,
-                    "&#bbbbbbUsage: &d/mineaclenametags reload"
+                    "&#bbbbbbUsage: "
+                            + "&#8436FE/mineaclenametags reload"
             );
             return true;
         }
@@ -55,9 +61,11 @@ public final class NametagCommand
         service.reload();
         service.refreshAll();
 
-        sender.sendMessage(TextColor.color(
-                "&#bbbbbbNametags reloaded"
-        ));
+        sender.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbNametags reloaded"
+                )
+        );
 
         if (sender instanceof Player player) {
             SoundService.guiConfirm(player, core);
@@ -68,10 +76,10 @@ public final class NametagCommand
 
     @Override
     public List<String> onTabComplete(
-            CommandSender sender,
-            Command command,
-            String alias,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String alias,
+            @NotNull String @NotNull [] args
     ) {
         if (!sender.hasPermission(
                 "mineaclenametags.admin"
@@ -92,7 +100,9 @@ public final class NametagCommand
             CommandSender sender,
             String message
     ) {
-        sender.sendMessage(TextColor.color(message));
+        sender.sendMessage(
+                TextColor.color(message)
+        );
 
         if (sender instanceof Player player) {
             SoundService.guiError(player, core);

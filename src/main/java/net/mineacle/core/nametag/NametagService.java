@@ -5,6 +5,8 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
+import net.mineacle.core.collision.CollisionModule;
+import net.mineacle.core.collision.PlayerCollisionService;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.hide.HideModule;
@@ -20,8 +22,6 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.scoreboard.Scoreboard;
-import org.bukkit.scoreboard.ScoreboardManager;
 import org.bukkit.scoreboard.Team;
 import org.bukkit.util.BoundingBox;
 
@@ -29,16 +29,13 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.logging.Level;
 
 public final class NametagService {
 
-    private static final String TEAM_PREFIX = "mn_";
     private static final long MOVEMENT_UPDATE_TICKS = 1L;
 
     private final Core core;
@@ -47,10 +44,6 @@ public final class NametagService {
 
     private final Map<UUID, DisplayState> displays =
             new HashMap<>();
-    private final Set<UUID> warnedForeignTeams =
-            new HashSet<>();
-
-    private FileConfiguration config;
 
     private boolean enabled;
     private long contentUpdateTicks;
@@ -61,10 +54,8 @@ public final class NametagService {
     private boolean shadowed;
     private boolean seeThrough;
     private boolean defaultBackground;
-    private boolean disableCollision;
     private String rankPlaceholder;
     private String rankFallback;
-    private String rankSeparator;
     private String defaultNameColor;
     private String opNameColor;
     private String suffix;
@@ -90,9 +81,13 @@ public final class NametagService {
 
     public void reload() {
         ensureDataFile();
-        config = YamlConfiguration.loadConfiguration(file);
+        FileConfiguration config =
+                YamlConfiguration.loadConfiguration(file);
 
-        enabled = config.getBoolean("enabled", true);
+        enabled = config.getBoolean(
+                "enabled",
+                true
+        );
         contentUpdateTicks = clampLong(
                 config.getLong(
                         "updates.content-ticks",
@@ -145,10 +140,6 @@ public final class NametagService {
                 "display.default-background",
                 false
         );
-        disableCollision = config.getBoolean(
-                "collision.disabled",
-                true
-        );
 
         rankEnabled = config.getBoolean(
                 "rank.enabled",
@@ -158,58 +149,60 @@ public final class NametagService {
                 "rank.use-placeholderapi",
                 true
         );
-        rankPlaceholder = config.getString(
-                "rank.placeholder",
-                "%luckperms_prefix%"
+        rankPlaceholder = valueOrDefault(
+                config.getString(
+                        "rank.placeholder"
+                ),
+                "%mineaclerank_prefix%"
         );
-        rankFallback = config.getString(
-                "rank.fallback",
+        rankFallback = valueOrDefault(
+                config.getString(
+                        "rank.fallback"
+                ),
                 ""
-        );
-        rankSeparator = config.getString(
-                "rank.separator",
-                " "
         );
         defaultNameColor = normalizeColor(
                 config.getString(
-                        "name-color.default",
-                        "&f"
+                        "name-color.default"
                 ),
-                "&f"
+                "#bbbbbb"
         );
         opNameColor = normalizeColor(
                 config.getString(
-                        "name-color.op",
-                        "&d"
+                        "name-color.op"
                 ),
-                "&d"
+                "#8436FE"
         );
-        suffix = config.getString("suffix", "");
+        suffix = valueOrDefault(
+                config.getString("suffix"),
+                ""
+        );
 
-        worldRestrictionEnabled = config.getBoolean(
-                "worlds.enabled",
-                false
-        );
+        worldRestrictionEnabled =
+                config.getBoolean(
+                        "worlds.enabled",
+                        false
+                );
+
         Set<String> worlds = new HashSet<>();
 
         for (String world : config.getStringList(
                 "worlds.list"
         )) {
-            String canonical = canonicalWorld(world);
+            String canonical =
+                    canonicalWorld(world);
 
             if (!canonical.isBlank()) {
                 worlds.add(
-                        canonical.toLowerCase(Locale.ROOT)
+                        canonical.toLowerCase(
+                                Locale.ROOT
+                        )
                 );
             }
         }
 
         enabledWorlds = Set.copyOf(worlds);
 
-        /*
-         * Recreate live displays so visual settings such as line width,
-         * background, view range, and vertical offset apply after reload.
-         */
         for (UUID playerId : new ArrayList<>(
                 displays.keySet()
         )) {
@@ -232,7 +225,8 @@ public final class NametagService {
     public void refreshAll() {
         Set<UUID> online = new HashSet<>();
 
-        for (Player player : Bukkit.getOnlinePlayers()) {
+        for (Player player :
+                Bukkit.getOnlinePlayers()) {
             online.add(player.getUniqueId());
             refresh(player);
         }
@@ -241,7 +235,7 @@ public final class NametagService {
                 displays.keySet()
         )) {
             if (!online.contains(playerId)) {
-                removeDisplay(playerId);
+                removeDisplayOnly(playerId);
             }
         }
     }
@@ -252,22 +246,28 @@ public final class NametagService {
         }
 
         if (!enabled || !enabledInWorld(player)) {
-            removeDisplayOnly(player.getUniqueId());
-            releaseNativeTeam(player);
+            removeDisplayOnly(
+                    player.getUniqueId()
+            );
+            restoreNativeTag(player);
             return;
         }
 
         ensureNativeTagHidden(player);
 
         if (shouldHideCustomTag(player)) {
-            removeDisplayOnly(player.getUniqueId());
+            removeDisplayOnly(
+                    player.getUniqueId()
+            );
             return;
         }
 
         DisplayState state = ensureDisplay(player);
         Component rendered = render(player);
 
-        if (!rendered.equals(state.renderedText)) {
+        if (!rendered.equals(
+                state.renderedText
+        )) {
             state.display.text(rendered);
             state.renderedText = rendered;
         }
@@ -281,9 +281,13 @@ public final class NametagService {
             return;
         }
 
-        for (Map.Entry<UUID, DisplayState> entry
-                : new ArrayList<>(displays.entrySet())) {
-            Player owner = Bukkit.getPlayer(entry.getKey());
+        for (Map.Entry<UUID, DisplayState> entry :
+                new ArrayList<>(
+                        displays.entrySet()
+                )) {
+            Player owner = Bukkit.getPlayer(
+                    entry.getKey()
+            );
 
             if (owner == null || !owner.isOnline()) {
                 continue;
@@ -298,19 +302,29 @@ public final class NametagService {
     }
 
     public void tickPositions() {
-        for (Map.Entry<UUID, DisplayState> entry
-                : new ArrayList<>(displays.entrySet())) {
+        for (Map.Entry<UUID, DisplayState> entry :
+                new ArrayList<>(
+                        displays.entrySet()
+                )) {
             UUID playerId = entry.getKey();
-            Player player = Bukkit.getPlayer(playerId);
+            Player player =
+                    Bukkit.getPlayer(playerId);
 
             if (player == null || !player.isOnline()) {
-                removeDisplay(playerId);
+                removeDisplayOnly(playerId);
                 continue;
             }
 
             if (!enabled
-                    || !enabledInWorld(player)
-                    || shouldHideCustomTag(player)) {
+                    || !enabledInWorld(player)) {
+                removeDisplayOnly(playerId);
+                restoreNativeTag(player);
+                continue;
+            }
+
+            ensureNativeTagHidden(player);
+
+            if (shouldHideCustomTag(player)) {
                 removeDisplayOnly(playerId);
                 continue;
             }
@@ -320,9 +334,11 @@ public final class NametagService {
             if (!state.validFor(player)) {
                 removeDisplayOnly(playerId);
                 state = ensureDisplay(player);
+
                 Component rendered = render(player);
                 state.display.text(rendered);
                 state.renderedText = rendered;
+
                 syncVisibility(player, state);
             }
 
@@ -335,15 +351,18 @@ public final class NametagService {
             return;
         }
 
-        removeDisplay(player.getUniqueId());
-        releaseNativeTeam(player);
-        warnedForeignTeams.remove(player.getUniqueId());
+        removeDisplayOnly(
+                player.getUniqueId()
+        );
+        restoreNativeTag(player);
     }
 
     public void removeOrphanDisplays() {
-        Set<UUID> activeEntityIds = new HashSet<>();
+        Set<UUID> activeEntityIds =
+                new HashSet<>();
 
-        for (DisplayState state : displays.values()) {
+        for (DisplayState state :
+                displays.values()) {
             if (state.display != null
                     && state.display.isValid()) {
                 activeEntityIds.add(
@@ -353,8 +372,10 @@ public final class NametagService {
         }
 
         for (World world : Bukkit.getWorlds()) {
-            for (Entity entity : world.getEntities()) {
-                if (!(entity instanceof TextDisplay display)) {
+            for (Entity entity :
+                    world.getEntities()) {
+                if (!(entity
+                        instanceof TextDisplay display)) {
                     continue;
                 }
 
@@ -377,7 +398,12 @@ public final class NametagService {
             }
         }
 
-        cleanupScoreboardTeams();
+        PlayerCollisionService collision =
+                CollisionModule.service();
+
+        if (collision != null) {
+            collision.cleanupTeams();
+        }
     }
 
     public void clear() {
@@ -387,30 +413,19 @@ public final class NametagService {
             removeDisplayOnly(playerId);
         }
 
-        Scoreboard scoreboard = mainScoreboard();
-
-        if (scoreboard != null) {
-            for (Team team : Set.copyOf(
-                    scoreboard.getTeams()
-            )) {
-                if (team.getName().startsWith(
-                        TEAM_PREFIX
-                )) {
-                    team.unregister();
-                }
-            }
+        for (Player player :
+                Bukkit.getOnlinePlayers()) {
+            restoreNativeTag(player);
         }
 
         displays.clear();
-        warnedForeignTeams.clear();
     }
 
-    private boolean enabledInWorld(Player player) {
-        if (!worldRestrictionEnabled) {
-            return true;
-        }
-
-        if (enabledWorlds.isEmpty()) {
+    private boolean enabledInWorld(
+            Player player
+    ) {
+        if (!worldRestrictionEnabled
+                || enabledWorlds.isEmpty()) {
             return true;
         }
 
@@ -421,36 +436,53 @@ public final class NametagService {
         );
     }
 
-    private boolean shouldHideCustomTag(Player player) {
-        HideService hideService = HideModule.service();
+    private boolean shouldHideCustomTag(
+            Player player
+    ) {
+        HideService hideService =
+                HideModule.service();
 
         return hideService != null
-                && hideService.shouldHideRealNametag(player);
+                && hideService
+                .shouldHideRealNametag(player);
     }
 
-    private DisplayState ensureDisplay(Player player) {
+    private DisplayState ensureDisplay(
+            Player player
+    ) {
         DisplayState current = displays.get(
                 player.getUniqueId()
         );
 
-        if (current != null && current.validFor(player)) {
+        if (current != null
+                && current.validFor(player)) {
             return current;
         }
 
-        removeDisplayOnly(player.getUniqueId());
-
-        Location location = displayLocation(player);
-        TextDisplay display = player.getWorld().spawn(
-                location,
-                TextDisplay.class,
-                spawned -> configureDisplay(
-                        spawned,
-                        player
-                )
+        removeDisplayOnly(
+                player.getUniqueId()
         );
+
+        Location location =
+                displayLocation(player);
+
+        TextDisplay display =
+                player.getWorld().spawn(
+                        location,
+                        TextDisplay.class,
+                        spawned -> configureDisplay(
+                                spawned,
+                                player
+                        )
+                );
+
         DisplayState created =
                 new DisplayState(display);
-        displays.put(player.getUniqueId(), created);
+
+        displays.put(
+                player.getUniqueId(),
+                created
+        );
 
         return created;
     }
@@ -464,32 +496,35 @@ public final class NametagService {
         display.setSilent(true);
         display.setGravity(false);
         display.setVisibleByDefault(false);
-        display.setBillboard(Display.Billboard.CENTER);
+        display.setBillboard(
+                Display.Billboard.CENTER
+        );
         display.setAlignment(
                 TextDisplay.TextAlignment.CENTER
         );
         display.setLineWidth(lineWidth);
         display.setShadowed(shadowed);
         display.setSeeThrough(seeThrough);
-        display.setDefaultBackground(defaultBackground);
+        display.setDefaultBackground(
+                defaultBackground
+        );
         display.setViewRange(viewRange);
-        /*
-         * Position interpolation makes a separately tracked display chase
-         * the player. Movement is already updated every server tick, so
-         * applying each position immediately keeps both entities together.
-         */
         display.setTeleportDuration(0);
         display.setInterpolationDelay(0);
         display.setInterpolationDuration(0);
-        display.getPersistentDataContainer().set(
-                displayOwnerKey,
-                PersistentDataType.STRING,
-                owner.getUniqueId().toString()
-        );
+
+        display.getPersistentDataContainer()
+                .set(
+                        displayOwnerKey,
+                        PersistentDataType.STRING,
+                        owner.getUniqueId().toString()
+                );
     }
 
     private Component render(Player player) {
-        StringBuilder value = new StringBuilder();
+        StringBuilder value =
+                new StringBuilder();
+
         String rank = stripTrailingSpaces(
                 rankPrefix(player)
         );
@@ -504,17 +539,25 @@ public final class NametagService {
                         ? opNameColor
                         : defaultNameColor
         );
-        value.append(DisplayNames.displayName(player));
+        value.append(
+                DisplayNames.displayName(player)
+        );
 
-        if (suffix != null && !suffix.isBlank()) {
+        if (!suffix.isBlank()) {
             value.append(suffix);
         }
 
-        return LegacyComponentSerializer.legacySection()
+        return LegacyComponentSerializer
+                .legacySection()
                 .deserialize(
-                        TextColor.color(value.toString())
+                        TextColor.color(
+                                value.toString()
+                        )
                 )
-                .decoration(TextDecoration.ITALIC, false);
+                .decoration(
+                        TextDecoration.ITALIC,
+                        false
+                );
     }
 
     private String rankPrefix(Player player) {
@@ -524,34 +567,32 @@ public final class NametagService {
 
         if (!usePlaceholderApi
                 || Bukkit.getPluginManager()
-                .getPlugin("PlaceholderAPI") == null) {
-            return rankFallback == null
-                    ? ""
-                    : rankFallback;
+                .getPlugin(
+                        "PlaceholderAPI"
+                ) == null) {
+            return rankFallback;
         }
 
         try {
-            String parsed = PlaceholderAPI.setPlaceholders(
-                    player,
-                    rankPlaceholder
-            );
+            String parsed =
+                    PlaceholderAPI.setPlaceholders(
+                            player,
+                            rankPlaceholder
+                    );
 
-            if (parsed == null
-                    || parsed.isBlank()
+            if (parsed.isBlank()
                     || parsed.equalsIgnoreCase(
                     rankPlaceholder
             )
-                    || parsed.contains(rankPlaceholder)) {
-                return rankFallback == null
-                        ? ""
-                        : rankFallback;
+                    || parsed.contains(
+                    rankPlaceholder
+            )) {
+                return rankFallback;
             }
 
             return parsed;
-        } catch (Throwable exception) {
-            return rankFallback == null
-                    ? ""
-                    : rankFallback;
+        } catch (RuntimeException ignored) {
+            return rankFallback;
         }
     }
 
@@ -566,23 +607,37 @@ public final class NametagService {
             return;
         }
 
-        Location target = displayLocation(player);
-        Location current = state.display.getLocation();
+        Location target =
+                displayLocation(player);
+        Location current =
+                state.display.getLocation();
 
         if (force
-                || current.getWorld() != target.getWorld()
-                || current.distanceSquared(target) > 0.0004D) {
+                || current.getWorld()
+                != target.getWorld()
+                || current.distanceSquared(target)
+                > 0.0004D) {
             state.display.teleport(target);
         }
     }
 
-    private Location displayLocation(Player player) {
-        BoundingBox bounds = player.getBoundingBox();
-        double x = (bounds.getMinX() + bounds.getMaxX())
-                / 2.0D;
-        double z = (bounds.getMinZ() + bounds.getMaxZ())
-                / 2.0D;
-        double y = bounds.getMaxY() + verticalOffset;
+    private Location displayLocation(
+            Player player
+    ) {
+        BoundingBox bounds =
+                player.getBoundingBox();
+
+        double x = (
+                bounds.getMinX()
+                        + bounds.getMaxX()
+        ) / 2.0D;
+        double z = (
+                bounds.getMinZ()
+                        + bounds.getMaxZ()
+        ) / 2.0D;
+        double y =
+                bounds.getMaxY()
+                        + verticalOffset;
 
         return new Location(
                 player.getWorld(),
@@ -596,12 +651,19 @@ public final class NametagService {
             Player owner,
             DisplayState state
     ) {
-        for (Player viewer : Bukkit.getOnlinePlayers()) {
-            syncVisibility(owner, state, viewer);
+        for (Player viewer :
+                Bukkit.getOnlinePlayers()) {
+            syncVisibility(
+                    owner,
+                    state,
+                    viewer
+            );
         }
 
         state.visibleTo.removeIf(
-                viewerId -> Bukkit.getPlayer(viewerId) == null
+                viewerId ->
+                        Bukkit.getPlayer(viewerId)
+                                == null
         );
     }
 
@@ -622,10 +684,14 @@ public final class NametagService {
                 !viewer.getUniqueId().equals(
                         owner.getUniqueId()
                 )
-                        && viewer.getWorld() == owner.getWorld()
+                        && viewer.getWorld()
+                        == owner.getWorld()
                         && viewer.canSee(owner)
                         && enabledInWorld(owner)
-                        && !shouldHideCustomTag(owner);
+                        && !shouldHideCustomTag(
+                        owner
+                );
+
         boolean currentlyVisible =
                 state.visibleTo.contains(
                         viewer.getUniqueId()
@@ -636,57 +702,31 @@ public final class NametagService {
         }
 
         if (shouldSee) {
-            viewer.showEntity(core, state.display);
-            state.visibleTo.add(viewer.getUniqueId());
+            viewer.showEntity(
+                    core,
+                    state.display
+            );
+            state.visibleTo.add(
+                    viewer.getUniqueId()
+            );
         } else {
-            viewer.hideEntity(core, state.display);
-            state.visibleTo.remove(viewer.getUniqueId());
+            viewer.hideEntity(
+                    core,
+                    state.display
+            );
+            state.visibleTo.remove(
+                    viewer.getUniqueId()
+            );
         }
     }
 
-    private void ensureNativeTagHidden(Player player) {
-        Scoreboard scoreboard = mainScoreboard();
-
-        if (scoreboard == null) {
-            return;
-        }
-
-        String entry = player.getName();
-        String expectedTeamName = teamName(player);
-        Team currentTeam = scoreboard.getEntryTeam(entry);
-
-        if (currentTeam != null
-                && !currentTeam.getName()
-                .startsWith(TEAM_PREFIX)
-                && warnedForeignTeams.add(
-                player.getUniqueId()
-        )) {
-            core.getLogger().warning(
-                    "Nametags moved "
-                            + entry
-                            + " out of scoreboard team "
-                            + currentTeam.getName()
-                            + " — disable external nametag "
-                            + "team management in TAB or other plugins"
-            );
-        }
-
-        Team team = scoreboard.getTeam(expectedTeamName);
+    private void ensureNativeTagHidden(
+            Player player
+    ) {
+        Team team = collisionTeam(player);
 
         if (team == null) {
-            team = scoreboard.registerNewTeam(
-                    expectedTeamName
-            );
-        }
-
-        removeFromOtherMineacleTeams(
-                player,
-                scoreboard,
-                expectedTeamName
-        );
-
-        if (!team.hasEntry(entry)) {
-            team.addEntry(entry);
+            return;
         }
 
         team.prefix(Component.empty());
@@ -695,112 +735,43 @@ public final class NametagService {
                 Team.Option.NAME_TAG_VISIBILITY,
                 Team.OptionStatus.NEVER
         );
-        team.setOption(
-                Team.Option.COLLISION_RULE,
-                disableCollision
-                        ? Team.OptionStatus.NEVER
-                        : Team.OptionStatus.ALWAYS
-        );
-        team.setAllowFriendlyFire(true);
-        team.setCanSeeFriendlyInvisibles(false);
     }
 
-    private void releaseNativeTeam(Player player) {
-        Scoreboard scoreboard = mainScoreboard();
-
-        if (scoreboard == null || player == null) {
-            return;
-        }
-
-        String entry = player.getName();
-
-        for (Team team : Set.copyOf(
-                scoreboard.getTeams()
-        )) {
-            if (!team.getName().startsWith(TEAM_PREFIX)
-                    || !team.hasEntry(entry)) {
-                continue;
-            }
-
-            team.removeEntry(entry);
-
-            if (team.getEntries().isEmpty()) {
-                team.unregister();
-            }
-        }
-    }
-
-    private void removeFromOtherMineacleTeams(
-            Player player,
-            Scoreboard scoreboard,
-            String expectedTeamName
+    private void restoreNativeTag(
+            Player player
     ) {
-        for (Team team : Set.copyOf(
-                scoreboard.getTeams()
-        )) {
-            if (team.getName().equals(expectedTeamName)
-                    || !team.getName().startsWith(
-                    TEAM_PREFIX
-            )) {
-                continue;
-            }
-
-            if (team.hasEntry(player.getName())) {
-                team.removeEntry(player.getName());
-
-                if (team.getEntries().isEmpty()) {
-                    team.unregister();
-                }
-            }
-        }
-    }
-
-    private void cleanupScoreboardTeams() {
-        Scoreboard scoreboard = mainScoreboard();
-
-        if (scoreboard == null) {
+        if (player == null || !player.isOnline()) {
             return;
         }
 
-        Set<String> onlineNames = new HashSet<>();
+        Team team = collisionTeam(player);
 
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            onlineNames.add(player.getName());
+        if (team == null) {
+            return;
         }
 
-        for (Team team : Set.copyOf(
-                scoreboard.getTeams()
-        )) {
-            if (!team.getName().startsWith(TEAM_PREFIX)) {
-                continue;
-            }
-
-            for (String entry : Set.copyOf(
-                    team.getEntries()
-            )) {
-                if (!onlineNames.contains(entry)) {
-                    team.removeEntry(entry);
-                }
-            }
-
-            if (team.getEntries().isEmpty()) {
-                team.unregister();
-            }
-        }
+        team.prefix(Component.empty());
+        team.suffix(Component.empty());
+        team.setOption(
+                Team.Option.NAME_TAG_VISIBILITY,
+                Team.OptionStatus.ALWAYS
+        );
     }
 
-    private void removeDisplay(UUID playerId) {
-        removeDisplayOnly(playerId);
+    private Team collisionTeam(Player player) {
+        PlayerCollisionService collision =
+                CollisionModule.service();
 
-        Player player = Bukkit.getPlayer(playerId);
-
-        if (player != null) {
-            releaseNativeTeam(player);
+        if (collision == null) {
+            return null;
         }
+
+        return collision.team(player);
     }
 
     private void removeDisplayOnly(UUID playerId) {
-        DisplayState state = displays.remove(playerId);
+        DisplayState state =
+                displays.remove(playerId);
 
         if (state == null) {
             return;
@@ -814,28 +785,9 @@ public final class NametagService {
         state.visibleTo.clear();
     }
 
-    private String teamName(Player player) {
-        String compact = player.getUniqueId()
-                .toString()
-                .replace("-", "");
-
-        return TEAM_PREFIX
-                + compact.substring(0, 7)
-                + compact.substring(
-                compact.length() - 6
-        );
-    }
-
-    private Scoreboard mainScoreboard() {
-        ScoreboardManager manager =
-                Bukkit.getScoreboardManager();
-
-        return manager == null
-                ? null
-                : manager.getMainScoreboard();
-    }
-
-    private String canonicalWorld(String rawWorld) {
+    private String canonicalWorld(
+            String rawWorld
+    ) {
         if (rawWorld == null) {
             return "";
         }
@@ -858,11 +810,10 @@ public final class NametagService {
             String input,
             String fallback
     ) {
-        if (input == null || input.isBlank()) {
-            return fallback;
-        }
-
-        String cleaned = input.trim();
+        String cleaned = valueOrDefault(
+                input,
+                fallback
+        ).trim();
 
         if (cleaned.matches(
                 "(?i)^#[a-f0-9]{6}$"
@@ -873,12 +824,26 @@ public final class NametagService {
         return cleaned;
     }
 
-    private String stripTrailingSpaces(String input) {
+    private String valueOrDefault(
+            String value,
+            String fallback
+    ) {
+        return value == null || value.isBlank()
+                ? fallback
+                : value;
+    }
+
+    private String stripTrailingSpaces(
+            String input
+    ) {
         if (input == null || input.isEmpty()) {
             return "";
         }
 
-        return input.replaceFirst("\\s+$", "");
+        return input.replaceFirst(
+                "\\s+$",
+                ""
+        );
     }
 
     private long clampLong(
@@ -886,9 +851,10 @@ public final class NametagService {
             long minimum,
             long maximum
     ) {
-        return Math.max(
+        return Math.clamp(
+                value,
                 minimum,
-                Math.min(maximum, value)
+                maximum
         );
     }
 
@@ -901,30 +867,37 @@ public final class NametagService {
             return minimum;
         }
 
-        return Math.max(
+        return Math.clamp(
+                value,
                 minimum,
-                Math.min(maximum, value)
+                maximum
         );
     }
 
     private void ensureDataFile() {
-        File dataFolder = core.getDataFolder();
+        File dataFolder =
+                core.getDataFolder();
 
         if (!dataFolder.exists()
                 && !dataFolder.mkdirs()
                 && !dataFolder.exists()) {
             throw new IllegalStateException(
-                    "Could not create MineacleCore data folder"
+                    "Could not create MineacleCore "
+                            + "data folder"
             );
         }
 
         if (!file.exists()) {
-            core.saveResource("nametags.yml", false);
+            core.saveResource(
+                    "nametags.yml",
+                    false
+            );
         }
 
         if (!file.isFile()) {
             throw new IllegalStateException(
-                    "Could not initialize nametags.yml"
+                    "Could not initialize "
+                            + "nametags.yml"
             );
         }
     }
@@ -934,9 +907,12 @@ public final class NametagService {
         private final TextDisplay display;
         private final Set<UUID> visibleTo =
                 new HashSet<>();
-        private Component renderedText = Component.empty();
+        private Component renderedText =
+                Component.empty();
 
-        private DisplayState(TextDisplay display) {
+        private DisplayState(
+                TextDisplay display
+        ) {
             this.display = display;
         }
 

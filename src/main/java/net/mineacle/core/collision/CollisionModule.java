@@ -6,8 +6,14 @@ import org.bukkit.scheduler.BukkitTask;
 
 public final class CollisionModule extends Module {
 
+    private static PlayerCollisionService activeService;
+
     private PlayerCollisionService service;
     private BukkitTask enforcementTask;
+
+    public static PlayerCollisionService service() {
+        return activeService;
+    }
 
     @Override
     public String name() {
@@ -17,13 +23,12 @@ public final class CollisionModule extends Module {
     @Override
     public void enable(Core core) {
         service = new PlayerCollisionService(core);
+        activeService = service;
 
         core.getServer()
                 .getPluginManager()
                 .registerEvents(
-                        new PlayerCollisionListener(
-                                service
-                        ),
+                        new PlayerCollisionListener(service),
                         core
                 );
 
@@ -36,6 +41,7 @@ public final class CollisionModule extends Module {
                         100L
                 )
         );
+
         enforcementTask = core.getServer()
                 .getScheduler()
                 .runTaskTimer(
@@ -55,7 +61,12 @@ public final class CollisionModule extends Module {
 
         if (service != null) {
             service.restoreAll();
-            service = null;
         }
+
+        if (activeService == service) {
+            activeService = null;
+        }
+
+        service = null;
     }
 }

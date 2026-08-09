@@ -5,8 +5,10 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 
+@SuppressWarnings("unused")
 public final class PlayerCollisionListener
         implements Listener {
 
@@ -44,6 +46,13 @@ public final class PlayerCollisionListener
                         .getWorld()
         );
         service.scheduleApply(
+                event.getPlayer()
+        );
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onQuit(PlayerQuitEvent event) {
+        service.release(
                 event.getPlayer()
         );
     }
