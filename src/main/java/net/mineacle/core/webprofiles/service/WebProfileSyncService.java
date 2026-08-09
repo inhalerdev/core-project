@@ -537,16 +537,15 @@ public final class WebProfileSyncService {
         Map<String, Group> inheritedGroups = new LinkedHashMap<>();
 
         for (Group group : user.getInheritedGroups(queryOptions)) {
-            if (group == null
-                    || group.getName() == null
-                    || group.getName().isBlank()) {
+            if (group == null || group.getName().isBlank()) {
                 continue;
             }
 
-            inheritedGroups.put(
-                    group.getName().trim().toLowerCase(Locale.ROOT),
-                    group
-            );
+            String groupName = group.getName()
+                    .trim()
+                    .toLowerCase(Locale.ROOT);
+
+            inheritedGroups.put(groupName, group);
         }
 
         Rank best = defaultRank();
