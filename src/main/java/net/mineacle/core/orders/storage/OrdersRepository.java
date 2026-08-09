@@ -7,13 +7,9 @@ import java.util.UUID;
 
 public interface OrdersRepository {
 
-    void load();
-
-    void save();
+    boolean save();
 
     void shutdown();
-
-    Collection<OrderRecord> all();
 
     Collection<OrderRecord> active();
 
@@ -23,7 +19,7 @@ public interface OrdersRepository {
 
     OrderRecord get(UUID id);
 
-    void put(OrderRecord order);
+    boolean put(OrderRecord order);
 
-    void remove(UUID id);
+    boolean remove(UUID id);
 }

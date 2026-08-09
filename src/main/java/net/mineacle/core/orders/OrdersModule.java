@@ -14,7 +14,7 @@ import org.bukkit.command.TabCompleter;
 
 public final class OrdersModule extends Module {
 
-    private static OrderService orderService;
+    private OrderService orderService;
 
     @Override
     public String name() {
@@ -34,7 +34,10 @@ public final class OrdersModule extends Module {
                         orderService
                 );
 
-        registerOrderCommand(core, command);
+        registerOrderCommand(
+                core,
+                command
+        );
 
         core.getServer()
                 .getPluginManager()
@@ -88,7 +91,8 @@ public final class OrdersModule extends Module {
 
         command.setExecutor(executor);
 
-        if (executor instanceof TabCompleter completer) {
+        if (executor
+                instanceof TabCompleter completer) {
             command.setTabCompleter(completer);
         }
     }

@@ -2,6 +2,7 @@ package net.mineacle.core.orders.model;
 
 import org.bukkit.Material;
 
+import java.math.BigInteger;
 import java.util.UUID;
 
 public final class OrderRecord {
@@ -11,14 +12,66 @@ public final class OrderRecord {
     private final String ownerName;
     private final Material material;
     private final int requestedAmount;
+    private final long totalEscrowCents;
+    private final long createdAtMillis;
+
     private int deliveredAmount;
     private int collectedAmount;
-    private final long pricePerItemCents;
     private long escrowRemainingCents;
-    private final long createdAtMillis;
     private boolean active;
 
     public OrderRecord(
+            UUID id,
+            UUID ownerId,
+            String ownerName,
+            Material material,
+            int requestedAmount,
+            int deliveredAmount,
+            int collectedAmount,
+            long totalEscrowCents,
+            long escrowRemainingCents,
+            long createdAtMillis,
+            boolean active
+    ) {
+        this.id = id;
+        this.ownerId = ownerId;
+        this.ownerName = ownerName == null
+                ? ""
+                : ownerName;
+        this.material = material;
+        this.requestedAmount = Math.max(
+                1,
+                requestedAmount
+        );
+        this.deliveredAmount = Math.clamp(
+                deliveredAmount,
+                0,
+                this.requestedAmount
+        );
+        this.collectedAmount = Math.clamp(
+                collectedAmount,
+                0,
+                this.deliveredAmount
+        );
+        this.totalEscrowCents = Math.max(
+                0L,
+                totalEscrowCents
+        );
+        this.escrowRemainingCents = Math.clamp(
+                escrowRemainingCents,
+                0L,
+                this.totalEscrowCents
+        );
+        this.createdAtMillis = Math.max(
+                0L,
+                createdAtMillis
+        );
+        this.active = active
+                && remainingAmount() > 0
+                && this.escrowRemainingCents > 0L;
+    }
+
+    public static OrderRecord legacy(
             UUID id,
             UUID ownerId,
             String ownerName,
@@ -31,34 +84,22 @@ public final class OrderRecord {
             long createdAtMillis,
             boolean active
     ) {
-        this.id = id;
-        this.ownerId = ownerId;
-        this.ownerName = ownerName;
-        this.material = material;
-        this.requestedAmount = Math.max(1, requestedAmount);
-        this.deliveredAmount = Math.clamp(
+        return new OrderRecord(
+                id,
+                ownerId,
+                ownerName,
+                material,
+                requestedAmount,
                 deliveredAmount,
-                0,
-                this.requestedAmount
-        );
-        this.collectedAmount = Math.clamp(
                 collectedAmount,
-                0,
-                this.deliveredAmount
+                safeTotal(
+                        pricePerItemCents,
+                        requestedAmount
+                ),
+                escrowRemainingCents,
+                createdAtMillis,
+                active
         );
-        this.pricePerItemCents = Math.max(
-                1L,
-                pricePerItemCents
-        );
-        this.escrowRemainingCents = Math.max(
-                0L,
-                escrowRemainingCents
-        );
-        this.createdAtMillis = Math.max(
-                0L,
-                createdAtMillis
-        );
-        this.active = active && !complete();
     }
 
     public UUID id() {
@@ -89,8 +130,8 @@ public final class OrderRecord {
         return collectedAmount;
     }
 
-    public long pricePerItemCents() {
-        return pricePerItemCents;
+    public long totalEscrowCents() {
+        return totalEscrowCents;
     }
 
     public long escrowRemainingCents() {
@@ -106,62 +147,147 @@ public final class OrderRecord {
     }
 
     public int remainingAmount() {
-        return requestedAmount - deliveredAmount;
+        return Math.max(
+                0,
+                requestedAmount - deliveredAmount
+        );
     }
 
     public int collectableAmount() {
-        return deliveredAmount - collectedAmount;
+        return Math.max(
+                0,
+                deliveredAmount - collectedAmount
+        );
     }
 
-    public boolean complete() {
-        return remainingAmount() == 0
-                || escrowRemainingCents == 0L;
-    }
-
-    public void addDelivered(int amount) {
-        if (amount <= 0 || !active) {
-            return;
+    public long pricePerItemCents() {
+        if (requestedAmount <= 0) {
+            return 0L;
         }
 
-        deliveredAmount = Math.min(
-                requestedAmount,
-                deliveredAmount + amount
+        return Math.max(
+                1L,
+                totalEscrowCents / requestedAmount
+        );
+    }
+
+    public long payoutFor(
+            int requestedDeliveryAmount
+    ) {
+        int remainingItems = remainingAmount();
+
+        if (remainingItems <= 0
+                || escrowRemainingCents <= 0L
+                || requestedDeliveryAmount <= 0) {
+            return 0L;
+        }
+
+        int deliveryAmount = Math.min(
+                requestedDeliveryAmount,
+                remainingItems
         );
 
-        closeIfComplete();
+        if (deliveryAmount == remainingItems) {
+            return escrowRemainingCents;
+        }
+
+        long proportional = BigInteger.valueOf(
+                        escrowRemainingCents
+                )
+                .multiply(
+                        BigInteger.valueOf(
+                                deliveryAmount
+                        )
+                )
+                .divide(
+                        BigInteger.valueOf(
+                                remainingItems
+                        )
+                )
+                .longValueExact();
+
+        return Math.max(
+                deliveryAmount,
+                proportional
+        );
+    }
+
+    public void addDelivered(
+            int amount,
+            long payoutCents
+    ) {
+        int safeAmount = Math.clamp(
+                amount,
+                0,
+                remainingAmount()
+        );
+        long safePayout = Math.clamp(
+                payoutCents,
+                0L,
+                escrowRemainingCents
+        );
+
+        deliveredAmount += safeAmount;
+        escrowRemainingCents -= safePayout;
+
+        if (remainingAmount() <= 0
+                || escrowRemainingCents <= 0L) {
+            active = false;
+        }
     }
 
     public void addCollected(int amount) {
-        if (amount <= 0) {
-            return;
-        }
-
         collectedAmount = Math.min(
                 deliveredAmount,
-                collectedAmount + amount
+                collectedAmount
+                        + Math.max(0, amount)
         );
     }
 
-    public void removeEscrow(long cents) {
-        if (cents <= 0L || escrowRemainingCents == 0L) {
-            return;
-        }
-
-        escrowRemainingCents = Math.max(
-                0L,
-                escrowRemainingCents - cents
-        );
-
-        closeIfComplete();
-    }
-
-    public void cancel() {
+    public void cancelAndRefund() {
         active = false;
+        escrowRemainingCents = 0L;
     }
 
-    private void closeIfComplete() {
-        if (complete()) {
-            active = false;
+    public boolean settled() {
+        return !active
+                && collectableAmount() <= 0
+                && escrowRemainingCents <= 0L;
+    }
+
+    public OrderRecord copy() {
+        return new OrderRecord(
+                id,
+                ownerId,
+                ownerName,
+                material,
+                requestedAmount,
+                deliveredAmount,
+                collectedAmount,
+                totalEscrowCents,
+                escrowRemainingCents,
+                createdAtMillis,
+                active
+        );
+    }
+
+    private static long safeTotal(
+            long pricePerItemCents,
+            int requestedAmount
+    ) {
+        try {
+            return Math.multiplyExact(
+                    Math.max(
+                            0L,
+                            pricePerItemCents
+                    ),
+                    Math.max(
+                            1,
+                            requestedAmount
+                    )
+            );
+        } catch (ArithmeticException exception) {
+            return Long.MAX_VALUE;
         }
     }
 }
