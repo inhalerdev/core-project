@@ -13,38 +13,12 @@ sync:
   leaderboard-pull-limit: 500
   include-known-offline-players: true
   offline-player-pull-limit: 10000
+  # Spread known offline players across sync cycles instead of rewriting
+  # every historical profile every 30 seconds
+  offline-player-batch-size: 250
+  # Refresh Bukkit's known-offline-player snapshot every 30 minutes
+  offline-player-refresh-seconds: 1800
   mark-offline-on-disable: true
-rank:
-  default-key: default
-  default-name: Member
-  default-prefix: ''
-  default-color: '#bbbbbb'
-
-  # LuckPerms is authoritative for both group membership and rank priority.
-  # rank_weight written to the website DB is the actual LuckPerms group weight.
-  mappings:
-    admin:
-      name: Admin
-      prefix: Admin
-      color: '#ff5555'
-      luckperms-groups:
-        - admin
-
-    media:
-      name: Media +
-      prefix: 'Media +'
-      color: '#55ffff'
-      luckperms-groups:
-        - media
-      requires-groups:
-        - plus
-
-    plus:
-      name: Mineacle +
-      prefix: '+'
-      color: '#ff55ff'
-      luckperms-groups:
-        - plus
 worlds:
   mappings:
     spawn1:

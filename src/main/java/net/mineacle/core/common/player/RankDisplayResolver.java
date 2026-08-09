@@ -9,9 +9,10 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
-import java.util.LinkedHashMap;
 import java.util.Locale;
-import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 public final class RankDisplayResolver {
 
@@ -20,12 +21,21 @@ public final class RankDisplayResolver {
                     "default",
                     "Member",
                     "",
+                    "",
+                    "#bbbbbb",
                     0
             );
+
+    private static final ConcurrentMap<UUID, DisplayRank>
+            CACHE = new ConcurrentHashMap<>();
 
     private static volatile LuckPerms cachedLuckPerms;
 
     private RankDisplayResolver() {
+    }
+
+    public static DisplayRank defaultRank() {
+        return DEFAULT;
     }
 
     public static DisplayRank resolve(
@@ -33,6 +43,13 @@ public final class RankDisplayResolver {
     ) {
         if (player == null) {
             return DEFAULT;
+        }
+
+        UUID playerId = player.getUniqueId();
+        DisplayRank cached = CACHE.get(playerId);
+
+        if (cached != null) {
+            return cached;
         }
 
         LuckPerms luckPerms = luckPerms();
@@ -54,7 +71,85 @@ public final class RankDisplayResolver {
                     .getUser(player.getUniqueId());
         }
 
-        return resolve(user);
+        return resolveUser(user);
+    }
+
+    public static DisplayRank resolveUser(User user) {
+        if (user == null) {
+            return DEFAULT;
+        }
+
+        Group admin = null;
+        Group media = null;
+        Group plus = null;
+        QueryOptions queryOptions =
+                QueryOptions.nonContextual();
+
+        for (Group group :
+                user.getInheritedGroups(queryOptions)) {
+            String groupName = group.getName()
+                    .trim()
+                    .toLowerCase(Locale.ROOT);
+
+            switch (groupName) {
+                case "admin" -> admin = group;
+                case "media" -> media = group;
+                case "plus" -> plus = group;
+                default -> {
+                }
+            }
+        }
+
+        DisplayRank best = DEFAULT;
+
+        best = higher(
+                best,
+                candidate(
+                        admin,
+                        "admin",
+                        "Admin",
+                        "&#ff5555Admin",
+                        "Admin",
+                        "#ff5555"
+                )
+        );
+
+        if (plus != null) {
+            best = higher(
+                    best,
+                    candidate(
+                            media,
+                            "media",
+                            "Media +",
+                            "&#B078FF📹&#8436FE+",
+                            "Media +",
+                            "#B078FF"
+                    )
+            );
+
+            best = higher(
+                    best,
+                    candidate(
+                            plus,
+                            "plus",
+                            "Mineacle +",
+                            "&#8436FE+",
+                            "+",
+                            "#8436FE"
+                    )
+            );
+        }
+
+        CACHE.put(
+                user.getUniqueId(),
+                best
+        );
+        return best;
+    }
+
+    public static void clearCache() {
+        CACHE.clear();
+        cachedLuckPerms = null;
     }
 
     public static String prefix(
@@ -63,80 +158,14 @@ public final class RankDisplayResolver {
         return resolve(player).prefix();
     }
 
-    private static DisplayRank resolve(User user) {
-        if (user == null) {
-            return DEFAULT;
-        }
-
-        QueryOptions queryOptions =
-                QueryOptions.nonContextual();
-        Map<String, Group> groups =
-                new LinkedHashMap<>();
-
-        for (Group group :
-                user.getInheritedGroups(queryOptions)) {
-            if (group == null
-                    || group.getName().isBlank()) {
-                continue;
-            }
-
-            groups.put(
-                    group.getName()
-                            .trim()
-                            .toLowerCase(Locale.ROOT),
-                    group
-            );
-        }
-
-        DisplayRank best = DEFAULT;
-
-        best = higher(
-                best,
-                candidate(
-                        groups,
-                        "admin",
-                        "admin",
-                        "Admin",
-                        "&#ff5555Admin"
-                )
-        );
-
-        if (groups.containsKey("plus")) {
-            best = higher(
-                    best,
-                    candidate(
-                            groups,
-                            "media",
-                            "media",
-                            "Media +",
-                            "&#B078FF📹&#8436FE+"
-                    )
-            );
-
-            best = higher(
-                    best,
-                    candidate(
-                            groups,
-                            "plus",
-                            "plus",
-                            "Mineacle +",
-                            "&#8436FE+"
-                    )
-            );
-        }
-
-        return best;
-    }
-
     private static DisplayRank candidate(
-            Map<String, Group> groups,
-            String groupName,
+            Group group,
             String key,
             String name,
-            String prefix
+            String prefix,
+            String webPrefix,
+            String color
     ) {
-        Group group = groups.get(groupName);
-
         if (group == null) {
             return null;
         }
@@ -145,6 +174,8 @@ public final class RankDisplayResolver {
                 key,
                 name,
                 prefix,
+                webPrefix,
+                color,
                 group.getWeight().orElse(0)
         );
     }
@@ -189,6 +220,8 @@ public final class RankDisplayResolver {
             String key,
             String name,
             String prefix,
+            String webPrefix,
+            String color,
             int weight
     ) {
     }

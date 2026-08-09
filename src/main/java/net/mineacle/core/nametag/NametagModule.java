@@ -8,6 +8,7 @@ import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.collision.CollisionModule;
 import net.mineacle.core.collision.PlayerCollisionService;
+import net.mineacle.core.common.player.RankDisplayResolver;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
@@ -101,6 +102,8 @@ public final class NametagModule extends Module {
             service.clear();
             service = null;
         }
+
+        RankDisplayResolver.clearCache();
     }
 
     public static void refreshAll() {
@@ -124,6 +127,10 @@ public final class NametagModule extends Module {
                         core,
                         UserDataRecalculateEvent.class,
                         event -> {
+                            RankDisplayResolver.resolveUser(
+                                    event.getUser()
+                            );
+
                             UUID playerId = event
                                     .getUser()
                                     .getUniqueId();
