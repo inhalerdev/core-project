@@ -2,6 +2,7 @@ package net.mineacle.core.tpa;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
+import net.mineacle.core.homes.listener.HomesMoveListener;
 import net.mineacle.core.homes.service.TeleportService;
 import net.mineacle.core.tpa.command.TpaCommand;
 import net.mineacle.core.tpa.listener.TpaGuiListener;
@@ -23,7 +24,11 @@ public final class TpaModule extends Module {
         this.tpaService = new TpaService(core);
         this.teleportService = new TeleportService(core);
 
-        TpaCommand command = new TpaCommand(core, tpaService, teleportService);
+        TpaCommand command = new TpaCommand(
+                core,
+                tpaService,
+                teleportService
+        );
 
         registerCommand(core, "tpa", command);
         registerCommand(core, "tpahere", command);
@@ -33,7 +38,16 @@ public final class TpaModule extends Module {
         registerCommand(core, "tpauto", command);
 
         core.getServer().getPluginManager().registerEvents(
-                new TpaGuiListener(core, tpaService, teleportService),
+                new TpaGuiListener(
+                        core,
+                        tpaService,
+                        teleportService
+                ),
+                core
+        );
+
+        core.getServer().getPluginManager().registerEvents(
+                new HomesMoveListener(teleportService),
                 core
         );
     }
@@ -44,19 +58,27 @@ public final class TpaModule extends Module {
         teleportService = null;
     }
 
-    private void registerCommand(Core core, String name, Object commandExecutor) {
+    private void registerCommand(
+            Core core,
+            String name,
+            Object commandExecutor
+    ) {
         PluginCommand pluginCommand = core.getCommand(name);
 
         if (pluginCommand == null) {
-            core.getLogger().warning("Missing command in plugin.yml: " + name);
+            core.getLogger().warning(
+                    "Missing command in plugin.yml: " + name
+            );
             return;
         }
 
-        if (commandExecutor instanceof org.bukkit.command.CommandExecutor executor) {
+        if (commandExecutor
+                instanceof org.bukkit.command.CommandExecutor executor) {
             pluginCommand.setExecutor(executor);
         }
 
-        if (commandExecutor instanceof org.bukkit.command.TabCompleter completer) {
+        if (commandExecutor
+                instanceof org.bukkit.command.TabCompleter completer) {
             pluginCommand.setTabCompleter(completer);
         }
     }
