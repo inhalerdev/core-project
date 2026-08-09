@@ -40,11 +40,6 @@ public final class PlayerCollisionListener
     public void onRespawn(
             PlayerRespawnEvent event
     ) {
-        service.apply(
-                event.getPlayer(),
-                event.getRespawnLocation()
-                        .getWorld()
-        );
         service.scheduleApply(
                 event.getPlayer()
         );

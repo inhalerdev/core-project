@@ -46,7 +46,7 @@ public final class CollisionModule extends Module {
                 .getScheduler()
                 .runTaskTimer(
                         core,
-                        service::applyAllNow,
+                        service::applyAll,
                         interval,
                         interval
                 );

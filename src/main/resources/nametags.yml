@@ -1,11 +1,8 @@
 enabled: true
 
 updates:
-  # Rebuild rank, nickname, colors, and visibility once per second
-  content-ticks: 20
-
-  # Remove stale display entities and empty Mineacle scoreboard teams
-  cleanup-ticks: 600
+  # Low-frequency self-heal only. Rank/nickname/hide changes are event-driven.
+  audit-ticks: 600
 
 worlds:
   enabled: false
@@ -30,7 +27,7 @@ name-color:
 suffix: ""
 
 display:
-  # Calculated from the player's current bounding-box maximum
+  # Final visual offset above the player's current bounding box
   vertical-offset: 0.32
   view-range: 1.0
   line-width: 200

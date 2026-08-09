@@ -7,41 +7,78 @@ import org.bukkit.entity.Player;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
-import java.util.HashSet;
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 public final class PlayerCollisionService {
 
-    private static final String TEAM_PREFIX = "mn_";
-
     private final Core core;
-    private final Set<UUID> warnedForeignTeams =
-            new HashSet<>();
-
     private final Settings settings;
+    private final Map<TeamState, String> teamNames =
+            new EnumMap<>(TeamState.class);
+    private final Map<UUID, Boolean> nativeTagHidden =
+            new HashMap<>();
+    private final Set<UUID> warnedForeignTeams =
+            new java.util.HashSet<>();
 
     public PlayerCollisionService(Core core) {
         this.core = core;
         this.settings = loadSettings();
-    }
 
-    public Team team(Player player) {
-        if (player == null || !player.isOnline()) {
-            return null;
-        }
-
-        Team team = ensureTeam(player);
-
-        applyCollisionRule(
-                team,
-                player.getWorld()
+        teamNames.put(
+                TeamState.COLLIDE_VISIBLE,
+                "mn_cv"
+        );
+        teamNames.put(
+                TeamState.COLLIDE_HIDDEN,
+                "mn_ch"
+        );
+        teamNames.put(
+                TeamState.NO_COLLIDE_VISIBLE,
+                "mn_nv"
+        );
+        teamNames.put(
+                TeamState.NO_COLLIDE_HIDDEN,
+                "mn_nh"
         );
 
-        return team;
+        ensureAllTeams();
+    }
+
+    public void setNativeTagHidden(
+            Player player,
+            boolean hidden
+    ) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+
+        UUID playerId = player.getUniqueId();
+        boolean changed;
+
+        if (hidden) {
+            changed = !Boolean.TRUE.equals(
+                    nativeTagHidden.put(
+                            playerId,
+                            Boolean.TRUE
+                    )
+            );
+        } else {
+            changed = nativeTagHidden.remove(playerId)
+                    != null;
+        }
+
+        if (changed) {
+            apply(player);
+        } else {
+            ensureMembership(player);
+        }
     }
 
     public void apply(Player player) {
@@ -49,25 +86,7 @@ public final class PlayerCollisionService {
             return;
         }
 
-        apply(
-                player,
-                player.getWorld()
-        );
-    }
-
-    public void apply(
-            Player player,
-            World world
-    ) {
-        if (player == null
-                || !player.isOnline()
-                || world == null) {
-            return;
-        }
-
-        Team team = ensureTeam(player);
-
-        applyCollisionRule(team, world);
+        ensureMembership(player);
     }
 
     public void scheduleApply(Player player) {
@@ -94,13 +113,8 @@ public final class PlayerCollisionService {
     }
 
     public void applyAll() {
-        for (Player player :
-                core.getServer().getOnlinePlayers()) {
-            scheduleApply(player);
-        }
-    }
+        ensureAllTeams();
 
-    public void applyAllNow() {
         for (Player player :
                 core.getServer().getOnlinePlayers()) {
             apply(player);
@@ -114,151 +128,121 @@ public final class PlayerCollisionService {
             return;
         }
 
-        Scoreboard scoreboard = mainScoreboard();
-        String entry = player.getName();
-
-        for (Team team : Set.copyOf(
-                scoreboard.getTeams()
-        )) {
-            if (!owned(team) || !team.hasEntry(entry)) {
-                continue;
-            }
-
-            team.removeEntry(entry);
-
-            if (team.getEntries().isEmpty()) {
-                team.unregister();
-            }
-        }
-
+        nativeTagHidden.remove(
+                player.getUniqueId()
+        );
         warnedForeignTeams.remove(
                 player.getUniqueId()
         );
+
+        Scoreboard scoreboard = mainScoreboard();
+        Team current = scoreboard.getEntryTeam(
+                player.getName()
+        );
+
+        if (current != null && owned(current)) {
+            current.removeEntry(player.getName());
+        }
     }
 
     public void cleanupTeams() {
         Scoreboard scoreboard = mainScoreboard();
-        Set<String> onlineNames = new HashSet<>();
+        Set<String> onlineNames =
+                core.getServer()
+                        .getOnlinePlayers()
+                        .stream()
+                        .map(Player::getName)
+                        .collect(Collectors.toUnmodifiableSet());
 
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            onlineNames.add(player.getName());
-        }
+        for (TeamState state : TeamState.values()) {
+            Team team = ensureTeam(
+                    scoreboard,
+                    state
+            );
 
-        for (Team team : Set.copyOf(
-                scoreboard.getTeams()
-        )) {
-            if (!owned(team)) {
-                continue;
-            }
-
-            for (String entry : Set.copyOf(
-                    team.getEntries()
-            )) {
+            for (String entry :
+                    Set.copyOf(team.getEntries())) {
                 if (!onlineNames.contains(entry)) {
                     team.removeEntry(entry);
                 }
-            }
-
-            if (team.getEntries().isEmpty()) {
-                team.unregister();
             }
         }
     }
 
     public void restoreAll() {
+        nativeTagHidden.clear();
+        warnedForeignTeams.clear();
+
         Scoreboard scoreboard = mainScoreboard();
 
-        for (Team team : Set.copyOf(
-                scoreboard.getTeams()
-        )) {
-            if (owned(team)) {
+        for (String teamName : teamNames.values()) {
+            Team team = scoreboard.getTeam(teamName);
+
+            if (team != null) {
                 team.unregister();
             }
         }
-
-        warnedForeignTeams.clear();
     }
 
-    private Team ensureTeam(Player player) {
+    private void ensureMembership(Player player) {
         Scoreboard scoreboard = mainScoreboard();
+        TeamState state = stateFor(player);
+        Team expected = ensureTeam(
+                scoreboard,
+                state
+        );
         String entry = player.getName();
-        String expectedName = teamName(player);
         Team current = scoreboard.getEntryTeam(entry);
 
-        if (current != null
-                && !owned(current)
-                && warnedForeignTeams.add(
-                player.getUniqueId()
-        )) {
-            core.getLogger().warning(
-                    "Mineacle moved "
-                            + entry
-                            + " out of scoreboard team "
-                            + current.getName()
-                            + " — disable external player-team "
-                            + "management in TAB or other plugins"
-            );
+        if (current == expected
+                && expected.hasEntry(entry)) {
+            return;
         }
 
-        Team expected = scoreboard.getTeam(expectedName);
-
-        if (expected == null) {
-            expected = scoreboard.registerNewTeam(
-                    expectedName
-            );
-        }
-
-        removeFromOtherOwnedTeams(
-                player,
-                scoreboard,
-                expectedName
-        );
-
-        for (String staleEntry : Set.copyOf(
-                expected.getEntries()
-        )) {
-            if (!staleEntry.equals(entry)) {
-                expected.removeEntry(staleEntry);
+        if (current != null) {
+            if (!owned(current)
+                    && warnedForeignTeams.add(
+                    player.getUniqueId()
+            )) {
+                core.getLogger().warning(
+                        "Mineacle moved "
+                                + entry
+                                + " out of scoreboard team "
+                                + current.getName()
+                                + " — disable external "
+                                + "player-team management in "
+                                + "TAB or other plugins"
+                );
             }
+
+            current.removeEntry(entry);
         }
 
-        if (!expected.hasEntry(entry)) {
-            expected.addEntry(entry);
-        }
-
-        expected.setAllowFriendlyFire(true);
-        expected.setCanSeeFriendlyInvisibles(false);
-
-        return expected;
+        expected.addEntry(entry);
     }
 
-    private void applyCollisionRule(
-            Team team,
-            World world
-    ) {
+    private TeamState stateFor(Player player) {
         boolean collisionEnabled =
-                collisionEnabled(world);
+                collisionEnabled(player.getWorld());
+        boolean hidden =
+                Boolean.TRUE.equals(
+                        nativeTagHidden.get(
+                                player.getUniqueId()
+                        )
+                );
 
-        Team.OptionStatus status =
-                collisionEnabled
-                        ? Team.OptionStatus.ALWAYS
-                        : Team.OptionStatus.NEVER;
-
-        if (team.getOption(
-                Team.Option.COLLISION_RULE
-        ) != status) {
-            team.setOption(
-                    Team.Option.COLLISION_RULE,
-                    status
-            );
+        if (collisionEnabled) {
+            return hidden
+                    ? TeamState.COLLIDE_HIDDEN
+                    : TeamState.COLLIDE_VISIBLE;
         }
+
+        return hidden
+                ? TeamState.NO_COLLIDE_HIDDEN
+                : TeamState.NO_COLLIDE_VISIBLE;
     }
 
     private boolean collisionEnabled(World world) {
-        if (world == null) {
-            return true;
-        }
-
         return !settings.enabled()
                 || !settings.disabledWorlds()
                 .contains(
@@ -267,29 +251,75 @@ public final class PlayerCollisionService {
                 );
     }
 
-    private void removeFromOtherOwnedTeams(
-            Player player,
-            Scoreboard scoreboard,
-            String expectedName
-    ) {
-        String entry = player.getName();
+    private void ensureAllTeams() {
+        Scoreboard scoreboard = mainScoreboard();
 
-        for (Team team : Set.copyOf(
-                scoreboard.getTeams()
-        )) {
-            if (!owned(team)
-                    || team.getName()
-                    .equals(expectedName)
-                    || !team.hasEntry(entry)) {
-                continue;
-            }
-
-            team.removeEntry(entry);
-
-            if (team.getEntries().isEmpty()) {
-                team.unregister();
-            }
+        for (TeamState state : TeamState.values()) {
+            ensureTeam(scoreboard, state);
         }
+    }
+
+    private Team ensureTeam(
+            Scoreboard scoreboard,
+            TeamState state
+    ) {
+        String teamName = teamNames.get(state);
+        Team team = scoreboard.getTeam(teamName);
+
+        if (team == null) {
+            team = scoreboard.registerNewTeam(
+                    teamName
+            );
+        }
+
+        Team.OptionStatus collisionStatus =
+                state.collisionEnabled()
+                        ? Team.OptionStatus.ALWAYS
+                        : Team.OptionStatus.NEVER;
+        Team.OptionStatus nametagStatus =
+                state.nativeTagHidden()
+                        ? Team.OptionStatus.NEVER
+                        : Team.OptionStatus.ALWAYS;
+
+        if (team.getOption(
+                Team.Option.COLLISION_RULE
+        ) != collisionStatus) {
+            team.setOption(
+                    Team.Option.COLLISION_RULE,
+                    collisionStatus
+            );
+        }
+
+        if (team.getOption(
+                Team.Option.NAME_TAG_VISIBILITY
+        ) != nametagStatus) {
+            team.setOption(
+                    Team.Option.NAME_TAG_VISIBILITY,
+                    nametagStatus
+            );
+        }
+
+        team.prefix(
+                net.kyori.adventure.text.Component.empty()
+        );
+        team.suffix(
+                net.kyori.adventure.text.Component.empty()
+        );
+        team.setAllowFriendlyFire(true);
+        team.setCanSeeFriendlyInvisibles(false);
+
+        return team;
+    }
+
+    private boolean owned(Team team) {
+        return teamNames.containsValue(
+                team.getName()
+        );
+    }
+
+    private Scoreboard mainScoreboard() {
+        return Bukkit.getScoreboardManager()
+                .getMainScoreboard();
     }
 
     private Settings loadSettings() {
@@ -320,8 +350,7 @@ public final class PlayerCollisionService {
                                 "player-collision.reapply-delay-ticks"
                         )
                         .stream()
-                        .filter(value ->
-                                value >= 0L)
+                        .filter(value -> value >= 0L)
                         .distinct()
                         .sorted()
                         .toList();
@@ -337,27 +366,32 @@ public final class PlayerCollisionService {
         );
     }
 
-    private String teamName(Player player) {
-        String compact = player.getUniqueId()
-                .toString()
-                .replace("-", "");
+    private enum TeamState {
+        COLLIDE_VISIBLE(true, false),
+        COLLIDE_HIDDEN(true, true),
+        NO_COLLIDE_VISIBLE(false, false),
+        NO_COLLIDE_HIDDEN(false, true);
 
-        return TEAM_PREFIX
-                + compact.substring(0, 7)
-                + compact.substring(
-                compact.length() - 6
-        );
-    }
+        private final boolean collisionEnabled;
+        private final boolean nativeTagHidden;
 
-    private boolean owned(Team team) {
-        return team != null
-                && team.getName()
-                .startsWith(TEAM_PREFIX);
-    }
+        TeamState(
+                boolean collisionEnabled,
+                boolean nativeTagHidden
+        ) {
+            this.collisionEnabled =
+                    collisionEnabled;
+            this.nativeTagHidden =
+                    nativeTagHidden;
+        }
 
-    private Scoreboard mainScoreboard() {
-        return Bukkit.getScoreboardManager()
-                .getMainScoreboard();
+        private boolean collisionEnabled() {
+            return collisionEnabled;
+        }
+
+        private boolean nativeTagHidden() {
+            return nativeTagHidden;
+        }
     }
 
     private record Settings(

@@ -1,18 +1,27 @@
 package net.mineacle.core.nametag;
 
+import net.luckperms.api.LuckPerms;
+import net.luckperms.api.LuckPermsProvider;
+import net.luckperms.api.event.EventSubscription;
+import net.luckperms.api.event.user.UserDataRecalculateEvent;
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
+import net.mineacle.core.collision.CollisionModule;
+import net.mineacle.core.collision.PlayerCollisionService;
+import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
+
+import java.util.UUID;
 
 public final class NametagModule extends Module {
 
     private static NametagService service;
 
-    private BukkitTask contentTask;
-    private BukkitTask movementTask;
-    private BukkitTask cleanupTask;
+    private BukkitTask auditTask;
+    private EventSubscription<UserDataRecalculateEvent>
+            rankSubscription;
 
     @Override
     public String name() {
@@ -21,7 +30,19 @@ public final class NametagModule extends Module {
 
     @Override
     public void enable(Core core) {
-        service = new NametagService(core);
+        PlayerCollisionService collisionService =
+                CollisionModule.service();
+
+        if (collisionService == null) {
+            throw new IllegalStateException(
+                    "Nametags requires the Collision module"
+            );
+        }
+
+        service = new NametagService(
+                core,
+                collisionService
+        );
 
         PluginCommand command =
                 core.getCommand("mineaclenametags");
@@ -30,7 +51,8 @@ public final class NametagModule extends Module {
             service.clear();
             service = null;
             throw new IllegalStateException(
-                    "Missing command in plugin.yml: mineaclenametags"
+                    "Missing command in plugin.yml: "
+                            + "mineaclenametags"
             );
         }
 
@@ -39,34 +61,25 @@ public final class NametagModule extends Module {
         command.setExecutor(executor);
         command.setTabCompleter(executor);
 
-        core.getServer().getPluginManager().registerEvents(
-                new NametagListener(core, service),
-                core
-        );
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new NametagListener(
+                                core,
+                                service
+                        ),
+                        core
+                );
 
-        contentTask = core.getServer()
+        subscribeToRankChanges(core);
+
+        auditTask = core.getServer()
                 .getScheduler()
                 .runTaskTimer(
                         core,
-                        service::refreshAll,
-                        5L,
-                        service.contentUpdateTicks()
-                );
-        movementTask = core.getServer()
-                .getScheduler()
-                .runTaskTimer(
-                        core,
-                        service::tickPositions,
-                        2L,
-                        service.movementUpdateTicks()
-                );
-        cleanupTask = core.getServer()
-                .getScheduler()
-                .runTaskTimer(
-                        core,
-                        service::removeOrphanDisplays,
-                        200L,
-                        service.cleanupIntervalTicks()
+                        service::audit,
+                        service.auditTicks(),
+                        service.auditTicks()
                 );
 
         service.refreshAll();
@@ -74,13 +87,15 @@ public final class NametagModule extends Module {
 
     @Override
     public void disable() {
-        cancel(contentTask);
-        cancel(movementTask);
-        cancel(cleanupTask);
+        if (rankSubscription != null) {
+            rankSubscription.close();
+            rankSubscription = null;
+        }
 
-        contentTask = null;
-        movementTask = null;
-        cleanupTask = null;
+        if (auditTask != null) {
+            auditTask.cancel();
+            auditTask = null;
+        }
 
         if (service != null) {
             service.clear();
@@ -100,15 +115,39 @@ public final class NametagModule extends Module {
         }
     }
 
-    public static void refreshViewer(Player viewer) {
-        if (service != null && viewer != null) {
-            service.refreshViewer(viewer);
-        }
-    }
+    private void subscribeToRankChanges(Core core) {
+        LuckPerms luckPerms = LuckPermsProvider.get();
 
-    private void cancel(BukkitTask task) {
-        if (task != null) {
-            task.cancel();
-        }
+        rankSubscription = luckPerms
+                .getEventBus()
+                .subscribe(
+                        core,
+                        UserDataRecalculateEvent.class,
+                        event -> {
+                            UUID playerId = event
+                                    .getUser()
+                                    .getUniqueId();
+
+                            core.getServer()
+                                    .getScheduler()
+                                    .runTask(
+                                            core,
+                                            () -> {
+                                                Player player =
+                                                        Bukkit.getPlayer(
+                                                                playerId
+                                                        );
+
+                                                if (player != null
+                                                        && player.isOnline()
+                                                        && service != null) {
+                                                    service.refresh(
+                                                            player
+                                                    );
+                                                }
+                                            }
+                                    );
+                        }
+                );
     }
 }
