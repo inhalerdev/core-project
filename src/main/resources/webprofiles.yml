@@ -19,25 +19,32 @@ rank:
   default-name: Member
   default-prefix: ''
   default-color: '#bbbbbb'
-  permission-ranks:
-    developer:
-      name: Developer
-      prefix: Developer
-      color: '#ffaa00'
-      permission: mineacle.rank.developer
-      weight: 1000
+
+  # LuckPerms is authoritative for both group membership and rank priority.
+  # rank_weight written to the website DB is the actual LuckPerms group weight.
+  mappings:
     admin:
       name: Admin
       prefix: Admin
       color: '#ff5555'
-      permission: mineacle.rank.admin
-      weight: 900
+      luckperms-groups:
+        - admin
+
+    media:
+      name: Media +
+      prefix: 'Media +'
+      color: '#55ffff'
+      luckperms-groups:
+        - media
+      requires-groups:
+        - plus
+
     plus:
-      name: Mineacle+
-      prefix: Mineacle+
+      name: Mineacle +
+      prefix: '+'
       color: '#ff55ff'
-      permission: mineacle.plus
-      weight: 100
+      luckperms-groups:
+        - plus
 worlds:
   mappings:
     spawn1:
