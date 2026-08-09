@@ -1,5 +1,6 @@
 package net.mineacle.core.rtp.service;
 
+import net.mineacle.core.Core;
 import org.bukkit.Material;
 import org.bukkit.World;
 
@@ -35,7 +36,7 @@ public record OriginRtpSearchSettings(
 ) {
 
     public static OriginRtpSearchSettings fromConfig(
-            Core.Core core,
+            Core core,
             String rawDestination
     ) {
         String destination = canonicalDestination(
@@ -327,7 +328,7 @@ public record OriginRtpSearchSettings(
     }
 
     private static Set<Material> unsafeBlocks(
-            Core.Core core,
+            Core core,
             String base
     ) {
         Set<Material> materials = new HashSet<>();
@@ -395,7 +396,7 @@ public record OriginRtpSearchSettings(
     }
 
     private static boolean destinationBoolean(
-            Core.Core core,
+            Core core,
             String path,
             boolean defaultValue
     ) {
@@ -410,7 +411,7 @@ public record OriginRtpSearchSettings(
     }
 
     private static int integer(
-            Core.Core core,
+            Core core,
             String primary,
             String fallback,
             int defaultValue

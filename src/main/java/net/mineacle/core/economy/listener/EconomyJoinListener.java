@@ -2,6 +2,7 @@ package net.mineacle.core.economy.listener;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.economy.service.EconomyService;
@@ -14,11 +15,11 @@ import org.bukkit.event.player.PlayerJoinEvent;
 
 public final class EconomyJoinListener implements Listener {
 
-    private final Core.Core core;
+    private final Core core;
     private final EconomyService economyService;
 
     public EconomyJoinListener(
-            Core.Core core,
+            Core core,
             EconomyService economyService
     ) {
         this.core = core;

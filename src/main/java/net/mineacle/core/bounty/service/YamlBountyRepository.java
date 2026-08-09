@@ -1,5 +1,6 @@
 package net.mineacle.core.bounty;
 
+import net.mineacle.core.Core;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -17,12 +18,12 @@ import java.util.UUID;
 
 public final class YamlBountyRepository implements BountyRepository {
 
-    private final Core.Core core;
+    private final Core core;
     private final File file;
     private final Map<UUID, BountyRecord> records =
             new LinkedHashMap<>();
 
-    public YamlBountyRepository(Core.Core core) {
+    public YamlBountyRepository(Core core) {
         this.core = core;
         this.file = new File(core.getDataFolder(), "bounties.yml");
     }

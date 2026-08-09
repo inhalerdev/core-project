@@ -1,5 +1,6 @@
 package net.mineacle.core.duels.storage;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.duels.model.FightResultRecord;
 import org.bukkit.configuration.file.FileConfiguration;
 
@@ -16,13 +17,13 @@ import java.util.logging.Level;
 })
 public final class FightRepository {
 
-    private final Core.Core core;
+    private final Core core;
 
     private volatile Settings settings;
     private volatile boolean ready;
 
     public FightRepository(
-            Core.Core core,
+            Core core,
             FileConfiguration config
     ) {
         this.core = core;
@@ -242,7 +243,7 @@ public final class FightRepository {
     ) {
 
         private static Settings from(
-                Core.Core core,
+                Core core,
                 FileConfiguration config
         ) {
             String configuredTable = config.getString(
@@ -293,7 +294,7 @@ public final class FightRepository {
         }
 
         private static String safeTableName(
-                Core.Core core,
+                Core core,
                 String configured
         ) {
             String value = configured == null

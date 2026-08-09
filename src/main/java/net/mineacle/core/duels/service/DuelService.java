@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.teleport.TeleportMovement;
@@ -51,7 +52,7 @@ public final class DuelService {
 
     private static final int MAX_ZONE_ID_LENGTH = 32;
 
-    private final Core.Core core;
+    private final Core core;
     private final File file;
 
     private final Map<UUID, DuelInvite> incomingByTarget =
@@ -88,7 +89,7 @@ public final class DuelService {
 
     private int zoneCountdown = -1;
 
-    public DuelService(Core.Core core) {
+    public DuelService(Core core) {
         this.core = core;
         this.file = new File(core.getDataFolder(), "duels.yml");
         reload();

@@ -3,6 +3,7 @@ package net.mineacle.core.bounty;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -30,7 +31,7 @@ public final class BountyConfirmGui {
     }
 
     public static void open(
-            Core.Core core,
+            Core core,
             Player player,
             OfflinePlayer target,
             long amountCents,

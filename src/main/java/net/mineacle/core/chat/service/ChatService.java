@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
@@ -49,7 +50,7 @@ public final class ChatService {
 
     private static final int MAX_MESSAGE_LENGTH = 256;
 
-    private final Core.Core core;
+    private final Core core;
     private final NicknameService nicknameService;
     private final File file;
 
@@ -57,7 +58,7 @@ public final class ChatService {
     private final Map<UUID, Set<UUID>> ignored = new HashMap<>();
 
     public ChatService(
-            Core.Core core,
+            Core core,
             NicknameService nicknameService
     ) throws IOException {
         this.core = core;

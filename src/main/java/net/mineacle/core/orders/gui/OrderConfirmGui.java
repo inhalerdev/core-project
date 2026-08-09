@@ -1,5 +1,6 @@
 package net.mineacle.core.orders.gui;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.economy.EconomyModule;
@@ -176,7 +177,7 @@ public final class OrderConfirmGui {
     }
 
     public static void arm(
-            Core.Core core,
+            Core core,
             Player player,
             OrdersGuiHolder holder
     ) {

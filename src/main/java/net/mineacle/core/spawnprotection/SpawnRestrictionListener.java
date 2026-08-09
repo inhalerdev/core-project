@@ -1,5 +1,6 @@
 package net.mineacle.core.spawnprotection.listener;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -19,9 +20,9 @@ import java.util.Set;
 
 public final class SpawnRestrictionListener implements Listener {
 
-    private final Core.Core core;
+    private final Core core;
 
-    public SpawnRestrictionListener(Core.Core core) {
+    public SpawnRestrictionListener(Core core) {
         this.core = core;
     }
 

@@ -1,5 +1,6 @@
 package net.mineacle.core.bounty;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.format.MoneyFormatter;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.economy.EconomyModule;
@@ -77,12 +78,12 @@ public final class BountyService {
     ) {
     }
 
-    private final Core.Core core;
+    private final Core core;
     private final BountyRepository repository;
     private boolean initialized;
 
     public BountyService(
-            Core.Core core,
+            Core core,
             BountyRepository repository
     ) {
         this.core = core;

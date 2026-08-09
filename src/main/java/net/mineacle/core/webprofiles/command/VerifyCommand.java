@@ -1,5 +1,6 @@
 package net.mineacle.core.webprofiles.command;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.webprofiles.auth.WebVerificationRepository;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -16,13 +17,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class VerifyCommand
         implements CommandExecutor, TabCompleter {
 
-    private final Core.Core core;
+    private final Core core;
     private final WebVerificationRepository repository;
     private final Set<UUID> pending =
             ConcurrentHashMap.newKeySet();
 
     public VerifyCommand(
-            Core.Core core,
+            Core core,
             WebVerificationRepository repository
     ) {
         this.core = core;

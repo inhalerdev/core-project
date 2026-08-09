@@ -2,6 +2,7 @@ package net.mineacle.core.economy.service;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.mineacle.core.Core;
 import net.mineacle.core.common.format.MoneyFormatter;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
@@ -15,6 +16,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -57,7 +59,7 @@ public final class EconomyService {
     private static final long SAVE_WARNING_INTERVAL_NANOS =
             30_000_000_000L;
 
-    private final Core.Core core;
+    private final Core core;
     private final YamlEconomyRepository repository;
     private final Map<UUID, Long> balances = new HashMap<>();
     private final Map<UUID, OfflinePaymentNotice> offlinePayments =
@@ -68,7 +70,7 @@ public final class EconomyService {
     private long lastSaveWarningNanos;
 
     public EconomyService(
-            Core.Core core,
+            Core core,
             YamlEconomyRepository repository
     ) {
         this.core = core;

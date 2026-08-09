@@ -1,6 +1,7 @@
 package net.mineacle.core.economy;
 
 import net.milkbowl.vault.economy.Economy;
+import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.economy.command.BalanceCommand;
 import net.mineacle.core.economy.command.EcoCommand;
@@ -33,7 +34,7 @@ public final class EconomyModule extends Module {
     }
 
     @Override
-    public void enable(Core.Core core) {
+    public void enable(Core core) {
         economyService = new EconomyService(
                 core,
                 new YamlEconomyRepository(core)
@@ -104,7 +105,7 @@ public final class EconomyModule extends Module {
         }
     }
 
-    private void registerVaultProvider(Core.Core core) {
+    private void registerVaultProvider(Core core) {
         if (!economyService.enabled()) {
             core.getLogger().info(
                     "Mineacle economy is disabled"
@@ -136,7 +137,7 @@ public final class EconomyModule extends Module {
     }
 
     private void register(
-            Core.Core core,
+            Core core,
             String commandName,
             CommandExecutor executor
     ) {

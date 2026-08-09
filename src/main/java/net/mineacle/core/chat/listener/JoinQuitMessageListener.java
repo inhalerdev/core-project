@@ -1,5 +1,6 @@
 package net.mineacle.core.chat.listener;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.chat.service.ChatService;
 import net.mineacle.core.chat.service.NicknameService;
 import org.bukkit.entity.Player;
@@ -11,12 +12,12 @@ import org.bukkit.event.player.PlayerQuitEvent;
 
 public final class JoinQuitMessageListener implements Listener {
 
-    private final Core.Core core;
+    private final Core core;
     private final ChatService chatService;
     private final NicknameService nicknameService;
 
     public JoinQuitMessageListener(
-            Core.Core core,
+            Core core,
             ChatService chatService,
             NicknameService nicknameService
     ) {

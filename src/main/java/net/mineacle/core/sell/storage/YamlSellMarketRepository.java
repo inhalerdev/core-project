@@ -1,5 +1,6 @@
 package net.mineacle.core.sell.storage;
 
+import net.mineacle.core.Core;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -9,6 +10,7 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -16,11 +18,11 @@ import java.util.UUID;
 public final class YamlSellMarketRepository
         implements SellMarketRepository {
 
-    private final Core.Core core;
+    private final Core core;
     private final File file;
     private YamlConfiguration configuration;
 
-    public YamlSellMarketRepository(Core.Core core) {
+    public YamlSellMarketRepository(Core core) {
         this.core = core;
         this.file = new File(
                 core.getDataFolder(),

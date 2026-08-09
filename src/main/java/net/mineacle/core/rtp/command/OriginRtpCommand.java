@@ -1,5 +1,6 @@
 package net.mineacle.core.rtp.command;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
@@ -31,12 +32,12 @@ public final class OriginRtpCommand
                     "end"
             );
 
-    private final Core.Core core;
+    private final Core core;
     private final OriginRtpQueueService queueService;
     private final RtpMenuService menuService;
 
     public OriginRtpCommand(
-            Core.Core core,
+            Core core,
             OriginRtpQueueService queueService,
             RtpMenuService menuService
     ) {

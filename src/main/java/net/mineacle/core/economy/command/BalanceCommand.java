@@ -1,5 +1,6 @@
 package net.mineacle.core.economy.command;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
@@ -17,11 +18,11 @@ import java.util.List;
 public final class BalanceCommand
         implements CommandExecutor, TabCompleter {
 
-    private final Core.Core core;
+    private final Core core;
     private final EconomyService economyService;
 
     public BalanceCommand(
-            Core.Core core,
+            Core core,
             EconomyService economyService
     ) {
         this.core = core;

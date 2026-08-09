@@ -1,5 +1,6 @@
 package net.mineacle.core.rtp.listener;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.rtp.gui.RtpMenuGui;
@@ -16,11 +17,11 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 public final class RtpMenuListener
         implements Listener {
 
-    private final Core.Core core;
+    private final Core core;
     private final OriginRtpQueueService queueService;
 
     public RtpMenuListener(
-            Core.Core core,
+            Core core,
             OriginRtpQueueService queueService
     ) {
         this.core = core;

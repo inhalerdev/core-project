@@ -5,6 +5,7 @@ import com.comphenix.protocol.events.ListenerPriority;
 import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.reflect.StructureModifier;
+import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.sell.gui.SellGui;
 import net.mineacle.core.sell.gui.WorthGui;
@@ -43,7 +44,7 @@ public final class SellWorthPacketListener
     private final SellService sellService;
 
     public SellWorthPacketListener(
-            Core.Core core,
+            Core core,
             SellService sellService
     ) {
         super(

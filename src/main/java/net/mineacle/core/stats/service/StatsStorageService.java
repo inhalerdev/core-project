@@ -1,5 +1,6 @@
 package net.mineacle.core.stats.service;
 
+import net.mineacle.core.Core;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.ConfigurationSection;
@@ -15,11 +16,11 @@ import java.util.UUID;
 
 public final class StatsStorageService {
 
-    private final Core.Core core;
+    private final Core core;
     private final File file;
     private FileConfiguration config;
 
-    public StatsStorageService(Core.Core core) {
+    public StatsStorageService(Core core) {
         this.core = core;
         this.file = new File(core.getDataFolder(), "stats.yml");
         load();

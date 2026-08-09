@@ -1,5 +1,6 @@
 package net.mineacle.core.homes.service;
 
+import net.mineacle.core.Core;
 import org.bukkit.Location;
 import org.bukkit.World;
 
@@ -7,9 +8,9 @@ import java.util.List;
 
 public final class HomeWorldRules {
 
-    private final Core.Core core;
+    private final Core core;
 
-    public HomeWorldRules(Core.Core core) {
+    public HomeWorldRules(Core core) {
         this.core = core;
     }
 

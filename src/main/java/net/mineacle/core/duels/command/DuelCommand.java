@@ -1,5 +1,6 @@
 package net.mineacle.core.duels.command;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
@@ -19,13 +20,13 @@ import java.util.Locale;
 public final class DuelCommand
         implements CommandExecutor, TabCompleter {
 
-    private final Core.Core core;
+    private final Core core;
     private final DuelService duelService;
     private final DuelInviteSuggestions inviteSuggestions;
     private final Runnable reloadAction;
 
     public DuelCommand(
-            Core.Core core,
+            Core core,
             DuelService duelService,
             Runnable reloadAction
     ) {

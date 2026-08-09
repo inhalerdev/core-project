@@ -1,5 +1,6 @@
 package net.mineacle.core.spawnprotection.listener;
 
+import net.mineacle.core.Core;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -19,9 +20,9 @@ import java.util.Set;
 
 public final class SpawnCollisionListener implements Listener {
 
-    private final Core.Core core;
+    private final Core core;
 
-    public SpawnCollisionListener(Core.Core core) {
+    public SpawnCollisionListener(Core core) {
         this.core = core;
     }
 

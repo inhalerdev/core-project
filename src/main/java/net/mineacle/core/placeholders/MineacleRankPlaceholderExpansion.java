@@ -1,6 +1,7 @@
 package net.mineacle.core.placeholders;
 
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
+import net.mineacle.core.Core;
 import net.mineacle.core.common.player.RankDisplayResolver;
 import org.bukkit.OfflinePlayer;
 import org.jetbrains.annotations.NotNull;
@@ -11,9 +12,9 @@ import java.util.Locale;
 public final class MineacleRankPlaceholderExpansion
         extends PlaceholderExpansion {
 
-    private final Core.Core core;
+    private final Core core;
 
-    public MineacleRankPlaceholderExpansion(Core.Core core) {
+    public MineacleRankPlaceholderExpansion(Core core) {
         this.core = core;
     }
 

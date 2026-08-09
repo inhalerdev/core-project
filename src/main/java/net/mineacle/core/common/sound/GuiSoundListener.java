@@ -1,5 +1,6 @@
 package net.mineacle.core.common.sound;
 
+import net.mineacle.core.Core;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.BlockState;
@@ -60,9 +61,9 @@ public final class GuiSoundListener
                     "shulker box"
             );
 
-    private final Core.Core core;
+    private final Core core;
 
-    public GuiSoundListener(Core.Core core) {
+    public GuiSoundListener(Core core) {
         this.core = core;
     }
 

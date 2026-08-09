@@ -1,5 +1,6 @@
 package net.mineacle.core.webprofiles.service;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.stats.StatsModule;
@@ -19,13 +20,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class WebTeamSyncService {
 
-    private final Core.Core core;
+    private final Core core;
     private final FileConfiguration config;
     private final WebTeamRepository repository;
     private final AtomicBoolean syncing = new AtomicBoolean(false);
     private BukkitTask syncTask;
 
-    public WebTeamSyncService(Core.Core core, FileConfiguration config, WebTeamRepository repository) {
+    public WebTeamSyncService(Core core, FileConfiguration config, WebTeamRepository repository) {
         this.core = core;
         this.config = config;
         this.repository = repository;

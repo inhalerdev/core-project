@@ -1,6 +1,8 @@
 package net.mineacle.core.orders.service;
 
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
@@ -17,6 +19,7 @@ import org.bukkit.inventory.PlayerInventory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -47,11 +50,11 @@ public final class OrderService {
         }
     }
 
-    private final Core.Core core;
+    private final Core core;
     private final OrdersRepository repository;
 
     public OrderService(
-            Core.Core core,
+            Core core,
             OrdersRepository repository
     ) {
         this.core = core;

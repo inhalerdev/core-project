@@ -2,7 +2,7 @@ package net.mineacle.core.teams;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
-import net.mineacle.core.homes.HomesModule;
+import net.mineacle.core.homes.listener.HomesMoveListener;
 import net.mineacle.core.homes.service.HomeService;
 import net.mineacle.core.homes.service.TeleportService;
 import net.mineacle.core.stats.PlayerStatisticsGui;
@@ -41,31 +41,14 @@ public final class TeamsModule extends Module {
     @Override
     public void enable(Core core) {
         this.core = core;
-
-        Module homesDependency = core.module("Homes");
-
-        if (!(homesDependency instanceof HomesModule homesModule)
-                || homesModule.homeService() == null) {
-            throw new IllegalStateException(
-                    "Teams requires the Homes module"
-            );
-        }
-
         this.teamService = new TeamService(core);
         activeTeamService = this.teamService;
 
-        this.inviteService = new TeamInviteService(
-                core,
-                teamService
-        );
-        this.teamHomeService = new TeamHomeService(
-                core,
-                teamService
-        );
-        this.homeService = homesModule.homeService();
-        this.teleportService = core.teleportService();
-        this.playerStatisticsGui =
-                new PlayerStatisticsGui();
+        this.inviteService = new TeamInviteService(core, teamService);
+        this.teamHomeService = new TeamHomeService(core, teamService);
+        this.homeService = new HomeService(core);
+        this.teleportService = new TeleportService(core);
+        this.playerStatisticsGui = new PlayerStatisticsGui();
 
         TeamCommand command = new TeamCommand(
                 core,
@@ -77,14 +60,12 @@ public final class TeamsModule extends Module {
 
         PluginCommand team = core.getCommand("team");
 
-        if (team == null) {
-            throw new IllegalStateException(
-                    "Missing command in plugin.yml: team"
-            );
+        if (team != null) {
+            team.setExecutor(command);
+            team.setTabCompleter(command);
+        } else {
+            core.getLogger().warning("Missing command in plugin.yml: team");
         }
-
-        team.setExecutor(command);
-        team.setTabCompleter(command);
 
         core.getServer().getPluginManager().registerEvents(
                 new TeamsGuiListener(
@@ -96,6 +77,11 @@ public final class TeamsModule extends Module {
                         teleportService,
                         playerStatisticsGui
                 ),
+                core
+        );
+
+        core.getServer().getPluginManager().registerEvents(
+                new HomesMoveListener(teleportService),
                 core
         );
 
@@ -119,10 +105,7 @@ public final class TeamsModule extends Module {
                 core
         );
 
-        core.getServer().getPluginManager().registerEvents(
-                playerStatisticsGui,
-                core
-        );
+        core.getServer().getPluginManager().registerEvents(playerStatisticsGui, core);
     }
 
     @Override
@@ -132,12 +115,5 @@ public final class TeamsModule extends Module {
         }
 
         activeTeamService = null;
-        playerStatisticsGui = null;
-        teleportService = null;
-        homeService = null;
-        teamHomeService = null;
-        inviteService = null;
-        teamService = null;
-        core = null;
     }
 }

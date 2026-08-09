@@ -1,5 +1,6 @@
 package net.mineacle.core.sell.service;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.sell.model.MarketDefinition;
 import net.mineacle.core.sell.model.SellHistoryEntry;
 import net.mineacle.core.sell.storage.SellMarketRepository;
@@ -15,7 +16,9 @@ import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -26,7 +29,7 @@ public final class MarketPricingService {
     private static final long SQL_RETRY_MILLIS =
             5L * 60L * 1000L;
 
-    private final Core.Core core;
+    private final Core core;
     private final YamlSellMarketRepository fallbackRepository;
     private final long runtimeStartedAt = System.currentTimeMillis();
 
@@ -80,7 +83,7 @@ public final class MarketPricingService {
     private double featuredMaximumBoost;
 
     public MarketPricingService(
-            Core.Core core,
+            Core core,
             FileConfiguration sellConfig,
             Map<Material, MarketDefinition> definitions
     ) {

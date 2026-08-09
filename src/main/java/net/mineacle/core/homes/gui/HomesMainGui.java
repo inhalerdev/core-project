@@ -1,5 +1,6 @@
 package net.mineacle.core.homes.gui;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.homes.service.HomeService;
 import net.mineacle.core.teams.model.TeamRecord;
@@ -23,7 +24,7 @@ public final class HomesMainGui {
     private HomesMainGui() {
     }
 
-    public static void open(Core.Core core, Player player, HomeService homeService) {
+    public static void open(Core core, Player player, HomeService homeService) {
         Inventory inventory = Bukkit.createInventory(null, 9 * 4, plainTitle(core, "homes.gui.title"));
         UUID uuid = player.getUniqueId();
         boolean hasFreeCapacity = homeService.hasFreeHomeCapacity(player);
@@ -72,7 +73,7 @@ public final class HomesMainGui {
         player.openInventory(inventory);
     }
 
-    private static void setupTeamHome(Core.Core core, Player player, Inventory inventory) {
+    private static void setupTeamHome(Core core, Player player, Inventory inventory) {
         int bannerSlot = core.getConfig().getInt("homes.team-home.banner-slot", 10);
         int dyeSlot = core.getConfig().getInt("homes.team-home.dye-slot", 19);
 
@@ -211,7 +212,7 @@ public final class HomesMainGui {
         }
     }
 
-    private static String plainTitle(Core.Core core, String path) {
+    private static String plainTitle(Core core, String path) {
         return TextColor.strip(core.getMessage(path));
     }
 

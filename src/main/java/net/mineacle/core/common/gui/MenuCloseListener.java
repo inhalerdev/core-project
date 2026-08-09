@@ -1,5 +1,6 @@
 package net.mineacle.core.common.gui;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -31,7 +32,7 @@ public final class MenuCloseListener implements Listener {
                 event.getInventory()
         );
 
-        if (reopenedPrevious && plugin instanceof Core.Core core) {
+        if (reopenedPrevious && plugin instanceof Core core) {
             SoundService.guiBack(player, core);
         }
     }

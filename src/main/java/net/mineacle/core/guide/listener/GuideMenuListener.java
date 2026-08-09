@@ -1,5 +1,6 @@
 package net.mineacle.core.guide.listener;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.guide.gui.GuideMenuHolder;
 import net.mineacle.core.guide.service.GuideMenuService;
@@ -14,10 +15,10 @@ import java.util.Locale;
 
 public final class GuideMenuListener implements Listener {
 
-    private final Core.Core core;
+    private final Core core;
     private final GuideMenuService service;
 
-    public GuideMenuListener(Core.Core core, GuideMenuService service) {
+    public GuideMenuListener(Core core, GuideMenuService service) {
         this.core = core;
         this.service = service;
     }

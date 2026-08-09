@@ -1,5 +1,6 @@
 package net.mineacle.core.teams.service;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.homes.service.HomeWorldMigration;
 import net.mineacle.core.homes.service.HomeWorldNames;
 import org.bukkit.Location;
@@ -8,11 +9,11 @@ import org.bukkit.configuration.file.FileConfiguration;
 
 public final class TeamHomeService {
 
-    private final Core.Core core;
+    private final Core core;
     private final TeamService teamService;
 
     public TeamHomeService(
-            Core.Core core,
+            Core core,
             TeamService teamService
     ) {
         this.core = core;

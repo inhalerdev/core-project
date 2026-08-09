@@ -5,6 +5,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
+import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.model.AuctionHouseListing;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
@@ -196,7 +197,7 @@ public final class AuctionHouseService {
     public record BuyOutcome(BuyResult result, AuctionHouseListing listing) {
     }
 
-    private final Core.Core core;
+    private final Core core;
     private final File storageFile;
     private final File configFile;
     private final Map<UUID, AuctionHouseListing> listings = new LinkedHashMap<>();
@@ -204,7 +205,7 @@ public final class AuctionHouseService {
     private YamlConfiguration storage = new YamlConfiguration();
     private YamlConfiguration config = new YamlConfiguration();
 
-    public AuctionHouseService(Core.Core core) {
+    public AuctionHouseService(Core core) {
         this.core = core;
         this.storageFile = new File(core.getDataFolder(), "auctionhouse-data.yml");
         this.configFile = new File(core.getDataFolder(), "auctionhouse.yml");

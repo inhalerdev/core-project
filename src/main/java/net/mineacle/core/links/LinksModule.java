@@ -1,5 +1,6 @@
 package net.mineacle.core.links;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.links.command.LinksCommand;
 import net.mineacle.core.links.gui.GuideRulesGui;
@@ -19,7 +20,7 @@ public final class LinksModule extends Module {
     }
 
     @Override
-    public void enable(Core.Core core) {
+    public void enable(Core core) {
         linksService = new LinksService(core);
         guideRulesService = new GuideRulesService(core);
 
@@ -55,7 +56,7 @@ public final class LinksModule extends Module {
     }
 
     private void register(
-            Core.Core core,
+            Core core,
             String commandName,
             LinksCommand executor
     ) {

@@ -1,6 +1,7 @@
 package net.mineacle.core.bounty;
 
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.entity.Player;
@@ -11,11 +12,11 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 
 public final class BountyListener implements Listener {
 
-    private final Core.Core core;
+    private final Core core;
     private final BountyService bountyService;
 
     public BountyListener(
-            Core.Core core,
+            Core core,
             BountyService bountyService
     ) {
         this.core = core;

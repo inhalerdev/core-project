@@ -1,5 +1,6 @@
 package net.mineacle.core.teams.service;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.teams.model.TeamBanRecord;
 import net.mineacle.core.teams.model.TeamMemberRecord;
 import net.mineacle.core.teams.model.TeamRecord;
@@ -17,14 +18,14 @@ import java.util.UUID;
 
 public final class TeamService {
 
-    private final Core.Core core;
+    private final Core core;
     private final Map<String, TeamRecord> teams = new HashMap<>();
     private final Map<UUID, TeamMemberRecord> members = new HashMap<>();
     private final Map<String, String> nameIndex = new HashMap<>();
     private final Map<String, Map<UUID, TeamBanRecord>> bans = new HashMap<>();
     private final Map<UUID, Boolean> teamChatEnabled = new HashMap<>();
 
-    public TeamService(Core.Core core) {
+    public TeamService(Core core) {
         this.core = core;
         load();
     }

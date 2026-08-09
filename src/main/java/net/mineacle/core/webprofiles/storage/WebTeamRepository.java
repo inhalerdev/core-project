@@ -1,5 +1,6 @@
 package net.mineacle.core.webprofiles.storage;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.webprofiles.model.WebTeamRecord;
 import org.bukkit.configuration.file.FileConfiguration;
 
@@ -14,11 +15,11 @@ import java.util.Locale;
 @SuppressWarnings({"SqlNoDataSourceInspection", "SqlDialectInspection"})
 public final class WebTeamRepository {
 
-    private final Core.Core core;
+    private final Core core;
     private final FileConfiguration config;
     private final String table;
 
-    public WebTeamRepository(Core.Core core, FileConfiguration config) {
+    public WebTeamRepository(Core core, FileConfiguration config) {
         this.core = core;
         this.config = config;
         this.table = safeTableName(config.getString("database.teams-table", "mineacle_web_teams"));

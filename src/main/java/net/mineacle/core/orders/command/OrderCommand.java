@@ -1,5 +1,6 @@
 package net.mineacle.core.orders.command;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
@@ -25,11 +26,11 @@ import java.util.Locale;
 public final class OrderCommand
         implements CommandExecutor, TabCompleter {
 
-    private final Core.Core core;
+    private final Core core;
     private final OrderService service;
 
     public OrderCommand(
-            Core.Core core,
+            Core core,
             OrderService service
     ) {
         this.core = core;

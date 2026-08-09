@@ -1,5 +1,6 @@
 package net.mineacle.core.teams.gui;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.teams.model.TeamInviteRecord;
@@ -29,7 +30,7 @@ public final class TeamInviteGui {
     private TeamInviteGui() {
     }
 
-    public static void open(Core.Core core, Player player, TeamInviteService inviteService, TeamService teamService) {
+    public static void open(Core core, Player player, TeamInviteService inviteService, TeamService teamService) {
         TeamInviteRecord invite = inviteService.getInvite(player.getUniqueId());
 
         Inventory inventory = Bukkit.createInventory(null, 27, TITLE);

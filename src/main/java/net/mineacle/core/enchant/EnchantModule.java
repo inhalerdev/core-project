@@ -1,5 +1,6 @@
 package net.mineacle.core.enchant;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
@@ -13,7 +14,7 @@ public final class EnchantModule extends Module {
     }
 
     @Override
-    public void enable(Core.Core core) {
+    public void enable(Core core) {
         EnchantCommand enchantCommand =
                 new EnchantCommand(core);
         EnchantInfoCommand enchantInfoCommand =
@@ -36,7 +37,7 @@ public final class EnchantModule extends Module {
     }
 
     private void register(
-            Core.Core core,
+            Core core,
             String commandName,
             CommandExecutor executor
     ) {

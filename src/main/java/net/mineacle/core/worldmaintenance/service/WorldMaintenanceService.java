@@ -2,6 +2,7 @@ package net.mineacle.core.worldmaintenance.service;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -19,11 +20,11 @@ import java.util.Locale;
 
 public final class WorldMaintenanceService {
 
-    private final Core.Core core;
+    private final Core core;
     private final File file;
     private FileConfiguration config;
 
-    public WorldMaintenanceService(Core.Core core) {
+    public WorldMaintenanceService(Core core) {
         this.core = core;
         this.file = new File(core.getDataFolder(), "worldmaintenance.yml");
         reload();

@@ -1,5 +1,6 @@
 package net.mineacle.core.spawn;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.spawn.command.SpawnCommand;
 import net.mineacle.core.spawn.listener.OriginsVoidListener;
@@ -21,7 +22,7 @@ public final class SpawnModule extends Module {
     }
 
     @Override
-    public void enable(Core.Core core) {
+    public void enable(Core core) {
         this.spawnService = new SpawnService(core);
         this.teleportService = new SpawnTeleportService(spawnService);
 
