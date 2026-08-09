@@ -16,7 +16,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -24,6 +23,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 public final class EconomyService {
@@ -58,16 +61,27 @@ public final class EconomyService {
 
     private static final long SAVE_WARNING_INTERVAL_NANOS =
             30_000_000_000L;
+    private static final long DEFAULT_SAVE_DEBOUNCE_MILLIS = 250L;
+    private static final long MAX_SAVE_DEBOUNCE_MILLIS = 5_000L;
+    private static final long SHUTDOWN_FLUSH_TIMEOUT_SECONDS = 5L;
 
     private final Core core;
     private final YamlEconomyRepository repository;
     private final Map<UUID, Long> balances = new HashMap<>();
     private final Map<UUID, OfflinePaymentNotice> offlinePayments =
             new HashMap<>();
+    private final ScheduledThreadPoolExecutor persistenceExecutor;
+    private final long saveDebounceMillis;
+    private final long saveRetryMillis;
 
     private boolean active = true;
     private boolean dirty;
+    private boolean persistenceClosed;
+    private boolean saveFailed;
+    private long changeGeneration;
+    private long persistedGeneration;
     private long lastSaveWarningNanos;
+    private ScheduledFuture<?> pendingSave;
 
     public EconomyService(
             Core core,
@@ -88,6 +102,44 @@ public final class EconomyService {
                     entry.getValue().copy()
             );
         }
+
+        saveDebounceMillis = Math.clamp(
+                core.getConfig().getLong(
+                        "economy.save-debounce-millis",
+                        DEFAULT_SAVE_DEBOUNCE_MILLIS
+                ),
+                0L,
+                MAX_SAVE_DEBOUNCE_MILLIS
+        );
+
+        long retrySeconds = Math.clamp(
+                core.getConfig().getLong(
+                        "economy.save-retry-seconds",
+                        30L
+                ),
+                5L,
+                3_600L
+        );
+        saveRetryMillis = retrySeconds * 1_000L;
+
+        persistenceExecutor = new ScheduledThreadPoolExecutor(
+                1,
+                runnable -> {
+                    Thread thread = new Thread(
+                            runnable,
+                            "Mineacle-EconomySave"
+                    );
+                    thread.setDaemon(true);
+                    return thread;
+                }
+        );
+        persistenceExecutor.setRemoveOnCancelPolicy(true);
+        persistenceExecutor.setExecuteExistingDelayedTasksAfterShutdownPolicy(
+                false
+        );
+        persistenceExecutor.setContinueExistingPeriodicTasksAfterShutdownPolicy(
+                false
+        );
     }
 
     public boolean enabled() {
@@ -114,7 +166,7 @@ public final class EconomyService {
                 String.valueOf(configured)
         );
 
-        return parsed >= 0L ? parsed : 0L;
+        return Math.max(parsed, 0L);
     }
 
     public long minimumPaymentCents() {
@@ -126,7 +178,7 @@ public final class EconomyService {
                 String.valueOf(configured)
         );
 
-        return parsed > 0L ? parsed : 1L;
+        return Math.max(parsed, 1L);
     }
 
     public synchronized long getBalanceCents(UUID playerId) {
@@ -167,23 +219,6 @@ public final class EconomyService {
         }
 
         balances.put(playerId, startingBalanceCents());
-        changed();
-        return true;
-    }
-
-    public void setBalance(UUID playerId, long cents) {
-        trySetBalance(playerId, cents);
-    }
-
-    public synchronized boolean trySetBalance(
-            UUID playerId,
-            long cents
-    ) {
-        if (playerId == null || cents < 0L) {
-            return false;
-        }
-
-        balances.put(playerId, cents);
         changed();
         return true;
     }
@@ -231,46 +266,6 @@ public final class EconomyService {
         }
 
         balances.put(playerId, current - cents);
-        changed();
-        return true;
-    }
-
-    /**
-     * Atomically moves money between two Mineacle accounts with one
-     * in-memory mutation and one economy snapshot write.
-     */
-    public synchronized boolean transferBalance(
-            UUID senderId,
-            UUID targetId,
-            long cents
-    ) {
-        if (!enabled()
-                || senderId == null
-                || targetId == null
-                || senderId.equals(targetId)
-                || cents <= 0L) {
-            return false;
-        }
-
-        long senderBalance = getBalanceCents(senderId);
-
-        if (senderBalance < cents) {
-            return false;
-        }
-
-        long recipientBalance;
-
-        try {
-            recipientBalance = Math.addExact(
-                    getBalanceCents(targetId),
-                    cents
-            );
-        } catch (ArithmeticException exception) {
-            return false;
-        }
-
-        balances.put(senderId, senderBalance - cents);
-        balances.put(targetId, recipientBalance);
         changed();
         return true;
     }
@@ -436,32 +431,6 @@ public final class EconomyService {
         );
     }
 
-    public synchronized void addOfflinePayment(
-            UUID targetId,
-            long cents,
-            String senderName
-    ) {
-        if (targetId == null || cents <= 0L) {
-            return;
-        }
-
-        OfflinePaymentNotice notice =
-                offlinePayments.computeIfAbsent(
-                        targetId,
-                        ignored -> new OfflinePaymentNotice(
-                                0L,
-                                Set.of()
-                        )
-                );
-
-        if (notice.tryAdd(
-                cents,
-                senderName
-        )) {
-            changed();
-        }
-    }
-
     public synchronized OfflinePaymentNotice consumeOfflinePayment(
             UUID playerId
     ) {
@@ -534,8 +503,20 @@ public final class EconomyService {
         }
     }
 
-    public void reset(UUID playerId) {
-        trySetBalance(playerId, startingBalanceCents());
+    public synchronized void reset(UUID playerId) {
+        if (playerId == null) {
+            return;
+        }
+
+        long startingBalance = startingBalanceCents();
+
+        if (balances.containsKey(playerId)
+                && balances.get(playerId) == startingBalance) {
+            return;
+        }
+
+        balances.put(playerId, startingBalance);
+        changed();
     }
 
     public synchronized BulkResult applyBulk(
@@ -549,7 +530,7 @@ public final class EconomyService {
                     0,
                     0,
                     0,
-                    !dirty,
+                    !saveFailed,
                     Set.of()
             );
         }
@@ -644,62 +625,282 @@ public final class EconomyService {
         if (changedCount > 0) {
             changed();
         } else if (dirty) {
-            persistBestEffort();
+            flushIfDirty();
         }
 
         return new BulkResult(
                 targets.size(),
                 changedCount,
                 skipped,
-                !dirty,
+                !saveFailed,
                 Set.copyOf(changedIds)
         );
     }
 
+    /**
+     * Requests an immediate asynchronous persistence pass. This method never
+     * performs YAML or filesystem I/O on the caller thread.
+     */
     public synchronized void flushIfDirty() {
         if (dirty) {
-            persistBestEffort();
+            schedulePersistenceLocked(0L);
         }
     }
 
+    /**
+     * Preserves the existing explicit-save API while keeping file I/O off the
+     * caller thread.
+     */
     public synchronized void save() {
         dirty = true;
-        persistBestEffort();
+        changeGeneration++;
+        schedulePersistenceLocked(0L);
     }
 
-    public synchronized void shutdown() {
-        flushIfDirty();
-        active = false;
+    /**
+     * Stops new scheduled saves and gives the serialized writer a bounded
+     * window to flush the final immutable economy snapshot.
+     */
+    public void shutdown() {
+        YamlEconomyRepository.Snapshot finalSnapshot;
+        long finalGeneration;
+        boolean needsFinalWrite;
+
+        synchronized (this) {
+            if (persistenceClosed) {
+                active = false;
+                return;
+            }
+
+            active = false;
+            persistenceClosed = true;
+
+            if (pendingSave != null) {
+                pendingSave.cancel(false);
+                pendingSave = null;
+            }
+
+            needsFinalWrite = dirty
+                    || persistedGeneration < changeGeneration;
+            finalSnapshot = snapshotLocked();
+            finalGeneration = changeGeneration;
+
+            if (needsFinalWrite) {
+                try {
+                    persistenceExecutor.execute(
+                            () -> persistFinalSnapshot(
+                                    finalSnapshot,
+                                    finalGeneration
+                            )
+                    );
+                } catch (RejectedExecutionException exception) {
+                    saveFailed = true;
+                    warnSaveFailure(
+                            "Could not queue final economy save",
+                            exception
+                    );
+                }
+            }
+        }
+
+        persistenceExecutor.shutdown();
+
+        try {
+            if (!persistenceExecutor.awaitTermination(
+                    SHUTDOWN_FLUSH_TIMEOUT_SECONDS,
+                    TimeUnit.SECONDS
+            )) {
+                persistenceExecutor.shutdownNow();
+
+                synchronized (this) {
+                    if (dirty) {
+                        saveFailed = true;
+                    }
+                }
+
+                core.getLogger().severe(
+                        "Economy persistence did not finish within "
+                                + SHUTDOWN_FLUSH_TIMEOUT_SECONDS
+                                + " seconds"
+                );
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            persistenceExecutor.shutdownNow();
+
+            synchronized (this) {
+                if (dirty) {
+                    saveFailed = true;
+                }
+            }
+
+            core.getLogger().log(
+                    Level.SEVERE,
+                    "Interrupted while flushing economy persistence",
+                    exception
+            );
+        }
     }
 
-    private void changed() {
+    private synchronized void changed() {
         dirty = true;
-        persistBestEffort();
+        changeGeneration++;
+        schedulePersistenceLocked(saveDebounceMillis);
     }
 
-    private void persistBestEffort() {
-        if (!dirty) {
+    private void schedulePersistenceLocked(long delayMillis) {
+        if (persistenceClosed || !dirty) {
             return;
         }
 
-        try {
-            repository.save(balances, offlinePayments);
-            dirty = false;
-        } catch (IOException exception) {
-            long now = System.nanoTime();
+        if (pendingSave != null && !pendingSave.isDone()) {
+            if (delayMillis > 0L) {
+                return;
+            }
 
-            if (now - lastSaveWarningNanos
-                    >= SAVE_WARNING_INTERVAL_NANOS) {
-                lastSaveWarningNanos = now;
-                core.getLogger().log(
-                        Level.SEVERE,
-                        "Could not save economy.yml — the complete "
-                                + "transaction remains in memory and "
-                                + "will be retried",
-                        exception
+            pendingSave.cancel(false);
+            pendingSave = null;
+        }
+
+        try {
+            pendingSave = persistenceExecutor.schedule(
+                    this::persistLatest,
+                    Math.max(0L, delayMillis),
+                    TimeUnit.MILLISECONDS
+            );
+        } catch (RejectedExecutionException exception) {
+            saveFailed = true;
+            warnSaveFailure(
+                    "Could not queue economy persistence",
+                    exception
+            );
+        }
+    }
+
+    private void persistLatest() {
+        YamlEconomyRepository.Snapshot snapshot;
+        long generation;
+
+        synchronized (this) {
+            pendingSave = null;
+
+            if (persistenceClosed || !dirty) {
+                return;
+            }
+
+            snapshot = snapshotLocked();
+            generation = changeGeneration;
+        }
+
+        try {
+            repository.save(snapshot);
+        } catch (IOException exception) {
+            synchronized (this) {
+                saveFailed = true;
+                dirty = true;
+
+                if (!persistenceClosed) {
+                    schedulePersistenceLocked(
+                            saveRetryMillis
+                    );
+                }
+            }
+
+            warnSaveFailure(
+                    "Could not save economy.yml — the latest "
+                            + "snapshot remains in memory and "
+                            + "will be retried",
+                    exception
+            );
+            return;
+        }
+
+        synchronized (this) {
+            persistedGeneration = Math.max(
+                    persistedGeneration,
+                    generation
+            );
+            dirty = changeGeneration > persistedGeneration;
+            saveFailed = false;
+
+            if (dirty && !persistenceClosed) {
+                schedulePersistenceLocked(0L);
+            }
+        }
+    }
+
+    private void persistFinalSnapshot(
+            YamlEconomyRepository.Snapshot snapshot,
+            long generation
+    ) {
+        try {
+            repository.save(snapshot);
+
+            synchronized (this) {
+                persistedGeneration = Math.max(
+                        persistedGeneration,
+                        generation
+                );
+                dirty = changeGeneration > persistedGeneration;
+                saveFailed = false;
+            }
+        } catch (IOException exception) {
+            synchronized (this) {
+                saveFailed = true;
+                dirty = true;
+            }
+
+            warnSaveFailure(
+                    "Could not save the final economy snapshot",
+                    exception
+            );
+        }
+    }
+
+    private YamlEconomyRepository.Snapshot snapshotLocked() {
+        Map<UUID, Long> balanceCopy =
+                Map.copyOf(balances);
+        Map<UUID, OfflinePaymentNotice> noticeCopy =
+                new HashMap<>();
+
+        for (Map.Entry<UUID, OfflinePaymentNotice> entry
+                : offlinePayments.entrySet()) {
+            OfflinePaymentNotice notice = entry.getValue();
+
+            if (notice != null) {
+                noticeCopy.put(
+                        entry.getKey(),
+                        notice.copy()
                 );
             }
         }
+
+        return new YamlEconomyRepository.Snapshot(
+                balanceCopy,
+                Map.copyOf(noticeCopy)
+        );
+    }
+
+    private void warnSaveFailure(
+            String message,
+            Exception exception
+    ) {
+        long now = System.nanoTime();
+
+        synchronized (this) {
+            if (now - lastSaveWarningNanos
+                    < SAVE_WARNING_INTERVAL_NANOS) {
+                return;
+            }
+
+            lastSaveWarningNanos = now;
+        }
+
+        core.getLogger().log(
+                Level.SEVERE,
+                message,
+                exception
+        );
     }
 
     private void sendPaymentError(

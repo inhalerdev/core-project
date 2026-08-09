@@ -48,7 +48,6 @@ public final class Core extends JavaPlugin {
 
     private static Core instance;
 
-    private File messagesFile;
     private FileConfiguration messagesConfig;
 
     private File homesFile;
@@ -57,7 +56,6 @@ public final class Core extends JavaPlugin {
     private File teamsFile;
     private FileConfiguration teamsConfig;
 
-    private File economyFile;
     private FileConfiguration economyConfig;
 
     private ModuleManager moduleManager;
@@ -117,7 +115,6 @@ public final class Core extends JavaPlugin {
         } finally {
             saveHomesFile();
             saveTeamsFile();
-            saveEconomyFile();
             SoundService.clearCache();
 
             moduleManager = null;
@@ -243,7 +240,7 @@ public final class Core extends JavaPlugin {
 
     private void loadMessagesFile() {
         ensureDataFolder();
-        messagesFile = new File(
+        File messagesFile = new File(
                 getDataFolder(),
                 "messages.yml"
         );
@@ -294,7 +291,7 @@ public final class Core extends JavaPlugin {
 
     private void loadEconomyFile() {
         ensureDataFolder();
-        economyFile = new File(
+        File economyFile = new File(
                 getDataFolder(),
                 "economy.yml"
         );
@@ -334,14 +331,6 @@ public final class Core extends JavaPlugin {
                 teamsConfig,
                 teamsFile,
                 "teams.yml"
-        );
-    }
-
-    public void saveEconomyFile() {
-        saveYaml(
-                economyConfig,
-                economyFile,
-                "economy.yml"
         );
     }
 

@@ -4,6 +4,7 @@ import net.mineacle.core.Core;
 import net.mineacle.core.economy.service.OfflinePaymentNotice;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
@@ -33,6 +34,10 @@ public final class YamlEconomyRepository {
         this.file = new File(core.getDataFolder(), "economy.yml");
     }
 
+    /**
+     * Startup loading remains synchronous because module initialization needs
+     * a complete economy state before Vault is registered.
+     */
     public synchronized Snapshot load() {
         Map<UUID, Long> balances = new HashMap<>();
         Map<UUID, OfflinePaymentNotice> notices = new HashMap<>();
@@ -104,18 +109,33 @@ public final class YamlEconomyRepository {
         );
     }
 
+    /**
+     * Serializes an immutable economy snapshot into a private
+     * YamlConfiguration. The live Bukkit configuration object is never
+     * mutated by the asynchronous persistence thread.
+     */
     public synchronized void save(
-            Map<UUID, Long> balances,
-            Map<UUID, OfflinePaymentNotice> offlinePayments
+            Snapshot snapshot
     ) throws IOException {
-        FileConfiguration configuration =
-                core.getEconomyConfig();
+        if (snapshot == null) {
+            return;
+        }
 
-        configuration.set("balances", null);
-        configuration.set("offline-payments", null);
+        YamlConfiguration configuration =
+                new YamlConfiguration();
 
+        writeSnapshot(configuration, snapshot);
+        atomicSave(configuration);
+    }
+
+    private void writeSnapshot(
+            FileConfiguration configuration,
+            Snapshot snapshot
+    ) {
         List<Map.Entry<UUID, Long>> balanceEntries =
-                new ArrayList<>(balances.entrySet());
+                new ArrayList<>(
+                        snapshot.balances().entrySet()
+                );
         balanceEntries.sort(
                 Comparator.comparing(
                         entry -> entry.getKey().toString()
@@ -136,7 +156,9 @@ public final class YamlEconomyRepository {
         }
 
         List<Map.Entry<UUID, OfflinePaymentNotice>> notices =
-                new ArrayList<>(offlinePayments.entrySet());
+                new ArrayList<>(
+                        snapshot.offlinePayments().entrySet()
+                );
         notices.sort(
                 Comparator.comparing(
                         entry -> entry.getKey().toString()
@@ -157,6 +179,7 @@ public final class YamlEconomyRepository {
                     path + ".total-cents",
                     notice.totalCents()
             );
+
             List<String> senders = new ArrayList<>(
                     notice.senders()
             );
@@ -167,8 +190,6 @@ public final class YamlEconomyRepository {
                     senders
             );
         }
-
-        atomicSave(configuration);
     }
 
     private void atomicSave(
@@ -209,14 +230,25 @@ public final class YamlEconomyRepository {
         }
     }
 
-    private Map<UUID, OfflinePaymentNotice> copyNotices(
+    private static Map<UUID, OfflinePaymentNotice> copyNotices(
             Map<UUID, OfflinePaymentNotice> source
     ) {
         Map<UUID, OfflinePaymentNotice> copy = new HashMap<>();
 
+        if (source == null) {
+            return Map.of();
+        }
+
         for (Map.Entry<UUID, OfflinePaymentNotice> entry
                 : source.entrySet()) {
-            copy.put(entry.getKey(), entry.getValue().copy());
+            OfflinePaymentNotice notice = entry.getValue();
+
+            if (notice != null) {
+                copy.put(
+                        entry.getKey(),
+                        notice.copy()
+                );
+            }
         }
 
         return Map.copyOf(copy);
