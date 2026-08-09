@@ -3,7 +3,6 @@ package net.mineacle.core.bounty;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.CenteredToolbar;
 import net.mineacle.core.common.gui.GuiSearchLore;
 import net.mineacle.core.common.text.TextColor;
@@ -51,7 +50,7 @@ public final class BountyMainGui {
     }
 
     public static void open(
-            Core core,
+            Core.Core core,
             Player player,
             BountyService bountyService,
             int requestedPage

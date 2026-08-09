@@ -2,7 +2,6 @@ package net.mineacle.core.chat.service;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -42,7 +41,7 @@ public final class NicknameService {
     private static final Set<String> RESERVED =
             Set.of("reset", "clear", "off");
 
-    private final Core core;
+    private final Core.Core core;
     private final File file;
     private final Map<UUID, String> nicknames = new HashMap<>();
     private final Map<String, UUID> nicknameOwners = new HashMap<>();
@@ -50,7 +49,7 @@ public final class NicknameService {
     private final Map<UUID, List<BukkitTask>> refreshTasks =
             new HashMap<>();
 
-    public NicknameService(Core core) throws IOException {
+    public NicknameService(Core.Core core) throws IOException {
         this.core = core;
         this.file = new File(
                 core.getDataFolder(),

@@ -2,7 +2,6 @@ package net.mineacle.core.gamemode.command;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
@@ -16,7 +15,6 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 public final class GamemodeShortcutCommand
@@ -25,12 +23,12 @@ public final class GamemodeShortcutCommand
     private static final String PERMISSION =
             "mineacle.gamemode";
 
-    private final Core core;
+    private final Core.Core core;
     private final String commandName;
     private final GameMode gameMode;
 
     public GamemodeShortcutCommand(
-            Core core,
+            Core.Core core,
             String commandName,
             GameMode gameMode
     ) {

@@ -1,6 +1,5 @@
 package net.mineacle.core.votes;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import org.bukkit.plugin.Plugin;
 
@@ -14,7 +13,7 @@ public final class VoteRewardModule extends Module {
     }
 
     @Override
-    public void enable(Core core) {
+    public void enable(Core.Core core) {
         service = new VoteRewardService(core);
 
         Plugin nuVotifier = core.getServer().getPluginManager().getPlugin("NuVotifier");

@@ -2,7 +2,6 @@ package net.mineacle.core.doublejump.command;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
@@ -32,9 +31,9 @@ public final class SpeedCommand
     private static final List<String> SPEED_OPTIONS =
             createSpeedOptions();
 
-    private final Core core;
+    private final Core.Core core;
 
-    public SpeedCommand(Core core) {
+    public SpeedCommand(Core.Core core) {
         this.core = core;
     }
 

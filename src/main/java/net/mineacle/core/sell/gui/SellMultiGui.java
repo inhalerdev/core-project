@@ -1,6 +1,5 @@
 package net.mineacle.core.sell.gui;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.common.format.MoneyFormatter;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.sell.service.SellService;
@@ -27,7 +26,7 @@ public final class SellMultiGui {
     }
 
     public static void open(
-            Core core,
+            Core.Core core,
             Player player,
             SellService sellService
     ) {

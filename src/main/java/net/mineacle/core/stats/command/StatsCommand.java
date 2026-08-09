@@ -1,6 +1,5 @@
 package net.mineacle.core.stats.command;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
@@ -38,7 +37,7 @@ public final class StatsCommand
             return true;
         }
 
-        Core core = Core.instance();
+        Core.Core core = Core.Core.instance();
 
         if (!viewer.hasPermission("mineaclestats.use")) {
             viewer.sendMessage(

@@ -1,6 +1,5 @@
 package net.mineacle.core.doublejump.command;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
@@ -16,11 +15,11 @@ import java.util.List;
 public final class DoubleJumpCommand
         implements CommandExecutor, TabCompleter {
 
-    private final Core core;
+    private final Core.Core core;
     private final DoubleJumpListener listener;
 
     public DoubleJumpCommand(
-            Core core,
+            Core.Core core,
             DoubleJumpListener listener
     ) {
         this.core = core;

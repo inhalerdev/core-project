@@ -1,6 +1,5 @@
 package net.mineacle.core.links.command;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
@@ -18,12 +17,12 @@ import java.util.Locale;
 public final class LinksCommand
         implements CommandExecutor, TabCompleter {
 
-    private final Core core;
+    private final Core.Core core;
     private final LinksService linksService;
     private final GuideRulesGui guideRulesGui;
 
     public LinksCommand(
-            Core core,
+            Core.Core core,
             LinksService linksService,
             GuideRulesGui guideRulesGui
     ) {

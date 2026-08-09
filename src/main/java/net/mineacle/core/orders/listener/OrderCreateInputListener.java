@@ -2,7 +2,6 @@ package net.mineacle.core.orders.listener;
 
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
@@ -25,11 +24,11 @@ public final class OrderCreateInputListener
     private static final Map<UUID, PendingOrder> PENDING =
             new ConcurrentHashMap<>();
 
-    private final Core core;
+    private final Core.Core core;
     private final OrderService service;
 
     public OrderCreateInputListener(
-            Core core,
+            Core.Core core,
             OrderService service
     ) {
         this.core = core;

@@ -1,6 +1,5 @@
 package net.mineacle.core.duels.service;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.duels.model.DuelInvite;
 import org.bukkit.entity.Player;
 
@@ -13,7 +12,7 @@ import java.util.logging.Level;
 
 public final class DuelInviteSuggestions {
 
-    private final Core core;
+    private final Core.Core core;
     private final DuelService duelService;
 
     private final Field incomingByTargetField;
@@ -22,7 +21,7 @@ public final class DuelInviteSuggestions {
     private boolean reflectionWarningLogged;
 
     public DuelInviteSuggestions(
-            Core core,
+            Core.Core core,
             DuelService duelService
     ) {
         this.core = core;

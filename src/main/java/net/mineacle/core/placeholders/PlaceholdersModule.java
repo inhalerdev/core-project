@@ -1,6 +1,5 @@
 package net.mineacle.core.placeholders;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
@@ -25,7 +24,7 @@ public final class PlaceholdersModule extends Module {
     }
 
     @Override
-    public void enable(Core core) {
+    public void enable(Core.Core core) {
         if (Bukkit.getPluginManager()
                 .getPlugin("PlaceholderAPI") == null) {
             core.getLogger().warning(

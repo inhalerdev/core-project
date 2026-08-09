@@ -1,6 +1,5 @@
 package net.mineacle.core.duels.service;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.duels.model.FightResultRecord;
 import net.mineacle.core.duels.storage.FightRepository;
@@ -25,7 +24,7 @@ public final class FightTrackerService {
                     "overworld_the_end"
             );
 
-    private final Core core;
+    private final Core.Core core;
     private final FightRepository repository;
     private final Map<FightKey, ActiveFight> activeFights =
             new HashMap<>();
@@ -34,7 +33,7 @@ public final class FightTrackerService {
     private long timeoutNanos;
 
     public FightTrackerService(
-            Core core,
+            Core.Core core,
             FileConfiguration config,
             FightRepository repository
     ) {

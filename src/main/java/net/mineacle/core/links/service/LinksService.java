@@ -4,7 +4,6 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.ChatColor;
@@ -34,13 +33,13 @@ public final class LinksService {
             "x"
     );
 
-    private final Core core;
+    private final Core.Core core;
     private final File file;
 
     private boolean enabled;
     private Map<String, LinkDefinition> links = Map.of();
 
-    public LinksService(Core core) {
+    public LinksService(Core.Core core) {
         this.core = core;
         this.file = new File(core.getDataFolder(), "links.yml");
         reload();

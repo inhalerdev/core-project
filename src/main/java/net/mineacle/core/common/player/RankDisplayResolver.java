@@ -75,7 +75,8 @@ public final class RankDisplayResolver {
 
         for (Group group :
                 user.getInheritedGroups(queryOptions)) {
-            if (group == null || group.getName().isBlank()) {
+            if (group == null
+                    || group.getName().isBlank()) {
                 continue;
             }
 
@@ -108,7 +109,7 @@ public final class RankDisplayResolver {
                             "media",
                             "media",
                             "Media +",
-                            "&#55ffff📹&#ff55ff+"
+                            "&#B078FF📹&#8436FE+"
                     )
             );
 
@@ -119,7 +120,7 @@ public final class RankDisplayResolver {
                             "plus",
                             "plus",
                             "Mineacle +",
-                            "&#ff55ff+"
+                            "&#8436FE+"
                     )
             );
         }

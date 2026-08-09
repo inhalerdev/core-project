@@ -1,6 +1,5 @@
 package net.mineacle.core.teams.gui;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -25,7 +24,7 @@ public final class TeamConfirmGui {
     private TeamConfirmGui() {
     }
 
-    public static void open(Core core, Player player, String actionName) {
+    public static void open(Core.Core core, Player player, String actionName) {
         Inventory inventory = Bukkit.createInventory(null, 27, TITLE);
 
         inventory.setItem(CANCEL_SLOT, item(
@@ -58,7 +57,7 @@ public final class TeamConfirmGui {
         player.openInventory(inventory);
     }
 
-    public static void openDeleteHome(Core core, Player player) {
+    public static void openDeleteHome(Core.Core core, Player player) {
         open(core, player, "Delete Team Home");
     }
 

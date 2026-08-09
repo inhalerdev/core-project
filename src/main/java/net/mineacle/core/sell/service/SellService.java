@@ -1,6 +1,5 @@
 package net.mineacle.core.sell.service;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.common.format.MoneyFormatter;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.economy.EconomyModule;
@@ -66,7 +65,7 @@ public final class SellService {
             Material.RECOVERY_COMPASS
     );
 
-    private final Core core;
+    private final Core.Core core;
     private final NamespacedKey injectedWorthLoreKey;
 
     private File sellFile;
@@ -107,7 +106,7 @@ public final class SellService {
     private volatile double mendingMinimumBaseDurabilityMultiplier;
     private volatile double mendingMinimumEnchantDurabilityMultiplier;
 
-    public SellService(Core core) {
+    public SellService(Core.Core core) {
         this.core = core;
         this.injectedWorthLoreKey = new NamespacedKey(
                 core,

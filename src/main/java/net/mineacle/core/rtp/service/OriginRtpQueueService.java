@@ -2,7 +2,6 @@ package net.mineacle.core.rtp.service;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.teleport.TeleportMovement;
 import net.mineacle.core.common.text.TextColor;
@@ -21,7 +20,7 @@ import java.util.concurrent.CompletableFuture;
 
 public final class OriginRtpQueueService {
 
-    private final Core core;
+    private final Core.Core core;
     private final OriginRtpLocationService locationService;
 
     private final Deque<UUID> plusQueue =
@@ -40,7 +39,7 @@ public final class OriginRtpQueueService {
     private BukkitTask processorTask;
     private int consecutivePlus;
 
-    public OriginRtpQueueService(Core core) {
+    public OriginRtpQueueService(Core.Core core) {
         this.core = core;
         this.locationService =
                 new OriginRtpLocationService(core);

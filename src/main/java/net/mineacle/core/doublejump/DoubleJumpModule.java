@@ -1,6 +1,5 @@
 package net.mineacle.core.doublejump;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.doublejump.command.DoubleJumpCommand;
 import net.mineacle.core.doublejump.command.FlyCommand;
@@ -20,7 +19,7 @@ public final class DoubleJumpModule extends Module {
     }
 
     @Override
-    public void enable(Core core) {
+    public void enable(Core.Core core) {
         listener = new DoubleJumpListener(core);
 
         core.getServer().getPluginManager().registerEvents(
@@ -54,7 +53,7 @@ public final class DoubleJumpModule extends Module {
     }
 
     private void register(
-            Core core,
+            Core.Core core,
             String commandName,
             CommandExecutor executor
     ) {

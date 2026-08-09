@@ -1,11 +1,10 @@
 package net.mineacle.core.admininspect.command;
 
-import net.mineacle.core.Core;
 import org.bukkit.entity.Player;
 
 public final class InvSeeCommand extends AbstractInspectCommand {
 
-    public InvSeeCommand(Core core) {
+    public InvSeeCommand(Core.Core core) {
         super(
                 core,
                 "mineacleadmin.invsee",

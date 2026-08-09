@@ -3,7 +3,6 @@ package net.mineacle.core.tpa.command;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.player.PlayerTabComplete;
@@ -26,11 +25,11 @@ import java.util.Locale;
 
 public final class TpaCommand implements CommandExecutor, TabCompleter {
 
-    private final Core core;
+    private final Core.Core core;
     private final TpaService tpaService;
     private final TeleportService teleportService;
 
-    public TpaCommand(Core core, TpaService tpaService, TeleportService teleportService) {
+    public TpaCommand(Core.Core core, TpaService tpaService, TeleportService teleportService) {
         this.core = core;
         this.tpaService = tpaService;
         this.teleportService = teleportService;

@@ -1,6 +1,5 @@
 package net.mineacle.core.chat.command;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.chat.service.ChatService;
 import net.mineacle.core.common.sound.SoundService;
 import org.bukkit.command.Command;
@@ -14,11 +13,11 @@ import java.util.List;
 public final class ReplyCommand
         implements CommandExecutor, TabCompleter {
 
-    private final Core core;
+    private final Core.Core core;
     private final ChatService chatService;
 
     public ReplyCommand(
-            Core core,
+            Core.Core core,
             ChatService chatService
     ) {
         this.core = core;

@@ -1,6 +1,5 @@
 package net.mineacle.core.duels;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.duels.command.DuelCommand;
 import net.mineacle.core.duels.listener.DuelListener;
@@ -21,7 +20,7 @@ import java.util.logging.Level;
 
 public final class DuelsModule extends Module {
 
-    private Core core;
+    private Core.Core core;
     private File webProfilesFile;
     private DuelService duelService;
     private FightTrackerService fightTracker;
@@ -33,7 +32,7 @@ public final class DuelsModule extends Module {
     }
 
     @Override
-    public void enable(Core core) throws Exception {
+    public void enable(Core.Core core) throws Exception {
         this.core = core;
 
         ensureResource(core, "duels.yml");
@@ -254,7 +253,7 @@ public final class DuelsModule extends Module {
     }
 
     private File ensureResource(
-            Core core,
+            Core.Core core,
             String resourceName
     ) {
         File file = new File(core.getDataFolder(), resourceName);

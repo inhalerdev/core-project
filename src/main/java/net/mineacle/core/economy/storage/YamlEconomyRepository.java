@@ -1,6 +1,5 @@
 package net.mineacle.core.economy.storage;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.economy.service.OfflinePaymentNotice;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -25,10 +24,10 @@ public final class YamlEconomyRepository {
     ) {
     }
 
-    private final Core core;
+    private final Core.Core core;
     private final File file;
 
-    public YamlEconomyRepository(Core core) {
+    public YamlEconomyRepository(Core.Core core) {
         this.core = core;
         this.file = new File(core.getDataFolder(), "economy.yml");
     }

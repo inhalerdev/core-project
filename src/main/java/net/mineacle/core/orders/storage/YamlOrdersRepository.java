@@ -1,6 +1,5 @@
 package net.mineacle.core.orders.storage;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.orders.model.OrderRecord;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
@@ -24,13 +23,13 @@ public final class YamlOrdersRepository
 
     private static final int SCHEMA_VERSION = 2;
 
-    private final Core core;
+    private final Core.Core core;
     private final Map<UUID, OrderRecord> orders =
             new LinkedHashMap<>();
 
     private final File file;
 
-    public YamlOrdersRepository(Core core) {
+    public YamlOrdersRepository(Core.Core core) {
         this.core = core;
         this.file = new File(
                 core.getDataFolder(),

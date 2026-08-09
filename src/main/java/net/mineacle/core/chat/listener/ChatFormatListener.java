@@ -6,7 +6,6 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.chat.service.ChatService;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
@@ -24,12 +23,12 @@ import org.bukkit.event.Listener;
 public final class ChatFormatListener
         implements Listener {
 
-    private final Core core;
+    private final Core.Core core;
     private final ChatService chatService;
     private final TeamService teamService;
 
     public ChatFormatListener(
-            Core core,
+            Core.Core core,
             ChatService chatService,
             TeamService teamService
     ) {

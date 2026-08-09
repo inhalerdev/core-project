@@ -8,213 +8,369 @@ import net.mineacle.core.common.teleport.TeleportMovement;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
+import java.util.logging.Level;
 
 public final class TeleportService {
 
-    private static final String CANCELLED_MOVE_MESSAGE = "&cTeleport cancelled — you moved";
+    private static final String CANCELLED_MOVE_MESSAGE =
+            "&cTeleport cancelled — you moved";
+    private static final String ALREADY_PENDING_MESSAGE =
+            "&eYou already have a teleport in progress";
+    private static final String FAILED_MESSAGE =
+            "&cTeleport failed";
     private static final String COUNTDOWN_MESSAGE =
-            "&#bbbbbbTeleporting to &d%target% &#bbbbbbin &d%seconds%s";
+            "&#bbbbbbTeleporting to &#8436FE%target% "
+                    + "&#bbbbbbin &#8436FE%seconds%s";
 
     private final Core core;
-    private final Map<UUID, Location> teleportOrigins = new HashMap<>();
-    private final Map<UUID, String> teleportContexts = new HashMap<>();
-    private final Set<UUID> teleporting = new HashSet<>();
+    private final Map<UUID, PendingTeleport> pending =
+            new HashMap<>();
 
     public TeleportService(Core core) {
         this.core = core;
     }
 
     public boolean isTeleporting(UUID uuid) {
-        return teleporting.contains(uuid);
+        return uuid != null && pending.containsKey(uuid);
     }
 
     public void cancel(UUID uuid) {
-        teleporting.remove(uuid);
-        teleportOrigins.remove(uuid);
-        teleportContexts.remove(uuid);
+        clear(uuid);
     }
 
-    public void begin(Player player, String targetName, Runnable action) {
-        beginInternal(player, targetName, targetName, false, action);
+    public void shutdown() {
+        for (PendingTeleport teleport :
+                new ArrayList<>(pending.values())) {
+            teleport.cancelTask();
+        }
+
+        pending.clear();
     }
 
-    public void beginTpa(Player player, String destinationPlayerName, Runnable action) {
-        beginInternal(player, destinationPlayerName, "TPA", true, action);
+    public void begin(
+            Player player,
+            String targetName,
+            Runnable action
+    ) {
+        TeleportContext context =
+                targetName != null
+                        && targetName.equalsIgnoreCase("Team Home")
+                        ? TeleportContext.TEAM_HOME
+                        : TeleportContext.HOME;
+
+        beginInternal(
+                player,
+                targetName,
+                context,
+                false,
+                action
+        );
+    }
+
+    public void beginTeamHome(
+            Player player,
+            Runnable action
+    ) {
+        beginInternal(
+                player,
+                "Team Home",
+                TeleportContext.TEAM_HOME,
+                false,
+                action
+        );
+    }
+
+    public void beginTpa(
+            Player player,
+            String destinationPlayerName,
+            Runnable action
+    ) {
+        beginInternal(
+                player,
+                destinationPlayerName,
+                TeleportContext.TPA,
+                true,
+                action
+        );
     }
 
     private void beginInternal(
             Player player,
             String displayedTarget,
-            String teleportContext,
+            TeleportContext context,
             boolean tickInitialNumber,
             Runnable action
     ) {
-        UUID uuid = player.getUniqueId();
-
-        if (teleporting.contains(uuid)) {
+        if (player == null
+                || !player.isOnline()
+                || action == null) {
             return;
         }
 
-        String safeDisplayedTarget = displayedTarget == null || displayedTarget.isBlank()
-                ? "destination"
-                : displayedTarget;
+        UUID uuid = player.getUniqueId();
 
-        String safeContext = teleportContext == null ? "" : teleportContext;
-        int delaySeconds = getDelaySeconds(player, safeContext);
+        if (pending.containsKey(uuid)) {
+            player.sendActionBar(
+                    actionBar(ALREADY_PENDING_MESSAGE)
+            );
+            return;
+        }
+
+        String safeTarget =
+                displayedTarget == null
+                        || displayedTarget.isBlank()
+                        ? "destination"
+                        : displayedTarget.trim();
+        int delaySeconds =
+                getDelaySeconds(player, context);
 
         if (delaySeconds <= 0) {
-            action.run();
-            SoundService.teleportComplete(player, core);
+            runTeleportAction(player, action);
             return;
         }
 
-        teleporting.add(uuid);
-        teleportOrigins.put(uuid, player.getLocation().clone());
-        teleportContexts.put(uuid, safeContext);
-
-        String startMessage = countdownMessage(
-                safeDisplayedTarget,
-                safeContext,
-                delaySeconds
+        PendingTeleport teleport = new PendingTeleport(
+                uuid,
+                player.getLocation().clone(),
+                safeTarget,
+                context,
+                delaySeconds,
+                action
         );
 
-        player.sendActionBar(actionBar(startMessage));
+        pending.put(uuid, teleport);
+
+        player.sendActionBar(
+                actionBar(
+                        countdownMessage(
+                                teleport.displayedTarget,
+                                teleport.context,
+                                teleport.secondsRemaining
+                        )
+                )
+        );
 
         if (tickInitialNumber) {
-            SoundService.teleportCountdown(player, core);
+            SoundService.teleportCountdown(
+                    player,
+                    core
+            );
         } else {
-            SoundService.teleportStart(player, core);
+            SoundService.teleportStart(
+                    player,
+                    core
+            );
         }
 
-        new BukkitRunnable() {
-            int countdown = delaySeconds;
-
-            @Override
-            public void run() {
-                if (!teleporting.contains(uuid)) {
-                    cancel();
-                    return;
-                }
-
-                if (!player.isOnline()) {
-                    TeleportService.this.cancel(uuid);
-                    cancel();
-                    return;
-                }
-
-                countdown--;
-
-                if (countdown <= 0) {
-                    TeleportService.this.cancel(uuid);
-                    action.run();
-                    SoundService.teleportComplete(player, core);
-                    cancel();
-                    return;
-                }
-
-                String message = countdownMessage(
-                        safeDisplayedTarget,
-                        safeContext,
-                        countdown
+        teleport.task = core.getServer()
+                .getScheduler()
+                .runTaskTimer(
+                        core,
+                        () -> tick(player, teleport),
+                        20L,
+                        20L
                 );
-
-                player.sendActionBar(actionBar(message));
-                SoundService.teleportCountdown(player, core);
-            }
-        }.runTaskTimer(core, 20L, 20L);
     }
 
-    public void handleMove(Player player, Location to) {
-        UUID uuid = player.getUniqueId();
+    private void tick(
+            Player player,
+            PendingTeleport teleport
+    ) {
+        PendingTeleport current = pending.get(
+                teleport.playerId
+        );
 
-        if (!teleporting.contains(uuid)) {
+        if (current != teleport) {
+            teleport.cancelTask();
             return;
         }
 
-        String teleportContext = teleportContexts.getOrDefault(uuid, "");
-
-        if (!cancelOnMove(teleportContext)) {
+        if (!player.isOnline()) {
+            clear(teleport.playerId);
             return;
         }
 
-        Location origin = teleportOrigins.get(uuid);
-
-        if (origin == null || to == null) {
+        if (cancelOnMove(teleport.context)
+                && TeleportMovement.movedTooFar(
+                        core,
+                        teleport.origin,
+                        player.getLocation()
+                )) {
+            cancelForMovement(player);
             return;
         }
 
-        if (TeleportMovement.movedTooFar(core, origin, to)) {
-            cancel(uuid);
-            String message = TextColor.color(CANCELLED_MOVE_MESSAGE);
-            player.sendActionBar(actionBar(message));
-            player.sendMessage(message);
-            SoundService.teleportCancelled(player, core);
+        teleport.secondsRemaining--;
+
+        if (teleport.secondsRemaining <= 0) {
+            Runnable action = teleport.action;
+            clear(teleport.playerId);
+            runTeleportAction(player, action);
+            return;
+        }
+
+        player.sendActionBar(
+                actionBar(
+                        countdownMessage(
+                                teleport.displayedTarget,
+                                teleport.context,
+                                teleport.secondsRemaining
+                        )
+                )
+        );
+        SoundService.teleportCountdown(player, core);
+    }
+
+    public void handleMove(
+            Player player,
+            Location to
+    ) {
+        if (player == null || to == null) {
+            return;
+        }
+
+        PendingTeleport teleport = pending.get(
+                player.getUniqueId()
+        );
+
+        if (teleport == null
+                || !cancelOnMove(teleport.context)) {
+            return;
+        }
+
+        if (TeleportMovement.movedTooFar(
+                core,
+                teleport.origin,
+                to
+        )) {
+            cancelForMovement(player);
         }
     }
 
-    private int getDelaySeconds(Player player, String teleportContext) {
-        if (teleportContext != null && teleportContext.equalsIgnoreCase("TPA")) {
-            return teleportDelay(player, "tpa.teleport-delay-seconds", "tpa.plus-teleport-delay-seconds");
+    private void cancelForMovement(Player player) {
+        clear(player.getUniqueId());
+
+        String message = TextColor.color(
+                CANCELLED_MOVE_MESSAGE
+        );
+
+        player.sendActionBar(actionBar(message));
+        player.sendMessage(message);
+        SoundService.teleportCancelled(player, core);
+    }
+
+    private void clear(UUID uuid) {
+        if (uuid == null) {
+            return;
         }
 
-        if (teleportContext != null && teleportContext.equalsIgnoreCase("Team Home")) {
-            return teleportDelay(
+        PendingTeleport teleport = pending.remove(uuid);
+
+        if (teleport != null) {
+            teleport.cancelTask();
+        }
+    }
+
+    private int getDelaySeconds(
+            Player player,
+            TeleportContext context
+    ) {
+        return switch (context) {
+            case TPA -> teleportDelay(
+                    player,
+                    "tpa.teleport-delay-seconds",
+                    "tpa.plus-teleport-delay-seconds"
+            );
+            case TEAM_HOME -> teleportDelay(
                     player,
                     "homes.team-home.teleport-delay-seconds",
                     "homes.team-home.plus-teleport-delay-seconds"
             );
-        }
-
-        return teleportDelay(player, "homes.teleport.delay-seconds", "homes.teleport.plus-delay-seconds");
+            case HOME -> teleportDelay(
+                    player,
+                    "homes.teleport.delay-seconds",
+                    "homes.teleport.plus-delay-seconds"
+            );
+        };
     }
 
-    private int teleportDelay(Player player, String defaultPath, String plusPath) {
-        int defaultDelay = Math.max(0, core.getConfig().getInt(
-                defaultPath,
-                core.getConfig().getInt("teleport-perks.default-delay-seconds", 5)
-        ));
+    private int teleportDelay(
+            Player player,
+            String defaultPath,
+            String plusPath
+    ) {
+        int defaultDelay = Math.max(
+                0,
+                core.getConfig().getInt(
+                        defaultPath,
+                        core.getConfig().getInt(
+                                "teleport-perks.default-delay-seconds",
+                                5
+                        )
+                )
+        );
 
-        int plusDelay = Math.max(0, core.getConfig().getInt(
-                plusPath,
-                core.getConfig().getInt("teleport-perks.plus-delay-seconds", 3)
-        ));
+        int plusDelay = Math.max(
+                0,
+                core.getConfig().getInt(
+                        plusPath,
+                        core.getConfig().getInt(
+                                "teleport-perks.plus-delay-seconds",
+                                3
+                        )
+                )
+        );
 
-        String plusPermission = core.getConfig().getString("teleport-perks.plus-permission", "mineacle.plus");
+        String configuredPermission =
+                core.getConfig().getString(
+                        "teleport-perks.plus-permission",
+                        "mineacle.plus"
+                );
+        String plusPermission =
+                configuredPermission == null
+                        || configuredPermission.isBlank()
+                        ? "mineacle.plus"
+                        : configuredPermission.trim();
 
-        if (player != null && player.hasPermission(plusPermission)) {
-            return plusDelay;
-        }
-
-        return defaultDelay;
+        return player.hasPermission(plusPermission)
+                ? plusDelay
+                : defaultDelay;
     }
 
-    private boolean cancelOnMove(String teleportContext) {
-        if (teleportContext != null && teleportContext.equalsIgnoreCase("TPA")) {
-            return core.getConfig().getBoolean("tpa.cancel-on-move", true);
-        }
-
-        if (teleportContext != null && teleportContext.equalsIgnoreCase("Team Home")) {
-            return core.getConfig().getBoolean("homes.team-home.cancel-on-move", true);
-        }
-
-        return core.getConfig().getBoolean("homes.teleport.cancel-on-move", true);
+    private boolean cancelOnMove(
+            TeleportContext context
+    ) {
+        return switch (context) {
+            case TPA -> core.getConfig().getBoolean(
+                    "tpa.cancel-on-move",
+                    true
+            );
+            case TEAM_HOME -> core.getConfig().getBoolean(
+                    "homes.team-home.cancel-on-move",
+                    true
+            );
+            case HOME -> core.getConfig().getBoolean(
+                    "homes.teleport.cancel-on-move",
+                    true
+            );
+        };
     }
 
     private String countdownMessage(
             String displayedTarget,
-            String teleportContext,
+            TeleportContext context,
             int seconds
     ) {
-        String path = teleportContext.equalsIgnoreCase("TPA")
+        String path = context == TeleportContext.TPA
                 ? "tpa.teleporting"
                 : "homes.teleporting";
+
         String message = core.getMessagesConfig() == null
                 ? COUNTDOWN_MESSAGE
                 : core.getMessagesConfig().getString(
@@ -228,10 +384,82 @@ public final class TeleportService {
 
         return TextColor.color(message)
                 .replace("%target%", displayedTarget)
-                .replace("%seconds%", String.valueOf(seconds));
+                .replace(
+                        "%seconds%",
+                        String.valueOf(seconds)
+                );
+    }
+
+    private void runTeleportAction(
+            Player player,
+            Runnable action
+    ) {
+        try {
+            action.run();
+            SoundService.teleportComplete(player, core);
+        } catch (RuntimeException exception) {
+            core.getLogger().log(
+                    Level.SEVERE,
+                    "Teleport action failed for "
+                            + player.getUniqueId(),
+                    exception
+            );
+
+            String message = TextColor.color(
+                    FAILED_MESSAGE
+            );
+            player.sendActionBar(actionBar(message));
+            player.sendMessage(message);
+            SoundService.guiError(player, core);
+        }
     }
 
     private Component actionBar(String message) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
+        return LegacyComponentSerializer
+                .legacySection()
+                .deserialize(
+                        TextColor.color(message)
+                );
+    }
+
+    private enum TeleportContext {
+        HOME,
+        TEAM_HOME,
+        TPA
+    }
+
+    private static final class PendingTeleport {
+
+        private final UUID playerId;
+        private final Location origin;
+        private final String displayedTarget;
+        private final TeleportContext context;
+        private final Runnable action;
+
+        private int secondsRemaining;
+        private BukkitTask task;
+
+        private PendingTeleport(
+                UUID playerId,
+                Location origin,
+                String displayedTarget,
+                TeleportContext context,
+                int secondsRemaining,
+                Runnable action
+        ) {
+            this.playerId = playerId;
+            this.origin = origin;
+            this.displayedTarget = displayedTarget;
+            this.context = context;
+            this.secondsRemaining = secondsRemaining;
+            this.action = action;
+        }
+
+        private void cancelTask() {
+            if (task != null) {
+                task.cancel();
+                task = null;
+            }
+        }
     }
 }

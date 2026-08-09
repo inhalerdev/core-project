@@ -1,6 +1,5 @@
 package net.mineacle.core.collision;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -15,7 +14,7 @@ public final class CollisionModule extends Module {
     }
 
     @Override
-    public void enable(Core core) {
+    public void enable(Core.Core core) {
         service = new PlayerCollisionService(core);
 
         core.getServer()

@@ -4,7 +4,6 @@ import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.homes.command.HomeCommand;
 import net.mineacle.core.homes.listener.HomesGuiListener;
-import net.mineacle.core.homes.listener.HomesMoveListener;
 import net.mineacle.core.homes.service.HomeService;
 import net.mineacle.core.homes.service.HomeWorldRules;
 import net.mineacle.core.homes.service.TeleportService;
@@ -27,9 +26,14 @@ public final class HomesModule extends Module {
         this.core = core;
         this.homeService = new HomeService(core);
         this.worldRules = new HomeWorldRules(core);
-        this.teleportService = new TeleportService(core);
+        this.teleportService = core.teleportService();
 
-        HomeCommand homeCommand = new HomeCommand(core, homeService, worldRules, teleportService);
+        HomeCommand homeCommand = new HomeCommand(
+                core,
+                homeService,
+                worldRules,
+                teleportService
+        );
 
         registerCommand("home", homeCommand);
         registerCommand("sethome", homeCommand);
@@ -38,26 +42,38 @@ public final class HomesModule extends Module {
         registerCommand("mineaclehomes", homeCommand);
 
         core.getServer().getPluginManager().registerEvents(
-                new HomesGuiListener(core, homeService, worldRules, teleportService),
-                core
-        );
-
-        core.getServer().getPluginManager().registerEvents(
-                new HomesMoveListener(teleportService),
+                new HomesGuiListener(
+                        core,
+                        homeService,
+                        worldRules,
+                        teleportService
+                ),
                 core
         );
     }
 
     @Override
     public void disable() {
-        core.saveHomesFile();
+        if (core != null) {
+            core.saveHomesFile();
+        }
+
+        teleportService = null;
+        worldRules = null;
+        homeService = null;
+        core = null;
     }
 
-    private void registerCommand(String name, HomeCommand executor) {
+    private void registerCommand(
+            String name,
+            HomeCommand executor
+    ) {
         PluginCommand command = core.getCommand(name);
+
         if (command == null) {
-            core.getLogger().warning("Missing command in plugin.yml: " + name);
-            return;
+            throw new IllegalStateException(
+                    "Missing command in plugin.yml: " + name
+            );
         }
 
         command.setExecutor(executor);

@@ -1,6 +1,5 @@
 package net.mineacle.core.placeholders;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.chat.ChatModule;
 import net.mineacle.core.chat.service.NicknameService;
 import net.mineacle.core.economy.service.EconomyService;
@@ -11,7 +10,6 @@ import org.bukkit.OfflinePlayer;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -19,14 +17,14 @@ import java.util.logging.Level;
 
 public final class PlaceholderSnapshotService {
 
-    private final Core core;
+    private final Core.Core core;
     private final EconomyService economyService;
     private final StatsService statsService;
 
     private volatile Snapshot snapshot = Snapshot.empty();
 
     public PlaceholderSnapshotService(
-            Core core,
+            Core.Core core,
             EconomyService economyService,
             StatsService statsService
     ) {

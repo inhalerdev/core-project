@@ -2,7 +2,6 @@ package net.mineacle.core.auctionhouse.gui;
 
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.model.AuctionHouseListing;
 import net.mineacle.core.auctionhouse.service.AuctionHouseService;
 import net.mineacle.core.common.gui.MenuHistory;
@@ -24,13 +23,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class AuctionHouseGuiListener implements Listener {
 
-    private final Core core;
+    private final Core.Core core;
     private final AuctionHouseService service;
     private final Map<UUID, SearchPrompt> searchPrompts = new ConcurrentHashMap<>();
     private final Map<UUID, BukkitTask> searchTimeoutTasks = new ConcurrentHashMap<>();
 
     public AuctionHouseGuiListener(
-            Core core,
+            Core.Core core,
             AuctionHouseService service
     ) {
         this.core = core;

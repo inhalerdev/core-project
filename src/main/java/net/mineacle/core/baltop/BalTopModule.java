@@ -1,6 +1,5 @@
 package net.mineacle.core.baltop;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.baltop.command.BalTopCommand;
 import net.mineacle.core.baltop.listener.BalTopGuiListener;
 import net.mineacle.core.bootstrap.Module;
@@ -18,7 +17,7 @@ public final class BalTopModule extends Module {
     }
 
     @Override
-    public void enable(Core core) {
+    public void enable(Core.Core core) {
         EconomyService economyService = EconomyModule.economyService();
 
         if (economyService == null) {

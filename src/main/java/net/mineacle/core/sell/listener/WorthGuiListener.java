@@ -1,6 +1,5 @@
 package net.mineacle.core.sell.listener;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.sell.gui.WorthGui;
@@ -17,11 +16,11 @@ import org.bukkit.event.player.PlayerQuitEvent;
 public final class WorthGuiListener
         implements Listener {
 
-    private final Core core;
+    private final Core.Core core;
     private final SellService sellService;
 
     public WorthGuiListener(
-            Core core,
+            Core.Core core,
             SellService sellService
     ) {
         this.core = core;

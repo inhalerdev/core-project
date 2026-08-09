@@ -1,6 +1,5 @@
 package net.mineacle.core.hide;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.nametag.NametagModule;
 import org.bukkit.command.PluginCommand;
@@ -15,7 +14,7 @@ public final class HideModule extends Module {
     }
 
     @Override
-    public void enable(Core core) {
+    public void enable(Core.Core core) {
         service = new HideService(core);
 
         PluginCommand command = core.getCommand("hide");

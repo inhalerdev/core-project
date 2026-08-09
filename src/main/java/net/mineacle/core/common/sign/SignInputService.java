@@ -1,7 +1,6 @@
 package net.mineacle.core.common.sign;
 
 import net.kyori.adventure.text.Component;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -23,10 +22,10 @@ import java.util.function.Consumer;
 
 public final class SignInputService implements Listener {
 
-    private final Core core;
+    private final Core.Core core;
     private final Map<UUID, PendingSignInput> pendingInputs = new HashMap<>();
 
-    public SignInputService(Core core) {
+    public SignInputService(Core.Core core) {
         this.core = core;
     }
 

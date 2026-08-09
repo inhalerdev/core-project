@@ -1,10 +1,10 @@
 enabled: true
 
 updates:
-  # Rebuild rank, nickname, colors, and visibility once per second.
+  # Rebuild rank, nickname, colors, and visibility once per second
   content-ticks: 20
 
-  # Remove stale display entities and empty Mineacle scoreboard teams.
+  # Remove stale display entities and empty Mineacle scoreboard teams
   cleanup-ticks: 600
 
 worlds:
@@ -28,8 +28,8 @@ rank:
 
 name-color:
   enabled: true
-  default: "&f"
-  op: "&d"
+  default: "#bbbbbb"
+  op: "#8436FE"
 
 suffix: ""
 
@@ -43,5 +43,5 @@ display:
   default-background: false
 
 collision:
-  # Mineacle nametag teams also disable player collision
-  disabled: true
+  # Player collision is owned exclusively by CollisionModule
+  disabled: false

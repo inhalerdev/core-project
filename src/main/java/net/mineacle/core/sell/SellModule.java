@@ -1,7 +1,6 @@
 package net.mineacle.core.sell;
 
 import com.comphenix.protocol.ProtocolLibrary;
-import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.sell.command.SellCommand;
 import net.mineacle.core.sell.listener.ItemStackNormalizeListener;
@@ -35,7 +34,7 @@ public final class SellModule extends Module {
     }
 
     @Override
-    public void enable(Core core) {
+    public void enable(Core.Core core) {
         sellService = new SellService(core);
         sellService.start();
 
@@ -131,7 +130,7 @@ public final class SellModule extends Module {
     }
 
     private void register(
-            Core core,
+            Core.Core core,
             String commandName,
             CommandExecutor executor
     ) {

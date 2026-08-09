@@ -6,7 +6,6 @@ import net.luckperms.api.event.user.UserDataRecalculateEvent;
 import net.luckperms.api.model.group.Group;
 import net.luckperms.api.model.user.User;
 import net.luckperms.api.query.QueryOptions;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
@@ -42,7 +41,7 @@ import java.util.concurrent.RejectedExecutionException;
 
 public final class WebProfileSyncService {
 
-    private final Core core;
+    private final Core.Core core;
     private final FileConfiguration config;
     private final WebProfileRepository repository;
     private final WebRankRepository rankRepository;
@@ -54,7 +53,7 @@ public final class WebProfileSyncService {
             luckPermsRankSubscription;
 
     public WebProfileSyncService(
-            Core core,
+            Core.Core core,
             FileConfiguration config,
             WebProfileRepository repository
     ) {

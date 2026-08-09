@@ -1,6 +1,5 @@
 package net.mineacle.core.rtp.service;
 
-import net.mineacle.core.Core;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -26,11 +25,11 @@ public final class OriginRtpLocationService {
     private static final int WORLD_SAFE_LIMIT =
             29_999_000;
 
-    private final Core core;
+    private final Core.Core core;
     private final Map<String, ArrayDeque<Coordinates>>
             recentDestinations = new HashMap<>();
 
-    public OriginRtpLocationService(Core core) {
+    public OriginRtpLocationService(Core.Core core) {
         this.core = core;
     }
 

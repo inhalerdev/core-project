@@ -3,7 +3,6 @@ package net.mineacle.core.tpa.listener;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
@@ -23,10 +22,10 @@ import java.util.UUID;
 
 public final class TpaTargetMenuListener implements Listener {
 
-    private final Core core;
+    private final Core.Core core;
     private final TpaService tpaService;
 
-    public TpaTargetMenuListener(Core core, TpaService tpaService) {
+    public TpaTargetMenuListener(Core.Core core, TpaService tpaService) {
         this.core = core;
         this.tpaService = tpaService;
     }

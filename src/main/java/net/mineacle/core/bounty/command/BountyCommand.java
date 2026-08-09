@@ -1,6 +1,5 @@
 package net.mineacle.core.bounty.command;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.bounty.BountyConfirmGui;
 import net.mineacle.core.bounty.BountyMainGui;
 import net.mineacle.core.bounty.BountyService;
@@ -24,11 +23,11 @@ import java.util.Locale;
 
 public final class BountyCommand implements CommandExecutor, TabCompleter {
 
-    private final Core core;
+    private final Core.Core core;
     private final BountyService bountyService;
 
     public BountyCommand(
-            Core core,
+            Core.Core core,
             BountyService bountyService
     ) {
         this.core = core;

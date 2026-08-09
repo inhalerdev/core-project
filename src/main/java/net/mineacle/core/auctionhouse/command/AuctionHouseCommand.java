@@ -1,6 +1,5 @@
 package net.mineacle.core.auctionhouse.command;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.gui.AuctionHouseGui;
 import net.mineacle.core.auctionhouse.model.AuctionHouseListing;
 import net.mineacle.core.auctionhouse.service.AuctionHouseService;
@@ -20,10 +19,10 @@ import java.util.Locale;
 
 public final class AuctionHouseCommand implements CommandExecutor, TabCompleter {
 
-    private final Core core;
+    private final Core.Core core;
     private final AuctionHouseService service;
 
-    public AuctionHouseCommand(Core core, AuctionHouseService service) {
+    public AuctionHouseCommand(Core.Core core, AuctionHouseService service) {
         this.core = core;
         this.service = service;
     }

@@ -1,7 +1,6 @@
 package net.mineacle.core.placeholders;
 
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
-import net.mineacle.core.Core;
 import net.mineacle.core.teams.model.TeamMemberRecord;
 import net.mineacle.core.teams.model.TeamRecord;
 import net.mineacle.core.teams.service.TeamService;
@@ -15,11 +14,11 @@ import java.util.UUID;
 public final class MineacleTeamsPlaceholderExpansion
         extends PlaceholderExpansion {
 
-    private final Core core;
+    private final Core.Core core;
     private final TeamService teamService;
 
     public MineacleTeamsPlaceholderExpansion(
-            Core core,
+            Core.Core core,
             TeamService teamService
     ) {
         this.core = core;
