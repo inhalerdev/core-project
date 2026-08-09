@@ -9,13 +9,21 @@ public interface OrdersRepository {
 
     void load();
 
-    boolean save();
+    void save();
+
+    void shutdown();
 
     Collection<OrderRecord> all();
 
+    Collection<OrderRecord> active();
+
+    Collection<OrderRecord> byOwner(UUID ownerId);
+
+    int activeCountByOwner(UUID ownerId);
+
     OrderRecord get(UUID id);
 
-    boolean put(OrderRecord order);
+    void put(OrderRecord order);
 
-    boolean remove(UUID id);
+    void remove(UUID id);
 }

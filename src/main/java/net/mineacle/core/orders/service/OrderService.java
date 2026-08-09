@@ -1,7 +1,5 @@
 package net.mineacle.core.orders.service;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
@@ -10,45 +8,18 @@ import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.orders.model.OrderRecord;
 import net.mineacle.core.orders.storage.OrdersRepository;
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.PlayerInventory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
-import java.util.logging.Level;
 
 public final class OrderService {
-
-    public enum CreationResult {
-        SUCCESS(false),
-        DISABLED(false),
-        INVALID_ITEM(false),
-        INVALID_AMOUNT(false),
-        TOO_MANY_ACTIVE(false),
-        ECONOMY_NOT_READY(false),
-        INVALID_PRICE(true),
-        PRICE_TOO_LOW(true),
-        INSUFFICIENT_FUNDS(true),
-        STORAGE_ERROR(false);
-
-        private final boolean retryPrice;
-
-        CreationResult(boolean retryPrice) {
-            this.retryPrice = retryPrice;
-        }
-
-        public boolean retryPrice() {
-            return retryPrice;
-        }
-    }
 
     private final Core core;
     private final OrdersRepository repository;
@@ -61,52 +32,27 @@ public final class OrderService {
         this.repository = repository;
     }
 
-    public boolean enabled() {
-        return core.getConfig().getBoolean(
-                "orders.enabled",
-                true
-        );
-    }
-
-    public synchronized void reload() {
-        repository.load();
-    }
-
     public List<OrderRecord> activeOrders() {
-        return repository.all().stream()
-                .filter(OrderRecord::active)
-                .filter(order -> order.remainingAmount() > 0)
-                .sorted(
-                        Comparator.comparingLong(
-                                OrderRecord::createdAtMillis
-                        ).reversed()
-                )
-                .toList();
+        return List.copyOf(repository.active());
     }
 
-    public List<OrderRecord> ownerOrders(UUID ownerId) {
+    public List<OrderRecord> ownerOrders(
+            UUID ownerId
+    ) {
         if (ownerId == null) {
             return List.of();
         }
 
-        return repository.all().stream()
-                .filter(
-                        order -> order.ownerId()
-                                .equals(ownerId)
-                )
-                .sorted(
-                        Comparator.comparingLong(
-                                OrderRecord::createdAtMillis
-                        ).reversed()
-                )
-                .toList();
+        return List.copyOf(
+                repository.byOwner(ownerId)
+        );
     }
 
     public OrderRecord get(UUID id) {
         return repository.get(id);
     }
 
-    public boolean create(
+    public synchronized boolean create(
             Player player,
             int amount,
             String rawPrice
@@ -115,80 +61,18 @@ public final class OrderService {
             return false;
         }
 
-        ItemStack hand = player.getInventory()
-                .getItemInMainHand();
-        Material material = hand == null
-                ? Material.AIR
-                : hand.getType();
-
-        return createDetailed(
-                player,
-                material,
-                amount,
-                rawPrice
-        ) == CreationResult.SUCCESS;
-    }
-
-    public boolean create(
-            Player player,
-            Material material,
-            int amount,
-            String rawTotalPay
-    ) {
-        return createDetailed(
-                player,
-                material,
-                amount,
-                rawTotalPay
-        ) == CreationResult.SUCCESS;
-    }
-
-    public synchronized CreationResult createDetailed(
-            Player player,
-            Material material,
-            int amount,
-            String rawTotalPay
-    ) {
-        if (player == null) {
-            return CreationResult.INVALID_ITEM;
-        }
-
-        if (!enabled()) {
-            error(
-                    player,
-                    message(
-                            "disabled",
-                            "&cOrders are currently disabled"
-                    )
-            );
-            return CreationResult.DISABLED;
-        }
-
-        if (material == null
-                || material == Material.AIR
-                || !material.isItem()) {
-            error(
-                    player,
-                    message(
-                            "hold-item",
-                            "&cChoose an item from the order menu"
-                    )
-            );
-            return CreationResult.INVALID_ITEM;
-        }
-
         if (amount <= 0) {
-            error(
+            fail(
                     player,
                     message(
                             "invalid-amount",
                             "&cAmount must be greater than 0"
                     )
             );
-            return CreationResult.INVALID_AMOUNT;
+            return false;
         }
 
-        int maximumAmount = Math.max(
+        int maxAmount = Math.max(
                 1,
                 core.getConfig().getInt(
                         "orders.limits.max-amount",
@@ -196,171 +80,165 @@ public final class OrderService {
                 )
         );
 
-        if (amount > maximumAmount) {
-            error(
+        if (amount > maxAmount) {
+            fail(
                     player,
                     message(
                             "max-amount",
                             "&cThat order amount is too high"
                     ).replace(
                             "%max%",
-                            String.valueOf(maximumAmount)
+                            String.valueOf(maxAmount)
                     )
             );
-            return CreationResult.INVALID_AMOUNT;
+            return false;
         }
 
-        int maximumActive = maxActiveOrders(player);
+        int maxActive = maxActiveOrders(player);
 
-        if (activeOwnedCount(player.getUniqueId())
-                >= maximumActive) {
-            error(
+        if (repository.activeCountByOwner(
+                player.getUniqueId()
+        ) >= maxActive) {
+            fail(
                     player,
                     message(
                             "max-active",
                             "&cYou have too many active orders"
                     ).replace(
                             "%max%",
-                            String.valueOf(maximumActive)
+                            String.valueOf(maxActive)
                     )
             );
-            return CreationResult.TOO_MANY_ACTIVE;
+            return false;
+        }
+
+        ItemStack hand =
+                player.getInventory()
+                        .getItemInMainHand();
+
+        if (hand.getType() == Material.AIR) {
+            fail(
+                    player,
+                    message(
+                            "hold-item",
+                            "&cHold the item you want to order"
+                    )
+            );
+            return false;
         }
 
         EconomyService economy =
                 EconomyModule.economyService();
 
         if (economy == null || !economy.enabled()) {
-            error(
+            fail(
                     player,
                     message(
                             "economy-not-ready",
                             "&cEconomy is not ready"
                     )
             );
-            return CreationResult.ECONOMY_NOT_READY;
+            return false;
         }
 
-        long escrow = economy.parseAmountToCents(
-                rawTotalPay
-        );
+        long pricePerItem =
+                parseAmountToCents(
+                        economy,
+                        rawPrice
+                );
+        long minimumPrice =
+                minimumPriceCents(economy);
 
-        if (escrow <= 0L) {
-            error(
-                    player,
-                    message(
-                            "invalid-price",
-                            "&cType a price like 100k, 11.5M, or 250000"
-                    )
-            );
-            return CreationResult.INVALID_PRICE;
-        }
-
-        long minimumEach = minimumPricePerItem(economy);
-        long minimumTotal;
-
-        try {
-            minimumTotal = Math.multiplyExact(
-                    minimumEach,
-                    amount
-            );
-        } catch (ArithmeticException exception) {
-            error(player, "&cThat order value is too large");
-            return CreationResult.INVALID_PRICE;
-        }
-
-        if (escrow < minimumTotal) {
-            error(
+        if (pricePerItem < minimumPrice) {
+            fail(
                     player,
                     message(
                             "minimum-price",
                             "&cPrice is too low"
                     ).replace(
                             "%minimum%",
-                            economy.format(minimumTotal)
+                            economy.format(minimumPrice)
                     )
             );
-            return CreationResult.PRICE_TOO_LOW;
+            return false;
         }
 
-        long tax = creationTax(escrow);
-        long totalCost;
+        long subtotal;
 
         try {
-            totalCost = Math.addExact(escrow, tax);
+            subtotal = Math.multiplyExact(
+                    pricePerItem,
+                    amount
+            );
         } catch (ArithmeticException exception) {
-            error(player, "&cThat order value is too large");
-            return CreationResult.INVALID_PRICE;
+            fail(
+                    player,
+                    "&cThat order total is too high"
+            );
+            return false;
         }
 
-        UUID ownerId = player.getUniqueId();
+        long tax = creationTaxCents(subtotal);
 
-        if (!economy.has(ownerId, totalCost)) {
-            error(
+        if (tax < 0L) {
+            fail(
+                    player,
+                    "&cThat order total is too high"
+            );
+            return false;
+        }
+
+        long total;
+
+        try {
+            total = Math.addExact(
+                    subtotal,
+                    tax
+            );
+        } catch (ArithmeticException exception) {
+            fail(
+                    player,
+                    "&cThat order total is too high"
+            );
+            return false;
+        }
+
+        if (!economy.take(
+                player.getUniqueId(),
+                total
+        )) {
+            fail(
                     player,
                     message(
                             "not-enough-money",
                             "&cYou do not have enough money"
                     )
             );
-            send(
-                    player,
-                    "&#bbbbbbYou need &a"
-                            + economy.format(totalCost)
-            );
-            send(
-                    player,
-                    "&#bbbbbbYour balance: &a"
-                            + economy.format(
-                            economy.getBalanceCents(ownerId)
-                    )
-            );
-            return CreationResult.INSUFFICIENT_FUNDS;
-        }
-
-        if (!economy.take(ownerId, totalCost)) {
-            error(
-                    player,
-                    message(
-                            "not-enough-money",
-                            "&cYou do not have enough money"
-                    )
-            );
-            return CreationResult.INSUFFICIENT_FUNDS;
+            return false;
         }
 
         OrderRecord order = new OrderRecord(
                 UUID.randomUUID(),
-                ownerId,
+                player.getUniqueId(),
                 DisplayNames.displayName(player),
-                material,
+                hand.getType(),
                 amount,
                 0,
                 0,
-                escrow,
-                escrow,
+                pricePerItem,
+                subtotal,
                 System.currentTimeMillis(),
                 true
         );
 
-        if (!repository.put(order)) {
-            economy.tryGive(ownerId, totalCost);
-            error(
-                    player,
-                    message(
-                            "storage-error",
-                            "&cCould not save your order"
-                    )
-            );
-            return CreationResult.STORAGE_ERROR;
-        }
+        repository.put(order);
 
         send(
                 player,
                 message(
                         "created",
                         "&#bbbbbbCreated order for "
-                                + "&#ff88ff%amount%x %item%"
+                                + "&#B078FF%amount%x %item%"
                 )
                         .replace(
                                 "%amount%",
@@ -368,282 +246,260 @@ public final class OrderService {
                         )
                         .replace(
                                 "%item%",
-                                pretty(material)
+                                pretty(order.material())
+                        )
+                        .replace(
+                                "%price%",
+                                economy.format(pricePerItem)
+                        )
+                        .replace(
+                                "%total%",
+                                economy.format(subtotal)
+                        )
+                        .replace(
+                                "%tax%",
+                                economy.format(tax)
                         )
         );
-        send(
-                player,
-                "&#bbbbbbPlayers can earn &a"
-                        + economy.format(escrow)
-                        + " &#bbbbbbby completing it"
-        );
-
-        if (tax > 0L) {
-            send(
-                    player,
-                    "&#bbbbbbCreation tax: &a"
-                            + economy.format(tax)
-            );
-        }
-
         SoundService.guiConfirm(player, core);
-        return CreationResult.SUCCESS;
+        return true;
     }
 
-    public synchronized boolean deliver(
+    public synchronized void deliver(
             Player seller,
-            OrderRecord suppliedOrder
+            OrderRecord requestedOrder
     ) {
-        if (seller == null || suppliedOrder == null) {
-            return false;
+        if (seller == null || requestedOrder == null) {
+            return;
         }
 
-        OrderRecord original = repository.get(
-                suppliedOrder.id()
-        );
+        OrderRecord order =
+                repository.get(requestedOrder.id());
 
-        if (original == null
-                || !original.active()
-                || original.remainingAmount() <= 0) {
-            error(
+        if (order == null
+                || !order.active()
+                || order.remainingAmount() <= 0) {
+            fail(
                     seller,
                     message(
                             "already-complete",
                             "&cThat order is already complete"
                     )
             );
-            return false;
+            return;
         }
 
         if (seller.getUniqueId().equals(
-                original.ownerId()
+                order.ownerId()
         )) {
-            error(
+            fail(
                     seller,
                     message(
                             "own-order",
                             "&cYou cannot deliver to your own order"
                     )
             );
-            return false;
-        }
-
-        int available = countItems(
-                seller,
-                original.material()
-        );
-        int deliveryAmount = Math.min(
-                available,
-                original.remainingAmount()
-        );
-
-        if (deliveryAmount <= 0) {
-            error(
-                    seller,
-                    message(
-                            "missing-items",
-                            "&cYou do not have the required item"
-                    )
-            );
-            return false;
-        }
-
-        long payout = original.payoutFor(
-                deliveryAmount
-        );
-
-        if (payout <= 0L) {
-            error(
-                    seller,
-                    "&cThat order does not have enough escrow"
-            );
-            return false;
+            return;
         }
 
         EconomyService economy =
                 EconomyModule.economyService();
 
         if (economy == null || !economy.enabled()) {
-            error(
+            fail(
                     seller,
                     message(
                             "economy-not-ready",
                             "&cEconomy is not ready"
                     )
             );
-            return false;
+            return;
         }
 
-        ItemStack[] inventoryBefore =
-                cloneStorage(seller.getInventory());
-
-        if (!removeItems(
+        int available = countItems(
                 seller,
-                original.material(),
-                deliveryAmount
-        )) {
-            restoreStorage(
-                    seller.getInventory(),
-                    inventoryBefore
-            );
-            error(
+                order.material()
+        );
+        int deliverAmount = Math.min(
+                available,
+                order.remainingAmount()
+        );
+
+        if (deliverAmount <= 0) {
+            fail(
                     seller,
                     message(
                             "missing-items",
                             "&cYou do not have the required item"
                     )
             );
-            return false;
+            return;
         }
 
-        OrderRecord updated = original.copy();
-        updated.addDelivered(
-                deliveryAmount,
-                payout
+        long maxByEscrow =
+                order.escrowRemainingCents()
+                        / order.pricePerItemCents();
+
+        deliverAmount = (int) Math.min(
+                deliverAmount,
+                maxByEscrow
         );
 
-        if (!repository.put(updated)) {
-            restoreStorage(
-                    seller.getInventory(),
-                    inventoryBefore
-            );
-            error(
+        if (deliverAmount <= 0) {
+            fail(
                     seller,
                     message(
-                            "storage-error",
-                            "&cCould not save that delivery"
+                            "already-complete",
+                            "&cThat order is already complete"
                     )
             );
-            return false;
+            return;
+        }
+
+        long payout;
+
+        try {
+            payout = Math.multiplyExact(
+                    order.pricePerItemCents(),
+                    deliverAmount
+            );
+        } catch (ArithmeticException exception) {
+            fail(
+                    seller,
+                    "&cThat delivery value is too high"
+            );
+            return;
+        }
+
+        if (!removeItems(
+                seller,
+                order.material(),
+                deliverAmount
+        )) {
+            fail(
+                    seller,
+                    message(
+                            "missing-items",
+                            "&cYou do not have the required item"
+                    )
+            );
+            return;
         }
 
         if (!economy.tryGive(
                 seller.getUniqueId(),
                 payout
         )) {
-            repository.put(original);
-            restoreStorage(
-                    seller.getInventory(),
-                    inventoryBefore
-            );
-            error(
+            restoreItems(
                     seller,
-                    "&cCould not add the delivery payout"
+                    order.material(),
+                    deliverAmount
             );
-            return false;
+            fail(
+                    seller,
+                    "&cCould not complete that delivery"
+            );
+            return;
         }
+
+        order.addDelivered(deliverAmount);
+        order.removeEscrow(payout);
+        repository.put(order);
 
         send(
                 seller,
                 message(
                         "delivered",
                         "&#bbbbbbDelivered "
-                                + "&#ff88ff%amount%x %item% "
+                                + "&#B078FF%amount%x %item% "
                                 + "&#bbbbbbfor &a+%money%"
                 )
                         .replace(
                                 "%amount%",
-                                String.valueOf(deliveryAmount)
+                                String.valueOf(deliverAmount)
                         )
                         .replace(
                                 "%item%",
-                                pretty(original.material())
+                                pretty(order.material())
                         )
                         .replace(
                                 "%money%",
                                 economy.format(payout)
                         )
         );
-        SoundService.economyReceive(seller, core);
-        return true;
+        SoundService.economyReceive(
+                seller,
+                core
+        );
     }
 
-    public synchronized boolean collect(
+    public synchronized void collect(
             Player player,
-            OrderRecord suppliedOrder
+            OrderRecord requestedOrder
     ) {
-        if (player == null || suppliedOrder == null) {
-            return false;
+        if (player == null || requestedOrder == null) {
+            return;
         }
 
-        OrderRecord original = repository.get(
-                suppliedOrder.id()
-        );
+        OrderRecord order =
+                repository.get(requestedOrder.id());
 
-        if (original == null
-                || !original.ownerId().equals(
+        if (order == null
+                || !order.ownerId().equals(
                 player.getUniqueId()
         )) {
-            error(player, "&cThat order is not available");
-            return false;
+            SoundService.guiError(player, core);
+            return;
         }
 
-        int available = original.collectableAmount();
+        int amount = order.collectableAmount();
 
-        if (available <= 0) {
-            error(
+        if (amount <= 0) {
+            fail(
                     player,
                     message(
                             "nothing-to-collect",
                             "&cThere are no items to collect"
                     )
             );
-            return false;
+            return;
         }
 
-        PlayerInventory inventory =
-                player.getInventory();
-        ItemStack[] inventoryBefore =
-                cloneStorage(inventory);
-        int collected = addPlainItems(
-                inventory,
-                original.material(),
-                available
-        );
+        HashMap<Integer, ItemStack> leftover =
+                player.getInventory().addItem(
+                        new ItemStack(
+                                order.material(),
+                                amount
+                        )
+                );
+        int leftoverAmount = 0;
+
+        for (ItemStack item : leftover.values()) {
+            leftoverAmount += item.getAmount();
+        }
+
+        int collected = amount - leftoverAmount;
 
         if (collected <= 0) {
-            restoreStorage(
-                    inventory,
-                    inventoryBefore
-            );
-            error(
+            fail(
                     player,
                     message(
                             "inventory-full",
                             "&cYour inventory is full"
                     )
             );
-            return false;
+            return;
         }
 
-        OrderRecord updated = original.copy();
-        updated.addCollected(collected);
-
-        boolean persisted = updated.settled()
-                ? repository.remove(updated.id())
-                : repository.put(updated);
-
-        if (!persisted) {
-            restoreStorage(
-                    inventory,
-                    inventoryBefore
-            );
-            error(
-                    player,
-                    message(
-                            "storage-error",
-                            "&cCould not save collected items"
-                    )
-            );
-            return false;
-        }
+        order.addCollected(collected);
+        repository.put(order);
 
         send(
                 player,
                 message(
                         "collected",
                         "&#bbbbbbCollected "
-                                + "&#ff88ff%amount%x %item%"
+                                + "&#B078FF%amount%x %item%"
                 )
                         .replace(
                                 "%amount%",
@@ -651,87 +507,63 @@ public final class OrderService {
                         )
                         .replace(
                                 "%item%",
-                                pretty(original.material())
+                                pretty(order.material())
                         )
         );
         SoundService.guiConfirm(player, core);
-        return true;
     }
 
-    public synchronized boolean cancel(
+    public synchronized void cancel(
             Player player,
-            OrderRecord suppliedOrder
+            OrderRecord requestedOrder
     ) {
-        if (player == null || suppliedOrder == null) {
-            return false;
+        if (player == null || requestedOrder == null) {
+            return;
         }
 
-        OrderRecord original = repository.get(
-                suppliedOrder.id()
-        );
+        OrderRecord order =
+                repository.get(requestedOrder.id());
 
-        if (original == null
-                || !original.ownerId().equals(
+        if (order == null
+                || !order.ownerId().equals(
                 player.getUniqueId()
-        )) {
-            error(player, "&cThat order is not available");
-            return false;
-        }
-
-        if (!original.active()) {
-            error(player, "&cThat order is already closed");
-            return false;
+        )
+                || !order.active()) {
+            SoundService.guiError(player, core);
+            return;
         }
 
         EconomyService economy =
                 EconomyModule.economyService();
 
         if (economy == null || !economy.enabled()) {
-            error(
+            fail(
                     player,
                     message(
                             "economy-not-ready",
                             "&cEconomy is not ready"
                     )
             );
-            return false;
+            return;
         }
 
-        long refund = original.escrowRemainingCents();
+        long refund = order.escrowRemainingCents();
 
         if (refund > 0L
                 && !economy.tryGive(
                 player.getUniqueId(),
                 refund
         )) {
-            error(player, "&cCould not return the order escrow");
-            return false;
-        }
-
-        OrderRecord updated = original.copy();
-        updated.cancelAndRefund();
-
-        boolean persisted = updated.settled()
-                ? repository.remove(updated.id())
-                : repository.put(updated);
-
-        if (!persisted) {
-            if (refund > 0L) {
-                economy.take(
-                        player.getUniqueId(),
-                        refund
-                );
-            }
-
-            error(
+            fail(
                     player,
-                    message(
-                            "storage-error",
-                            "&cCould not cancel that order"
-                    )
+                    "&cCould not refund that order"
             );
-            return false;
+            return;
         }
+
+        order.removeEscrow(refund);
+        order.cancel();
+        repository.put(order);
 
         send(
                 player,
@@ -745,7 +577,6 @@ public final class OrderService {
                 )
         );
         SoundService.guiCancel(player, core);
-        return true;
     }
 
     public int countItems(
@@ -758,8 +589,8 @@ public final class OrderService {
 
         int count = 0;
 
-        for (ItemStack item : player.getInventory()
-                .getStorageContents()) {
+        for (ItemStack item :
+                player.getInventory().getContents()) {
             if (item == null
                     || item.getType() != material) {
                 continue;
@@ -771,47 +602,17 @@ public final class OrderService {
         return count;
     }
 
-    public long previewPayout(
-            OrderRecord order,
-            int amount
-    ) {
-        if (order == null) {
-            return 0L;
-        }
-
-        OrderRecord current = repository.get(order.id());
-
-        return current == null
-                ? 0L
-                : current.payoutFor(amount);
-    }
-
-    public String ownerDisplayName(OrderRecord order) {
-        if (order == null) {
+    public String pretty(Material material) {
+        if (material == null) {
             return "";
         }
 
-        OfflinePlayer owner = Bukkit.getOfflinePlayer(
-                order.ownerId()
-        );
-        String display = DisplayNames.displayName(owner);
-
-        if (display == null || display.isBlank()) {
-            return order.ownerName();
-        }
-
-        return display;
-    }
-
-    public String pretty(Material material) {
-        if (material == null) {
-            return "Unknown Item";
-        }
-
-        String[] parts = material.name()
-                .toLowerCase()
-                .split("_");
-        StringBuilder builder = new StringBuilder();
+        String[] parts =
+                material.name()
+                        .toLowerCase(Locale.ROOT)
+                        .split("_");
+        StringBuilder builder =
+                new StringBuilder();
 
         for (String part : parts) {
             if (part.isBlank()) {
@@ -823,82 +624,71 @@ public final class OrderService {
             }
 
             builder.append(
-                    Character.toUpperCase(part.charAt(0))
-            );
-
-            if (part.length() > 1) {
-                builder.append(part.substring(1));
-            }
+                    Character.toUpperCase(
+                            part.charAt(0)
+                    )
+            ).append(part.substring(1));
         }
 
         return builder.toString();
     }
 
-    public boolean save() {
-        return repository.save();
+    public void save() {
+        repository.save();
     }
 
-    private int activeOwnedCount(UUID ownerId) {
-        int count = 0;
-
-        for (OrderRecord order : repository.all()) {
-            if (order.ownerId().equals(ownerId)
-                    && order.active()) {
-                count++;
-            }
-        }
-
-        return count;
+    public void shutdown() {
+        repository.shutdown();
     }
 
     private int maxActiveOrders(Player player) {
-        if (player.hasPermission("mineacle.plus")) {
-            return Math.max(
-                    1,
-                    core.getConfig().getInt(
-                            "orders.limits.max-active-plus",
-                            25
-                    )
-            );
-        }
-
-        return Math.max(
-                1,
-                core.getConfig().getInt(
+        int configured = player.hasPermission(
+                "mineacle.plus"
+        )
+                ? core.getConfig().getInt(
+                        "orders.limits.max-active-plus",
+                        25
+                )
+                : core.getConfig().getInt(
                         "orders.limits.max-active-default",
                         10
-                )
-        );
+                );
+
+        return Math.max(1, configured);
     }
 
-    private long minimumPricePerItem(
+    private long minimumPriceCents(
             EconomyService economy
     ) {
         Object configured = core.getConfig().get(
                 "orders.limits.minimum-price-per-item",
                 "0.01"
         );
-        long parsed = economy.parseAmountToCents(
-                String.valueOf(configured)
-        );
 
-        return parsed > 0L ? parsed : 1L;
+        long parsed =
+                economy.parseAmountToCents(
+                        String.valueOf(configured)
+                );
+
+        return Math.max(1L, parsed);
     }
 
-    private long creationTax(long escrow) {
-        BigDecimal percent = BigDecimal.valueOf(
-                Math.max(
-                        0.0D,
-                        core.getConfig().getDouble(
-                                "orders.creation-tax-percent",
-                                0.0D
-                        )
-                )
+    private long creationTaxCents(long subtotal) {
+        double configured = core.getConfig().getDouble(
+                "orders.creation-tax-percent",
+                0.0D
+        );
+        double bounded = Math.clamp(
+                configured,
+                0.0D,
+                100.0D
         );
 
         try {
-            return BigDecimal.valueOf(escrow)
-                    .multiply(percent)
+            return BigDecimal.valueOf(subtotal)
+                    .multiply(
+                            BigDecimal.valueOf(bounded)
+                    )
                     .divide(
                             BigDecimal.valueOf(100L),
                             0,
@@ -906,7 +696,7 @@ public final class OrderService {
                     )
                     .longValueExact();
         } catch (ArithmeticException exception) {
-            return Long.MAX_VALUE;
+            return -1L;
         }
     }
 
@@ -915,17 +705,15 @@ public final class OrderService {
             Material material,
             int amount
     ) {
-        PlayerInventory inventory =
-                player.getInventory();
-        ItemStack[] contents =
-                cloneStorage(inventory);
+        if (amount <= 0
+                || countItems(player, material) < amount) {
+            return false;
+        }
+
         int remaining = amount;
 
-        for (int index = 0;
-             index < contents.length && remaining > 0;
-             index++) {
-            ItemStack item = contents[index];
-
+        for (ItemStack item :
+                player.getInventory().getContents()) {
             if (item == null
                     || item.getType() != material) {
                 continue;
@@ -935,100 +723,88 @@ public final class OrderService {
                     remaining,
                     item.getAmount()
             );
-            int left = item.getAmount() - take;
-
-            if (left <= 0) {
-                contents[index] = null;
-            } else {
-                ItemStack reduced = item.clone();
-                reduced.setAmount(left);
-                contents[index] = reduced;
-            }
-
+            item.setAmount(
+                    item.getAmount() - take
+            );
             remaining -= take;
+
+            if (remaining == 0) {
+                return true;
+            }
         }
 
-        if (remaining > 0) {
-            return false;
-        }
-
-        inventory.setStorageContents(contents);
-        return true;
+        return false;
     }
 
-    private int addPlainItems(
-            PlayerInventory inventory,
+    private void restoreItems(
+            Player player,
             Material material,
             int amount
     ) {
-        int remaining = amount;
-        int maximumStack = Math.max(
-                1,
-                material.getMaxStackSize()
-        );
+        HashMap<Integer, ItemStack> leftover =
+                player.getInventory().addItem(
+                        new ItemStack(
+                                material,
+                                amount
+                        )
+                );
 
-        while (remaining > 0) {
-            int stackAmount = Math.min(
-                    maximumStack,
-                    remaining
+        for (ItemStack item : leftover.values()) {
+            player.getWorld().dropItemNaturally(
+                    player.getLocation(),
+                    item
             );
-            ItemStack stack = new ItemStack(
-                    material,
-                    stackAmount
-            );
-            int leftovers = inventory.addItem(stack)
-                    .values()
-                    .stream()
-                    .filter(item -> item != null)
-                    .mapToInt(ItemStack::getAmount)
-                    .sum();
-            int added = stackAmount - leftovers;
-
-            if (added <= 0) {
-                break;
-            }
-
-            remaining -= added;
-
-            if (leftovers > 0) {
-                break;
-            }
         }
-
-        return amount - remaining;
     }
 
-    private ItemStack[] cloneStorage(
-            PlayerInventory inventory
+    private long parseAmountToCents(
+            EconomyService economy,
+            String raw
     ) {
-        ItemStack[] contents =
-                inventory.getStorageContents();
-        ItemStack[] copy =
-                new ItemStack[contents.length];
-
-        for (int index = 0;
-             index < contents.length;
-             index++) {
-            copy[index] = contents[index] == null
-                    ? null
-                    : contents[index].clone();
+        if (raw == null || raw.isBlank()) {
+            return -1L;
         }
 
-        return copy;
-    }
+        String input = raw.trim()
+                .replace(",", "")
+                .replace("_", "")
+                .toLowerCase(Locale.ROOT);
+        BigDecimal multiplier =
+                BigDecimal.ONE;
 
-    private void restoreStorage(
-            PlayerInventory inventory,
-            ItemStack[] contents
-    ) {
+        if (input.endsWith("k")) {
+            multiplier = BigDecimal.valueOf(
+                    1_000L
+            );
+            input = input.substring(
+                    0,
+                    input.length() - 1
+            );
+        } else if (input.endsWith("m")) {
+            multiplier = BigDecimal.valueOf(
+                    1_000_000L
+            );
+            input = input.substring(
+                    0,
+                    input.length() - 1
+            );
+        } else if (input.endsWith("b")) {
+            multiplier = BigDecimal.valueOf(
+                    1_000_000_000L
+            );
+            input = input.substring(
+                    0,
+                    input.length() - 1
+            );
+        }
+
         try {
-            inventory.setStorageContents(contents);
-        } catch (IllegalArgumentException exception) {
-            core.getLogger().log(
-                    Level.SEVERE,
-                    "Could not restore an Orders inventory transaction",
-                    exception
+            return economy.amountToCents(
+                    new BigDecimal(input)
+                            .multiply(multiplier)
             );
+        } catch (NumberFormatException exception) {
+            return -1L;
         }
     }
 
@@ -1036,13 +812,31 @@ public final class OrderService {
             String key,
             String fallback
     ) {
-        return core.getConfig().getString(
+        String value = core.getConfig().getString(
                 "orders.messages." + key,
                 fallback
         );
+
+        return normalizePalette(value);
     }
 
-    private void error(
+    private String normalizePalette(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+
+        return value
+                .replace("&#ff55ff", "&#8436FE")
+                .replace("&#FF55FF", "&#8436FE")
+                .replace("&#ff88ff", "&#B078FF")
+                .replace("&#FF88FF", "&#B078FF")
+                .replace("&#cccccc", "&#bbbbbb")
+                .replace("&#CCCCCC", "&#bbbbbb")
+                .replace("&d", "&#8436FE")
+                .replace("&f", "&#f8f8f8");
+    }
+
+    private void fail(
             Player player,
             String message
     ) {
@@ -1054,11 +848,8 @@ public final class OrderService {
             Player player,
             String message
     ) {
-        String colored = TextColor.color(message);
-        player.sendMessage(colored);
-        player.sendActionBar(
-                LegacyComponentSerializer.legacySection()
-                        .deserialize(colored)
+        player.sendMessage(
+                TextColor.color(message)
         );
     }
 }
