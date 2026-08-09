@@ -4,14 +4,14 @@ general:
   reload-success: "&aMineacleCore files reloaded"
 
 tpa:
-  teleporting: "&#bbbbbbTeleporting to &#8436FE%target% &#bbbbbbin &#8436FE%seconds%s"
+  teleporting: "&#bbbbbbTeleporting to &d%target% &#bbbbbbin &d%seconds%s"
 
 homes:
   blocked-world: "&cYou cannot set a home in this world"
   blocked-team-home-world: "&cYou cannot set a team home in this world"
 
-  set: "&#bbbbbbYou set &#8436FE%home% &#bbbbbbto your current location"
-  renamed: "&#bbbbbbRenamed &#8436FE%old_home% &#bbbbbbto &#8436FE%new_home%"
+  set: "&#bbbbbbYou set &d%home% &#bbbbbbto your current location"
+  renamed: "&#bbbbbbRenamed &d%old_home% &#bbbbbbto &d%new_home%"
   deleted: "&c%home% deleted"
   delete-cancelled: "&cHome delete cancelled"
   delete-confirm: "&cClick again to confirm delete"
@@ -19,21 +19,21 @@ homes:
   not-set: "&c%home% is not set"
   no-empty-slot: "&cYou have reached your home limit"
   invalid-name: "&cThat home name is not valid"
-  already-exists: "&cYou already have a home named &#8436FE%home%&c"
+  already-exists: "&cYou already have a home named &d%home%&c"
 
-  teleporting: "&#bbbbbbTeleporting to &#8436FE%target% &#bbbbbbin &#8436FE%seconds%s"
+  teleporting: "&#bbbbbbTeleporting to &d%target% &#bbbbbbin &d%seconds%s"
   teleport-cancelled-move: "&cTeleport cancelled — you moved"
-  teleported: "&#bbbbbbTeleported to &#8436FE%home%"
+  teleported: "&#bbbbbbTeleported to &d%home%"
 
-  upgrade-line-1: "&#f8f8f8Elevate your gameplay experience with &#8436FEMineacle+"
-  upgrade-line-2: "&#8436FE➥ &#f8f8f8https://storemineaclenet"
+  upgrade-line-1: "&fElevate your gameplay experience with &dMineacle+"
+  upgrade-line-2: "&d➥ &fhttps://storemineaclenet"
 
   gui:
     title: "Player Homes"
     delete-title: "&#bbbbbbDelete Player Home"
     team-delete-title: "&#bbbbbbDelete Team Home"
-    click-delete-again-chat: "&cClick confirm again to delete &#f8f8f8%home%&c"
-    click-delete-again-actionbar: "&cClick again to delete &#f8f8f8%home%"
+    click-delete-again-chat: "&cClick confirm again to delete &f%home%&c"
+    click-delete-again-actionbar: "&cClick again to delete &f%home%"
     delete-cancelled-chat: "&cHome delete cancelled"
     delete-timeout-chat: "&cHome delete timed out"
 
@@ -48,11 +48,11 @@ teams:
   left-team: "&cYou left your team"
   disbanded: "&cTeam disbanded"
   no-color-codes-in-name: "&cYou cannot create or rename a team with custom color codes"
-  manage-colors-instead: "&#bbbbbbType &#8436FE/team manage &#bbbbbbto choose your team's banner and name color"
+  manage-colors-instead: "&#bbbbbbType &d/team manage &#bbbbbbto choose your team's banner and name color"
 
   death:
-    died: "&#8436FE%player% &#bbbbbbdied"
-    killed: "&#8436FE%player% &#bbbbbbwas killed by &#8436FE%killer%&#bbbbbb"
+    died: "&d%player% &#bbbbbbdied"
+    killed: "&d%player% &#bbbbbbwas killed by &d%killer%&#bbbbbb"
 
   invite:
     no-permission: "&cYou do not have permission to invite players"
@@ -60,7 +60,7 @@ teams:
     offline: "&cThat player is not online"
     target-in-team: "&cThat player is already in a team"
     failed: "&cCould not invite that player"
-    sent: "&#bbbbbbInvited &#8436FE%player% &#bbbbbbto the team"
+    sent: "&#bbbbbbInvited &d%player% &#bbbbbbto the team"
     received-1: "&#bbbbbbYou were invited to team %team%"
     accepted: "&#bbbbbbJoined team %team%"
     denied: "&cTeam invite denied"
@@ -73,7 +73,7 @@ teams:
     no-home: "&cYour team does not have a home set"
     set: "&#bbbbbbTeam Home set to your current location"
     deleted: "&cTeam Home deleted"
-    teleported: "&#bbbbbbTeleported to &#8436FETeam Home"
+    teleported: "&#bbbbbbTeleported to &dTeam Home"
     no-set-permission: "&cYou do not have permission to set the team home"
     no-delete-permission: "&cYou do not have permission to delete the team home"
 
@@ -86,7 +86,7 @@ teams:
     enabled: "&aTeam chat enabled"
     disabled: "&cTeam chat disabled"
     usage: "&cUsage: /team chat <message>"
-    format: "&#8436FE[%team%&#8436FE] &#f8f8f8%player%&#bbbbbb: &#f8f8f8%message%"
+    format: "&d[%team%&d] &f%player%&#bbbbbb: &f%message%"
     not-in-team: "&cYou are not in a team"
 
   management:
@@ -121,37 +121,37 @@ teams:
     banner-color-title: "&#bbbbbbBanner Color"
     name-color-title: "&#bbbbbbName Color"
 
-    create-team-title: "&#8436FECreate Team"
-    create-team-lore-1: "&#bbbbbbUse &#8436FE/team create <name>"
+    create-team-title: "&dCreate Team"
+    create-team-lore-1: "&#bbbbbbUse &d/team create <name>"
     no-team-item-title: "&#bbbbbbNo Team"
-    no-team-item-lore-1: "&#f8f8f8You are not in a team"
+    no-team-item-lore-1: "&fYou are not in a team"
     pending-invite-title: "&aPending Invite"
     pending-invite-lore-1: "&#bbbbbbClick to view invites"
     no-pending-invite-title: "&#bbbbbbNo Pending Invite"
     no-pending-invite-lore-1: "&#bbbbbbNo team invite waiting"
 
-    member-head-lore-1: "&#bbbbbbRole: &#8436FE%role%"
+    member-head-lore-1: "&#bbbbbbRole: &d%role%"
     member-head-lore-2: "&#bbbbbbClick to manage"
 
-    search-title: "&#8436FESearch"
+    search-title: "&dSearch"
     search-lore-1: "&#bbbbbbClick for search help"
-    search-lore-current: "&#bbbbbbCurrent: &#f8f8f8%search%"
-    sort-title: "&#8436FESort"
-    sort-lore-1: "&#bbbbbbCurrent: &#f8f8f8%sort%"
+    search-lore-current: "&#bbbbbbCurrent: &f%search%"
+    sort-title: "&dSort"
+    sort-lore-1: "&#bbbbbbCurrent: &f%sort%"
     sort-lore-2: "&#bbbbbbClick to change"
-    invite-player-title-button: "&#8436FEInvite Player"
+    invite-player-title-button: "&dInvite Player"
     invite-player-lore-1: "&#bbbbbbOpen sign input"
-    back-title: "&#8436FEBack"
+    back-title: "&dBack"
     back-lore-1: "&#bbbbbbPrevious page"
-    next-title: "&#8436FENext"
+    next-title: "&dNext"
     next-lore-1: "&#bbbbbbNext page"
-    team-info-title: "&#8436FETeam Info"
-    team-info-lore-1: "&#f8f8f8Team: %team%"
-    team-info-lore-2: "&#f8f8f8Leader: &#8436FE%leader%"
-    team-info-lore-3: "&#f8f8f8Members: &#8436FE%members%"
-    team-home-title: "&#8436FETeam Home"
+    team-info-title: "&dTeam Info"
+    team-info-lore-1: "&fTeam: %team%"
+    team-info-lore-2: "&fLeader: &d%leader%"
+    team-info-lore-3: "&fMembers: &d%members%"
+    team-home-title: "&dTeam Home"
     team-home-lore-1: "&#bbbbbbClick to teleport / manage"
-    friendly-fire-title: "&#8436FEFriendly Fire"
+    friendly-fire-title: "&dFriendly Fire"
     friendly-fire-enabled: "&cEnabled"
     friendly-fire-disabled: "&aDisabled"
     friendly-fire-lore-2: "&#bbbbbbClick to toggle"
@@ -162,35 +162,35 @@ teams:
     bans-button-title: "&aTeam Bans"
     bans-button-lore-1: "&#bbbbbbClick to view active bans"
 
-    manage-button-title: "&#8436FETeam Manage"
+    manage-button-title: "&dTeam Manage"
     manage-button-lore-1: "&#bbbbbbClick to edit team appearance"
-    manage-banner-title: "&#8436FEBanner Color"
+    manage-banner-title: "&dBanner Color"
     manage-banner-lore-1: "&#bbbbbbChoose your team's banner color"
-    manage-name-title: "&#8436FEName Color"
+    manage-name-title: "&dName Color"
     manage-name-lore-1: "&#bbbbbbChoose your team's name color"
-    manage-preview-title: "&#8436FEPreview"
+    manage-preview-title: "&dPreview"
     manage-preview-lore-1: "&#bbbbbbTeam: %team%"
-    manage-preview-lore-2: "&#bbbbbbBanner: &#f8f8f8%banner%"
+    manage-preview-lore-2: "&#bbbbbbBanner: &f%banner%"
     manage-preview-lore-3: "&#bbbbbbName Color: %color%"
 
     invite-accept-title: "&aAccept Invite"
     invite-accept-lore-1: "&#bbbbbbTeam: %team%"
-    invite-accept-lore-2: "&#bbbbbbInviter: &#8436FE%inviter%"
+    invite-accept-lore-2: "&#bbbbbbInviter: &d%inviter%"
     invite-accept-lore-3: "&#bbbbbbClick to accept"
     invite-deny-title: "&cDeny Invite"
     invite-deny-lore-1: "&#bbbbbbTeam: %team%"
-    invite-deny-lore-2: "&#bbbbbbInviter: &#8436FE%inviter%"
+    invite-deny-lore-2: "&#bbbbbbInviter: &d%inviter%"
     invite-deny-lore-3: "&#bbbbbbClick to deny"
     invite-center-title: "%team%"
-    invite-center-lore-1: "&#bbbbbbInviter: &#8436FE%inviter%"
+    invite-center-lore-1: "&#bbbbbbInviter: &d%inviter%"
     no-invite-title: "&#bbbbbbNo Pending Invite"
-    no-invite-lore-1: "&#f8f8f8You do not have any team invites"
+    no-invite-lore-1: "&fYou do not have any team invites"
 
-    ban-head-lore-1: "&#bbbbbbExpires: &#8436FE%expires%"
-    ban-head-lore-2: "&#bbbbbbBanned by: &#8436FE%banned_by%"
+    ban-head-lore-1: "&#bbbbbbExpires: &d%expires%"
+    ban-head-lore-2: "&#bbbbbbBanned by: &d%banned_by%"
     ban-head-lore-3: "&#bbbbbbClick to unban"
     no-ban-title: "&#bbbbbbNo Active Bans"
-    no-ban-lore-1: "&#f8f8f8Your team has no active bans"
+    no-ban-lore-1: "&fYour team has no active bans"
 
     click-again: "&cClick confirm again to continue"
     action-cancelled: "&cAction cancelled"
@@ -201,15 +201,15 @@ teams:
 
 economy:
   balance-self: "&#bbbbbbBalance: &a%balance%"
-  balance-other: "&#8436FE%player%&#bbbbbb's balance: &a%balance%"
+  balance-other: "&d%player%&#bbbbbb's balance: &a%balance%"
 
   paid-chat: "&a+%amount%"
   paid-actionbar: "&a+%amount%"
 
-  paid-offline-single: "&#bbbbbbYou received &a%amount%&#bbbbbb from &#8436FE%player%&#bbbbbb while you were away"
+  paid-offline-single: "&#bbbbbbYou received &a%amount%&#bbbbbb from &d%player%&#bbbbbb while you were away"
   paid-offline-multiple: "&#bbbbbbYou received &a%amount%&#bbbbbb while you were away"
 
-  pay-sent: "&#bbbbbbPaid &a%amount% &#bbbbbbto &#8436FE%player%&#bbbbbb"
+  pay-sent: "&#bbbbbbPaid &a%amount% &#bbbbbbto &d%player%&#bbbbbb"
   pay-usage: "&cUsage: /pay <player> <amount>"
   cannot-pay-self: "&cYou cannot pay yourself"
   not-enough-money: "&cYou do not have enough money"
@@ -221,29 +221,29 @@ economy:
   eco-reset: "&aEco reset completed for %count% target(s)"
 
 baltop:
-  header: "&#8436FEBalance Top"
+  header: "&dBalance Top"
   empty: "&#bbbbbbNo balances have been recorded yet"
-  line: "&#8436FE#%position% &#f8f8f8%player% &#bbbbbb- &a%balance%"
+  line: "&d#%position% &f%player% &#bbbbbb- &a%balance%"
 
   gui-empty-title: "&#bbbbbbNo Balances"
-  gui-empty-lore: "&#f8f8f8No balances have been recorded yet"
+  gui-empty-lore: "&fNo balances have been recorded yet"
 
-  gui-entry-title: "&#8436FE#%position% &#f8f8f8%player%"
+  gui-entry-title: "&d#%position% &f%player%"
   gui-entry-lore:
     - "&#bbbbbbBalance: &a%balance%"
-    - "&#bbbbbbRank: &#8436FE#%position%"
+    - "&#bbbbbbRank: &d#%position%"
 
-  previous-title: "&#8436FEPrevious Page"
+  previous-title: "&dPrevious Page"
   previous-lore: "&#bbbbbbClick to view the previous page"
 
-  refresh-title: "&#8436FERefresh"
+  refresh-title: "&dRefresh"
   refresh-lore: "&#bbbbbbClick to refresh balance top"
 
-  next-title: "&#8436FENext Page"
+  next-title: "&dNext Page"
   next-lore: "&#bbbbbbClick to view the next page"
 
 chat:
-  private-message-format: "&#8436FE%sender% &#bbbbbb-> &#B078FF%receiver%&#bbbbbb: &#bbbbbb%message%"
+  private-message-format: "&d%sender% &#bbbbbb-> &#ff88ff%receiver%&#bbbbbb: &#bbbbbb%message%"
 
   message-usage: "&cUsage: /msg <player> <message>"
   reply-usage: "&cUsage: /r <message>"
@@ -257,15 +257,15 @@ chat:
   cannot-ignore-self: "&cYou cannot ignore yourself"
   target-ignoring-you: "&cThat player is ignoring you"
 
-  now-ignoring: "&#bbbbbbYou are now ignoring &#8436FE%player%&#bbbbbb"
-  no-longer-ignoring: "&#bbbbbbYou are no longer ignoring &#8436FE%player%&#bbbbbb"
+  now-ignoring: "&#bbbbbbYou are now ignoring &d%player%&#bbbbbb"
+  no-longer-ignoring: "&#bbbbbbYou are no longer ignoring &d%player%&#bbbbbb"
   ignore-list-empty: "&#bbbbbbYou are not ignoring anyone"
-  ignore-list-header: "&#8436FEIgnored Players:"
-  ignore-list-line: "&#bbbbbb- &#8436FE%player%"
+  ignore-list-header: "&dIgnored Players:"
+  ignore-list-line: "&#bbbbbb- &d%player%"
 
-  nick-set: "&#bbbbbbYour nickname is now &#8436FE%nickname%&#bbbbbb"
+  nick-set: "&#bbbbbbYour nickname is now &d%nickname%&#bbbbbb"
   nick-reset: "&#bbbbbbYour nickname has been reset"
   nick-invalid: "&cNicknames must be %max% characters or shorter and only use allowed characters"
 
   realname-not-found: "&cNo player was found with that nickname"
-  realname-result: "&#8436FE%nickname% &#bbbbbbbelongs to &#8436FE%player%&#bbbbbb"
+  realname-result: "&d%nickname% &#bbbbbbbelongs to &d%player%&#bbbbbb"

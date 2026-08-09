@@ -1,5 +1,6 @@
 package net.mineacle.core.webprofiles.auth;
 
+import net.mineacle.core.Core;
 import org.bukkit.configuration.file.FileConfiguration;
 
 import java.nio.charset.StandardCharsets;
@@ -23,12 +24,12 @@ public final class WebVerificationRepository {
             "mineacle_web_verifications";
     private static final int USERNAME_MAX_LENGTH = 16;
 
-    private final Core.Core core;
+    private final Core core;
     private final FileConfiguration config;
     private final String table;
 
     public WebVerificationRepository(
-            Core.Core core,
+            Core core,
             FileConfiguration config
     ) {
         this.core = core;

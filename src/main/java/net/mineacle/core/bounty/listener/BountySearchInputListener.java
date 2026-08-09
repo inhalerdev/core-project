@@ -3,6 +3,7 @@ package net.mineacle.core.bounty;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.entity.Player;
@@ -21,7 +22,7 @@ public final class BountySearchInputListener implements Listener {
     private static final long TIMEOUT_TICKS = 20L * 30L;
     private static final int MAX_QUERY_LENGTH = 32;
 
-    private final Core.Core core;
+    private final Core core;
     private final BountyService bountyService;
     private final Map<UUID, SearchPrompt> prompts =
             new ConcurrentHashMap<>();
@@ -29,7 +30,7 @@ public final class BountySearchInputListener implements Listener {
             new ConcurrentHashMap<>();
 
     public BountySearchInputListener(
-            Core.Core core,
+            Core core,
             BountyService bountyService
     ) {
         this.core = core;

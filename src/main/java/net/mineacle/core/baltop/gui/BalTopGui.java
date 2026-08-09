@@ -1,5 +1,6 @@
 package net.mineacle.core.baltop.gui;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.CenteredToolbar;
 import net.mineacle.core.common.gui.GuiSearchLore;
 import net.mineacle.core.common.player.DisplayNames;
@@ -48,7 +49,7 @@ public final class BalTopGui {
     }
 
     public static void open(
-            Core.Core core,
+            Core core,
             Player player,
             EconomyService economyService,
             int requestedPage

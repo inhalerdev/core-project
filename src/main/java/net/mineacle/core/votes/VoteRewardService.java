@@ -1,5 +1,6 @@
 package net.mineacle.core.votes;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -13,14 +14,14 @@ import java.util.UUID;
 
 public final class VoteRewardService {
 
-    private final Core.Core core;
+    private final Core core;
     private final File configFile;
     private final File dataFile;
 
     private FileConfiguration config;
     private FileConfiguration data;
 
-    public VoteRewardService(Core.Core core) {
+    public VoteRewardService(Core core) {
         this.core = core;
         this.configFile = new File(core.getDataFolder(), "vote-rewards.yml");
         this.dataFile = new File(core.getDataFolder(), "vote-reward-data.yml");

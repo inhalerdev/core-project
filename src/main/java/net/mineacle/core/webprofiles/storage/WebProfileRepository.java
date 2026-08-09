@@ -1,5 +1,6 @@
 package net.mineacle.core.webprofiles.storage;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.webprofiles.model.WebFightRecord;
 import net.mineacle.core.webprofiles.model.WebProfileRecord;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -20,7 +21,7 @@ import java.util.UUID;
 })
 public final class WebProfileRepository {
 
-    private final Core.Core core;
+    private final Core core;
     private final FileConfiguration config;
     private final String table;
     private final String fightsTable;
@@ -29,7 +30,7 @@ public final class WebProfileRepository {
     private volatile FightIdMode fightIdMode;
 
     public WebProfileRepository(
-            Core.Core core,
+            Core core,
             FileConfiguration config
     ) {
         this.core = core;

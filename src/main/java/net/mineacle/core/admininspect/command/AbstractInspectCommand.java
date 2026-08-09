@@ -1,5 +1,6 @@
 package net.mineacle.core.admininspect.command;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
@@ -15,7 +16,7 @@ import java.util.List;
 
 abstract class AbstractInspectCommand implements CommandExecutor, TabCompleter {
 
-    private final Core.Core core;
+    private final Core core;
     private final String permission;
     private final String selfPermission;
     private final String usage;
@@ -23,7 +24,7 @@ abstract class AbstractInspectCommand implements CommandExecutor, TabCompleter {
     private final String auditAction;
 
     protected AbstractInspectCommand(
-            Core.Core core,
+            Core core,
             String permission,
             String selfPermission,
             String usage,

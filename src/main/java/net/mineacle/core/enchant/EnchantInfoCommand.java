@@ -2,6 +2,7 @@ package net.mineacle.core.enchant;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Material;
@@ -19,9 +20,9 @@ import java.util.List;
 public final class EnchantInfoCommand
         implements CommandExecutor, TabCompleter {
 
-    private final Core.Core core;
+    private final Core core;
 
-    public EnchantInfoCommand(Core.Core core) {
+    public EnchantInfoCommand(Core core) {
         this.core = core;
     }
 

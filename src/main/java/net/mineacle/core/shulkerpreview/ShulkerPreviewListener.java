@@ -2,6 +2,7 @@ package net.mineacle.core.shulkerpreview;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -29,9 +30,9 @@ import java.util.Locale;
 
 public final class ShulkerPreviewListener implements Listener {
 
-    private final Core.Core core;
+    private final Core core;
 
-    public ShulkerPreviewListener(Core.Core core) {
+    public ShulkerPreviewListener(Core core) {
         this.core = core;
     }
 

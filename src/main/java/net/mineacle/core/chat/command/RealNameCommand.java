@@ -1,5 +1,6 @@
 package net.mineacle.core.chat.command;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.chat.service.NicknameService;
 import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
@@ -16,11 +17,11 @@ import java.util.List;
 public final class RealNameCommand
         implements CommandExecutor, TabCompleter {
 
-    private final Core.Core core;
+    private final Core core;
     private final NicknameService nicknameService;
 
     public RealNameCommand(
-            Core.Core core,
+            Core core,
             NicknameService nicknameService
     ) {
         this.core = core;

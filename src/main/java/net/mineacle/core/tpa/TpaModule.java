@@ -6,9 +6,7 @@ import net.mineacle.core.homes.service.TeleportService;
 import net.mineacle.core.tpa.command.TpaCommand;
 import net.mineacle.core.tpa.listener.TpaGuiListener;
 import net.mineacle.core.tpa.service.TpaService;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
-import org.bukkit.command.TabCompleter;
 
 public final class TpaModule extends Module {
 
@@ -23,13 +21,9 @@ public final class TpaModule extends Module {
     @Override
     public void enable(Core core) {
         this.tpaService = new TpaService(core);
-        this.teleportService = core.teleportService();
+        this.teleportService = new TeleportService(core);
 
-        TpaCommand command = new TpaCommand(
-                core,
-                tpaService,
-                teleportService
-        );
+        TpaCommand command = new TpaCommand(core, tpaService, teleportService);
 
         registerCommand(core, "tpa", command);
         registerCommand(core, "tpahere", command);
@@ -39,11 +33,7 @@ public final class TpaModule extends Module {
         registerCommand(core, "tpauto", command);
 
         core.getServer().getPluginManager().registerEvents(
-                new TpaGuiListener(
-                        core,
-                        tpaService,
-                        teleportService
-                ),
+                new TpaGuiListener(core, tpaService, teleportService),
                 core
         );
     }
@@ -54,30 +44,20 @@ public final class TpaModule extends Module {
         teleportService = null;
     }
 
-    private void registerCommand(
-            Core core,
-            String name,
-            Object executor
-    ) {
-        PluginCommand command = core.getCommand(name);
+    private void registerCommand(Core core, String name, Object commandExecutor) {
+        PluginCommand pluginCommand = core.getCommand(name);
 
-        if (command == null) {
-            throw new IllegalStateException(
-                    "Missing command in plugin.yml: " + name
-            );
+        if (pluginCommand == null) {
+            core.getLogger().warning("Missing command in plugin.yml: " + name);
+            return;
         }
 
-        if (!(executor instanceof CommandExecutor commandExecutor)) {
-            throw new IllegalArgumentException(
-                    "Command executor does not implement CommandExecutor: "
-                            + name
-            );
+        if (commandExecutor instanceof org.bukkit.command.CommandExecutor executor) {
+            pluginCommand.setExecutor(executor);
         }
 
-        command.setExecutor(commandExecutor);
-
-        if (executor instanceof TabCompleter completer) {
-            command.setTabCompleter(completer);
+        if (commandExecutor instanceof org.bukkit.command.TabCompleter completer) {
+            pluginCommand.setTabCompleter(completer);
         }
     }
 }

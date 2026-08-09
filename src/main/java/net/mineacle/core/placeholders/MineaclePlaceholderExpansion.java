@@ -1,11 +1,13 @@
 package net.mineacle.core.placeholders;
 
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
+import net.mineacle.core.Core;
 import net.mineacle.core.common.format.MoneyFormatter;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.placeholders.PlaceholderSnapshotService.BalanceEntry;
 import net.mineacle.core.placeholders.PlaceholderSnapshotService.PlayerIdentity;
+import net.mineacle.core.placeholders.PlaceholderSnapshotService.Snapshot;
 import net.mineacle.core.placeholders.PlaceholderSnapshotService.StatEntry;
 import net.mineacle.core.stats.service.StatsService;
 import net.mineacle.core.stats.service.StatsStorageService;
@@ -26,7 +28,7 @@ import java.util.UUID;
 public final class MineaclePlaceholderExpansion
         extends PlaceholderExpansion {
 
-    private final Core.Core core;
+    private final Core core;
     private final EconomyService economyService;
     private final TeamService teamService;
     private final StatsService statsService;
@@ -35,7 +37,7 @@ public final class MineaclePlaceholderExpansion
     private volatile DateTimeSettings dateTimeSettings;
 
     public MineaclePlaceholderExpansion(
-            Core.Core core,
+            Core core,
             EconomyService economyService,
             TeamService teamService,
             StatsService statsService,
@@ -744,7 +746,7 @@ public final class MineaclePlaceholderExpansion
             DateTimeFormatter dateTimeFormatter
     ) {
 
-        private static DateTimeSettings load(Core.Core core) {
+        private static DateTimeSettings load(Core core) {
             ZoneId zone = parseZone(
                     core.getConfig().getString(
                             "placeholders.datetime.timezone",

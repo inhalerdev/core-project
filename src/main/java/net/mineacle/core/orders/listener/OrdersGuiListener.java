@@ -1,5 +1,6 @@
 package net.mineacle.core.orders.listener;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
@@ -28,11 +29,11 @@ import java.util.UUID;
 public final class OrdersGuiListener
         implements Listener {
 
-    private final Core.Core core;
+    private final Core core;
     private final OrderService service;
 
     public OrdersGuiListener(
-            Core.Core core,
+            Core core,
             OrderService service
     ) {
         this.core = core;

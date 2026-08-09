@@ -1,6 +1,7 @@
 package net.mineacle.core.warp.service;
 
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.teleport.TeleportMovement;
 import net.mineacle.core.common.text.TextColor;
@@ -15,11 +16,11 @@ import java.util.UUID;
 
 public final class WarpTeleportService {
 
-    private final Core.Core core;
+    private final Core core;
     private final WarpService warpService;
     private final Map<UUID, BukkitRunnable> pending = new HashMap<>();
 
-    public WarpTeleportService(Core.Core core, WarpService warpService) {
+    public WarpTeleportService(Core core, WarpService warpService) {
         this.core = core;
         this.warpService = warpService;
     }

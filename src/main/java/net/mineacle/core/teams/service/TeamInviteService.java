@@ -1,5 +1,6 @@
 package net.mineacle.core.teams.service;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.teams.model.TeamInviteRecord;
 import net.mineacle.core.teams.model.TeamRecord;
 
@@ -10,17 +11,17 @@ import java.util.UUID;
 
 public final class TeamInviteService {
 
-    private final Core.Core core;
+    private final Core core;
     private final TeamService teamService;
     private final Map<UUID, TeamInviteRecord> invites = new HashMap<>();
 
-    public TeamInviteService(Core.Core core, TeamService teamService) {
+    public TeamInviteService(Core core, TeamService teamService) {
         this.core = core;
         this.teamService = teamService;
     }
 
     public TeamInviteService(TeamService teamService) {
-        this(Core.Core.instance(), teamService);
+        this(Core.instance(), teamService);
     }
 
     public int timeoutSeconds() {

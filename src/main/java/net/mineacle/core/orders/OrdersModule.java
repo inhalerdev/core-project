@@ -1,5 +1,6 @@
 package net.mineacle.core.orders;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.orders.command.OrderCommand;
 import net.mineacle.core.orders.gui.OrdersViewState;
@@ -24,7 +25,7 @@ public final class OrdersModule extends Module {
     }
 
     @Override
-    public void enable(Core.Core core) {
+    public void enable(Core core) {
         orderService = new OrderService(
                 core,
                 new YamlOrdersRepository(core)

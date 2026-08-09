@@ -1,5 +1,6 @@
 package net.mineacle.core.sell.listener;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
@@ -17,11 +18,11 @@ import org.bukkit.inventory.PlayerInventory;
 public final class ItemStackNormalizeListener
         implements Listener {
 
-    private final Core.Core core;
+    private final Core core;
     private final SellService sellService;
 
     public ItemStackNormalizeListener(
-            Core.Core core,
+            Core core,
             SellService sellService
     ) {
         this.core = core;

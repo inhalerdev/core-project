@@ -1,5 +1,6 @@
 package net.mineacle.core.warp.service;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.warp.model.WarpPoint;
 import org.bukkit.Bukkit;
@@ -23,12 +24,12 @@ import java.util.Random;
 
 public final class WarpService {
 
-    private final Core.Core core;
+    private final Core core;
     private final File file;
     private final Random random = new Random();
     private FileConfiguration config;
 
-    public WarpService(Core.Core core) {
+    public WarpService(Core core) {
         this.core = core;
         this.file = new File(core.getDataFolder(), "warps.yml");
         reload();

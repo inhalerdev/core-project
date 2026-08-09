@@ -2,6 +2,7 @@ package net.mineacle.core.tpa.listener;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
@@ -18,11 +19,11 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 
 public final class TpaGuiListener implements Listener {
 
-    private final Core.Core core;
+    private final Core core;
     private final TpaService tpaService;
     private final TeleportService teleportService;
 
-    public TpaGuiListener(Core.Core core, TpaService tpaService, TeleportService teleportService) {
+    public TpaGuiListener(Core core, TpaService tpaService, TeleportService teleportService) {
         this.core = core;
         this.tpaService = tpaService;
         this.teleportService = teleportService;

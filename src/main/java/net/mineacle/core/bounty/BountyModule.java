@@ -1,5 +1,6 @@
 package net.mineacle.core.bounty;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.bounty.command.BountyCommand;
 import org.bukkit.command.PluginCommand;
@@ -20,7 +21,7 @@ public final class BountyModule extends Module {
     }
 
     @Override
-    public void enable(Core.Core core) throws Exception {
+    public void enable(Core core) throws Exception {
         YamlBountyRepository repository = new YamlBountyRepository(core);
         bountyService = new BountyService(core, repository);
         bountyService.load();

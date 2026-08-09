@@ -1,5 +1,6 @@
 package net.mineacle.core.spawn.service;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.spawn.model.SpawnPoint;
 import org.bukkit.Bukkit;
@@ -20,13 +21,13 @@ import java.util.Random;
 
 public final class SpawnService {
 
-    private final Core.Core core;
+    private final Core core;
     private final Random random = new Random();
 
     private File spawnFile;
     private FileConfiguration spawnConfig;
 
-    public SpawnService(Core.Core core) {
+    public SpawnService(Core core) {
         this.core = core;
         load();
     }
@@ -58,7 +59,7 @@ public final class SpawnService {
         }
     }
 
-    public Core.Core core() {
+    public Core core() {
         return core;
     }
 

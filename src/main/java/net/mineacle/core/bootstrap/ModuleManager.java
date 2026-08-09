@@ -1,5 +1,7 @@
 package net.mineacle.core.bootstrap;
 
+import net.mineacle.core.Core;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -11,12 +13,12 @@ import java.util.logging.Level;
 
 public final class ModuleManager {
 
-    private final Core.Core core;
+    private final Core core;
     private final List<Module> modules = new ArrayList<>();
     private final Map<String, Module> modulesByName = new LinkedHashMap<>();
     private boolean shuttingDown;
 
-    public ModuleManager(Core.Core core) {
+    public ModuleManager(Core core) {
         this.core = Objects.requireNonNull(core, "core");
     }
 

@@ -1,5 +1,6 @@
 package net.mineacle.core.common.teleport;
 
+import net.mineacle.core.Core;
 import org.bukkit.Location;
 
 public final class TeleportMovement {
@@ -10,7 +11,7 @@ public final class TeleportMovement {
     }
 
     public static boolean movedTooFar(
-            Core.Core core,
+            Core core,
             Location start,
             Location current
     ) {
@@ -29,7 +30,7 @@ public final class TeleportMovement {
                 || Math.abs(start.getZ() - current.getZ()) >= allowedDistance;
     }
 
-    private static double cancelDistance(Core.Core core) {
+    private static double cancelDistance(Core core) {
         if (core == null) {
             return DEFAULT_CANCEL_DISTANCE;
         }

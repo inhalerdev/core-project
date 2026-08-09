@@ -2,6 +2,7 @@ package net.mineacle.core.doublejump.listener;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.GameMode;
@@ -31,7 +32,7 @@ import java.util.UUID;
 
 public final class DoubleJumpListener implements Listener {
 
-    private final Core.Core core;
+    private final Core core;
 
     private final Map<UUID, Long> lastJumpNanos = new HashMap<>();
     private final Set<UUID> doubleJumpFlightOwned = new HashSet<>();
@@ -50,7 +51,7 @@ public final class DoubleJumpListener implements Listener {
     private boolean doubleJumpEnabled;
     private boolean flyFeatureEnabled;
 
-    public DoubleJumpListener(Core.Core core) {
+    public DoubleJumpListener(Core core) {
         this.core = core;
         reloadSettings();
     }

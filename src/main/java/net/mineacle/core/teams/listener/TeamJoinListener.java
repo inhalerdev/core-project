@@ -2,6 +2,7 @@ package net.mineacle.core.teams.listener;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.teams.service.TeamService;
 import org.bukkit.entity.Player;
@@ -11,10 +12,10 @@ import org.bukkit.event.player.PlayerJoinEvent;
 
 public final class TeamJoinListener implements Listener {
 
-    private final Core.Core core;
+    private final Core core;
     private final TeamService teamService;
 
-    public TeamJoinListener(Core.Core core, TeamService teamService) {
+    public TeamJoinListener(Core core, TeamService teamService) {
         this.core = core;
         this.teamService = teamService;
     }

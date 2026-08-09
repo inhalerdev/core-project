@@ -1,5 +1,6 @@
 package net.mineacle.core.links.service;
 
+import net.mineacle.core.Core;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -17,14 +18,14 @@ public final class GuideRulesService {
     public static final String GUIDE = "guide";
     public static final String RULES = "rules";
 
-    private final Core.Core core;
+    private final Core core;
     private final File guideFile;
     private final File rulesFile;
 
     private MenuDefinition guide;
     private MenuDefinition rules;
 
-    public GuideRulesService(Core.Core core) {
+    public GuideRulesService(Core core) {
         this.core = core;
         this.guideFile = new File(
                 core.getDataFolder(),

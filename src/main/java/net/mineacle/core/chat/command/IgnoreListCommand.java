@@ -1,5 +1,6 @@
 package net.mineacle.core.chat.command;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.chat.service.ChatService;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
@@ -14,11 +15,11 @@ import java.util.List;
 public final class IgnoreListCommand
         implements CommandExecutor, TabCompleter {
 
-    private final Core.Core core;
+    private final Core core;
     private final ChatService chatService;
 
     public IgnoreListCommand(
-            Core.Core core,
+            Core core,
             ChatService chatService
     ) {
         this.core = core;

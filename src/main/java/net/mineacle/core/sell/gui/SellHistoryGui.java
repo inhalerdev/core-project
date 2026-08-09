@@ -1,5 +1,6 @@
 package net.mineacle.core.sell.gui;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.format.MoneyFormatter;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.sell.model.SellHistoryEntry;
@@ -37,7 +38,7 @@ public final class SellHistoryGui {
     private SellHistoryGui() {
     }
 
-    public static void open(Core.Core core, Player player, SellService sellService, int page) {
+    public static void open(Core core, Player player, SellService sellService, int page) {
         List<SellHistoryEntry> entries = entries(player, sellService);
         int totalPages = Math.max(1, (int) Math.ceil(entries.size() / (double) ENTRIES_PER_PAGE));
         int safePage = Math.max(0, Math.min(page, totalPages - 1));

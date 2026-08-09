@@ -1,5 +1,6 @@
 package net.mineacle.core.teams.listener;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.teams.model.TeamRecord;
 import net.mineacle.core.teams.service.TeamService;
@@ -13,10 +14,10 @@ import java.util.UUID;
 
 public final class TeamDeathListener implements Listener {
 
-    private final Core.Core core;
+    private final Core core;
     private final TeamService teamService;
 
-    public TeamDeathListener(Core.Core core, TeamService teamService) {
+    public TeamDeathListener(Core core, TeamService teamService) {
         this.core = core;
         this.teamService = teamService;
     }

@@ -1,5 +1,6 @@
 package net.mineacle.core.stats.service;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
 import org.bukkit.Bukkit;
@@ -16,12 +17,12 @@ import java.util.UUID;
 
 public final class StatsService {
 
-    private final Core.Core core;
+    private final Core core;
     private final StatsStorageService storage;
     private final EconomyService economyService;
     private final Map<UUID, Long> playtimeSessionStarted = new HashMap<>();
 
-    public StatsService(Core.Core core, StatsStorageService storage, EconomyService economyService) {
+    public StatsService(Core core, StatsStorageService storage, EconomyService economyService) {
         this.core = core;
         this.storage = storage;
         this.economyService = economyService;

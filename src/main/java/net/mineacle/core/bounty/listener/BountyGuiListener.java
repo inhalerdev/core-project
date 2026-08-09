@@ -1,5 +1,6 @@
 package net.mineacle.core.bounty;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
@@ -17,14 +18,14 @@ import java.util.UUID;
 
 public final class BountyGuiListener implements Listener {
 
-    private final Core.Core core;
+    private final Core core;
     private final BountyService bountyService;
     private final BountySearchInputListener searchInputListener;
     private final PlayerStatisticsGui statisticsGui =
             new PlayerStatisticsGui();
 
     public BountyGuiListener(
-            Core.Core core,
+            Core core,
             BountyService bountyService,
             BountySearchInputListener searchInputListener
     ) {

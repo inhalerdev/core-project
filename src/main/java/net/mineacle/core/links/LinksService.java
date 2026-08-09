@@ -1,5 +1,6 @@
 package net.mineacle.core.links;
 
+import net.mineacle.core.Core;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -10,11 +11,11 @@ import java.util.List;
 
 public final class LinksService {
 
-    private final Core.Core core;
+    private final Core core;
     private final File file;
     private FileConfiguration config;
 
-    public LinksService(Core.Core core) {
+    public LinksService(Core core) {
         this.core = core;
         this.file = new File(core.getDataFolder(), "links.yml");
         reload();

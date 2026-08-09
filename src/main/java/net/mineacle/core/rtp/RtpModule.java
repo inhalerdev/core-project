@@ -1,5 +1,6 @@
 package net.mineacle.core.rtp;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.rtp.command.OriginRtpCommand;
 import net.mineacle.core.rtp.listener.OriginRtpMoveListener;
@@ -20,7 +21,7 @@ public final class RtpModule extends Module {
     }
 
     @Override
-    public void enable(Core.Core core) {
+    public void enable(Core core) {
         queueService =
                 new OriginRtpQueueService(core);
         menuService =

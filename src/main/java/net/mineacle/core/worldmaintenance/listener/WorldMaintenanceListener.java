@@ -1,5 +1,6 @@
 package net.mineacle.core.worldmaintenance.listener;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.worldmaintenance.service.WorldMaintenanceService;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -9,10 +10,10 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 
 public final class WorldMaintenanceListener implements Listener {
 
-    private final Core.Core core;
+    private final Core core;
     private final WorldMaintenanceService service;
 
-    public WorldMaintenanceListener(Core.Core core, WorldMaintenanceService service) {
+    public WorldMaintenanceListener(Core core, WorldMaintenanceService service) {
         this.core = core;
         this.service = service;
     }

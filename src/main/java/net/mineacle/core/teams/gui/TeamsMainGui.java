@@ -1,5 +1,6 @@
 package net.mineacle.core.teams.gui;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.stats.VaultMoneyHook;
@@ -43,7 +44,7 @@ public final class TeamsMainGui {
     }
 
     public static void open(
-            Core.Core core,
+            Core core,
             Player player,
             TeamService teamService,
             TeamInviteService inviteService

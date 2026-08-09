@@ -1,5 +1,6 @@
 package net.mineacle.core.nametag;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.command.Command;
@@ -14,11 +15,11 @@ import java.util.Locale;
 public final class NametagCommand
         implements CommandExecutor, TabCompleter {
 
-    private final Core.Core core;
+    private final Core core;
     private final NametagService service;
 
     public NametagCommand(
-            Core.Core core,
+            Core core,
             NametagService service
     ) {
         this.core = core;

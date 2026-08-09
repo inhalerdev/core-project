@@ -1,5 +1,6 @@
 package net.mineacle.core.warp;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.warp.command.DelWarpCommand;
 import net.mineacle.core.warp.command.SetWarpCommand;
@@ -19,7 +20,7 @@ public final class WarpModule extends Module {
     }
 
     @Override
-    public void enable(Core.Core core) {
+    public void enable(Core core) {
         warpService = new WarpService(core);
         teleportService = new WarpTeleportService(core, warpService);
 
@@ -35,7 +36,7 @@ public final class WarpModule extends Module {
         }
     }
 
-    private void registerCommand(Core.Core core, String name, Object executor) {
+    private void registerCommand(Core core, String name, Object executor) {
         PluginCommand command = core.getCommand(name);
 
         if (command == null) {

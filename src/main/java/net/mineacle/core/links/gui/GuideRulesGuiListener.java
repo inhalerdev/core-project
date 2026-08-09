@@ -1,5 +1,6 @@
 package net.mineacle.core.links.gui;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.links.service.GuideRulesService;
@@ -17,12 +18,12 @@ import java.util.Locale;
 public final class GuideRulesGuiListener
         implements Listener {
 
-    private final Core.Core core;
+    private final Core core;
     private final GuideRulesGui gui;
     private final LinksService linksService;
 
     public GuideRulesGuiListener(
-            Core.Core core,
+            Core core,
             GuideRulesGui gui,
             LinksService linksService
     ) {

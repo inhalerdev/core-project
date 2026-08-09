@@ -1,5 +1,6 @@
 package net.mineacle.core.webprofiles.service;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.webprofiles.model.WebFightRecord;
 import net.mineacle.core.webprofiles.storage.WebProfileRepository;
@@ -20,7 +21,7 @@ import java.util.stream.Collectors;
 
 public final class WebFightService {
 
-    private final Core.Core core;
+    private final Core core;
     private final FileConfiguration config;
     private final WebProfileRepository repository;
     private final WebProfileSyncService profileSyncService;
@@ -36,7 +37,7 @@ public final class WebFightService {
     private BukkitTask cleanupTask;
 
     public WebFightService(
-            Core.Core core,
+            Core core,
             FileConfiguration config,
             WebProfileRepository repository,
             WebProfileSyncService profileSyncService

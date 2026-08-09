@@ -1,5 +1,6 @@
 package net.mineacle.core.hide;
 
+import net.mineacle.core.Core;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -10,11 +11,11 @@ import org.bukkit.event.player.PlayerQuitEvent;
 
 public final class HideListener implements Listener {
 
-    private final Core.Core core;
+    private final Core core;
     private final HideService service;
 
     public HideListener(
-            Core.Core core,
+            Core core,
             HideService service
     ) {
         this.core = core;

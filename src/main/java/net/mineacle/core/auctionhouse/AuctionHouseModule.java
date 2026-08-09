@@ -1,5 +1,6 @@
 package net.mineacle.core.auctionhouse;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.command.AuctionHouseCommand;
 import net.mineacle.core.auctionhouse.gui.AuctionHouseGuiListener;
 import net.mineacle.core.auctionhouse.service.AuctionHouseService;
@@ -17,7 +18,7 @@ public final class AuctionHouseModule extends Module {
     }
 
     @Override
-    public void enable(Core.Core core) {
+    public void enable(Core core) {
         service = new AuctionHouseService(core);
         service.load();
 
@@ -41,7 +42,7 @@ public final class AuctionHouseModule extends Module {
         }
     }
 
-    private void register(Core.Core core, String commandName, AuctionHouseCommand executor) {
+    private void register(Core core, String commandName, AuctionHouseCommand executor) {
         PluginCommand command = core.getCommand(commandName);
 
         if (command == null) {

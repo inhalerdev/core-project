@@ -1,5 +1,6 @@
 package net.mineacle.core.security;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.security.command.SecurityCommand;
 import net.mineacle.core.security.listener.SecurityListener;
@@ -16,7 +17,7 @@ public final class SecurityModule extends Module {
     }
 
     @Override
-    public void enable(Core.Core core) {
+    public void enable(Core core) {
         service = new SecurityService(core);
 
         SecurityCommand command = new SecurityCommand(service);

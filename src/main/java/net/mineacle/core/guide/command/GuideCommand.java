@@ -1,5 +1,6 @@
 package net.mineacle.core.guide.command;
 
+import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.guide.service.GuideMenuService;
@@ -15,11 +16,11 @@ import java.util.Locale;
 
 public final class GuideCommand implements CommandExecutor, TabCompleter {
 
-    private final Core.Core core;
+    private final Core core;
     private final GuideMenuService service;
     private final String menuKey;
 
-    public GuideCommand(Core.Core core, GuideMenuService service, String menuKey) {
+    public GuideCommand(Core core, GuideMenuService service, String menuKey) {
         this.core = core;
         this.service = service;
         this.menuKey = menuKey;
