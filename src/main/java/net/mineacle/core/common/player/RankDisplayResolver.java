@@ -75,7 +75,8 @@ public final class RankDisplayResolver {
 
         for (Group group :
                 user.getInheritedGroups(queryOptions)) {
-            if (group == null || group.getName().isBlank()) {
+            if (group == null
+                    || group.getName().isBlank()) {
                 continue;
             }
 
@@ -108,7 +109,7 @@ public final class RankDisplayResolver {
                             "media",
                             "media",
                             "Media +",
-                            "&#55ffff📹&#ff55ff+"
+                            "&#B078FF📹&#8436FE+"
                     )
             );
 
@@ -119,7 +120,7 @@ public final class RankDisplayResolver {
                             "plus",
                             "plus",
                             "Mineacle +",
-                            "&#ff55ff+"
+                            "&#8436FE+"
                     )
             );
         }
@@ -153,7 +154,8 @@ public final class RankDisplayResolver {
             DisplayRank candidate
     ) {
         if (candidate == null
-                || candidate.weight() <= current.weight()) {
+                || candidate.weight()
+                <= current.weight()) {
             return current;
         }
 
@@ -167,9 +169,12 @@ public final class RankDisplayResolver {
             return current;
         }
 
-        RegisteredServiceProvider<LuckPerms> registration =
+        RegisteredServiceProvider<LuckPerms>
+                registration =
                 Bukkit.getServicesManager()
-                        .getRegistration(LuckPerms.class);
+                        .getRegistration(
+                                LuckPerms.class
+                        );
 
         if (registration == null) {
             return null;

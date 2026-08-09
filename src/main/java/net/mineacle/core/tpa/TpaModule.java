@@ -2,12 +2,14 @@ package net.mineacle.core.tpa;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
-import net.mineacle.core.homes.listener.HomesMoveListener;
+import net.mineacle.core.homes.HomesModule;
 import net.mineacle.core.homes.service.TeleportService;
 import net.mineacle.core.tpa.command.TpaCommand;
 import net.mineacle.core.tpa.listener.TpaGuiListener;
 import net.mineacle.core.tpa.service.TpaService;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.command.TabCompleter;
 
 public final class TpaModule extends Module {
 
@@ -21,8 +23,16 @@ public final class TpaModule extends Module {
 
     @Override
     public void enable(Core core) {
+        HomesModule homesModule = requireHomesModule(core);
+
         this.tpaService = new TpaService(core);
-        this.teleportService = new TeleportService(core);
+        this.teleportService = homesModule.teleportService();
+
+        if (teleportService == null) {
+            throw new IllegalStateException(
+                    "Homes TeleportService is not initialized"
+            );
+        }
 
         TpaCommand command = new TpaCommand(
                 core,
@@ -45,11 +55,6 @@ public final class TpaModule extends Module {
                 ),
                 core
         );
-
-        core.getServer().getPluginManager().registerEvents(
-                new HomesMoveListener(teleportService),
-                core
-        );
     }
 
     @Override
@@ -61,25 +66,39 @@ public final class TpaModule extends Module {
     private void registerCommand(
             Core core,
             String name,
-            Object commandExecutor
+            Object executor
     ) {
-        PluginCommand pluginCommand = core.getCommand(name);
+        PluginCommand command = core.getCommand(name);
 
-        if (pluginCommand == null) {
-            core.getLogger().warning(
+        if (command == null) {
+            throw new IllegalStateException(
                     "Missing command in plugin.yml: " + name
             );
-            return;
         }
 
-        if (commandExecutor
-                instanceof org.bukkit.command.CommandExecutor executor) {
-            pluginCommand.setExecutor(executor);
+        if (!(executor instanceof CommandExecutor commandExecutor)) {
+            throw new IllegalArgumentException(
+                    "Command executor does not implement CommandExecutor: "
+                            + name
+            );
         }
 
-        if (commandExecutor
-                instanceof org.bukkit.command.TabCompleter completer) {
-            pluginCommand.setTabCompleter(completer);
+        command.setExecutor(commandExecutor);
+
+        if (executor instanceof TabCompleter completer) {
+            command.setTabCompleter(completer);
         }
+    }
+
+    private HomesModule requireHomesModule(Core core) {
+        for (Module module : core.modules()) {
+            if (module instanceof HomesModule homesModule) {
+                return homesModule;
+            }
+        }
+
+        throw new IllegalStateException(
+                "TPA requires the Homes module"
+        );
     }
 }

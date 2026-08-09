@@ -29,7 +29,12 @@ public final class HomesModule extends Module {
         this.worldRules = new HomeWorldRules(core);
         this.teleportService = new TeleportService(core);
 
-        HomeCommand homeCommand = new HomeCommand(core, homeService, worldRules, teleportService);
+        HomeCommand homeCommand = new HomeCommand(
+                core,
+                homeService,
+                worldRules,
+                teleportService
+        );
 
         registerCommand("home", homeCommand);
         registerCommand("sethome", homeCommand);
@@ -38,7 +43,12 @@ public final class HomesModule extends Module {
         registerCommand("mineaclehomes", homeCommand);
 
         core.getServer().getPluginManager().registerEvents(
-                new HomesGuiListener(core, homeService, worldRules, teleportService),
+                new HomesGuiListener(
+                        core,
+                        homeService,
+                        worldRules,
+                        teleportService
+                ),
                 core
         );
 
@@ -50,14 +60,30 @@ public final class HomesModule extends Module {
 
     @Override
     public void disable() {
-        core.saveHomesFile();
+        if (teleportService != null) {
+            teleportService.shutdown();
+        }
+
+        if (core != null) {
+            core.saveHomesFile();
+        }
+
+        teleportService = null;
+        worldRules = null;
+        homeService = null;
+        core = null;
     }
 
-    private void registerCommand(String name, HomeCommand executor) {
+    private void registerCommand(
+            String name,
+            HomeCommand executor
+    ) {
         PluginCommand command = core.getCommand(name);
+
         if (command == null) {
-            core.getLogger().warning("Missing command in plugin.yml: " + name);
-            return;
+            throw new IllegalStateException(
+                    "Missing command in plugin.yml: " + name
+            );
         }
 
         command.setExecutor(executor);
@@ -66,10 +92,6 @@ public final class HomesModule extends Module {
 
     public HomeService homeService() {
         return homeService;
-    }
-
-    public HomeWorldRules worldRules() {
-        return worldRules;
     }
 
     public TeleportService teleportService() {
