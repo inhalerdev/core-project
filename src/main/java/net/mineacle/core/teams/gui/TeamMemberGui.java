@@ -6,7 +6,6 @@ import net.mineacle.core.teams.model.TeamMemberRecord;
 import net.mineacle.core.teams.model.TeamRole;
 import net.mineacle.core.teams.service.TeamService;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
@@ -23,6 +22,11 @@ public final class TeamMemberGui {
 
     public static final String TITLE_PREFIX = "Member: ";
 
+    private static final String PRIMARY = "&#8436FE";
+    private static final String SECONDARY = "&#B078FF";
+    private static final String ACCENT = "&#D0AFFF";
+    private static final String BODY = "&#bbbbbb";
+
     private TeamMemberGui() {
     }
 
@@ -31,12 +35,9 @@ public final class TeamMemberGui {
             UUID targetId,
             TeamService teamService
     ) {
-        OfflinePlayer target =
-                Bukkit.getOfflinePlayer(targetId);
-        TeamMemberRecord viewerMember =
-                teamService.getMember(viewer.getUniqueId());
-        TeamMemberRecord targetMember =
-                teamService.getMember(targetId);
+        OfflinePlayer target = Bukkit.getOfflinePlayer(targetId);
+        TeamMemberRecord viewerMember = teamService.getMember(viewer.getUniqueId());
+        TeamMemberRecord targetMember = teamService.getMember(targetId);
         String plainName = DisplayNames.displayName(target);
         String titleName = TextColor.strip(plainName);
         String role = targetMember == null
@@ -47,24 +48,20 @@ public final class TeamMemberGui {
         Inventory inventory = Bukkit.createInventory(
                 null,
                 27,
-                ChatColor.DARK_GRAY
-                        + TITLE_PREFIX
-                        + titleName
+                color(PRIMARY + TITLE_PREFIX + titleName)
         );
 
         inventory.setItem(
                 4,
                 playerHead(
                         target,
-                        (online ? "&a" : "&f") + plainName,
+                        (online ? "&a" : BODY) + plainName,
                         List.of(
-                                "&#bbbbbbRole: &#ff88ff" + role,
-                                "&#bbbbbbStatus: "
-                                        + (online
-                                        ? "&aOnline"
-                                        : "&#888888Offline"),
+                                BODY + "Role: " + SECONDARY + role,
+                                BODY + "Status: "
+                                        + (online ? "&aOnline" : BODY + "Offline"),
                                 "",
-                                "&#bbbbbbUse the options below"
+                                ACCENT + "Use the options below"
                         )
                 )
         );
@@ -73,11 +70,11 @@ public final class TeamMemberGui {
                 13,
                 item(
                         Material.BOOK,
-                        "&dView Stats",
+                        PRIMARY + "View Stats",
                         List.of(
-                                "&#bbbbbbOpen this player's stats",
+                                BODY + "Open this player's stats",
                                 "",
-                                "&#ff55ffClick to view"
+                                ACCENT + "Click to view"
                         )
                 )
         );
@@ -87,8 +84,7 @@ public final class TeamMemberGui {
             return;
         }
 
-        boolean viewingSelf =
-                viewer.getUniqueId().equals(targetId);
+        boolean viewingSelf = viewer.getUniqueId().equals(targetId);
         TeamRole viewerRole = viewerMember.role();
         TeamRole targetRole = targetMember.role();
 
@@ -97,10 +93,10 @@ public final class TeamMemberGui {
                     22,
                     item(
                             Material.PAPER,
-                            "&dYour Team Profile",
+                            PRIMARY + "Your Team Profile",
                             List.of(
-                                    "&#bbbbbbRole: &#ff88ff" + role,
-                                    "&#bbbbbbUse Team Chat from the toolbar"
+                                    BODY + "Role: " + SECONDARY + role,
+                                    BODY + "Use Team Chat from the toolbar"
                             )
                     )
             );
@@ -117,8 +113,8 @@ public final class TeamMemberGui {
                                 Material.LIME_DYE,
                                 "&aPromote",
                                 List.of(
-                                        "&#bbbbbbPromote this member",
-                                        "&#bbbbbbFounder only"
+                                        BODY + "Promote this member",
+                                        ACCENT + "Founder only"
                                 )
                         )
                 );
@@ -129,10 +125,10 @@ public final class TeamMemberGui {
                         11,
                         item(
                                 Material.ORANGE_DYE,
-                                "&6Demote",
+                                SECONDARY + "Demote",
                                 List.of(
-                                        "&#bbbbbbDemote this admin",
-                                        "&#bbbbbbFounder only"
+                                        BODY + "Demote this admin",
+                                        ACCENT + "Founder only"
                                 )
                         )
                 );
@@ -144,8 +140,8 @@ public final class TeamMemberGui {
                             Material.BARRIER,
                             "&cKick",
                             List.of(
-                                    "&#bbbbbbRemove this player",
-                                    "&#bbbbbbRequires confirmation"
+                                    BODY + "Remove this player",
+                                    ACCENT + "Requires confirmation"
                             )
                     )
             );
@@ -155,8 +151,8 @@ public final class TeamMemberGui {
                             Material.REDSTONE_BLOCK,
                             "&cBan",
                             List.of(
-                                    "&#bbbbbbKick and block this player",
-                                    "&#bbbbbbDuration: &f7 days"
+                                    BODY + "Kick and block this player",
+                                    BODY + "Duration: " + SECONDARY + "7 days"
                             )
                     )
             );
@@ -164,10 +160,10 @@ public final class TeamMemberGui {
                     22,
                     item(
                             Material.NETHER_STAR,
-                            "&dTransfer Founder",
+                            PRIMARY + "Transfer Founder",
                             List.of(
-                                    "&#bbbbbbTransfer team ownership",
-                                    "&#bbbbbbRequires confirmation"
+                                    BODY + "Transfer team ownership",
+                                    ACCENT + "Requires confirmation"
                             )
                     )
             );
@@ -179,8 +175,8 @@ public final class TeamMemberGui {
                             Material.BARRIER,
                             "&cKick",
                             List.of(
-                                    "&#bbbbbbRemove this player",
-                                    "&#bbbbbbAdmins can kick members"
+                                    BODY + "Remove this player",
+                                    ACCENT + "Admins can kick members"
                             )
                     )
             );
@@ -190,8 +186,8 @@ public final class TeamMemberGui {
                             Material.REDSTONE_BLOCK,
                             "&cBan",
                             List.of(
-                                    "&#bbbbbbKick and block this player",
-                                    "&#bbbbbbDuration: &f7 days"
+                                    BODY + "Kick and block this player",
+                                    BODY + "Duration: " + SECONDARY + "7 days"
                             )
                     )
             );
@@ -214,11 +210,7 @@ public final class TeamMemberGui {
 
         meta.setOwningPlayer(owner);
         meta.setDisplayName(color(name));
-        meta.setLore(
-                lore.stream()
-                        .map(TeamMemberGui::color)
-                        .toList()
-        );
+        meta.setLore(lore.stream().map(TeamMemberGui::color).toList());
         item.setItemMeta(meta);
         return item;
     }
@@ -236,11 +228,7 @@ public final class TeamMemberGui {
         }
 
         meta.setDisplayName(color(name));
-        meta.setLore(
-                lore.stream()
-                        .map(TeamMemberGui::color)
-                        .toList()
-        );
+        meta.setLore(lore.stream().map(TeamMemberGui::color).toList());
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;

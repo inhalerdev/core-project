@@ -2,12 +2,15 @@ package net.mineacle.core.warp;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
+import net.mineacle.core.common.teleport.TeleportService;
 import net.mineacle.core.warp.command.DelWarpCommand;
 import net.mineacle.core.warp.command.SetWarpCommand;
 import net.mineacle.core.warp.command.WarpCommand;
 import net.mineacle.core.warp.service.WarpService;
 import net.mineacle.core.warp.service.WarpTeleportService;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.command.TabCompleter;
 
 public final class WarpModule extends Module {
 
@@ -21,35 +24,80 @@ public final class WarpModule extends Module {
 
     @Override
     public void enable(Core core) {
-        warpService = new WarpService(core);
-        teleportService = new WarpTeleportService(core, warpService);
+        TeleportService sharedTeleport = core.teleports();
 
-        registerCommand(core, "warp", new WarpCommand(warpService, teleportService));
-        registerCommand(core, "setwarp", new SetWarpCommand(warpService));
-        registerCommand(core, "delwarp", new DelWarpCommand(warpService));
+        if (sharedTeleport == null) {
+            throw new IllegalStateException(
+                    "Shared TeleportService is not initialized"
+            );
+        }
+
+        warpService =
+                new WarpService(core);
+        teleportService =
+                new WarpTeleportService(
+                        warpService,
+                        sharedTeleport
+                );
+
+        registerCommand(
+                core,
+                "warp",
+                new WarpCommand(
+                        warpService,
+                        teleportService
+                )
+        );
+        registerCommand(
+                core,
+                "setwarp",
+                new SetWarpCommand(
+                        warpService
+                )
+        );
+        registerCommand(
+                core,
+                "delwarp",
+                new DelWarpCommand(
+                        warpService
+                )
+        );
     }
 
     @Override
     public void disable() {
-        if (teleportService != null) {
-            teleportService.cancelAll();
-        }
+        teleportService = null;
+        warpService = null;
     }
 
-    private void registerCommand(Core core, String name, Object executor) {
-        PluginCommand command = core.getCommand(name);
+    private void registerCommand(
+            Core core,
+            String name,
+            Object executor
+    ) {
+        PluginCommand command =
+                core.getCommand(name);
 
         if (command == null) {
-            core.getLogger().warning("Missing command in plugin.yml: " + name);
-            return;
+            throw new IllegalStateException(
+                    "Missing command in plugin.yml: "
+                            + name
+            );
         }
 
-        if (executor instanceof org.bukkit.command.CommandExecutor commandExecutor) {
-            command.setExecutor(commandExecutor);
+        if (executor
+                instanceof CommandExecutor commandExecutor) {
+            command.setExecutor(
+                    commandExecutor
+            );
         }
 
-        if (executor instanceof org.bukkit.command.TabCompleter tabCompleter) {
-            command.setTabCompleter(tabCompleter);
+        if (executor
+                instanceof TabCompleter tabCompleter) {
+            command.setTabCompleter(
+                    tabCompleter
+            );
         }
     }
+
 }

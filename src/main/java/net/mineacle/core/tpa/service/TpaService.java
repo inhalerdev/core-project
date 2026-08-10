@@ -1,52 +1,118 @@
 package net.mineacle.core.tpa.service;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
+import net.mineacle.core.common.sound.SoundService;
+import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * In-memory TPA request registry with indexed outgoing requests and one shared
+ * expiry sweep. No per-request Bukkit tasks are created.
+ */
 public final class TpaService {
 
     private final Core core;
     private final Map<UUID, TpaRequest> requestsByTarget = new HashMap<>();
+    private final Map<UUID, LinkedHashSet<UUID>> targetsByRequester = new HashMap<>();
     private final Set<UUID> autoAccept = new HashSet<>();
+    private BukkitTask expiryTask;
 
     public TpaService(Core core) {
         this.core = core;
     }
 
-    public int timeoutSeconds() {
-        return Math.max(5, core.getConfig().getInt("tpa.request-timeout-seconds", 60));
+    public void start() {
+        if (expiryTask != null) {
+            return;
+        }
+
+        expiryTask = core.getServer().getScheduler().runTaskTimer(
+                core,
+                this::expireRequests,
+                20L,
+                20L
+        );
     }
 
-    public boolean createRequest(Player requester, Player target, TpaRequestType type) {
-        if (requester == null || target == null) {
-            return false;
+    public void shutdown() {
+        if (expiryTask != null) {
+            expiryTask.cancel();
+            expiryTask = null;
         }
 
-        if (requester.getUniqueId().equals(target.getUniqueId())) {
-            return false;
-        }
+        requestsByTarget.clear();
+        targetsByRequester.clear();
+        autoAccept.clear();
+    }
 
-        requestsByTarget.put(
-                target.getUniqueId(),
-                new TpaRequest(
-                        requester.getUniqueId(),
-                        target.getUniqueId(),
-                        type,
-                        System.currentTimeMillis()
+    public int timeoutSeconds() {
+        return Math.max(
+                5,
+                core.getConfig().getInt(
+                        "tpa.request-timeout-seconds",
+                        60
                 )
         );
+    }
 
+    public int activeRequestCount() {
+        return requestsByTarget.size();
+    }
+
+    public boolean createRequest(
+            Player requester,
+            Player target,
+            TpaRequestType type
+    ) {
+        if (requester == null || target == null || type == null) {
+            return false;
+        }
+
+        UUID requesterId = requester.getUniqueId();
+        UUID targetId = target.getUniqueId();
+
+        if (requesterId.equals(targetId)) {
+            return false;
+        }
+
+        // A target has one actionable incoming request at a time. Replacing it
+        // also removes the old requester's outgoing index entry.
+        removeRequestInternal(targetId);
+
+        TpaRequest request = new TpaRequest(
+                requesterId,
+                targetId,
+                type,
+                System.currentTimeMillis()
+        );
+        requestsByTarget.put(targetId, request);
+        targetsByRequester
+                .computeIfAbsent(
+                        requesterId,
+                        ignored -> new LinkedHashSet<>()
+                )
+                .add(targetId);
         return true;
     }
 
     public TpaRequest getRequest(UUID targetId) {
+        if (targetId == null) {
+            return null;
+        }
+
         TpaRequest request = requestsByTarget.get(targetId);
 
         if (request == null) {
@@ -54,7 +120,7 @@ public final class TpaService {
         }
 
         if (isExpired(request)) {
-            requestsByTarget.remove(targetId);
+            removeRequestInternal(targetId);
             return null;
         }
 
@@ -66,31 +132,69 @@ public final class TpaService {
     }
 
     public TpaRequest removeRequest(UUID targetId) {
-        return requestsByTarget.remove(targetId);
+        return removeRequestInternal(targetId);
     }
 
     public TpaRequest removeOutgoing(UUID requesterId) {
-        for (Map.Entry<UUID, TpaRequest> entry : new HashMap<>(requestsByTarget).entrySet()) {
-            if (entry.getValue().requesterId().equals(requesterId)) {
-                requestsByTarget.remove(entry.getKey());
-                return entry.getValue();
+        if (requesterId == null) {
+            return null;
+        }
+
+        LinkedHashSet<UUID> targets = targetsByRequester.get(requesterId);
+
+        if (targets == null || targets.isEmpty()) {
+            return null;
+        }
+
+        for (UUID targetId : new ArrayList<>(targets)) {
+            TpaRequest request = requestsByTarget.get(targetId);
+
+            if (request == null) {
+                removeOutgoingIndex(requesterId, targetId);
+                continue;
             }
+
+            if (isExpired(request)) {
+                removeRequestInternal(targetId);
+                continue;
+            }
+
+            return removeRequestInternal(targetId);
         }
 
         return null;
     }
 
     public boolean hasOutgoing(UUID requesterId) {
-        for (TpaRequest request : requestsByTarget.values()) {
-            if (request.requesterId().equals(requesterId) && !isExpired(request)) {
-                return true;
+        if (requesterId == null) {
+            return false;
+        }
+
+        LinkedHashSet<UUID> targets = targetsByRequester.get(requesterId);
+
+        if (targets == null || targets.isEmpty()) {
+            return false;
+        }
+
+        for (UUID targetId : new ArrayList<>(targets)) {
+            TpaRequest request = requestsByTarget.get(targetId);
+
+            if (request == null || isExpired(request)) {
+                removeRequestInternal(targetId);
+                continue;
             }
+
+            return true;
         }
 
         return false;
     }
 
     public boolean toggleAutoAccept(UUID playerId) {
+        if (playerId == null) {
+            return false;
+        }
+
         if (autoAccept.remove(playerId)) {
             return false;
         }
@@ -100,36 +204,117 @@ public final class TpaService {
     }
 
     public boolean isAutoAccepting(UUID playerId) {
-        return autoAccept.contains(playerId);
+        return playerId != null && autoAccept.contains(playerId);
     }
 
     public void clear(UUID playerId) {
-        requestsByTarget.remove(playerId);
-        requestsByTarget.entrySet().removeIf(entry ->
-                entry.getValue().requesterId().equals(playerId)
-                        || entry.getValue().targetId().equals(playerId)
-        );
+        if (playerId == null) {
+            return;
+        }
+
+        removeRequestInternal(playerId);
+
+        LinkedHashSet<UUID> outgoing = targetsByRequester.get(playerId);
+        if (outgoing != null) {
+            for (UUID targetId : new ArrayList<>(outgoing)) {
+                removeRequestInternal(targetId);
+            }
+        }
+
         autoAccept.remove(playerId);
     }
 
     public Player requester(TpaRequest request) {
-        if (request == null) {
-            return null;
-        }
-
-        return Bukkit.getPlayer(request.requesterId());
+        return request == null
+                ? null
+                : Bukkit.getPlayer(request.requesterId());
     }
 
     public Player target(TpaRequest request) {
-        if (request == null) {
+        return request == null
+                ? null
+                : Bukkit.getPlayer(request.targetId());
+    }
+
+    private void expireRequests() {
+        if (requestsByTarget.isEmpty()) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        long timeoutMillis = timeoutSeconds() * 1_000L;
+        List<TpaRequest> expired = new ArrayList<>();
+
+        for (TpaRequest request : requestsByTarget.values()) {
+            if (now - request.createdAt() > timeoutMillis) {
+                expired.add(request);
+            }
+        }
+
+        for (TpaRequest request : expired) {
+            TpaRequest removed = removeRequestInternal(request.targetId());
+
+            if (removed == null) {
+                continue;
+            }
+
+            notifyExpired(removed.requesterId());
+            notifyExpired(removed.targetId());
+        }
+    }
+
+    private void notifyExpired(UUID playerId) {
+        Player player = Bukkit.getPlayer(playerId);
+
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+
+        Component message = component("&cTeleport request expired");
+        player.sendMessage(message);
+        player.sendActionBar(message);
+        SoundService.guiError(player, core);
+    }
+
+    private TpaRequest removeRequestInternal(UUID targetId) {
+        if (targetId == null) {
             return null;
         }
 
-        return Bukkit.getPlayer(request.targetId());
+        TpaRequest removed = requestsByTarget.remove(targetId);
+
+        if (removed != null) {
+            removeOutgoingIndex(
+                    removed.requesterId(),
+                    removed.targetId()
+            );
+        }
+
+        return removed;
+    }
+
+    private void removeOutgoingIndex(UUID requesterId, UUID targetId) {
+        LinkedHashSet<UUID> targets = targetsByRequester.get(requesterId);
+
+        if (targets == null) {
+            return;
+        }
+
+        targets.remove(targetId);
+
+        if (targets.isEmpty()) {
+            targetsByRequester.remove(requesterId);
+        }
     }
 
     private boolean isExpired(TpaRequest request) {
         long age = System.currentTimeMillis() - request.createdAt();
-        return age > timeoutSeconds() * 1000L;
+        return age > timeoutSeconds() * 1_000L;
+    }
+
+    private Component component(String message) {
+        return LegacyComponentSerializer
+                .legacySection()
+                .deserialize(TextColor.color(message));
     }
 }

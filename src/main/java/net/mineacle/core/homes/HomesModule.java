@@ -2,12 +2,11 @@ package net.mineacle.core.homes;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
+import net.mineacle.core.common.teleport.TeleportService;
 import net.mineacle.core.homes.command.HomeCommand;
 import net.mineacle.core.homes.listener.HomesGuiListener;
-import net.mineacle.core.homes.listener.HomesMoveListener;
 import net.mineacle.core.homes.service.HomeService;
 import net.mineacle.core.homes.service.HomeWorldRules;
-import net.mineacle.core.homes.service.TeleportService;
 import org.bukkit.command.PluginCommand;
 
 public final class HomesModule extends Module {
@@ -27,7 +26,11 @@ public final class HomesModule extends Module {
         this.core = core;
         this.homeService = new HomeService(core);
         this.worldRules = new HomeWorldRules(core);
-        this.teleportService = new TeleportService(core);
+        this.teleportService = core.teleports();
+
+        if (teleportService == null) {
+            throw new IllegalStateException("Core TeleportService is not initialized");
+        }
 
         HomeCommand homeCommand = new HomeCommand(
                 core,
@@ -51,19 +54,10 @@ public final class HomesModule extends Module {
                 ),
                 core
         );
-
-        core.getServer().getPluginManager().registerEvents(
-                new HomesMoveListener(teleportService),
-                core
-        );
     }
 
     @Override
     public void disable() {
-        if (teleportService != null) {
-            teleportService.shutdown();
-        }
-
         if (core != null) {
             core.saveHomesFile();
         }
@@ -74,16 +68,11 @@ public final class HomesModule extends Module {
         core = null;
     }
 
-    private void registerCommand(
-            String name,
-            HomeCommand executor
-    ) {
+    private void registerCommand(String name, HomeCommand executor) {
         PluginCommand command = core.getCommand(name);
 
         if (command == null) {
-            throw new IllegalStateException(
-                    "Missing command in plugin.yml: " + name
-            );
+            throw new IllegalStateException("Missing command in plugin.yml: " + name);
         }
 
         command.setExecutor(executor);

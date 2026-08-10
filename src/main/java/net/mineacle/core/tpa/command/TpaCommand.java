@@ -9,7 +9,7 @@ import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
-import net.mineacle.core.homes.service.TeleportService;
+import net.mineacle.core.common.teleport.TeleportService;
 import net.mineacle.core.tpa.gui.TpaRequestGui;
 import net.mineacle.core.tpa.service.TpaRequest;
 import net.mineacle.core.tpa.service.TpaRequestType;
@@ -20,8 +20,8 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
-import org.bukkit.event.player.PlayerTeleportEvent;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Locale;
@@ -32,7 +32,7 @@ public final class TpaCommand
     private static final String PRIMARY = "&#8436FE";
     private static final String SECONDARY = "&#B078FF";
     private static final String ACCENT = "&#D0AFFF";
-    private static final String NEUTRAL = "&#bbbbbb";
+    private static final String BODY = "&#bbbbbb";
 
     private final Core core;
     private final TpaService tpaService;
@@ -56,30 +56,21 @@ public final class TpaCommand
             String @NotNull [] args
     ) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage("Players only");
+            sender.sendMessage(
+                    TextColor.color("&cPlayers only")
+            );
             return true;
         }
 
-        if (!player.hasPermission(
-                "mineacletpa.use"
-        )) {
-            sendBoth(
+        if (!player.hasPermission("mineacletpa.use")) {
+            error(
                     player,
                     "&cYou do not have permission"
             );
-            SoundService.guiError(
-                    player,
-                    core
-            );
             return true;
         }
 
-        String commandName =
-                label.toLowerCase(
-                        Locale.ROOT
-                );
-
-        switch (commandName) {
+        switch (label.toLowerCase(Locale.ROOT)) {
             case "tpa", "tpask" ->
                     handleTpa(
                             player,
@@ -113,44 +104,30 @@ public final class TpaCommand
             TpaRequestType type
     ) {
         if (args.length < 1) {
-            sendBoth(
+            error(
                     requester,
                     type == TpaRequestType.TO_TARGET
                             ? "&cUsage: /tpa <player>"
                             : "&cUsage: /tpahere <player>"
             );
-            SoundService.guiError(
-                    requester,
-                    core
-            );
             return;
         }
 
-        Player target =
-                resolveTarget(args[0]);
+        Player target = resolveTarget(args[0]);
 
         if (target == null) {
-            sendBoth(
+            error(
                     requester,
                     "&cThat player is not online"
             );
-            SoundService.guiError(
-                    requester,
-                    core
-            );
             return;
         }
 
-        if (target.getUniqueId().equals(
-                requester.getUniqueId()
-        )) {
-            sendBoth(
+        if (target.getUniqueId()
+                .equals(requester.getUniqueId())) {
+            error(
                     requester,
                     "&cYou cannot send a teleport request to yourself"
-            );
-            SoundService.guiError(
-                    requester,
-                    core
             );
             return;
         }
@@ -158,17 +135,20 @@ public final class TpaCommand
         if (tpaService.isAutoAccepting(
                 target.getUniqueId()
         ) && type == TpaRequestType.TO_TARGET) {
-            sendBoth(
-                    requester,
-                    NEUTRAL
-                            + "Teleport request auto accepted by "
-                            + playerName(target)
-            );
-
-            beginPlayerTeleport(
+            if (teleportService.beginPlayer(
                     requester,
                     target
-            );
+            )) {
+                sendBoth(
+                        requester,
+                        BODY
+                                + "Teleport request "
+                                + "&aauto accepted "
+                                + BODY
+                                + "by "
+                                + playerName(target)
+                );
+            }
             return;
         }
 
@@ -177,20 +157,16 @@ public final class TpaCommand
                 target,
                 type
         )) {
-            sendBoth(
+            error(
                     requester,
                     "&cCould not send teleport request"
-            );
-            SoundService.guiError(
-                    requester,
-                    core
             );
             return;
         }
 
         sendBoth(
                 requester,
-                NEUTRAL
+                BODY
                         + "Teleport request sent to "
                         + playerName(target)
         );
@@ -208,26 +184,15 @@ public final class TpaCommand
                 target,
                 core
         );
-
-        scheduleExpiration(
-                requester,
-                target
-        );
     }
 
-    private Player resolveTarget(
-            String input
-    ) {
+    private Player resolveTarget(String input) {
         Player target =
-                DisplayNames.resolveOnline(
-                        input
-                );
+                DisplayNames.resolveOnline(input);
 
-        if (target != null) {
-            return target;
-        }
-
-        return Bukkit.getPlayerExact(input);
+        return target != null
+                ? target
+                : Bukkit.getPlayerExact(input);
     }
 
     private void sendRequestMessage(
@@ -237,120 +202,52 @@ public final class TpaCommand
     ) {
         String mainLine =
                 playerName(requester)
-                        + NEUTRAL
+                        + BODY
                         + (
                         type == TpaRequestType.TO_TARGET
                                 ? " wants to teleport to you"
                                 : " wants you to teleport to them"
                 );
 
-        Component main =
-                legacy(mainLine);
+        Component main = component(mainLine);
         target.sendActionBar(main);
         target.sendMessage(main);
 
         Component accept =
-                legacy(
-                        PRIMARY + "[Accept]"
-                ).clickEvent(
-                        ClickEvent.runCommand(
-                                "/tpaccept"
-                        )
-                );
-
+                component("&a[Accept]")
+                        .clickEvent(
+                                ClickEvent.runCommand(
+                                        "/tpaccept"
+                                )
+                        );
         Component deny =
-                legacy(
-                        "&c[Deny]"
-                ).clickEvent(
-                        ClickEvent.runCommand(
-                                "/tpadeny"
-                        )
-                );
-
+                component("&c[Deny]")
+                        .clickEvent(
+                                ClickEvent.runCommand(
+                                        "/tpadeny"
+                                )
+                        );
         Component buttons =
-                legacy(
+                component(
                         ACCENT + "Respond "
                 )
                         .append(accept)
-                        .append(
-                                Component.space()
-                        )
+                        .append(Component.space())
                         .append(deny);
 
         target.sendMessage(buttons);
     }
 
-    private void scheduleExpiration(
-            Player requester,
-            Player target
-    ) {
-        core.getServer()
-                .getScheduler()
-                .runTaskLater(
-                        core,
-                        () -> {
-                            TpaRequest request =
-                                    tpaService.getRequest(
-                                            target.getUniqueId()
-                                    );
-
-                            if (request == null
-                                    || !request.requesterId()
-                                    .equals(
-                                            requester.getUniqueId()
-                                    )) {
-                                return;
-                            }
-
-                            tpaService.removeRequest(
-                                    target.getUniqueId()
-                            );
-
-                            if (requester.isOnline()) {
-                                sendBoth(
-                                        requester,
-                                        "&cTeleport request to "
-                                                + playerName(target)
-                                                + " &cexpired"
-                                );
-                                SoundService.guiError(
-                                        requester,
-                                        core
-                                );
-                            }
-
-                            if (target.isOnline()) {
-                                sendBoth(
-                                        target,
-                                        "&cTeleport request expired"
-                                );
-                                SoundService.guiError(
-                                        target,
-                                        core
-                                );
-                            }
-                        },
-                        tpaService.timeoutSeconds()
-                                * 20L
-                );
-    }
-
-    private void handleAccept(
-            Player player
-    ) {
+    private void handleAccept(Player player) {
         TpaRequest request =
                 tpaService.getRequest(
                         player.getUniqueId()
                 );
 
         if (request == null) {
-            sendBoth(
+            error(
                     player,
                     "&cYou have no pending teleport requests"
-            );
-            SoundService.guiError(
-                    player,
-                    core
             );
             return;
         }
@@ -369,22 +266,16 @@ public final class TpaCommand
         );
     }
 
-    private void handleDeny(
-            Player player
-    ) {
+    private void handleDeny(Player player) {
         TpaRequest request =
                 tpaService.removeRequest(
                         player.getUniqueId()
                 );
 
         if (request == null) {
-            sendBoth(
+            error(
                     player,
                     "&cYou have no pending teleport requests"
-            );
-            SoundService.guiError(
-                    player,
-                    core
             );
             return;
         }
@@ -415,22 +306,16 @@ public final class TpaCommand
         }
     }
 
-    private void handleCancel(
-            Player player
-    ) {
+    private void handleCancel(Player player) {
         TpaRequest request =
                 tpaService.removeOutgoing(
                         player.getUniqueId()
                 );
 
         if (request == null) {
-            sendBoth(
+            error(
                     player,
                     "&cYou have no outgoing teleport request"
-            );
-            SoundService.guiError(
-                    player,
-                    core
             );
             return;
         }
@@ -461,9 +346,7 @@ public final class TpaCommand
         }
     }
 
-    private void handleAuto(
-            Player player
-    ) {
+    private void handleAuto(Player player) {
         boolean enabled =
                 tpaService.toggleAutoAccept(
                         player.getUniqueId()
@@ -472,14 +355,12 @@ public final class TpaCommand
         sendBoth(
                 player,
                 enabled
-                        ? NEUTRAL
+                        ? BODY
                         + "TPA auto accept "
-                        + PRIMARY
-                        + "enabled"
-                        : NEUTRAL
+                        + "&aenabled"
+                        : BODY
                         + "TPA auto accept "
-                        + ACCENT
-                        + "disabled"
+                        + "&cdisabled"
         );
 
         if (enabled) {
@@ -495,53 +376,8 @@ public final class TpaCommand
         }
     }
 
-    private void beginPlayerTeleport(
-            Player traveler,
-            Player destination
-    ) {
-        String destinationName =
-                DisplayNames.displayName(
-                        destination
-                );
-
-        teleportService.beginTpa(
-                traveler,
-                destinationName,
-                () -> {
-                    if (!destination.isOnline()) {
-                        sendBoth(
-                                traveler,
-                                "&cThat player is no longer online"
-                        );
-                        return false;
-                    }
-
-                    boolean teleported =
-                            traveler.teleport(
-                                    destination,
-                                    PlayerTeleportEvent
-                                            .TeleportCause
-                                            .COMMAND
-                            );
-
-                    if (teleported) {
-                        sendBoth(
-                                traveler,
-                                NEUTRAL
-                                        + "Teleported to "
-                                        + playerName(
-                                        destination
-                                )
-                        );
-                    }
-
-                    return teleported;
-                }
-        );
-    }
-
     @Override
-    public @NotNull List<String> onTabComplete(
+    public @Nullable List<String> onTabComplete(
             @NotNull CommandSender sender,
             @NotNull Command command,
             @NotNull String alias,
@@ -554,35 +390,37 @@ public final class TpaCommand
             return List.of();
         }
 
-        String commandName =
-                alias.toLowerCase(
-                        Locale.ROOT
-                );
-
+        String name =
+                alias.toLowerCase(Locale.ROOT);
         boolean playerArgument =
-                commandName.equals("tpa")
-                        || commandName.equals("tpask")
-                        || commandName.equals("tpahere")
-                        || commandName.equals("tphere")
-                        || commandName.equals("tpah");
+                name.equals("tpa")
+                        || name.equals("tpask")
+                        || name.equals("tpahere")
+                        || name.equals("tphere")
+                        || name.equals("tpah");
 
-        if (playerArgument
-                && args.length == 1) {
-            return PlayerTabComplete.onlinePlayers(
-                    player,
-                    args[0]
-            );
-        }
-
-        return List.of();
+        return playerArgument
+                && args.length == 1
+                ? PlayerTabComplete.onlinePlayers(
+                player,
+                args[0]
+        )
+                : List.of();
     }
 
-    private String playerName(
-            Player player
-    ) {
+    private String playerName(Player player) {
         return SECONDARY
-                + DisplayNames.displayName(
-                player
+                + DisplayNames.displayName(player);
+    }
+
+    private void error(
+            Player player,
+            String message
+    ) {
+        sendBoth(player, message);
+        SoundService.guiError(
+                player,
+                core
         );
     }
 
@@ -590,21 +428,16 @@ public final class TpaCommand
             Player player,
             String message
     ) {
-        Component component =
-                legacy(message);
-        player.sendMessage(component);
-        player.sendActionBar(component);
+        Component value = component(message);
+        player.sendMessage(value);
+        player.sendActionBar(value);
     }
 
-    private Component legacy(
-            String message
-    ) {
+    private Component component(String message) {
         return LegacyComponentSerializer
                 .legacySection()
                 .deserialize(
-                        TextColor.color(
-                                message
-                        )
+                        TextColor.color(message)
                 );
     }
 }

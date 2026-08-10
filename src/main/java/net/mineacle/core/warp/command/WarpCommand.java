@@ -17,6 +17,9 @@ import java.util.Locale;
 
 public final class WarpCommand implements CommandExecutor, TabCompleter {
 
+    private static final String PRIMARY = "&#8436FE";
+    private static final String BODY = "&#bbbbbb";
+
     private final WarpService warpService;
     private final WarpTeleportService teleportService;
 
@@ -26,7 +29,12 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
     }
 
     @Override
-    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String[] args) {
+    public boolean onCommand(
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String label,
+            String[] args
+    ) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage("Players only");
             return true;
@@ -56,7 +64,7 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
     }
 
     private void sendUsage(Player player) {
-        player.sendMessage(TextColor.color("&#bbbbbbUsage: &d/warp <warp>"));
+        player.sendMessage(TextColor.color(BODY + "Usage: " + PRIMARY + "/warp <warp>"));
         sendAvailable(player);
     }
 
@@ -68,11 +76,18 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        player.sendMessage(TextColor.color("&#bbbbbbWarps: &d" + String.join("&#bbbbbb, &d", keys)));
+        player.sendMessage(TextColor.color(
+                BODY + "Warps: " + PRIMARY + String.join(BODY + ", " + PRIMARY, keys)
+        ));
     }
 
     @Override
-    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, String[] args) {
+    public @Nullable List<String> onTabComplete(
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String alias,
+            String[] args
+    ) {
         if (!sender.hasPermission("mineaclewarps.use")) {
             return List.of();
         }

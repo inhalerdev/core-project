@@ -11,19 +11,32 @@ import org.bukkit.configuration.file.FileConfiguration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
+/**
+ * Main-thread team registry with indexed membership and incremental YAML state.
+ *
+ * The current on-disk schema remains compatible, but routine mutations no
+ * longer clear and rebuild every team/member/ban section before each save.
+ */
 public final class TeamService {
+
+    private static final String PRIMARY = "&#8436FE";
+    private static final String BODY = "&#bbbbbb";
 
     private final Core core;
     private final Map<String, TeamRecord> teams = new HashMap<>();
     private final Map<UUID, TeamMemberRecord> members = new HashMap<>();
+    private final Map<String, LinkedHashSet<UUID>> membersByTeam = new HashMap<>();
     private final Map<String, String> nameIndex = new HashMap<>();
     private final Map<String, Map<UUID, TeamBanRecord>> bans = new HashMap<>();
-    private final Map<UUID, Boolean> teamChatEnabled = new HashMap<>();
+    private final Set<UUID> teamChatEnabled = new java.util.HashSet<>();
 
     public TeamService(Core core) {
         this.core = core;
@@ -31,29 +44,30 @@ public final class TeamService {
     }
 
     public int maxMembers() {
-        return Math.max(1, core.getConfig().getInt("teams.max-members", 45));
+        return Math.max(
+                1,
+                core.getConfig().getInt("teams.max-members", 45)
+        );
     }
 
     public int banDays() {
-        return Math.max(1, core.getConfig().getInt("teams.ban-days", 7));
+        return Math.max(
+                1,
+                core.getConfig().getInt("teams.ban-days", 7)
+        );
     }
 
     public boolean hasTeam(UUID playerId) {
-        return members.containsKey(playerId);
+        return playerId != null && members.containsKey(playerId);
     }
 
     public TeamRecord getTeamByPlayer(UUID playerId) {
         TeamMemberRecord member = members.get(playerId);
-
-        if (member == null) {
-            return null;
-        }
-
-        return teams.get(member.teamId());
+        return member == null ? null : teams.get(member.teamId());
     }
 
     public TeamRecord getTeamById(String teamId) {
-        return teams.get(teamId);
+        return teamId == null ? null : teams.get(teamId);
     }
 
     public TeamRecord getTeamByName(String name) {
@@ -62,38 +76,47 @@ public final class TeamService {
         }
 
         String id = nameIndex.get(name.toLowerCase(Locale.ROOT));
-
-        if (id == null) {
-            return null;
-        }
-
-        return teams.get(id);
+        return id == null ? null : teams.get(id);
     }
 
     public TeamMemberRecord getMember(UUID playerId) {
-        return members.get(playerId);
+        return playerId == null ? null : members.get(playerId);
     }
 
     public List<UUID> getTeamMembers(String teamId) {
-        List<TeamMemberRecord> records = new ArrayList<>();
+        if (teamId == null) {
+            return List.of();
+        }
 
-        for (TeamMemberRecord member : members.values()) {
-            if (member.teamId().equals(teamId)) {
+        Set<UUID> indexed = membersByTeam.get(teamId);
+
+        if (indexed == null || indexed.isEmpty()) {
+            return List.of();
+        }
+
+        List<TeamMemberRecord> records = new ArrayList<>(indexed.size());
+
+        for (UUID playerId : indexed) {
+            TeamMemberRecord member = members.get(playerId);
+
+            if (member != null && teamId.equals(member.teamId())) {
                 records.add(member);
             }
         }
 
-        records.sort(Comparator
-                .comparing((TeamMemberRecord member) -> member.role().ordinal())
-                .thenComparing(TeamMemberRecord::joinedAt));
+        records.sort(
+                Comparator
+                        .comparingInt(
+                                (TeamMemberRecord member) -> member.role().ordinal()
+                        )
+                        .thenComparingLong(TeamMemberRecord::joinedAt)
+        );
 
-        List<UUID> ids = new ArrayList<>();
-
+        List<UUID> ids = new ArrayList<>(records.size());
         for (TeamMemberRecord record : records) {
             ids.add(record.playerId());
         }
-
-        return ids;
+        return List.copyOf(ids);
     }
 
     public boolean isFounder(UUID playerId) {
@@ -107,30 +130,35 @@ public final class TeamService {
     }
 
     public boolean isTeamChatEnabled(UUID playerId) {
-        return teamChatEnabled.getOrDefault(playerId, false);
+        return playerId != null && teamChatEnabled.contains(playerId);
     }
 
     public boolean toggleTeamChat(UUID playerId) {
         boolean enabled = !isTeamChatEnabled(playerId);
-
-        if (enabled) {
-            teamChatEnabled.put(playerId, true);
-        } else {
-            teamChatEnabled.remove(playerId);
-        }
-
-        save();
+        setTeamChat(playerId, enabled);
         return enabled;
     }
 
     public void setTeamChat(UUID playerId, boolean enabled) {
-        if (enabled) {
-            teamChatEnabled.put(playerId, true);
-        } else {
-            teamChatEnabled.remove(playerId);
+        if (playerId == null) {
+            return;
         }
 
-        save();
+        if (enabled) {
+            teamChatEnabled.add(playerId);
+            core.getTeamsConfig().set(
+                    "team-chat." + playerId,
+                    true
+            );
+        } else {
+            teamChatEnabled.remove(playerId);
+            core.getTeamsConfig().set(
+                    "team-chat." + playerId,
+                    null
+            );
+        }
+
+        persist();
     }
 
     public boolean isValidTeamName(String name) {
@@ -139,60 +167,72 @@ public final class TeamService {
         }
 
         String cleaned = name.trim();
-
-        if (cleaned.length() < 3 || cleaned.length() > 16) {
-            return false;
-        }
-
-        return cleaned.matches("[A-Za-z0-9_]+");
+        return cleaned.length() >= 3
+                && cleaned.length() <= 16
+                && cleaned.matches("[A-Za-z0-9_]+");
     }
 
     public boolean createTeam(UUID founderId, String name) {
-        if (hasTeam(founderId)) {
+        if (founderId == null
+                || hasTeam(founderId)
+                || !isValidTeamName(name)
+                || getTeamByName(name) != null) {
             return false;
         }
 
-        if (!isValidTeamName(name)) {
-            return false;
-        }
-
-        if (getTeamByName(name) != null) {
-            return false;
-        }
-
+        String cleanedName = name.trim();
         String teamId = UUID.randomUUID().toString();
-        TeamRecord team = new TeamRecord(teamId, name.trim(), founderId, false);
-        TeamMemberRecord founder = new TeamMemberRecord(teamId, founderId, TeamRole.FOUNDER, System.currentTimeMillis());
+        long joinedAt = System.currentTimeMillis();
+        TeamRecord team = new TeamRecord(
+                teamId,
+                cleanedName,
+                founderId,
+                false
+        );
+        TeamMemberRecord founder = new TeamMemberRecord(
+                teamId,
+                founderId,
+                TeamRole.FOUNDER,
+                joinedAt
+        );
 
         teams.put(teamId, team);
         members.put(founderId, founder);
-        nameIndex.put(team.name().toLowerCase(Locale.ROOT), teamId);
+        membersByTeam
+                .computeIfAbsent(teamId, ignored -> new LinkedHashSet<>())
+                .add(founderId);
+        nameIndex.put(cleanedName.toLowerCase(Locale.ROOT), teamId);
 
-        save();
+        writeTeam(team);
+        writeMember(founder);
+        persist();
         return true;
     }
 
     public boolean addMember(String teamId, UUID playerId) {
         TeamRecord team = teams.get(teamId);
 
-        if (team == null) {
+        if (team == null
+                || playerId == null
+                || hasTeam(playerId)
+                || isBanned(teamId, playerId)
+                || memberCount(teamId) >= maxMembers()) {
             return false;
         }
 
-        if (hasTeam(playerId)) {
-            return false;
-        }
+        TeamMemberRecord member = new TeamMemberRecord(
+                teamId,
+                playerId,
+                TeamRole.MEMBER,
+                System.currentTimeMillis()
+        );
+        members.put(playerId, member);
+        membersByTeam
+                .computeIfAbsent(teamId, ignored -> new LinkedHashSet<>())
+                .add(playerId);
 
-        if (isBanned(teamId, playerId)) {
-            return false;
-        }
-
-        if (getTeamMembers(teamId).size() >= maxMembers()) {
-            return false;
-        }
-
-        members.put(playerId, new TeamMemberRecord(teamId, playerId, TeamRole.MEMBER, System.currentTimeMillis()));
-        save();
+        writeMember(member);
+        persist();
         return true;
     }
 
@@ -203,9 +243,8 @@ public final class TeamService {
             return false;
         }
 
-        members.remove(playerId);
-        teamChatEnabled.remove(playerId);
-        save();
+        removeMemberState(member);
+        persist();
         return true;
     }
 
@@ -213,33 +252,12 @@ public final class TeamService {
         TeamMemberRecord actor = members.get(actorId);
         TeamMemberRecord target = members.get(targetId);
 
-        if (actor == null || target == null) {
+        if (!canModerate(actorId, actor, targetId, target)) {
             return false;
         }
 
-        if (!actor.teamId().equals(target.teamId())) {
-            return false;
-        }
-
-        if (actorId.equals(targetId)) {
-            return false;
-        }
-
-        if (target.role() == TeamRole.FOUNDER) {
-            return false;
-        }
-
-        if (actor.role() == TeamRole.ADMIN && target.role() != TeamRole.MEMBER) {
-            return false;
-        }
-
-        if (!actor.role().isAdmin()) {
-            return false;
-        }
-
-        members.remove(targetId);
-        teamChatEnabled.remove(targetId);
-        save();
+        removeMemberState(target);
+        persist();
         return true;
     }
 
@@ -247,43 +265,35 @@ public final class TeamService {
         TeamMemberRecord actor = members.get(actorId);
         TeamMemberRecord target = members.get(targetId);
 
-        if (actor == null || target == null) {
-            return false;
-        }
-
-        if (!actor.teamId().equals(target.teamId())) {
-            return false;
-        }
-
-        if (actorId.equals(targetId)) {
-            return false;
-        }
-
-        if (target.role() == TeamRole.FOUNDER) {
-            return false;
-        }
-
-        if (actor.role() == TeamRole.ADMIN && target.role() != TeamRole.MEMBER) {
-            return false;
-        }
-
-        if (!actor.role().isAdmin()) {
+        if (!canModerate(actorId, actor, targetId, target)) {
             return false;
         }
 
         long createdAt = System.currentTimeMillis();
-        long expiresAt = createdAt + (banDays() * 24L * 60L * 60L * 1000L);
+        long expiresAt = createdAt + TimeUnit.DAYS.toMillis(banDays());
+        TeamBanRecord record = new TeamBanRecord(
+                target.teamId(),
+                targetId,
+                actorId,
+                createdAt,
+                expiresAt
+        );
+        bans.computeIfAbsent(
+                target.teamId(),
+                ignored -> new HashMap<>()
+        ).put(targetId, record);
 
-        bans.computeIfAbsent(target.teamId(), ignored -> new HashMap<>())
-                .put(targetId, new TeamBanRecord(target.teamId(), targetId, actorId, createdAt, expiresAt));
-
-        members.remove(targetId);
-        teamChatEnabled.remove(targetId);
-        save();
+        writeBan(record);
+        removeMemberState(target);
+        persist();
         return true;
     }
 
     public boolean isBanned(String teamId, UUID playerId) {
+        if (teamId == null || playerId == null) {
+            return false;
+        }
+
         Map<UUID, TeamBanRecord> teamBans = bans.get(teamId);
 
         if (teamBans == null) {
@@ -298,35 +308,49 @@ public final class TeamService {
 
         if (record.expired()) {
             teamBans.remove(playerId);
-            save();
+            core.getTeamsConfig().set(
+                    "team-bans." + teamId + "." + playerId,
+                    null
+            );
+
+            if (teamBans.isEmpty()) {
+                bans.remove(teamId);
+            }
+
+            persist();
             return false;
         }
 
         return true;
     }
 
-    public boolean setMemberRole(UUID actorId, UUID targetId, TeamRole newRole) {
+    public boolean setMemberRole(
+            UUID actorId,
+            UUID targetId,
+            TeamRole newRole
+    ) {
         TeamMemberRecord actor = members.get(actorId);
         TeamMemberRecord target = members.get(targetId);
 
-        if (actor == null || target == null) {
+        if (actor == null
+                || target == null
+                || newRole == null
+                || !actor.teamId().equals(target.teamId())
+                || actor.role() != TeamRole.FOUNDER
+                || target.role() == TeamRole.FOUNDER
+                || newRole == TeamRole.FOUNDER) {
             return false;
         }
 
-        if (!actor.teamId().equals(target.teamId())) {
-            return false;
-        }
-
-        if (actor.role() != TeamRole.FOUNDER) {
-            return false;
-        }
-
-        if (target.role() == TeamRole.FOUNDER || newRole == TeamRole.FOUNDER) {
-            return false;
-        }
-
-        members.put(targetId, new TeamMemberRecord(target.teamId(), target.playerId(), newRole, target.joinedAt()));
-        save();
+        TeamMemberRecord updated = new TeamMemberRecord(
+                target.teamId(),
+                target.playerId(),
+                newRole,
+                target.joinedAt()
+        );
+        members.put(targetId, updated);
+        writeMember(updated);
+        persist();
         return true;
     }
 
@@ -334,19 +358,11 @@ public final class TeamService {
         TeamMemberRecord actor = members.get(actorId);
         TeamMemberRecord target = members.get(targetId);
 
-        if (actor == null || target == null) {
-            return false;
-        }
-
-        if (!actor.teamId().equals(target.teamId())) {
-            return false;
-        }
-
-        if (actor.role() != TeamRole.FOUNDER) {
-            return false;
-        }
-
-        if (actorId.equals(targetId)) {
+        if (actor == null
+                || target == null
+                || !actor.teamId().equals(target.teamId())
+                || actor.role() != TeamRole.FOUNDER
+                || actorId.equals(targetId)) {
             return false;
         }
 
@@ -356,11 +372,33 @@ public final class TeamService {
             return false;
         }
 
-        teams.put(team.teamId(), new TeamRecord(team.teamId(), team.name(), targetId, team.friendlyFire()));
-        members.put(actorId, new TeamMemberRecord(actor.teamId(), actorId, TeamRole.ADMIN, actor.joinedAt()));
-        members.put(targetId, new TeamMemberRecord(target.teamId(), targetId, TeamRole.FOUNDER, target.joinedAt()));
+        TeamRecord updatedTeam = new TeamRecord(
+                team.teamId(),
+                team.name(),
+                targetId,
+                team.friendlyFire()
+        );
+        TeamMemberRecord oldFounder = new TeamMemberRecord(
+                actor.teamId(),
+                actorId,
+                TeamRole.ADMIN,
+                actor.joinedAt()
+        );
+        TeamMemberRecord newFounder = new TeamMemberRecord(
+                target.teamId(),
+                targetId,
+                TeamRole.FOUNDER,
+                target.joinedAt()
+        );
 
-        save();
+        teams.put(team.teamId(), updatedTeam);
+        members.put(actorId, oldFounder);
+        members.put(targetId, newFounder);
+
+        writeTeam(updatedTeam);
+        writeMember(oldFounder);
+        writeMember(newFounder);
+        persist();
         return true;
     }
 
@@ -375,23 +413,21 @@ public final class TeamService {
         nameIndex.remove(team.name().toLowerCase(Locale.ROOT));
         bans.remove(team.teamId());
 
-        List<UUID> toRemove = new ArrayList<>();
-
-        for (TeamMemberRecord member : members.values()) {
-            if (member.teamId().equals(team.teamId())) {
-                toRemove.add(member.playerId());
-            }
-        }
+        LinkedHashSet<UUID> indexed = membersByTeam.remove(team.teamId());
+        List<UUID> toRemove = indexed == null
+                ? List.of()
+                : new ArrayList<>(indexed);
 
         for (UUID id : toRemove) {
             members.remove(id);
             teamChatEnabled.remove(id);
+            core.getTeamsConfig().set("team-chat." + id, null);
         }
 
+        core.getTeamsConfig().set("teams." + team.teamId(), null);
         core.getTeamsConfig().set("team-homes." + team.teamId(), null);
         core.getTeamsConfig().set("team-bans." + team.teamId(), null);
-
-        save();
+        persist();
         return true;
     }
 
@@ -402,53 +438,117 @@ public final class TeamService {
             return false;
         }
 
-        teams.put(teamId, new TeamRecord(old.teamId(), old.name(), old.founder(), friendlyFire));
-        save();
+        TeamRecord updated = new TeamRecord(
+                old.teamId(),
+                old.name(),
+                old.founder(),
+                friendlyFire
+        );
+        teams.put(teamId, updated);
+        core.getTeamsConfig().set(
+                "teams." + teamId + ".friendly-fire",
+                friendlyFire
+        );
+        persist();
         return true;
     }
 
     public String formatTeamName(TeamRecord team) {
-        if (team == null) {
-            return "&#bbbbbbNo Team";
+        return team == null
+                ? BODY + "No Team"
+                : PRIMARY + team.name();
+    }
+
+    private int memberCount(String teamId) {
+        Set<UUID> indexed = membersByTeam.get(teamId);
+        return indexed == null ? 0 : indexed.size();
+    }
+
+    private boolean canModerate(
+            UUID actorId,
+            TeamMemberRecord actor,
+            UUID targetId,
+            TeamMemberRecord target
+    ) {
+        if (actor == null
+                || target == null
+                || actorId == null
+                || targetId == null
+                || !actor.teamId().equals(target.teamId())
+                || actorId.equals(targetId)
+                || target.role() == TeamRole.FOUNDER
+                || !actor.role().isAdmin()) {
+            return false;
         }
 
-        return "&d" + team.name();
+        return actor.role() != TeamRole.ADMIN
+                || target.role() == TeamRole.MEMBER;
+    }
+
+    private void removeMemberState(TeamMemberRecord member) {
+        UUID playerId = member.playerId();
+        members.remove(playerId);
+        teamChatEnabled.remove(playerId);
+
+        LinkedHashSet<UUID> indexed = membersByTeam.get(member.teamId());
+        if (indexed != null) {
+            indexed.remove(playerId);
+            if (indexed.isEmpty()) {
+                membersByTeam.remove(member.teamId());
+            }
+        }
+
+        core.getTeamsConfig().set(
+                "teams." + member.teamId() + ".members." + playerId,
+                null
+        );
+        core.getTeamsConfig().set("team-chat." + playerId, null);
     }
 
     private void load() {
         teams.clear();
         members.clear();
+        membersByTeam.clear();
         nameIndex.clear();
         bans.clear();
         teamChatEnabled.clear();
 
         FileConfiguration config = core.getTeamsConfig();
         ConfigurationSection teamsSection = config.getConfigurationSection("teams");
+        boolean cleanedExpiredBans = false;
 
         if (teamsSection != null) {
             for (String teamId : teamsSection.getKeys(false)) {
                 String path = "teams." + teamId;
                 String name = config.getString(path + ".name", teamId);
                 String founderRaw = config.getString(path + ".founder", null);
-                boolean friendlyFire = config.getBoolean(path + ".friendly-fire", false);
+                boolean friendlyFire = config.getBoolean(
+                        path + ".friendly-fire",
+                        false
+                );
 
                 if (founderRaw == null) {
                     continue;
                 }
 
                 UUID founder;
-
                 try {
                     founder = UUID.fromString(founderRaw);
                 } catch (IllegalArgumentException ignored) {
                     continue;
                 }
 
-                TeamRecord team = new TeamRecord(teamId, name, founder, friendlyFire);
+                TeamRecord team = new TeamRecord(
+                        teamId,
+                        name,
+                        founder,
+                        friendlyFire
+                );
                 teams.put(teamId, team);
                 nameIndex.put(name.toLowerCase(Locale.ROOT), teamId);
 
-                ConfigurationSection membersSection = config.getConfigurationSection(path + ".members");
+                ConfigurationSection membersSection =
+                        config.getConfigurationSection(path + ".members");
 
                 if (membersSection == null) {
                     continue;
@@ -457,22 +557,45 @@ public final class TeamService {
                 for (String memberRaw : membersSection.getKeys(false)) {
                     try {
                         UUID memberId = UUID.fromString(memberRaw);
-                        String roleRaw = config.getString(path + ".members." + memberRaw + ".role", "MEMBER");
-                        long joinedAt = config.getLong(path + ".members." + memberRaw + ".joined-at", System.currentTimeMillis());
-                        TeamRole role = TeamRole.valueOf(roleRaw.toUpperCase(Locale.ROOT));
+                        String memberPath = path + ".members." + memberRaw;
+                        String roleRaw = config.getString(
+                                memberPath + ".role",
+                                "MEMBER"
+                        );
+                        long joinedAt = config.getLong(
+                                memberPath + ".joined-at",
+                                System.currentTimeMillis()
+                        );
+                        TeamRole role = TeamRole.valueOf(
+                                roleRaw.toUpperCase(Locale.ROOT)
+                        );
+                        TeamMemberRecord member = new TeamMemberRecord(
+                                teamId,
+                                memberId,
+                                role,
+                                joinedAt
+                        );
 
-                        members.put(memberId, new TeamMemberRecord(teamId, memberId, role, joinedAt));
+                        members.put(memberId, member);
+                        membersByTeam
+                                .computeIfAbsent(
+                                        teamId,
+                                        ignored -> new LinkedHashSet<>()
+                                )
+                                .add(memberId);
                     } catch (Exception ignored) {
                     }
                 }
             }
         }
 
-        ConfigurationSection bansSection = config.getConfigurationSection("team-bans");
+        ConfigurationSection bansSection =
+                config.getConfigurationSection("team-bans");
 
         if (bansSection != null) {
             for (String teamId : bansSection.getKeys(false)) {
-                ConfigurationSection teamBansSection = config.getConfigurationSection("team-bans." + teamId);
+                ConfigurationSection teamBansSection =
+                        config.getConfigurationSection("team-bans." + teamId);
 
                 if (teamBansSection == null) {
                     continue;
@@ -482,13 +605,33 @@ public final class TeamService {
                     try {
                         UUID playerId = UUID.fromString(playerRaw);
                         String path = "team-bans." + teamId + "." + playerRaw;
-                        UUID bannedBy = UUID.fromString(config.getString(path + ".banned-by", playerRaw));
-                        long createdAt = config.getLong(path + ".created-at", System.currentTimeMillis());
-                        long expiresAt = config.getLong(path + ".expires-at", createdAt);
-                        TeamBanRecord record = new TeamBanRecord(teamId, playerId, bannedBy, createdAt, expiresAt);
+                        UUID bannedBy = UUID.fromString(
+                                config.getString(path + ".banned-by", playerRaw)
+                        );
+                        long createdAt = config.getLong(
+                                path + ".created-at",
+                                System.currentTimeMillis()
+                        );
+                        long expiresAt = config.getLong(
+                                path + ".expires-at",
+                                createdAt
+                        );
+                        TeamBanRecord record = new TeamBanRecord(
+                                teamId,
+                                playerId,
+                                bannedBy,
+                                createdAt,
+                                expiresAt
+                        );
 
                         if (!record.expired()) {
-                            bans.computeIfAbsent(teamId, ignored -> new HashMap<>()).put(playerId, record);
+                            bans.computeIfAbsent(
+                                    teamId,
+                                    ignored -> new HashMap<>()
+                            ).put(playerId, record);
+                        } else {
+                            config.set(path, null);
+                            cleanedExpiredBans = true;
                         }
                     } catch (Exception ignored) {
                     }
@@ -496,65 +639,52 @@ public final class TeamService {
             }
         }
 
-        ConfigurationSection chatSection = config.getConfigurationSection("team-chat");
+        ConfigurationSection chatSection =
+                config.getConfigurationSection("team-chat");
 
         if (chatSection != null) {
             for (String uuidRaw : chatSection.getKeys(false)) {
                 try {
                     UUID uuid = UUID.fromString(uuidRaw);
-
                     if (config.getBoolean("team-chat." + uuidRaw, false)) {
-                        teamChatEnabled.put(uuid, true);
+                        teamChatEnabled.add(uuid);
                     }
                 } catch (IllegalArgumentException ignored) {
                 }
             }
         }
+
+        if (cleanedExpiredBans) {
+            persist();
+        }
     }
 
-    private void save() {
+    private void writeTeam(TeamRecord team) {
+        String path = "teams." + team.teamId();
         FileConfiguration config = core.getTeamsConfig();
+        config.set(path + ".name", team.name());
+        config.set(path + ".founder", team.founder().toString());
+        config.set(path + ".friendly-fire", team.friendlyFire());
+    }
 
-        config.set("teams", null);
-        config.set("team-bans", null);
-        config.set("team-chat", null);
+    private void writeMember(TeamMemberRecord member) {
+        String path = "teams." + member.teamId()
+                + ".members." + member.playerId();
+        FileConfiguration config = core.getTeamsConfig();
+        config.set(path + ".role", member.role().name());
+        config.set(path + ".joined-at", member.joinedAt());
+    }
 
-        for (TeamRecord team : teams.values()) {
-            String path = "teams." + team.teamId();
-            config.set(path + ".name", team.name());
-            config.set(path + ".founder", team.founder().toString());
-            config.set(path + ".friendly-fire", team.friendlyFire());
+    private void writeBan(TeamBanRecord record) {
+        String path = "team-bans." + record.teamId()
+                + "." + record.playerId();
+        FileConfiguration config = core.getTeamsConfig();
+        config.set(path + ".banned-by", record.bannedBy().toString());
+        config.set(path + ".created-at", record.createdAt());
+        config.set(path + ".expires-at", record.expiresAt());
+    }
 
-            for (TeamMemberRecord member : members.values()) {
-                if (!member.teamId().equals(team.teamId())) {
-                    continue;
-                }
-
-                String memberPath = path + ".members." + member.playerId();
-                config.set(memberPath + ".role", member.role().name());
-                config.set(memberPath + ".joined-at", member.joinedAt());
-            }
-        }
-
-        for (Map.Entry<String, Map<UUID, TeamBanRecord>> teamEntry : bans.entrySet()) {
-            for (TeamBanRecord record : teamEntry.getValue().values()) {
-                if (record.expired()) {
-                    continue;
-                }
-
-                String path = "team-bans." + record.teamId() + "." + record.playerId();
-                config.set(path + ".banned-by", record.bannedBy().toString());
-                config.set(path + ".created-at", record.createdAt());
-                config.set(path + ".expires-at", record.expiresAt());
-            }
-        }
-
-        for (Map.Entry<UUID, Boolean> entry : teamChatEnabled.entrySet()) {
-            if (entry.getValue()) {
-                config.set("team-chat." + entry.getKey(), true);
-            }
-        }
-
+    private void persist() {
         core.saveTeamsFile();
     }
 }

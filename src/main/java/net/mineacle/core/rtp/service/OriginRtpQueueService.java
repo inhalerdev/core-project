@@ -4,8 +4,9 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
-import net.mineacle.core.common.teleport.TeleportMovement;
 import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.common.teleport.TeleportMovement;
+import net.mineacle.core.common.teleport.TeleportService;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -21,16 +22,32 @@ import java.util.concurrent.CompletableFuture;
 
 public final class OriginRtpQueueService {
 
+    private enum Phase {
+        QUEUED,
+        SEARCHING,
+        COUNTDOWN
+    }
+
+    private static final String PRIMARY =
+            "&#8436FE";
+    private static final String SECONDARY =
+            "&#B078FF";
+    private static final String ACCENT =
+            "&#D0AFFF";
+    private static final String BODY =
+            "&#bbbbbb";
+
     private final Core core;
     private final OriginRtpLocationService locationService;
+    private final TeleportService teleportService;
 
     private final Deque<UUID> plusQueue =
             new ArrayDeque<>();
     private final Deque<UUID> defaultQueue =
             new ArrayDeque<>();
-    private final Deque<UUID> readyQueue =
-            new ArrayDeque<>();
-    private final Map<UUID, Session> sessions =
+    private final Map<UUID, Session> sessionsByPlayer =
+            new HashMap<>();
+    private final Map<UUID, Session> sessionsById =
             new HashMap<>();
     private final Map<UUID, Long> cooldowns =
             new HashMap<>();
@@ -40,14 +57,18 @@ public final class OriginRtpQueueService {
     private BukkitTask processorTask;
     private int consecutivePlus;
 
-    public OriginRtpQueueService(Core core) {
+    public OriginRtpQueueService(
+            Core core,
+            TeleportService teleportService
+    ) {
         this.core = core;
+        this.teleportService = teleportService;
         this.locationService =
                 new OriginRtpLocationService(core);
     }
 
     public void start() {
-        stop();
+        stopProcessorOnly();
 
         long interval = Math.max(
                 1L,
@@ -68,33 +89,44 @@ public final class OriginRtpQueueService {
     }
 
     public void stop() {
-        if (processorTask != null) {
-            processorTask.cancel();
-            processorTask = null;
-        }
+        stopProcessorOnly();
 
-        for (Session session : sessions.values()) {
-            session.cancelTasks();
+        for (Session session :
+                sessionsByPlayer.values()) {
+            session.cancelSearch();
+            teleportService.releaseReservation(
+                    session.request().playerId(),
+                    TeleportService
+                            .TeleportKind
+                            .RTP
+            );
+            teleportService.cancel(
+                    session.request().playerId()
+            );
         }
 
         plusQueue.clear();
         defaultQueue.clear();
-        readyQueue.clear();
-        sessions.clear();
+        sessionsByPlayer.clear();
+        sessionsById.clear();
         cooldowns.clear();
         landingProtection.clear();
         consecutivePlus = 0;
     }
 
     public void request(Player player) {
-        request(player, "overworld");
+        request(
+                player,
+                "overworld"
+        );
     }
 
     public void request(
             Player player,
             String rawDestination
     ) {
-        if (player == null || !player.isOnline()) {
+        if (player == null
+                || !player.isOnline()) {
             return;
         }
 
@@ -108,60 +140,104 @@ public final class OriginRtpQueueService {
                 || !enabled(destination)) {
             error(
                     player,
-                    message(destination, "disabled")
+                    message(
+                            destination,
+                            "disabled"
+                    )
             );
             return;
         }
 
         UUID playerId = player.getUniqueId();
 
-        if (sessions.containsKey(playerId)) {
+        if (sessionsByPlayer
+                .containsKey(playerId)
+                || teleportService
+                .isActive(player)) {
+            error(
+                    player,
+                    "&cYou already have a teleport in progress"
+            );
+            return;
+        }
+
+        long cooldown =
+                cooldownRemainingSeconds(
+                        player
+                );
+
+        if (cooldown > 0L) {
             error(
                     player,
                     message(
                             destination,
-                            "already-active"
+                            "cooldown"
+                    ).replace(
+                            "%seconds%",
+                            SECONDARY
+                                    + cooldown
                     )
             );
             return;
         }
 
-        long cooldownRemaining =
-                cooldownRemainingSeconds(player);
-
-        if (cooldownRemaining > 0L) {
+        if (!teleportService.reserve(
+                player,
+                TeleportService
+                        .TeleportKind
+                        .RTP
+        )) {
             error(
                     player,
-                    message(destination, "cooldown")
-                            .replace(
-                                    "%seconds%",
-                                    String.valueOf(
-                                            cooldownRemaining
-                                    )
-                            )
+                    "&cYou already have a teleport in progress"
             );
             return;
         }
 
-        boolean plus = isPlus(player);
         OriginRtpRequest request =
                 new OriginRtpRequest(
                         UUID.randomUUID(),
                         playerId,
-                        plus,
+                        isPlus(player),
                         destination,
                         System.currentTimeMillis()
                 );
-        Session session = new Session(request);
-        sessions.put(playerId, session);
+        Session session =
+                new Session(
+                        request,
+                        player.getLocation().clone()
+                );
 
-        enqueueSearch(session, false);
+        sessionsByPlayer.put(
+                playerId,
+                session
+        );
+        sessionsById.put(
+                request.sessionId(),
+                session
+        );
+        enqueue(
+                session,
+                false
+        );
 
         sendActionBar(
                 player,
-                message(destination, "queued")
+                BODY
+                        + "Finding a safe "
+                        + PRIMARY
+                        + displayName(destination)
+                        + " "
+                        + BODY
+                        + "destination "
+                        + ACCENT
+                        + "#"
+                        + queuePosition(player)
         );
-        SoundService.teleportStart(player, core);
+        SoundService.teleportStart(
+                player,
+                core
+        );
     }
 
     public void cancel(
@@ -172,26 +248,34 @@ public final class OriginRtpQueueService {
             return;
         }
 
-        Session session = sessions.remove(
-                player.getUniqueId()
-        );
+        Session session =
+                removeSession(
+                        player.getUniqueId()
+                );
 
         if (session == null) {
             return;
         }
 
+        session.cancelSearch();
         removeFromQueues(
-                session.request.sessionId()
+                session.request().sessionId()
         );
-        session.cancelTasks();
+        teleportService.releaseReservation(
+                player.getUniqueId(),
+                TeleportService
+                        .TeleportKind
+                        .RTP
+        );
+        teleportService.cancel(
+                player.getUniqueId(),
+                false
+        );
 
         if (sendMessage) {
             send(
                     player,
-                    message(
-                            session.request.destination(),
-                            "cancelled-move"
-                    )
+                    "&cTeleport cancelled — you moved"
             );
             SoundService.teleportCancelled(
                     player,
@@ -205,37 +289,36 @@ public final class OriginRtpQueueService {
             return;
         }
 
-        cancel(player, false);
+        cancel(
+                player,
+                false
+        );
         landingProtection.remove(
                 player.getUniqueId()
         );
     }
 
     /**
-     * Movement is intentionally ignored while the destination is being found.
-     * The player's current position is captured only when the final countdown
-     * begins, matching the prepare-first flow used by fixed-destination systems.
+     * RTP also protects the queue/search phase. Once COUNTDOWN begins, the
+     * common TeleportService owns the same movement rule for final execution.
      */
-    public void handleMove(Player player) {
-        if (player == null) {
+    public void handleMove(Player player, Location destination) {
+        if (player == null || destination == null) {
             return;
         }
 
-        Session session = sessions.get(
-                player.getUniqueId()
-        );
+        Session session = sessionsByPlayer.get(player.getUniqueId());
 
         if (session == null
-                || session.phase != Phase.COUNTDOWN
-                || !cancelOnMove(
-                session.request.destination()
-        )) {
+                || session.phase() == Phase.COUNTDOWN
+                || !cancelOnMove(session.request().destination())) {
             return;
         }
 
-        if (movedTooFar(
-                session.startLocation,
-                player.getLocation()
+        if (TeleportMovement.movedTooFar(
+                core,
+                session.origin(),
+                destination
         )) {
             cancel(player, true);
         }
@@ -245,33 +328,12 @@ public final class OriginRtpQueueService {
             Player player,
             Location destination
     ) {
-        if (player == null || destination == null) {
-            return;
-        }
-
-        Session session = sessions.get(
-                player.getUniqueId()
-        );
-
-        if (session == null
-                || session.phase != Phase.COUNTDOWN
-                || !cancelOnMove(
-                session.request.destination()
-        )) {
-            return;
-        }
-
-        if (movedTooFar(
-                session.startLocation,
-                destination
-        )) {
-            cancel(player, true);
-        }
+        handleMove(player, destination);
     }
 
     public boolean active(Player player) {
         return player != null
-                && sessions.containsKey(
+                && sessionsByPlayer.containsKey(
                 player.getUniqueId()
         );
     }
@@ -281,27 +343,48 @@ public final class OriginRtpQueueService {
             return 0;
         }
 
-        Session session = sessions.get(
-                player.getUniqueId()
-        );
+        Session session =
+                sessionsByPlayer.get(
+                        player.getUniqueId()
+                );
 
         if (session == null
-                || session.phase != Phase.QUEUED) {
+                || session.phase()
+                != Phase.QUEUED) {
             return 0;
         }
 
-        return queuePosition(
-                session.request.sessionId()
-        );
+        UUID sessionId =
+                session.request().sessionId();
+        int position = 1;
+
+        for (UUID queued : plusQueue) {
+            if (queued.equals(sessionId)) {
+                return position;
+            }
+            position++;
+        }
+
+        for (UUID queued : defaultQueue) {
+            if (queued.equals(sessionId)) {
+                return position;
+            }
+            position++;
+        }
+
+        return 0;
     }
 
-    public boolean hasLandingProtection(Player player) {
+    public boolean hasLandingProtection(
+            Player player
+    ) {
         if (player == null) {
             return false;
         }
 
         UUID playerId = player.getUniqueId();
-        Long until = landingProtection.get(playerId);
+        Long until =
+                landingProtection.get(playerId);
 
         if (until == null) {
             return false;
@@ -317,7 +400,6 @@ public final class OriginRtpQueueService {
 
     private void process() {
         removeOfflineSessions();
-        startCountdowns();
         startSearches();
         cleanupExpiringState();
     }
@@ -331,70 +413,41 @@ public final class OriginRtpQueueService {
                 )
         );
 
-        while (countPhase(Phase.SEARCHING) < maximum) {
-            Session session = pollNextQueued();
+        while (searchingCount() < maximum) {
+            Session session = pollNext();
 
             if (session == null) {
                 return;
             }
 
             Player player = Bukkit.getPlayer(
-                    session.request.playerId()
+                    session.request().playerId()
             );
 
-            if (player == null || !player.isOnline()) {
-                sessions.remove(
-                        session.request.playerId()
+            if (player == null
+                    || !player.isOnline()) {
+                removeSession(
+                        session.request().playerId()
                 );
-                session.cancelTasks();
+                teleportService
+                        .releaseReservation(
+                                session.request()
+                                        .playerId(),
+                                TeleportService
+                                        .TeleportKind
+                                        .RTP
+                        );
                 continue;
             }
 
-            beginSearch(player, session);
+            beginSearch(
+                    player,
+                    session
+            );
         }
     }
 
-    private void startCountdowns() {
-        int maximum = Math.max(
-                1,
-                core.getConfig().getInt(
-                        "origin-rtp.queue.max-countdowns-at-once",
-                        3
-                )
-        );
-
-        while (countPhase(Phase.COUNTDOWN) < maximum) {
-            UUID sessionId = readyQueue.pollFirst();
-
-            if (sessionId == null) {
-                return;
-            }
-
-            Session session = sessionById(sessionId);
-
-            if (session == null
-                    || session.phase != Phase.READY
-                    || session.reservedLocation == null) {
-                continue;
-            }
-
-            Player player = Bukkit.getPlayer(
-                    session.request.playerId()
-            );
-
-            if (player == null || !player.isOnline()) {
-                sessions.remove(
-                        session.request.playerId()
-                );
-                session.cancelTasks();
-                continue;
-            }
-
-            beginCountdown(player, session);
-        }
-    }
-
-    private Session pollNextQueued() {
+    private Session pollNext() {
         int burst = Math.max(
                 1,
                 core.getConfig().getInt(
@@ -402,48 +455,58 @@ public final class OriginRtpQueueService {
                         3
                 )
         );
-        boolean choosePlus = !plusQueue.isEmpty()
-                && (defaultQueue.isEmpty()
-                || consecutivePlus < burst);
-        UUID sessionId;
 
-        if (choosePlus) {
-            sessionId = plusQueue.pollFirst();
-            consecutivePlus++;
-        } else {
-            sessionId = defaultQueue.pollFirst();
-            consecutivePlus = 0;
+        while (!plusQueue.isEmpty()
+                || !defaultQueue.isEmpty()) {
+            boolean choosePlus =
+                    !plusQueue.isEmpty()
+                            && (
+                            defaultQueue.isEmpty()
+                                    || consecutivePlus
+                                    < burst
+                    );
+
+            UUID sessionId =
+                    choosePlus
+                            ? plusQueue.pollFirst()
+                            : defaultQueue.pollFirst();
+
+            if (choosePlus) {
+                consecutivePlus++;
+            } else {
+                consecutivePlus = 0;
+            }
+
+            Session session =
+                    sessionsById.get(sessionId);
+
+            if (session != null
+                    && session.phase()
+                    == Phase.QUEUED) {
+                return session;
+            }
         }
 
-        if (sessionId == null) {
-            return null;
-        }
-
-        Session session = sessionById(sessionId);
-
-        if (session == null
-                || session.phase != Phase.QUEUED) {
-            return pollNextQueued();
-        }
-
-        return session;
+        return null;
     }
 
     private void beginSearch(
             Player player,
             Session session
     ) {
-        session.phase = Phase.SEARCHING;
+        session.phase(Phase.SEARCHING);
 
         CompletableFuture<Location> future =
                 locationService.findSafeLocation(
-                        session.request.destination()
+                        session.request()
+                                .destination()
                 );
-        session.searchFuture = future;
+        session.searchFuture(future);
 
-        UUID playerId = player.getUniqueId();
+        UUID playerId =
+                session.request().playerId();
         UUID sessionId =
-                session.request.sessionId();
+                session.request().sessionId();
         int timeoutSeconds = Math.max(
                 5,
                 core.getConfig().getInt(
@@ -452,28 +515,46 @@ public final class OriginRtpQueueService {
                 )
         );
 
-        session.searchTimeoutTask = core.getServer()
-                .getScheduler()
-                .runTaskLater(
-                        core,
-                        () -> timeoutSearch(
-                                playerId,
-                                sessionId
-                        ),
-                        timeoutSeconds * 20L
-                );
+        session.searchTimeoutTask(
+                core.getServer()
+                        .getScheduler()
+                        .runTaskLater(
+                                core,
+                                () -> timeoutSearch(
+                                        playerId,
+                                        sessionId
+                                ),
+                                timeoutSeconds * 20L
+                        )
+        );
 
         future.whenComplete(
                 (location, throwable) ->
-                        Bukkit.getScheduler().runTask(
-                                core,
-                                () -> completeSearch(
-                                        playerId,
-                                        sessionId,
-                                        location,
-                                        throwable
+                        Bukkit.getScheduler()
+                                .runTask(
+                                        core,
+                                        () -> completeSearch(
+                                                playerId,
+                                                sessionId,
+                                                location,
+                                                throwable
+                                        )
                                 )
-                        )
+        );
+
+        sendActionBar(
+                player,
+                BODY
+                        + "Searching "
+                        + ACCENT
+                        + "safe terrain "
+                        + BODY
+                        + "in "
+                        + PRIMARY
+                        + displayName(
+                        session.request()
+                                .destination()
+                )
         );
     }
 
@@ -483,290 +564,281 @@ public final class OriginRtpQueueService {
             Location location,
             Throwable throwable
     ) {
-        Session session = sessions.get(playerId);
+        Session session =
+                sessionsByPlayer.get(playerId);
 
-        if (session == null
-                || !session.request.sessionId()
-                .equals(sessionId)
-                || session.phase != Phase.SEARCHING) {
+        if (!matches(
+                session,
+                sessionId,
+                Phase.SEARCHING
+        )) {
             return;
         }
 
         session.cancelSearchTimeout();
-        session.searchFuture = null;
+        session.searchFuture(null);
 
-        Player player = Bukkit.getPlayer(playerId);
+        Player player =
+                Bukkit.getPlayer(playerId);
 
-        if (player == null || !player.isOnline()) {
-            sessions.remove(playerId);
-            session.cancelTasks();
+        if (player == null
+                || !player.isOnline()) {
+            removeSession(playerId);
+            teleportService
+                    .releaseReservation(
+                            playerId,
+                            TeleportService
+                                    .TeleportKind
+                                    .RTP
+                    );
             return;
         }
 
-        if (throwable != null || location == null) {
-            sessions.remove(playerId);
-            session.cancelTasks();
-            error(
+        if (throwable != null
+                || location == null) {
+            failSearch(
                     player,
-                    message(
-                            session.request.destination(),
-                            "failed"
-                    )
+                    session
             );
             return;
         }
 
-        session.reservedLocation = location;
-        session.phase = Phase.READY;
-        readyQueue.addLast(sessionId);
+        session.reservedLocation(
+                location.clone()
+        );
+        session.phase(Phase.COUNTDOWN);
 
+        int delay =
+                session.request().plus()
+                        ? plusDelaySeconds()
+                        : defaultDelaySeconds();
+
+        boolean started =
+                teleportService
+                        .beginReservedLocation(
+                                player,
+                                displayName(
+                                        session.request()
+                                                .destination()
+                                ),
+                                () -> locationService
+                                        .revalidateReservedLocation(
+                                                session.reservedLocation(),
+                                                session.request()
+                                                        .destination()
+                                        ),
+                                TeleportService
+                                        .TeleportKind
+                                        .RTP,
+                                delay,
+                                cancelOnMove(
+                                        session.request()
+                                                .destination()
+                                ),
+                                () -> completeTeleport(
+                                        playerId,
+                                        sessionId
+                                ),
+                                reason -> teleportFailed(
+                                        playerId,
+                                        sessionId,
+                                        reason
+                                )
+                        );
+
+        if (!started) {
+            removeSession(playerId);
+            teleportService
+                    .releaseReservation(
+                            playerId,
+                            TeleportService
+                                    .TeleportKind
+                                    .RTP
+                    );
+            error(
+                    player,
+                    "&cCould not start RTP teleport"
+            );
+        }
     }
 
     private void timeoutSearch(
             UUID playerId,
             UUID sessionId
     ) {
-        Session session = sessions.get(playerId);
+        Session session =
+                sessionsByPlayer.get(playerId);
 
-        if (session == null
-                || !session.request.sessionId()
-                .equals(sessionId)
-                || session.phase != Phase.SEARCHING) {
+        if (!matches(
+                session,
+                sessionId,
+                Phase.SEARCHING
+        )) {
             return;
         }
 
-        sessions.remove(playerId);
-        session.cancelTasks();
+        session.cancelSearch();
+        removeSession(playerId);
+        teleportService.releaseReservation(
+                playerId,
+                TeleportService
+                        .TeleportKind
+                        .RTP
+        );
 
-        Player player = Bukkit.getPlayer(playerId);
+        Player player =
+                Bukkit.getPlayer(playerId);
 
-        if (player != null && player.isOnline()) {
+        if (player != null
+                && player.isOnline()) {
             error(
                     player,
                     message(
-                            session.request.destination(),
+                            session.request()
+                                    .destination(),
                             "failed"
                     )
             );
         }
     }
 
-    private void beginCountdown(
-            Player player,
-            Session session
-    ) {
-        session.phase = Phase.COUNTDOWN;
-        session.startLocation =
-                player.getLocation().clone();
-        session.secondsRemaining =
-                session.request.plus()
-                        ? plusDelaySeconds()
-                        : defaultDelaySeconds();
-
-        if (session.secondsRemaining <= 0) {
-            finishTeleport(
-                    player.getUniqueId(),
-                    session.request.sessionId()
-            );
-            return;
-        }
-
-        sendCountdownActionBar(player, session);
-        SoundService.teleportCountdown(
-                player,
-                core
-        );
-
-        UUID playerId = player.getUniqueId();
-        UUID sessionId =
-                session.request.sessionId();
-
-        session.countdownTask = core.getServer()
-                .getScheduler()
-                .runTaskTimer(
-                        core,
-                        () -> tickCountdown(
-                                playerId,
-                                sessionId
-                        ),
-                        20L,
-                        20L
-                );
-    }
-
-    private void tickCountdown(
+    private void completeTeleport(
             UUID playerId,
             UUID sessionId
     ) {
-        Session session = sessions.get(playerId);
+        Session session =
+                sessionsByPlayer.get(playerId);
 
-        if (session == null
-                || !session.request.sessionId()
-                .equals(sessionId)
-                || session.phase != Phase.COUNTDOWN) {
-            return;
-        }
-
-        Player player = Bukkit.getPlayer(playerId);
-
-        if (player == null || !player.isOnline()) {
-            sessions.remove(playerId);
-            session.cancelTasks();
-            return;
-        }
-
-        if (cancelOnMove(
-                session.request.destination()
-        )
-                && movedTooFar(
-                session.startLocation,
-                player.getLocation()
+        if (!matches(
+                session,
+                sessionId,
+                Phase.COUNTDOWN
         )) {
-            cancel(player, true);
             return;
         }
 
-        session.secondsRemaining--;
+        Player player =
+                Bukkit.getPlayer(playerId);
 
-        if (session.secondsRemaining <= 0) {
-            finishTeleport(playerId, sessionId);
+        removeSession(playerId);
+
+        if (player == null
+                || !player.isOnline()) {
             return;
         }
 
-        sendCountdownActionBar(player, session);
-        SoundService.teleportCountdown(
-                player,
-                core
-        );
-    }
-
-    private void sendCountdownActionBar(
-            Player player,
-            Session session
-    ) {
-        sendActionBar(
-                player,
-                message(
-                        session.request.destination(),
-                        "countdown"
-                ).replace(
-                        "%seconds%",
-                        String.valueOf(
-                                session.secondsRemaining
-                        )
-                )
-        );
-    }
-
-    private void finishTeleport(
-            UUID playerId,
-            UUID sessionId
-    ) {
-        Session session = sessions.get(playerId);
-
-        if (session == null
-                || !session.request.sessionId()
-                .equals(sessionId)
-                || session.phase != Phase.COUNTDOWN) {
-            return;
-        }
-
-        if (session.countdownTask != null) {
-            session.countdownTask.cancel();
-            session.countdownTask = null;
-        }
-
-        Player player = Bukkit.getPlayer(playerId);
-
-        if (player == null || !player.isOnline()) {
-            sessions.remove(playerId);
-            session.cancelTasks();
-            return;
-        }
-
-        if (cancelOnMove(
-                session.request.destination()
-        )
-                && movedTooFar(
-                session.startLocation,
-                player.getLocation()
-        )) {
-            cancel(player, true);
-            return;
-        }
-
-        Location validated =
-                locationService.revalidateReservedLocation(
-                        session.reservedLocation,
-                        session.request.destination()
-                );
-
-        /*
-         * The border may have changed during the countdown. Re-search with
-         * the same session instead of teleporting outside the live border.
-         */
-        if (validated == null) {
-            session.reservedLocation = null;
-            session.startLocation = null;
-            session.phase = Phase.QUEUED;
-            enqueueSearch(session, true);
-
-            sendActionBar(
-                    player,
-                    message(
-                            session.request.destination(),
-                            "queued"
-                    )
-            );
-            return;
-        }
-
-        session.phase = Phase.TELEPORTING;
-        boolean teleported = player.teleport(validated);
-
-        if (!teleported) {
-            sessions.remove(playerId);
-            session.cancelTasks();
-            error(
-                    player,
-                    message(
-                            session.request.destination(),
-                            "failed"
-                    )
-            );
-            return;
-        }
-
-        sessions.remove(playerId);
-        session.cancelTasks();
         applyCooldown(player);
         applyLandingProtection(player);
+    }
 
-        sendActionBar(
+    private void teleportFailed(
+            UUID playerId,
+            UUID sessionId,
+            TeleportService.FailureReason reason
+    ) {
+        Session session =
+                sessionsByPlayer.get(playerId);
+
+        if (!matches(
+                session,
+                sessionId,
+                Phase.COUNTDOWN
+        )) {
+            return;
+        }
+
+        Player player =
+                Bukkit.getPlayer(playerId);
+
+        if (reason
+                == TeleportService
+                .FailureReason
+                .DESTINATION_UNAVAILABLE
+                && player != null
+                && player.isOnline()
+                && teleportService.reserve(
+                player,
+                TeleportService
+                        .TeleportKind
+                        .RTP
+        )) {
+            session.reservedLocation(null);
+            session.phase(Phase.QUEUED);
+            enqueue(
+                    session,
+                    true
+            );
+            sendActionBar(
+                    player,
+                    BODY
+                            + "Destination changed "
+                            + ACCENT
+                            + "finding another safe location"
+            );
+            return;
+        }
+
+        removeSession(playerId);
+
+        if (player != null
+                && player.isOnline()
+                && reason
+                != TeleportService
+                .FailureReason
+                .CANCELLED_MOVE
+                && reason
+                != TeleportService
+                .FailureReason
+                .CANCELLED) {
+            error(
+                    player,
+                    message(
+                            session.request()
+                                    .destination(),
+                            "failed"
+                    )
+            );
+        }
+    }
+
+    private void failSearch(
+            Player player,
+            Session session
+    ) {
+        UUID playerId =
+                session.request().playerId();
+
+        session.cancelSearch();
+        removeSession(playerId);
+        teleportService.releaseReservation(
+                playerId,
+                TeleportService
+                        .TeleportKind
+                        .RTP
+        );
+        error(
                 player,
                 message(
-                        session.request.destination(),
-                        "teleported"
+                        session.request()
+                                .destination(),
+                        "failed"
                 )
-        );
-        SoundService.teleportComplete(
-                player,
-                core
         );
     }
 
-    private void enqueueSearch(
+    private void enqueue(
             Session session,
             boolean first
     ) {
-        session.phase = Phase.QUEUED;
-        UUID sessionId =
-                session.request.sessionId();
+        session.phase(Phase.QUEUED);
+
         Deque<UUID> queue =
-                session.request.plus()
+                session.request().plus()
                         && plusPriority()
                         ? plusQueue
                         : defaultQueue;
+        UUID sessionId =
+                session.request().sessionId();
 
         if (first) {
             queue.addFirst(sessionId);
@@ -776,55 +848,86 @@ public final class OriginRtpQueueService {
     }
 
     private void removeOfflineSessions() {
-        Iterator<Map.Entry<UUID, Session>> iterator =
-                sessions.entrySet().iterator();
+        Iterator<Map.Entry<UUID, Session>>
+                iterator =
+                sessionsByPlayer
+                        .entrySet()
+                        .iterator();
 
         while (iterator.hasNext()) {
             Map.Entry<UUID, Session> entry =
                     iterator.next();
-            Player player = Bukkit.getPlayer(
-                    entry.getKey()
-            );
+            Player player =
+                    Bukkit.getPlayer(
+                            entry.getKey()
+                    );
 
-            if (player != null && player.isOnline()) {
+            if (player != null
+                    && player.isOnline()) {
                 continue;
             }
 
-            Session session = entry.getValue();
+            Session session =
+                    entry.getValue();
+            session.cancelSearch();
             removeFromQueues(
-                    session.request.sessionId()
+                    session.request()
+                            .sessionId()
             );
-            session.cancelTasks();
+            sessionsById.remove(
+                    session.request()
+                            .sessionId()
+            );
+            teleportService
+                    .releaseReservation(
+                            entry.getKey(),
+                            TeleportService
+                                    .TeleportKind
+                                    .RTP
+                    );
+            teleportService.cancel(
+                    entry.getKey()
+            );
             iterator.remove();
         }
     }
 
-    private void removeFromQueues(UUID sessionId) {
-        plusQueue.remove(sessionId);
-        defaultQueue.remove(sessionId);
-        readyQueue.remove(sessionId);
-    }
+    private Session removeSession(
+            UUID playerId
+    ) {
+        Session session =
+                sessionsByPlayer.remove(
+                        playerId
+                );
 
-    private Session sessionById(UUID sessionId) {
-        if (sessionId == null) {
+        if (session == null) {
             return null;
         }
 
-        for (Session session : sessions.values()) {
-            if (session.request.sessionId()
-                    .equals(sessionId)) {
-                return session;
-            }
-        }
-
-        return null;
+        sessionsById.remove(
+                session.request().sessionId()
+        );
+        removeFromQueues(
+                session.request().sessionId()
+        );
+        session.cancelSearch();
+        return session;
     }
 
-    private int countPhase(Phase phase) {
+    private void removeFromQueues(
+            UUID sessionId
+    ) {
+        plusQueue.remove(sessionId);
+        defaultQueue.remove(sessionId);
+    }
+
+    private int searchingCount() {
         int count = 0;
 
-        for (Session session : sessions.values()) {
-            if (session.phase == phase) {
+        for (Session session :
+                sessionsByPlayer.values()) {
+            if (session.phase()
+                    == Phase.SEARCHING) {
                 count++;
             }
         }
@@ -832,40 +935,21 @@ public final class OriginRtpQueueService {
         return count;
     }
 
-    private int queuePosition(UUID sessionId) {
-        int position = 1;
-
-        for (UUID queued : plusQueue) {
-            if (queued.equals(sessionId)) {
-                return position;
-            }
-
-            position++;
-        }
-
-        for (UUID queued : defaultQueue) {
-            if (queued.equals(sessionId)) {
-                return position;
-            }
-
-            position++;
-        }
-
-        return 0;
-    }
-
-    private boolean movedTooFar(
-            Location start,
-            Location current
+    private boolean matches(
+            Session session,
+            UUID sessionId,
+            Phase phase
     ) {
-        return TeleportMovement.movedTooFar(
-                core,
-                start,
-                current
-        );
+        return session != null
+                && session.request()
+                .sessionId()
+                .equals(sessionId)
+                && session.phase() == phase;
     }
 
-    private boolean enabled(String destination) {
+    private boolean enabled(
+            String destination
+    ) {
         return core.getConfig().getBoolean(
                 "origin-rtp.destinations."
                         + destination
@@ -930,35 +1014,37 @@ public final class OriginRtpQueueService {
     }
 
     private boolean isPlus(Player player) {
-        String permission = core.getConfig().getString(
-                "origin-rtp.plus.permission",
+        String permission =
                 core.getConfig().getString(
-                        "teleport-perks.plus-permission",
-                        "mineacle.plus"
-                )
-        );
+                        "origin-rtp.plus.permission",
+                        core.getConfig().getString(
+                                "teleport-perks.plus-permission",
+                                "mineacle.plus"
+                        )
+                );
 
-        return player.hasPermission(permission);
+        return !permission.isBlank()
+                && player.hasPermission(
+                permission
+        );
     }
 
     private long cooldownRemainingSeconds(
             Player player
     ) {
-        Long until = cooldowns.get(
-                player.getUniqueId()
-        );
+        UUID playerId = player.getUniqueId();
+        Long until =
+                cooldowns.get(playerId);
 
         if (until == null) {
             return 0L;
         }
 
-        long remaining = until
-                - System.currentTimeMillis();
+        long remaining =
+                until - System.currentTimeMillis();
 
         if (remaining <= 0L) {
-            cooldowns.remove(
-                    player.getUniqueId()
-            );
+            cooldowns.remove(playerId);
             return 0L;
         }
 
@@ -969,14 +1055,18 @@ public final class OriginRtpQueueService {
     }
 
     private void applyCooldown(Player player) {
-        String permission = core.getConfig().getString(
-                "origin-rtp.plus.permission",
-                "mineacle.plus"
-        );
+        String permission =
+                core.getConfig().getString(
+                        "origin-rtp.plus.permission",
+                        "mineacle.plus"
+                );
         int seconds = Math.max(
                 0,
                 core.getConfig().getInt(
-                        player.hasPermission(permission)
+                        !permission.isBlank()
+                                && player.hasPermission(
+                                permission
+                        )
                                 ? "origin-rtp.cooldown.plus-seconds"
                                 : "origin-rtp.cooldown.default-seconds",
                         0
@@ -997,7 +1087,9 @@ public final class OriginRtpQueueService {
         );
     }
 
-    private void applyLandingProtection(Player player) {
+    private void applyLandingProtection(
+            Player player
+    ) {
         int seconds = Math.max(
                 0,
                 core.getConfig().getInt(
@@ -1041,28 +1133,68 @@ public final class OriginRtpQueueService {
                         + destination
                         + ".messages."
                         + key;
-        String raw = core.getConfig().getString(
-                destinationPath
-        );
+        String raw =
+                core.getConfig().getString(
+                        destinationPath
+                );
 
         if (raw == null) {
             raw = core.getConfig().getString(
                     "origin-rtp.messages." + key,
-                    key.equals("countdown")
-                            ? "&#bbbbbbTeleporting to &d%world% &#bbbbbbin &d%seconds%s"
-                            : "&cMissing RTP message: " + key
+                    "&cMissing RTP message: " + key
             );
         }
 
-        return TextColor.color(
-                raw.replace(
-                        "%world%",
-                        displayName(destination)
-                )
-        );
+        String normalized =
+                normalizePalette(raw)
+                        .replace(
+                                "%world%",
+                                PRIMARY
+                                        + displayName(
+                                        destination
+                                )
+                        );
+
+        return TextColor.color(normalized);
     }
 
-    private String displayName(String destination) {
+    private String normalizePalette(
+            String value
+    ) {
+        return value
+                .replace(
+                        "&#" + "ff55ff",
+                        PRIMARY
+                )
+                .replace(
+                        "&#" + "FF55FF",
+                        PRIMARY
+                )
+                .replace(
+                        "&#" + "ff88ff",
+                        SECONDARY
+                )
+                .replace(
+                        "&#" + "FF88FF",
+                        SECONDARY
+                )
+                .replace(
+                        "&" + "d",
+                        PRIMARY
+                )
+                .replace(
+                        "&#cccccc",
+                        BODY
+                )
+                .replace(
+                        "&#CCCCCC",
+                        BODY
+                );
+    }
+
+    private String displayName(
+            String destination
+    ) {
         return core.getConfig().getString(
                 "origin-rtp.destinations."
                         + destination
@@ -1080,17 +1212,21 @@ public final class OriginRtpQueueService {
             String message
     ) {
         send(player, message);
-        SoundService.guiError(player, core);
+        SoundService.guiError(
+                player,
+                core
+        );
     }
 
     private void send(
             Player player,
             String message
     ) {
-        String colored = TextColor.color(message);
+        String colored =
+                TextColor.color(message);
         player.sendMessage(colored);
         player.sendActionBar(
-                actionBar(colored)
+                component(colored)
         );
     }
 
@@ -1099,38 +1235,80 @@ public final class OriginRtpQueueService {
             String message
     ) {
         player.sendActionBar(
-                actionBar(message)
+                component(message)
         );
     }
 
-    private Component actionBar(String message) {
-        return LegacyComponentSerializer.legacySection()
+    private Component component(
+            String message
+    ) {
+        return LegacyComponentSerializer
+                .legacySection()
                 .deserialize(
                         TextColor.color(message)
                 );
     }
 
-    private enum Phase {
-        QUEUED,
-        SEARCHING,
-        READY,
-        COUNTDOWN,
-        TELEPORTING
+    private void stopProcessorOnly() {
+        if (processorTask != null) {
+            processorTask.cancel();
+            processorTask = null;
+        }
     }
 
     private static final class Session {
 
         private final OriginRtpRequest request;
+        private final Location origin;
         private Phase phase = Phase.QUEUED;
         private Location reservedLocation;
-        private Location startLocation;
-        private int secondsRemaining;
-        private BukkitTask countdownTask;
-        private BukkitTask searchTimeoutTask;
         private CompletableFuture<Location> searchFuture;
+        private BukkitTask searchTimeoutTask;
 
-        private Session(OriginRtpRequest request) {
+        private Session(
+                OriginRtpRequest request,
+                Location origin
+        ) {
             this.request = request;
+            this.origin = origin;
+        }
+
+        private OriginRtpRequest request() {
+            return request;
+        }
+
+        private Location origin() {
+            return origin;
+        }
+
+        private Phase phase() {
+            return phase;
+        }
+
+        private void phase(Phase value) {
+            phase = value;
+        }
+
+        private Location reservedLocation() {
+            return reservedLocation;
+        }
+
+        private void reservedLocation(
+                Location value
+        ) {
+            reservedLocation = value;
+        }
+
+        private void searchFuture(
+                CompletableFuture<Location> value
+        ) {
+            searchFuture = value;
+        }
+
+        private void searchTimeoutTask(
+                BukkitTask value
+        ) {
+            searchTimeoutTask = value;
         }
 
         private void cancelSearchTimeout() {
@@ -1140,12 +1318,7 @@ public final class OriginRtpQueueService {
             }
         }
 
-        private void cancelTasks() {
-            if (countdownTask != null) {
-                countdownTask.cancel();
-                countdownTask = null;
-            }
-
+        private void cancelSearch() {
             cancelSearchTimeout();
 
             if (searchFuture != null

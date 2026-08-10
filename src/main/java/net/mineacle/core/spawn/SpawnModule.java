@@ -2,6 +2,7 @@ package net.mineacle.core.spawn;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
+import net.mineacle.core.common.teleport.TeleportService;
 import net.mineacle.core.spawn.command.SpawnCommand;
 import net.mineacle.core.spawn.listener.OriginsVoidListener;
 import net.mineacle.core.spawn.listener.SpawnGuiListener;
@@ -23,51 +24,98 @@ public final class SpawnModule extends Module {
 
     @Override
     public void enable(Core core) {
-        this.spawnService = new SpawnService(core);
-        this.teleportService = new SpawnTeleportService(spawnService);
+        TeleportService sharedTeleport = core.teleports();
 
-        SpawnCommand command = new SpawnCommand(spawnService);
-
-        PluginCommand spawn = core.getCommand("spawn");
-
-        if (spawn != null) {
-            spawn.setExecutor(command);
-            spawn.setTabCompleter(command);
-        } else {
-            core.getLogger().warning("Missing command in plugin.yml: spawn");
+        if (sharedTeleport == null) {
+            throw new IllegalStateException(
+                    "Shared TeleportService is not initialized"
+            );
         }
 
-        PluginCommand lobby = core.getCommand("lobby");
+        spawnService =
+                new SpawnService(core);
+        teleportService =
+                new SpawnTeleportService(
+                        spawnService,
+                        sharedTeleport
+                );
 
-        if (lobby != null) {
-            lobby.setExecutor(command);
-            lobby.setTabCompleter(command);
-        } else {
-            core.getLogger().warning("Missing command in plugin.yml: lobby");
-        }
+        SpawnCommand command =
+                new SpawnCommand(
+                        spawnService
+                );
 
-        core.getServer().getPluginManager().registerEvents(
-                new SpawnGuiListener(spawnService, teleportService),
-                core
+        register(
+                core,
+                "spawn",
+                command
+        );
+        register(
+                core,
+                "lobby",
+                command
         );
 
-        core.getServer().getPluginManager().registerEvents(
-                new SpawnVoidListener(spawnService),
-                core
-        );
-
-        core.getServer().getPluginManager().registerEvents(
-                new OriginsVoidListener(spawnService),
-                core
-        );
-
-        core.getServer().getPluginManager().registerEvents(
-                new SpawnJoinQuitListener(spawnService),
-                core
-        );
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new SpawnGuiListener(
+                                spawnService,
+                                teleportService
+                        ),
+                        core
+                );
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new SpawnVoidListener(
+                                spawnService,
+                                teleportService
+                        ),
+                        core
+                );
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new OriginsVoidListener(
+                                spawnService,
+                                teleportService
+                        ),
+                        core
+                );
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new SpawnJoinQuitListener(
+                                spawnService
+                        ),
+                        core
+                );
     }
 
     @Override
     public void disable() {
+        teleportService = null;
+        spawnService = null;
     }
+
+    private void register(
+            Core core,
+            String commandName,
+            SpawnCommand executor
+    ) {
+        PluginCommand command =
+                core.getCommand(commandName);
+
+        if (command == null) {
+            throw new IllegalStateException(
+                    "Missing command in plugin.yml: "
+                            + commandName
+            );
+        }
+
+        command.setExecutor(executor);
+        command.setTabCompleter(executor);
+    }
+
 }

@@ -23,7 +23,7 @@ import java.util.Locale;
 public final class TpaRequestGui {
 
     public static final Component TITLE =
-            Component.text("Teleport Request");
+            component("&#8436FETeleport Request");
     public static final int DENY_SLOT = 11;
     public static final int REQUESTER_SLOT = 13;
     public static final int ACCEPT_SLOT = 15;
@@ -35,7 +35,7 @@ public final class TpaRequestGui {
             "&#B078FF";
     private static final String ACCENT =
             "&#D0AFFF";
-    private static final String NEUTRAL =
+    private static final String BODY =
             "&#bbbbbb";
 
     private TpaRequestGui() {
@@ -58,11 +58,10 @@ public final class TpaRequestGui {
                 Bukkit.getOfflinePlayer(
                         request.requesterId()
                 );
-        Player requesterOnline =
+        Player onlineRequester =
                 Bukkit.getPlayer(
                         request.requesterId()
                 );
-
         String requesterName =
                 DisplayNames.displayName(
                         requester
@@ -81,9 +80,9 @@ public final class TpaRequestGui {
                         Material.RED_STAINED_GLASS_PANE,
                         "&cDeny",
                         List.of(
-                                NEUTRAL
+                                BODY
                                         + "Decline this teleport request",
-                                NEUTRAL
+                                BODY
                                         + "From "
                                         + SECONDARY
                                         + requesterName
@@ -100,32 +99,16 @@ public final class TpaRequestGui {
                         request.type()
                                 == TpaRequestType.TO_TARGET
                                 ? List.of(
-                                NEUTRAL
+                                BODY
                                         + "Wants to teleport to you",
-                                NEUTRAL
-                                        + "Click "
-                                        + PRIMARY
-                                        + "Accept "
-                                        + NEUTRAL
-                                        + "to allow",
-                                NEUTRAL
-                                        + "Click &cDeny "
-                                        + NEUTRAL
-                                        + "to decline"
+                                ACCENT
+                                        + "Review the request below"
                         )
                                 : List.of(
-                                NEUTRAL
+                                BODY
                                         + "Wants you to teleport to them",
-                                NEUTRAL
-                                        + "Click "
-                                        + PRIMARY
-                                        + "Accept "
-                                        + NEUTRAL
-                                        + "to teleport",
-                                NEUTRAL
-                                        + "Click &cDeny "
-                                        + NEUTRAL
-                                        + "to decline"
+                                ACCENT
+                                        + "Review the request below"
                         )
                 )
         );
@@ -134,11 +117,11 @@ public final class TpaRequestGui {
                 ACCEPT_SLOT,
                 item(
                         Material.LIME_STAINED_GLASS_PANE,
-                        PRIMARY + "Accept",
+                        "&aAccept",
                         List.of(
-                                NEUTRAL
+                                BODY
                                         + "Accept this teleport request",
-                                NEUTRAL
+                                BODY
                                         + "From "
                                         + SECONDARY
                                         + requesterName
@@ -149,7 +132,7 @@ public final class TpaRequestGui {
         inventory.setItem(
                 WORLD_SLOT,
                 worldItem(
-                        requesterOnline,
+                        onlineRequester,
                         request
                 )
         );
@@ -158,35 +141,29 @@ public final class TpaRequestGui {
     }
 
     private static ItemStack worldItem(
-            Player requesterOnline,
+            Player requester,
             TpaRequest request
     ) {
-        if (requesterOnline == null) {
+        if (requester == null) {
             return item(
                     Material.COMPASS,
                     PRIMARY + "Request Location",
                     List.of(
-                            NEUTRAL
-                                    + "Requester is no longer online"
+                            "&cRequester is no longer online"
                     )
             );
         }
 
-        World world =
-                requesterOnline.getWorld();
-        Material material =
-                worldMaterial(world);
-        String worldName =
-                world.getName();
+        World world = requester.getWorld();
 
         return item(
-                material,
+                worldMaterial(world),
                 PRIMARY + "Request Location",
                 List.of(
-                        NEUTRAL
+                        BODY
                                 + "World: "
                                 + SECONDARY
-                                + worldName,
+                                + world.getName(),
                         ACCENT
                                 + (
                                 request.type()

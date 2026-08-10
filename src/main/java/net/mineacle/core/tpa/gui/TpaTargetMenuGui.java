@@ -18,47 +18,54 @@ import java.util.List;
 public final class TpaTargetMenuGui {
 
     public static final String TITLE = "Confirm Request";
-
     public static final int CANCEL_SLOT = 10;
     public static final int REGION_SLOT = 12;
     public static final int PLAYER_SLOT = 13;
     public static final int LOCATION_SLOT = 14;
     public static final int CONFIRM_SLOT = 16;
 
+    private static final String PRIMARY = "&#8436FE";
+    private static final String SECONDARY = "&#B078FF";
+    private static final String ACCENT = "&#D0AFFF";
+    private static final String BODY = "&#bbbbbb";
+
     private TpaTargetMenuGui() {
     }
 
     public static void open(Player viewer, Player target) {
-        Inventory inventory = Bukkit.createInventory(null, 27, TextColor.color(TITLE));
+        Inventory inventory = Bukkit.createInventory(
+                null,
+                27,
+                TextColor.color(PRIMARY + TITLE)
+        );
 
         inventory.setItem(CANCEL_SLOT, item(
                 Material.RED_STAINED_GLASS_PANE,
                 "&cCancel",
-                List.of("&#bbbbbbClick to cancel the teleport")
+                List.of(BODY + "Cancel this teleport request")
         ));
-
         inventory.setItem(REGION_SLOT, item(
                 regionMaterial(target),
-                "&dRegion",
-                List.of("&#bbbbbb" + regionName(target))
+                PRIMARY + "Region",
+                List.of(BODY + regionName(target))
         ));
-
         inventory.setItem(PLAYER_SLOT, playerHead(
                 target,
-                "&dPlayer",
-                List.of("&#ff88ff" + DisplayNames.displayName(target))
+                PRIMARY + "Player",
+                List.of(SECONDARY + DisplayNames.displayName(target))
         ));
-
         inventory.setItem(LOCATION_SLOT, item(
                 Material.FEATHER,
-                "&dLocation",
-                List.of("&#bbbbbb" + locationName(target))
+                PRIMARY + "Location",
+                List.of(BODY + locationName(target))
         ));
-
         inventory.setItem(CONFIRM_SLOT, item(
                 Material.LIME_STAINED_GLASS_PANE,
-                "&dConfirm",
-                List.of("&#bbbbbbClick to send &#ff88ff" + DisplayNames.displayName(target) + " &#bbbbbba TPA request")
+                "&aConfirm",
+                List.of(
+                        BODY + "Send " + SECONDARY + DisplayNames.displayName(target),
+                        ACCENT + "a teleport request"
+                )
         ));
 
         viewer.openInventory(inventory);
@@ -74,15 +81,12 @@ public final class TpaTargetMenuGui {
         }
 
         World.Environment environment = player.getWorld().getEnvironment();
-
         if (environment == World.Environment.NETHER) {
             return Material.NETHERRACK;
         }
-
         if (environment == World.Environment.THE_END) {
             return Material.END_STONE;
         }
-
         return Material.GRASS_BLOCK;
     }
 
@@ -92,24 +96,19 @@ public final class TpaTargetMenuGui {
         }
 
         World.Environment environment = player.getWorld().getEnvironment();
-
         if (environment == World.Environment.NETHER) {
             return "Nether";
         }
-
         if (environment == World.Environment.THE_END) {
-            return "End";
+            return "The End";
         }
-
         return "Overworld";
     }
 
     private static String locationName(Player player) {
-        if (player == null || player.getWorld() == null) {
-            return "Unknown";
-        }
-
-        return player.getWorld().getName();
+        return player == null || player.getWorld() == null
+                ? "Unknown"
+                : player.getWorld().getName();
     }
 
     private static ItemStack playerHead(Player owner, String name, List<String> lore) {
@@ -145,11 +144,9 @@ public final class TpaTargetMenuGui {
 
     private static List<String> coloredLore(List<String> lore) {
         List<String> output = new ArrayList<>();
-
         for (String line : lore) {
             output.add(color(line));
         }
-
         return output;
     }
 

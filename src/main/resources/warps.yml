@@ -13,10 +13,10 @@ teleport:
 messages:
   no-permission: "&cYou do not have permission"
   not-found: "&cThat warp does not exist"
-  set: "&#bbbbbbWarp &d%warp% &#bbbbbbset"
-  deleted: "&#bbbbbbWarp &d%warp% &#bbbbbbdeleted"
-  teleported: "&#bbbbbbWarped to &d%warp%"
-  starting: "&#bbbbbbWarping to &d%warp% &#bbbbbbin &d%seconds%s"
+  set: "&aWarp &#8436FE%warp% &#bbbbbbset"
+  deleted: "&cWarp %warp% deleted"
+  teleported: "&aTeleported &#bbbbbbto &#8436FE%warp%"
+  starting: "&#bbbbbbTeleporting to &#8436FE%warp% &#bbbbbbin &#B078FF%seconds%s"
   cancelled: "&cTeleport cancelled — you moved"
 
 warps:

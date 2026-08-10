@@ -4,11 +4,14 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.teams.gui.TeamsMainGui;
 import net.mineacle.core.teams.service.TeamService;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 
 public final class TeamJoinListener implements Listener {
 
@@ -28,19 +31,29 @@ public final class TeamJoinListener implements Listener {
             return;
         }
 
-        core.getServer().getScheduler().runTaskLater(core, () -> {
-            if (!player.isOnline()) {
-                return;
-            }
+        core.getServer().getScheduler().runTaskLater(
+                core,
+                () -> {
+                    if (!player.isOnline()) {
+                        return;
+                    }
 
-            String message = "&#bbbbbbTeam chat enabled";
+                    String message = "&#bbbbbbTeam chat &aenabled";
+                    player.sendMessage(TextColor.color(message));
+                    player.sendActionBar(actionBar(message));
+                },
+                20L
+        );
+    }
 
-            player.sendMessage(message);
-            player.sendActionBar(actionBar(message));
-        }, 20L);
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onQuit(PlayerQuitEvent event) {
+        TeamsMainGui.clearPlayerState(event.getPlayer().getUniqueId());
     }
 
     private Component actionBar(String message) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
+        return LegacyComponentSerializer
+                .legacySection()
+                .deserialize(TextColor.color(message));
     }
 }

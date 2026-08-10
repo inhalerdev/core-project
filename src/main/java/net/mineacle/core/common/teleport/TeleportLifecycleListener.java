@@ -1,49 +1,61 @@
-package net.mineacle.core.rtp.listener;
+package net.mineacle.core.common.teleport;
 
-import net.mineacle.core.rtp.service.OriginRtpQueueService;
 import org.bukkit.Location;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 
-/** RTP queue/search lifecycle; common TeleportService owns final countdown. */
-public final class OriginRtpMoveListener implements Listener {
+/** One lifecycle listener for every Mineacle delayed teleport. */
+public final class TeleportLifecycleListener implements Listener {
 
-    private final OriginRtpQueueService queueService;
+    private final TeleportService teleports;
 
-    public OriginRtpMoveListener(OriginRtpQueueService queueService) {
-        this.queueService = queueService;
+    public TeleportLifecycleListener(TeleportService teleports) {
+        this.teleports = teleports;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onMove(PlayerMoveEvent event) {
-        if (!queueService.active(event.getPlayer())) {
+        if (!teleports.isActive(event.getPlayer())) {
             return;
         }
 
         Location to = event.getTo();
+
         if (to == null || samePosition(event.getFrom(), to)) {
             return;
         }
 
-        queueService.handleMove(event.getPlayer(), to);
+        teleports.handleMove(event.getPlayer(), to);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onTeleport(PlayerTeleportEvent event) {
-        if (!queueService.active(event.getPlayer()) || event.getTo() == null) {
+        if (!teleports.isActive(event.getPlayer()) || event.getTo() == null) {
             return;
         }
 
-        queueService.handleTeleport(event.getPlayer(), event.getTo());
+        teleports.handleExternalTeleport(event.getPlayer(), event.getTo());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
-        queueService.handleQuit(event.getPlayer());
+        teleports.cancel(event.getPlayer().getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onDeath(PlayerDeathEvent event) {
+        teleports.cancel(event.getEntity().getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onRespawn(PlayerRespawnEvent event) {
+        teleports.cancel(event.getPlayer().getUniqueId());
     }
 
     private boolean samePosition(Location from, Location to) {

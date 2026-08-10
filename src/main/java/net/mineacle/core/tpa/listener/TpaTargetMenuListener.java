@@ -23,6 +23,10 @@ import java.util.UUID;
 
 public final class TpaTargetMenuListener implements Listener {
 
+    private static final String PRIMARY = "&#8436FE";
+    private static final String SECONDARY = "&#B078FF";
+    private static final String BODY = "&#bbbbbb";
+
     private final Core core;
     private final TpaService tpaService;
 
@@ -94,7 +98,6 @@ public final class TpaTargetMenuListener implements Listener {
         }
 
         String raw = player.getMetadata(TpaMenuCommand.META_TARGET).get(0).asString();
-
         try {
             return Bukkit.getPlayer(UUID.fromString(raw));
         } catch (IllegalArgumentException ignored) {
@@ -112,34 +115,18 @@ public final class TpaTargetMenuListener implements Listener {
         String requesterName = DisplayNames.displayName(requester);
         String targetName = DisplayNames.displayName(target);
 
-        sendBoth(requester, "&#bbbbbbTeleport request sent to &#ff88ff" + targetName);
+        sendBoth(requester, BODY + "Teleport request sent to " + SECONDARY + targetName);
         SoundService.guiSelect(requester, core);
 
         target.sendMessage(requestMessage(
-                "&#bbbbbb" + requesterName + " &#ff88ffwants to teleport to you",
+                BODY + requesterName + " " + SECONDARY + "wants to teleport to you",
                 requester
         ));
-
-        target.sendActionBar(actionBar("&#bbbbbb" + requesterName + " &#ff88ffwants to teleport to you"));
+        target.sendActionBar(actionBar(
+                BODY + requesterName + " " + SECONDARY + "wants to teleport to you"
+        ));
         SoundService.teleportReceived(target, core);
 
-        core.getServer().getScheduler().runTaskLater(core, () -> {
-            if (tpaService.getRequest(target.getUniqueId()) == null) {
-                return;
-            }
-
-            tpaService.removeRequest(target.getUniqueId());
-
-            if (requester.isOnline()) {
-                requester.sendMessage(TextColor.color("&cTeleport request expired"));
-                SoundService.guiError(requester, core);
-            }
-
-            if (target.isOnline()) {
-                target.sendMessage(TextColor.color("&cTeleport request expired"));
-                SoundService.guiError(target, core);
-            }
-        }, tpaService.timeoutSeconds() * 20L);
     }
 
     private Component requestMessage(String message, Player requester) {
@@ -147,10 +134,12 @@ public final class TpaTargetMenuListener implements Listener {
                 .append(legacy(message))
                 .append(Component.newline())
                 .append(legacy("&a[Accept]").clickEvent(ClickEvent.runCommand("/tpaccept")))
-                .append(legacy(" &#bbbbbb/ "))
+                .append(legacy(" " + BODY + "/ "))
                 .append(legacy("&c[Deny]").clickEvent(ClickEvent.runCommand("/tpdeny")))
-                .append(legacy(" &#bbbbbb/ "))
-                .append(legacy("&dView").clickEvent(ClickEvent.runCommand("/tpamenu " + DisplayNames.commandDisplayName(requester))))
+                .append(legacy(" " + BODY + "/ "))
+                .append(legacy(PRIMARY + "[View]").clickEvent(
+                        ClickEvent.runCommand("/tpamenu " + DisplayNames.commandDisplayName(requester))
+                ))
                 .build();
     }
 

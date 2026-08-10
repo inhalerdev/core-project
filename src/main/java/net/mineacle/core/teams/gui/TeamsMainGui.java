@@ -10,7 +10,6 @@ import net.mineacle.core.teams.service.TeamHomeService;
 import net.mineacle.core.teams.service.TeamInviteService;
 import net.mineacle.core.teams.service.TeamService;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
@@ -37,8 +36,12 @@ public final class TeamsMainGui {
     public static final int SORT_SLOT = 50;
     public static final int TEAM_PVP_SLOT = 51;
 
-    private static final Map<UUID, TeamSortMode> SORT_MODES =
-            new HashMap<>();
+    private static final String PRIMARY = "&#8436FE";
+    private static final String SECONDARY = "&#B078FF";
+    private static final String ACCENT = "&#D0AFFF";
+    private static final String BODY = "&#bbbbbb";
+
+    private static final Map<UUID, TeamSortMode> SORT_MODES = new HashMap<>();
 
     private TeamsMainGui() {
     }
@@ -49,86 +52,55 @@ public final class TeamsMainGui {
             TeamService teamService,
             TeamInviteService inviteService
     ) {
-        TeamRecord team = teamService.getTeamByPlayer(
-                player.getUniqueId()
-        );
+        TeamRecord team = teamService.getTeamByPlayer(player.getUniqueId());
 
         if (team == null) {
-            TeamStartGui.open(
-                    core,
-                    player,
-                    inviteService
-            );
+            TeamStartGui.open(core, player, inviteService);
             return;
         }
 
-        TeamHomeService teamHomeService =
-                new TeamHomeService(core, teamService);
-        boolean hasTeamHome =
-                teamHomeService.hasTeamHome(team.teamId());
-        boolean teamChatEnabled =
-                teamService.isTeamChatEnabled(
-                        player.getUniqueId()
-                );
-        int memberCount = teamService
-                .getTeamMembers(team.teamId())
-                .size();
+        TeamHomeService teamHomeService = new TeamHomeService(core, teamService);
+        boolean hasTeamHome = teamHomeService.hasTeamHome(team.teamId());
+        boolean teamChatEnabled = teamService.isTeamChatEnabled(player.getUniqueId());
+        List<UUID> members = sortedMembers(player, team.teamId(), teamService);
+        int memberCount = members.size();
 
         Inventory inventory = Bukkit.createInventory(
                 null,
                 54,
-                ChatColor.DARK_GRAY
-                        + team.name()
-                        + " ("
-                        + memberCount
-                        + "/"
-                        + teamService.maxMembers()
-                        + ")"
+                color(
+                        PRIMARY + team.name()
+                                + " " + BODY + "("
+                                + memberCount + "/"
+                                + teamService.maxMembers() + ")"
+                )
         );
 
-        List<UUID> members = sortedMembers(
-                player,
-                team.teamId(),
-                teamService
-        );
         int slot = 0;
-
         for (UUID memberId : members) {
             if (slot >= 45) {
                 break;
             }
 
-            OfflinePlayer offlinePlayer =
-                    Bukkit.getOfflinePlayer(memberId);
-            TeamMemberRecord member =
-                    teamService.getMember(memberId);
-            String role = member == null
-                    ? "Member"
-                    : member.role().displayName();
+            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(memberId);
+            TeamMemberRecord member = teamService.getMember(memberId);
+            String role = member == null ? "Member" : member.role().displayName();
             boolean online = Bukkit.getPlayer(memberId) != null;
-            String displayName =
-                    DisplayNames.displayName(offlinePlayer);
-            String titleColor = online
-                    ? "&a"
-                    : "&f";
+            String displayName = DisplayNames.displayName(offlinePlayer);
 
             inventory.setItem(
                     slot,
                     playerHead(
                             offlinePlayer,
-                            titleColor + displayName,
+                            (online ? "&a" : BODY) + displayName,
                             List.of(
-                                    "&#bbbbbbRole: &#ff88ff" + role,
-                                    "&#bbbbbbBalance: &a"
-                                            + VaultMoneyHook.formattedBalance(
-                                            offlinePlayer
-                                    ),
-                                    "&#bbbbbbStatus: "
-                                            + (online
-                                            ? "&aOnline"
-                                            : "&#888888Offline"),
+                                    BODY + "Role: " + SECONDARY + role,
+                                    BODY + "Balance: &a"
+                                            + VaultMoneyHook.formattedBalance(offlinePlayer),
+                                    BODY + "Status: "
+                                            + (online ? "&aOnline" : BODY + "Offline"),
                                     "",
-                                    "&#ff55ffClick to manage"
+                                    ACCENT + "Click to manage"
                             )
                     )
             );
@@ -144,46 +116,33 @@ public final class TeamsMainGui {
                             Material.LIME_STAINED_GLASS_PANE,
                             "&aInvite Player",
                             List.of(
-                                    "&#bbbbbbPrepare a team invitation",
+                                    BODY + "Prepare a team invitation",
                                     "",
-                                    "&#ff55ffClick to autofill /team invite"
+                                    ACCENT + "Click to autofill /team invite"
                             )
                     )
             );
         }
 
-        inventory.setItem(
-                TEAM_HOME_SLOT,
-                teamHomeItem(hasTeamHome)
-        );
-        inventory.setItem(
-                TEAM_CHAT_SLOT,
-                teamChatItem(teamChatEnabled)
-        );
+        inventory.setItem(TEAM_HOME_SLOT, teamHomeItem(hasTeamHome));
+        inventory.setItem(TEAM_CHAT_SLOT, teamChatItem(teamChatEnabled));
         inventory.setItem(
                 TEAM_INFO_SLOT,
                 item(
                         Material.BOOK,
-                        "&dTeam Info",
+                        PRIMARY + "Team Info",
                         List.of(
-                                "&#bbbbbbName: &f" + team.name(),
-                                "&#bbbbbbMembers: &f"
-                                        + memberCount
-                                        + "&#bbbbbb/"
+                                BODY + "Name: " + SECONDARY + team.name(),
+                                BODY + "Members: " + SECONDARY
+                                        + memberCount + BODY + "/"
                                         + teamService.maxMembers()
                         )
                 )
         );
-        inventory.setItem(
-                SORT_SLOT,
-                sortItem(currentSort(player))
-        );
+        inventory.setItem(SORT_SLOT, sortItem(currentSort(player)));
 
         if (teamService.isAdmin(player.getUniqueId())) {
-            inventory.setItem(
-                    TEAM_PVP_SLOT,
-                    pvpItem(team.friendlyFire())
-            );
+            inventory.setItem(TEAM_PVP_SLOT, pvpItem(team.friendlyFire()));
         }
 
         player.openInventory(inventory);
@@ -201,53 +160,37 @@ public final class TeamsMainGui {
 
         members.sort(switch (mode) {
             case JOIN_DATE -> Comparator.comparingLong(id -> {
-                TeamMemberRecord member =
-                        teamService.getMember(id);
-                return member == null
-                        ? Long.MAX_VALUE
-                        : member.joinedAt();
+                TeamMemberRecord member = teamService.getMember(id);
+                return member == null ? Long.MAX_VALUE : member.joinedAt();
             });
             case PERMISSIONS -> Comparator
                     .comparingInt((UUID id) -> {
-                        TeamMemberRecord member =
-                                teamService.getMember(id);
+                        TeamMemberRecord member = teamService.getMember(id);
                         return member == null
                                 ? Integer.MAX_VALUE
                                 : member.role().ordinal();
                     })
                     .thenComparing(
-                            id -> DisplayNames.displayName(
-                                    Bukkit.getOfflinePlayer(id)
-                            ),
+                            id -> DisplayNames.displayName(Bukkit.getOfflinePlayer(id)),
                             String.CASE_INSENSITIVE_ORDER
                     );
             case ALPHABETICALLY -> Comparator.comparing(
-                    id -> DisplayNames.displayName(
-                            Bukkit.getOfflinePlayer(id)
-                    ),
+                    id -> DisplayNames.displayName(Bukkit.getOfflinePlayer(id)),
                     String.CASE_INSENSITIVE_ORDER
             );
             case ONLINE_MEMBERS -> Comparator
-                    .comparing(
-                            (UUID id) -> Bukkit.getPlayer(id) == null
-                    )
+                    .comparing((UUID id) -> Bukkit.getPlayer(id) == null)
                     .thenComparing(
-                            id -> DisplayNames.displayName(
-                                    Bukkit.getOfflinePlayer(id)
-                            ),
+                            id -> DisplayNames.displayName(Bukkit.getOfflinePlayer(id)),
                             String.CASE_INSENSITIVE_ORDER
                     );
             case MONEY -> Comparator
                     .comparingDouble(
-                            (UUID id) -> parsedBalance(
-                                    Bukkit.getOfflinePlayer(id)
-                            )
+                            (UUID id) -> parsedBalance(Bukkit.getOfflinePlayer(id))
                     )
                     .reversed()
                     .thenComparing(
-                            id -> DisplayNames.displayName(
-                                    Bukkit.getOfflinePlayer(id)
-                            ),
+                            id -> DisplayNames.displayName(Bukkit.getOfflinePlayer(id)),
                             String.CASE_INSENSITIVE_ORDER
                     );
         });
@@ -269,11 +212,14 @@ public final class TeamsMainGui {
         );
     }
 
-    private static double parsedBalance(
-            OfflinePlayer player
-    ) {
-        String formatted =
-                VaultMoneyHook.formattedBalance(player);
+    public static void clearPlayerState(UUID playerId) {
+        if (playerId != null) {
+            SORT_MODES.remove(playerId);
+        }
+    }
+
+    private static double parsedBalance(OfflinePlayer player) {
+        String formatted = VaultMoneyHook.formattedBalance(player);
 
         if (formatted == null || formatted.isBlank()) {
             return 0.0D;
@@ -292,28 +238,26 @@ public final class TeamsMainGui {
         }
     }
 
-    private static ItemStack teamHomeItem(
-            boolean hasTeamHome
-    ) {
+    private static ItemStack teamHomeItem(boolean hasTeamHome) {
         if (hasTeamHome) {
             return item(
                     Material.PURPLE_BANNER,
-                    "&dTeam Home",
+                    PRIMARY + "Team Home",
                     List.of(
-                            "&#bbbbbbStatus: &aSet",
+                            BODY + "Status: &aSet",
                             "",
-                            "&#ff55ffClick to teleport"
+                            ACCENT + "Click to teleport"
                     )
             );
         }
 
         return item(
                 Material.WHITE_BANNER,
-                "&fTeam Home",
+                PRIMARY + "Team Home",
                 List.of(
-                        "&#bbbbbbStatus: &cNot Set",
+                        BODY + "Status: &cNot Set",
                         "",
-                        "&#ff55ffClick to open Homes"
+                        ACCENT + "Click to open Homes"
                 )
         );
     }
@@ -321,60 +265,43 @@ public final class TeamsMainGui {
     private static ItemStack teamChatItem(boolean enabled) {
         return item(
                 enabled ? Material.LIME_DYE : Material.GRAY_DYE,
-                "&dTeam Chat",
+                PRIMARY + "Team Chat",
                 List.of(
-                        "&#bbbbbbStatus: "
-                                + (enabled
-                                ? "&aEnabled"
-                                : "&cDisabled"),
+                        BODY + "Status: "
+                                + (enabled ? "&aEnabled" : "&cDisabled"),
                         "",
-                        "&#ff55ffClick to toggle"
+                        ACCENT + "Click to toggle"
                 )
         );
     }
 
-    private static ItemStack sortItem(
-            TeamSortMode current
-    ) {
+    private static ItemStack sortItem(TeamSortMode current) {
         List<String> lore = new ArrayList<>();
-        lore.add(
-                "&#bbbbbbCurrent: &#ff88ff"
-                        + current.displayName()
-        );
+        lore.add(BODY + "Current: " + SECONDARY + current.displayName());
         lore.add("");
 
         for (TeamSortMode mode : TeamSortMode.values()) {
             lore.add(
-                    (mode == current
-                            ? "&#ff55ff"
-                            : "&#bbbbbb")
+                    (mode == current ? PRIMARY : BODY)
                             + mode.displayName()
             );
         }
 
         lore.add("");
-        lore.add("&#bbbbbbClick to change sorting");
+        lore.add(ACCENT + "Click to change sorting");
 
-        return item(
-                Material.HOPPER,
-                "&dSort Members",
-                lore
-        );
+        return item(Material.HOPPER, PRIMARY + "Sort Members", lore);
     }
 
-    private static ItemStack pvpItem(
-            boolean friendlyFire
-    ) {
+    private static ItemStack pvpItem(boolean friendlyFire) {
         return item(
                 Material.DIAMOND_SWORD,
-                "&dTeam PvP",
+                PRIMARY + "Team PvP",
                 List.of(
-                        "&#bbbbbbStatus: "
-                                + (friendlyFire
-                                ? "&aEnabled"
-                                : "&cDisabled"),
+                        BODY + "Status: "
+                                + (friendlyFire ? "&aEnabled" : "&cDisabled"),
                         "",
-                        "&#ff55ffClick to toggle"
+                        ACCENT + "Click to toggle"
                 )
         );
     }
@@ -384,9 +311,7 @@ public final class TeamsMainGui {
             String name,
             List<String> lore
     ) {
-        ItemStack item = new ItemStack(
-                Material.PLAYER_HEAD
-        );
+        ItemStack item = new ItemStack(Material.PLAYER_HEAD);
         ItemMeta rawMeta = item.getItemMeta();
 
         if (!(rawMeta instanceof SkullMeta meta)) {
@@ -395,11 +320,7 @@ public final class TeamsMainGui {
 
         meta.setOwningPlayer(owner);
         meta.setDisplayName(color(name));
-        meta.setLore(
-                lore.stream()
-                        .map(TeamsMainGui::color)
-                        .toList()
-        );
+        meta.setLore(lore.stream().map(TeamsMainGui::color).toList());
         item.setItemMeta(meta);
         return item;
     }
@@ -417,11 +338,7 @@ public final class TeamsMainGui {
         }
 
         meta.setDisplayName(color(name));
-        meta.setLore(
-                lore.stream()
-                        .map(TeamsMainGui::color)
-                        .toList()
-        );
+        meta.setLore(lore.stream().map(TeamsMainGui::color).toList());
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;

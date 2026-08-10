@@ -2,9 +2,9 @@ package net.mineacle.core.teams;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
+import net.mineacle.core.common.teleport.TeleportService;
 import net.mineacle.core.homes.HomesModule;
 import net.mineacle.core.homes.service.HomeService;
-import net.mineacle.core.homes.service.TeleportService;
 import net.mineacle.core.stats.PlayerStatisticsGui;
 import net.mineacle.core.teams.command.TeamCommand;
 import net.mineacle.core.teams.listener.TeamChatListener;
@@ -43,27 +43,16 @@ public final class TeamsModule extends Module {
         this.core = core;
 
         HomesModule homesModule = requireHomesModule(core);
-
+        this.homeService = homesModule.homeService();
+        this.teleportService = core.teleports();
         this.teamService = new TeamService(core);
         activeTeamService = this.teamService;
-
-        this.inviteService = new TeamInviteService(
-                core,
-                teamService
-        );
-        this.teamHomeService = new TeamHomeService(
-                core,
-                teamService
-        );
-        this.homeService = homesModule.homeService();
-        this.teleportService = homesModule.teleportService();
-        this.playerStatisticsGui =
-                new PlayerStatisticsGui();
+        this.inviteService = new TeamInviteService(core, teamService);
+        this.teamHomeService = new TeamHomeService(core, teamService);
+        this.playerStatisticsGui = new PlayerStatisticsGui();
 
         if (homeService == null || teleportService == null) {
-            throw new IllegalStateException(
-                    "Homes services are not initialized"
-            );
+            throw new IllegalStateException("Required core services are not initialized");
         }
 
         TeamCommand command = new TeamCommand(
@@ -71,15 +60,14 @@ public final class TeamsModule extends Module {
                 teamService,
                 inviteService,
                 teamHomeService,
-                teleportService
+                teleportService,
+                homeService
         );
 
         PluginCommand team = core.getCommand("team");
 
         if (team == null) {
-            throw new IllegalStateException(
-                    "Missing command in plugin.yml: team"
-            );
+            throw new IllegalStateException("Missing command in plugin.yml: team");
         }
 
         team.setExecutor(command);
@@ -97,27 +85,22 @@ public final class TeamsModule extends Module {
                 ),
                 core
         );
-
         core.getServer().getPluginManager().registerEvents(
                 new TeamCombatListener(teamService),
                 core
         );
-
         core.getServer().getPluginManager().registerEvents(
                 new TeamChatListener(core, teamService),
                 core
         );
-
         core.getServer().getPluginManager().registerEvents(
                 new TeamDeathListener(core, teamService),
                 core
         );
-
         core.getServer().getPluginManager().registerEvents(
                 new TeamJoinListener(core, teamService),
                 core
         );
-
         core.getServer().getPluginManager().registerEvents(
                 playerStatisticsGui,
                 core
@@ -147,8 +130,6 @@ public final class TeamsModule extends Module {
             }
         }
 
-        throw new IllegalStateException(
-                "Teams requires the Homes module"
-        );
+        throw new IllegalStateException("Teams requires the Homes module");
     }
 }

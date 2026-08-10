@@ -2,6 +2,7 @@ package net.mineacle.core.rtp;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
+import net.mineacle.core.common.teleport.TeleportService;
 import net.mineacle.core.rtp.command.OriginRtpCommand;
 import net.mineacle.core.rtp.listener.OriginRtpMoveListener;
 import net.mineacle.core.rtp.listener.RtpMenuListener;
@@ -22,8 +23,19 @@ public final class RtpModule extends Module {
 
     @Override
     public void enable(Core core) {
+        TeleportService sharedTeleport = core.teleports();
+
+        if (sharedTeleport == null) {
+            throw new IllegalStateException(
+                    "Shared TeleportService is not initialized"
+            );
+        }
+
         queueService =
-                new OriginRtpQueueService(core);
+                new OriginRtpQueueService(
+                        core,
+                        sharedTeleport
+                );
         menuService =
                 new RtpMenuService(core);
 
@@ -47,25 +59,31 @@ public final class RtpModule extends Module {
         command.setExecutor(executor);
         command.setTabCompleter(executor);
 
-        core.getServer().getPluginManager().registerEvents(
-                new OriginRtpMoveListener(
-                        queueService
-                ),
-                core
-        );
-        core.getServer().getPluginManager().registerEvents(
-                new RtpProtectionListener(
-                        queueService
-                ),
-                core
-        );
-        core.getServer().getPluginManager().registerEvents(
-                new RtpMenuListener(
-                        core,
-                        queueService
-                ),
-                core
-        );
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new OriginRtpMoveListener(
+                                queueService
+                        ),
+                        core
+                );
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new RtpProtectionListener(
+                                queueService
+                        ),
+                        core
+                );
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new RtpMenuListener(
+                                core,
+                                queueService
+                        ),
+                        core
+                );
 
         queueService.start();
     }
@@ -79,4 +97,5 @@ public final class RtpModule extends Module {
         queueService = null;
         menuService = null;
     }
+
 }

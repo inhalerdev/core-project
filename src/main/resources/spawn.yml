@@ -1,5 +1,5 @@
 enabled: true
-title: "Spawn"
+title: "&#8436FESpawn"
 size: 27
 max-players-display: 100
 
@@ -29,24 +29,24 @@ gui:
     available-lore:
       - "&#bbbbbb%online%/%max%"
       - ""
-      - "&#ff88ffClick to return to Spawn"
+      - "&#D0AFFFClick to return to Spawn"
   random:
     lore:
-      - "&#bbbbbbClick to teleport to a random &#ff88ffSpawn"
+      - "&#bbbbbbClick to teleport to a random &#B078FFSpawn"
       - ""
-      - "&#ff88ffClick to return to Spawn"
+      - "&#D0AFFFChooses the lowest-populated spawn"
 
 random:
   enabled: true
   slot: 15
-  display-name: "&aRandom Spawn"
+  display-name: "&#8436FERandom Spawn"
   mode: "LOWEST_POPULATION"
 
 worlds:
   lobby1:
     enabled: true
     slot: 11
-    display-name: "&dSpawn 1"
+    display-name: "&#8436FESpawn 1"
     world: "spawn1"
     x: 0.5
     y: 76.0
@@ -56,7 +56,7 @@ worlds:
   lobby2:
     enabled: true
     slot: 12
-    display-name: "&dSpawn 2"
+    display-name: "&#8436FESpawn 2"
     world: "spawn2"
     x: 0.5
     y: 76.0
@@ -66,7 +66,7 @@ worlds:
   lobby3:
     enabled: true
     slot: 13
-    display-name: "&dSpawn 3"
+    display-name: "&#8436FESpawn 3"
     world: "spawn3"
     x: 0.5
     y: 76.0
@@ -85,16 +85,16 @@ void:
     - spawn3
 
 messages:
-  already-here: "&#bbbbbbYou are already at &d%spawn%"
-  teleport-start: "&#bbbbbbTeleporting to &d%spawn% &#bbbbbbin &d%seconds%s"
-  teleport-countdown: "&#bbbbbbTeleporting to &d%spawn% &#bbbbbbin &d%seconds%s"
-  teleport-cancelled: "&cTeleport cancelled - you moved"
-  teleported: "&#bbbbbbTeleported to &d%spawn%"
+  already-here: "&#bbbbbbYou are already at &#8436FE%spawn%"
+  teleport-start: "&#bbbbbbTeleporting to &#8436FE%spawn% &#bbbbbbin &#B078FF%seconds%s"
+  teleport-countdown: "&#bbbbbbTeleporting to &#8436FE%spawn% &#bbbbbbin &#B078FF%seconds%s"
+  teleport-cancelled: "&cTeleport cancelled — you moved"
+  teleported: "&aTeleported &#bbbbbbto &#8436FE%spawn%"
   world-missing: "&cThat spawn world is not loaded"
   random-missing: "&cNo spawn worlds are available"
-  void-teleported: "&#bbbbbbSaved from the void and sent to &d%spawn%"
+  void-teleported: "&aSaved from the void &#bbbbbband sent to &#8436FE%spawn%"
   void-missing: "&cNo safe spawn is available"
-  first-join-rerouted: "&#bbbbbbWelcome to &d%spawn%"
+  first-join-rerouted: "&#bbbbbbWelcome to &#8436FE%spawn%"
   first-join-missing: "&cNo spawn worlds are available"
-  login-rerouted: "&#bbbbbbSent to &d%spawn%"
+  login-rerouted: "&#bbbbbbSent to &#8436FE%spawn%"
   login-reroute-missing: "&cNo spawn worlds are available"

@@ -1,10 +1,8 @@
 package net.mineacle.core.spawn.listener;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.spawn.model.SpawnPoint;
 import net.mineacle.core.spawn.service.SpawnService;
+import net.mineacle.core.spawn.service.SpawnTeleportService;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -18,62 +16,74 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public final class SpawnVoidListener implements Listener {
+@SuppressWarnings("unused")
+public final class SpawnVoidListener
+        implements Listener {
 
     private final SpawnService spawnService;
-    private final Map<UUID, Long> fallProtection = new HashMap<>();
+    private final SpawnTeleportService teleportService;
+    private final Map<UUID, Long> fallProtection =
+            new HashMap<>();
 
-    public SpawnVoidListener(SpawnService spawnService) {
+    public SpawnVoidListener(
+            SpawnService spawnService,
+            SpawnTeleportService teleportService
+    ) {
         this.spawnService = spawnService;
+        this.teleportService = teleportService;
     }
 
-    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
-    public void onPlayerMove(PlayerMoveEvent event) {
+    @EventHandler(
+            priority = EventPriority.NORMAL,
+            ignoreCancelled = true
+    )
+    public void onPlayerMove(
+            PlayerMoveEvent event
+    ) {
         Player player = event.getPlayer();
 
-        if (!spawnService.voidEnabled()) {
+        if (!spawnService.voidEnabled()
+                || player.getGameMode()
+                == GameMode.SPECTATOR
+                || !spawnService.voidWorldAllowed(
+                player.getWorld().getName()
+        )
+                || player.getLocation().getY()
+                > spawnService.voidTriggerY()) {
             return;
         }
 
-        if (player.getGameMode() == GameMode.SPECTATOR) {
-            return;
-        }
-
-        if (!spawnService.voidWorldAllowed(player.getWorld().getName())) {
-            return;
-        }
-
-        if (player.getLocation().getY() > spawnService.voidTriggerY()) {
-            return;
-        }
-
-        SpawnPoint target = spawnService.selectVoidTarget();
+        SpawnPoint target =
+                spawnService.selectVoidTarget();
 
         if (target == null) {
-            sendBoth(player, spawnService.message("void-missing"));
+            player.sendMessage(
+                    spawnService.message(
+                            "void-missing"
+                    )
+            );
             return;
         }
 
-        if (!spawnService.teleport(player, target)) {
-            String message = spawnService.message("world-missing")
-                    .replace("%world%", target.worldName())
-                    .replace("%spawn%", TextColor.color(target.displayName()));
-
-            sendBoth(player, message);
-            return;
+        if (teleportService.force(
+                player,
+                target
+        )) {
+            protectFromFall(player);
         }
-
-        protectFromFall(player);
-
-        String message = spawnService.message("void-teleported")
-                .replace("%spawn%", TextColor.color(target.displayName()));
-
-        sendBoth(player, message);
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onEntityDamage(EntityDamageEvent event) {
-        if (event.getCause() != EntityDamageEvent.DamageCause.FALL) {
+    @EventHandler(
+            priority = EventPriority.HIGH,
+            ignoreCancelled = true
+    )
+    public void onEntityDamage(
+            EntityDamageEvent event
+    ) {
+        if (event.getCause()
+                != EntityDamageEvent
+                .DamageCause
+                .FALL) {
             return;
         }
 
@@ -83,14 +93,19 @@ public final class SpawnVoidListener implements Listener {
             return;
         }
 
-        Long until = fallProtection.get(player.getUniqueId());
+        Long until =
+                fallProtection.get(
+                        player.getUniqueId()
+                );
 
         if (until == null) {
             return;
         }
 
         if (System.currentTimeMillis() > until) {
-            fallProtection.remove(player.getUniqueId());
+            fallProtection.remove(
+                    player.getUniqueId()
+            );
             return;
         }
 
@@ -98,16 +113,15 @@ public final class SpawnVoidListener implements Listener {
     }
 
     private void protectFromFall(Player player) {
-        long durationMillis = spawnService.voidFallProtectionSeconds() * 1000L;
-        fallProtection.put(player.getUniqueId(), System.currentTimeMillis() + durationMillis);
-    }
+        long durationMillis =
+                spawnService
+                        .voidFallProtectionSeconds()
+                        * 1000L;
 
-    private void sendBoth(Player player, String message) {
-        player.sendMessage(TextColor.color(message));
-        player.sendActionBar(actionBar(message));
-    }
-
-    private Component actionBar(String message) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
+        fallProtection.put(
+                player.getUniqueId(),
+                System.currentTimeMillis()
+                        + durationMillis
+        );
     }
 }

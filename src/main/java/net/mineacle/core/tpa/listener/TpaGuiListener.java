@@ -7,7 +7,7 @@ import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
-import net.mineacle.core.homes.service.TeleportService;
+import net.mineacle.core.common.teleport.TeleportService;
 import net.mineacle.core.tpa.gui.TpaRequestGui;
 import net.mineacle.core.tpa.service.TpaRequest;
 import net.mineacle.core.tpa.service.TpaRequestType;
@@ -16,7 +16,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.player.PlayerTeleportEvent;
 
 @SuppressWarnings("unused")
 public final class TpaGuiListener
@@ -24,7 +23,7 @@ public final class TpaGuiListener
 
     private static final String SECONDARY =
             "&#B078FF";
-    private static final String NEUTRAL =
+    private static final String BODY =
             "&#bbbbbb";
 
     private final Core core;
@@ -50,6 +49,14 @@ public final class TpaGuiListener
             return;
         }
 
+        if (!event.getView()
+                .title()
+                .equals(TpaRequestGui.TITLE)) {
+            return;
+        }
+
+        event.setCancelled(true);
+
         int slot = event.getRawSlot();
         int topSize = event.getView()
                 .getTopInventory()
@@ -58,16 +65,6 @@ public final class TpaGuiListener
         if (slot < 0 || slot >= topSize) {
             return;
         }
-
-        if (!event.getView()
-                .title()
-                .equals(
-                        TpaRequestGui.TITLE
-                )) {
-            return;
-        }
-
-        event.setCancelled(true);
 
         if (slot == TpaRequestGui.DENY_SLOT) {
             deny(player);
@@ -81,19 +78,15 @@ public final class TpaGuiListener
 
     private void accept(Player target) {
         TpaRequest request =
-                tpaService.removeRequest(
+                tpaService.getRequest(
                         target.getUniqueId()
                 );
 
         if (request == null) {
             target.closeInventory();
-            sendBoth(
+            error(
                     target,
                     "&cYou have no pending teleport requests"
-            );
-            SoundService.guiError(
-                    target,
-                    core
             );
             return;
         }
@@ -103,18 +96,55 @@ public final class TpaGuiListener
 
         if (requester == null
                 || !requester.isOnline()) {
+            tpaService.removeRequest(
+                    target.getUniqueId()
+            );
             target.closeInventory();
-            sendBoth(
+            error(
                     target,
                     "&cThat player is no longer online"
-            );
-            SoundService.guiError(
-                    target,
-                    core
             );
             return;
         }
 
+        Player traveler = request.type()
+                == TpaRequestType.TO_TARGET
+                ? requester
+                : target;
+        Player destination = request.type()
+                == TpaRequestType.TO_TARGET
+                ? target
+                : requester;
+
+        if (teleportService.isActive(traveler)) {
+            target.closeInventory();
+            error(
+                    target,
+                    "&cThat teleport cannot start right now"
+            );
+
+            if (!traveler.getUniqueId().equals(
+                    target.getUniqueId()
+            )) {
+                error(
+                        traveler,
+                        "&cYou already have a teleport in progress"
+                );
+            }
+            return;
+        }
+
+        if (!teleportService.beginPlayer(
+                traveler,
+                destination
+        )) {
+            target.closeInventory();
+            return;
+        }
+
+        tpaService.removeRequest(
+                target.getUniqueId()
+        );
         target.closeInventory();
         SoundService.guiSelect(
                 target,
@@ -123,74 +153,17 @@ public final class TpaGuiListener
 
         sendBoth(
                 requester,
-                NEUTRAL
-                        + "Teleport request accepted by "
+                "&aTeleport request accepted "
+                        + BODY
+                        + "by "
                         + playerName(target)
         );
         sendBoth(
                 target,
-                NEUTRAL
-                        + "Accepted teleport request from "
+                "&aTeleport request accepted "
+                        + BODY
+                        + "from "
                         + playerName(requester)
-        );
-
-        if (request.type()
-                == TpaRequestType.TO_TARGET) {
-            beginPlayerTeleport(
-                    requester,
-                    target
-            );
-            return;
-        }
-
-        beginPlayerTeleport(
-                target,
-                requester
-        );
-    }
-
-    private void beginPlayerTeleport(
-            Player traveler,
-            Player destination
-    ) {
-        String destinationName =
-                DisplayNames.displayName(
-                        destination
-                );
-
-        teleportService.beginTpa(
-                traveler,
-                destinationName,
-                () -> {
-                    if (!destination.isOnline()) {
-                        sendBoth(
-                                traveler,
-                                "&cThat player is no longer online"
-                        );
-                        return false;
-                    }
-
-                    boolean teleported =
-                            traveler.teleport(
-                                    destination,
-                                    PlayerTeleportEvent
-                                            .TeleportCause
-                                            .COMMAND
-                            );
-
-                    if (teleported) {
-                        sendBoth(
-                                traveler,
-                                NEUTRAL
-                                        + "Teleported to "
-                                        + playerName(
-                                        destination
-                                )
-                        );
-                    }
-
-                    return teleported;
-                }
         );
     }
 
@@ -202,13 +175,9 @@ public final class TpaGuiListener
 
         if (request == null) {
             target.closeInventory();
-            sendBoth(
+            error(
                     target,
                     "&cYou have no pending teleport requests"
-            );
-            SoundService.guiError(
-                    target,
-                    core
             );
             return;
         }
@@ -242,12 +211,19 @@ public final class TpaGuiListener
         MenuHistory.clear(target);
     }
 
-    private String playerName(
-            Player player
-    ) {
+    private String playerName(Player player) {
         return SECONDARY
-                + DisplayNames.displayName(
-                player
+                + DisplayNames.displayName(player);
+    }
+
+    private void error(
+            Player player,
+            String message
+    ) {
+        sendBoth(player, message);
+        SoundService.guiError(
+                player,
+                core
         );
     }
 
@@ -255,23 +231,19 @@ public final class TpaGuiListener
             Player player,
             String message
     ) {
-        player.sendMessage(
-                TextColor.color(message)
-        );
+        String colored =
+                TextColor.color(message);
+        player.sendMessage(colored);
         player.sendActionBar(
-                actionBar(message)
+                component(colored)
         );
     }
 
-    private Component actionBar(
-            String message
-    ) {
+    private Component component(String message) {
         return LegacyComponentSerializer
                 .legacySection()
                 .deserialize(
-                        TextColor.color(
-                                message
-                        )
+                        TextColor.color(message)
                 );
     }
 }
