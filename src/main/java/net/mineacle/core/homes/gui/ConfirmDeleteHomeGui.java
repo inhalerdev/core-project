@@ -1,7 +1,8 @@
 package net.mineacle.core.homes.gui;
 
+import net.kyori.adventure.text.Component;
 import net.mineacle.core.Core;
-import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.common.gui.GuiText;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -28,7 +29,6 @@ public final class ConfirmDeleteHomeGui {
     public static void openPlayerDelete(
             Core core,
             Player player,
-            int id,
             String displayName
     ) {
         Inventory inventory = Bukkit.createInventory(
@@ -118,14 +118,14 @@ public final class ConfirmDeleteHomeGui {
         player.openInventory(inventory);
     }
 
-    private static String title(
+    private static Component title(
             Core core,
             String path,
             String fallback
     ) {
-        String plain = TextColor.strip(core.getMessage(path));
-        return TextColor.color(
-                PRIMARY + (plain == null || plain.isBlank() ? fallback : plain)
+        String plain = GuiText.plain(core.getMessage(path));
+        return GuiText.component(
+                PRIMARY + (plain.isBlank() ? fallback : plain)
         );
     }
 
@@ -141,8 +141,7 @@ public final class ConfirmDeleteHomeGui {
             return item;
         }
 
-        meta.setDisplayName(TextColor.color(name));
-        meta.setLore(lore.stream().map(TextColor::color).toList());
+        GuiText.apply(meta, name, lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;

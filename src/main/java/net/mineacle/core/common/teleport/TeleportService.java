@@ -23,12 +23,10 @@ import java.util.logging.Level;
 
 /**
  * The single Mineacle player-teleport state machine.
- *
  * All delayed teleports share one once-per-second ticker. Feature code may
  * prepare destinations independently (RTP does), but countdown ownership,
  * overlap prevention, movement cancellation, final Paper teleport execution,
  * result checking, sounds and user-facing status all live here.
- *
  * Bukkit/Paper entity and Location access remains main-thread only.
  */
 public final class TeleportService {
@@ -97,17 +95,13 @@ public final class TeleportService {
                 || reservations.containsKey(playerId));
     }
 
-    public int activeCount() {
-        return pending.size() + reservations.size();
-    }
-
-    public boolean beginLocation(
+    public void beginLocation(
             Player player,
             String displayTarget,
             Location target,
             TeleportKind kind
     ) {
-        return beginLocation(
+        beginLocation(
                 player,
                 displayTarget,
                 target,
@@ -117,7 +111,7 @@ public final class TeleportService {
         );
     }
 
-    public boolean beginLocation(
+    public void beginLocation(
             Player player,
             String displayTarget,
             Location target,
@@ -127,20 +121,19 @@ public final class TeleportService {
     ) {
         if (target == null || target.getWorld() == null) {
             failImmediate(player, displayTarget);
-            return false;
+            return;
         }
 
         Location fixedTarget = target.clone();
 
-        return beginInternal(
+        beginInternal(
                 player,
                 displayTarget,
                 kind,
                 Math.max(0, delaySeconds),
                 cancelOnMove,
                 fixedTarget::clone,
-                Callbacks.NONE,
-                false
+                Callbacks.NONE
         );
     }
 
@@ -169,8 +162,7 @@ public final class TeleportService {
                 () -> destination.isOnline()
                         ? destination.getLocation().clone()
                         : null,
-                Callbacks.NONE,
-                false
+                Callbacks.NONE
         );
     }
 
@@ -228,8 +220,7 @@ public final class TeleportService {
                 Math.max(0, delaySeconds),
                 cancelOnMove,
                 destinationSupplier,
-                new Callbacks(onSuccess, onFailure),
-                false
+                new Callbacks(onSuccess, onFailure)
         );
     }
 
@@ -327,8 +318,7 @@ public final class TeleportService {
             int delaySeconds,
             boolean cancelOnMove,
             Supplier<Location> destinationSupplier,
-            Callbacks callbacks,
-            boolean replaceExisting
+            Callbacks callbacks
     ) {
         if (player == null
                 || !player.isOnline()
@@ -340,13 +330,9 @@ public final class TeleportService {
         UUID playerId = player.getUniqueId();
 
         if (isActive(playerId)) {
-            if (!replaceExisting) {
-                sendActionBar(player, ALREADY_ACTIVE);
-                SoundService.guiError(player, core);
-                return false;
-            }
-
-            cancel(playerId, false);
+            sendActionBar(player, ALREADY_ACTIVE);
+            SoundService.guiError(player, core);
+            return false;
         }
 
         String safeTarget = safeDisplayTarget(displayTarget);
@@ -381,7 +367,7 @@ public final class TeleportService {
                 player.getLocation().clone(),
                 safeTarget,
                 kind,
-                Math.max(1, delaySeconds),
+                delaySeconds,
                 cancelOnMove,
                 destinationSupplier,
                 safeCallbacks
@@ -638,7 +624,7 @@ public final class TeleportService {
         }
 
         String stripped = TextColor.strip(TextColor.color(value));
-        return stripped == null || stripped.isBlank()
+        return stripped.isBlank()
                 ? "destination"
                 : stripped;
     }
@@ -695,7 +681,6 @@ public final class TeleportService {
         );
 
         return player != null
-                && plusPermission != null
                 && !plusPermission.isBlank()
                 && player.hasPermission(plusPermission)
                 ? plusDelay

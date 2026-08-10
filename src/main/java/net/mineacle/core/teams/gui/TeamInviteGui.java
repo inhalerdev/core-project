@@ -1,8 +1,7 @@
 package net.mineacle.core.teams.gui;
 
-import net.mineacle.core.Core;
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.common.player.DisplayNames;
-import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.teams.model.TeamInviteRecord;
 import net.mineacle.core.teams.model.TeamRecord;
 import net.mineacle.core.teams.service.TeamInviteService;
@@ -20,7 +19,7 @@ import java.util.List;
 
 public final class TeamInviteGui {
 
-    public static final String TITLE = TextColor.color("&#8436FETeam Invites");
+    public static final String TITLE = "&#8436FETeam Invites";
 
     public static final int ACCEPT_SLOT = 11;
     public static final int CENTER_SLOT = 13;
@@ -35,13 +34,16 @@ public final class TeamInviteGui {
     }
 
     public static void open(
-            Core core,
             Player player,
             TeamInviteService inviteService,
             TeamService teamService
     ) {
         TeamInviteRecord invite = inviteService.getInvite(player.getUniqueId());
-        Inventory inventory = Bukkit.createInventory(null, 27, TITLE);
+        Inventory inventory = Bukkit.createInventory(
+                null,
+                27,
+                GuiText.component(TITLE)
+        );
 
         if (invite == null) {
             inventory.setItem(
@@ -126,8 +128,7 @@ public final class TeamInviteGui {
             return item;
         }
 
-        meta.setDisplayName(TextColor.color(name));
-        meta.setLore(lore.stream().map(TextColor::color).toList());
+        GuiText.apply(meta, name, lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;

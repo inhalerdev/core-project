@@ -10,14 +10,9 @@ import org.bukkit.configuration.file.FileConfiguration;
 public final class TeamHomeService {
 
     private final Core core;
-    private final TeamService teamService;
 
-    public TeamHomeService(
-            Core core,
-            TeamService teamService
-    ) {
+    public TeamHomeService(Core core) {
         this.core = core;
-        this.teamService = teamService;
     }
 
     /**
@@ -31,12 +26,9 @@ public final class TeamHomeService {
         }
 
         String path = "team-homes." + teamId;
-        String world = core.getTeamsConfig().getString(
-                path + ".world"
-        );
+        String world = core.getTeamsConfig().getString(path + ".world");
 
-        return core.getTeamsConfig()
-                .isConfigurationSection(path)
+        return core.getTeamsConfig().isConfigurationSection(path)
                 && world != null
                 && !world.isBlank();
     }
@@ -49,14 +41,10 @@ public final class TeamHomeService {
         FileConfiguration config = core.getTeamsConfig();
         String path = "team-homes." + teamId;
         String storedWorld = config.getString(path + ".world");
-        String canonicalWorld =
-                HomeWorldNames.canonical(storedWorld);
+        String canonicalWorld = HomeWorldNames.canonical(storedWorld);
 
         if (HomeWorldNames.isLegacy(storedWorld)) {
-            HomeWorldMigration.migrateTeamHome(
-                    core,
-                    teamId
-            );
+            HomeWorldMigration.migrateTeamHome(core, teamId);
         }
 
         World world = HomeWorldNames.resolve(canonicalWorld);
@@ -75,17 +63,12 @@ public final class TeamHomeService {
         );
     }
 
-    public void setTeamHome(
-            String teamId,
-            Location location
-    ) {
+    public void setTeamHome(String teamId, Location location) {
         if (teamId == null
                 || teamId.isBlank()
                 || location == null
                 || location.getWorld() == null) {
-            throw new IllegalArgumentException(
-                    "Cannot save an invalid Team Home"
-            );
+            throw new IllegalArgumentException("Cannot save an invalid Team Home");
         }
 
         FileConfiguration config = core.getTeamsConfig();
@@ -93,16 +76,13 @@ public final class TeamHomeService {
 
         config.set(
                 path + ".world",
-                HomeWorldNames.canonical(
-                        location.getWorld().getName()
-                )
+                HomeWorldNames.canonical(location.getWorld().getName())
         );
         config.set(path + ".x", location.getX());
         config.set(path + ".y", location.getY());
         config.set(path + ".z", location.getZ());
         config.set(path + ".yaw", location.getYaw());
         config.set(path + ".pitch", location.getPitch());
-
         core.saveTeamsFile();
     }
 
@@ -111,10 +91,7 @@ public final class TeamHomeService {
             return false;
         }
 
-        core.getTeamsConfig().set(
-                "team-homes." + teamId,
-                null
-        );
+        core.getTeamsConfig().set("team-homes." + teamId, null);
         core.saveTeamsFile();
         return true;
     }

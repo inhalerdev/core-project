@@ -10,6 +10,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 
 /** RTP queue/search lifecycle; common TeleportService owns final countdown. */
+@SuppressWarnings("unused")
 public final class OriginRtpMoveListener implements Listener {
 
     private final OriginRtpQueueService queueService;
@@ -25,7 +26,7 @@ public final class OriginRtpMoveListener implements Listener {
         }
 
         Location to = event.getTo();
-        if (to == null || samePosition(event.getFrom(), to)) {
+        if (samePosition(event.getFrom(), to)) {
             return;
         }
 
@@ -34,7 +35,7 @@ public final class OriginRtpMoveListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onTeleport(PlayerTeleportEvent event) {
-        if (!queueService.active(event.getPlayer()) || event.getTo() == null) {
+        if (!queueService.active(event.getPlayer())) {
             return;
         }
 

@@ -1,7 +1,8 @@
 package net.mineacle.core.homes.gui;
 
 import net.mineacle.core.Core;
-import net.mineacle.core.common.text.TextColor;
+import net.kyori.adventure.text.Component;
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.homes.service.HomeService;
 import net.mineacle.core.teams.TeamsModule;
 import net.mineacle.core.teams.model.TeamRecord;
@@ -38,7 +39,7 @@ public final class HomesMainGui {
         Inventory inventory = Bukkit.createInventory(
                 null,
                 9 * 4,
-                title(core, "homes.gui.title")
+                title(core)
         );
         UUID uuid = player.getUniqueId();
         boolean hasFreeCapacity = homeService.hasFreeHomeCapacity(player);
@@ -173,10 +174,7 @@ public final class HomesMainGui {
             return;
         }
 
-        TeamHomeService teamHomeService = new TeamHomeService(
-                core,
-                teamService
-        );
+        TeamHomeService teamHomeService = new TeamHomeService(core);
         TeamRecord team = teamService.getTeamByPlayer(
                 player.getUniqueId()
         );
@@ -277,10 +275,10 @@ public final class HomesMainGui {
         }
     }
 
-    private static String title(Core core, String path) {
-        String plain = TextColor.strip(core.getMessage(path));
-        return TextColor.color(
-                PRIMARY + (plain == null || plain.isBlank() ? "Homes" : plain)
+    private static Component title(Core core) {
+        String plain = GuiText.plain(core.getMessage("homes.gui.title"));
+        return GuiText.component(
+                PRIMARY + (plain.isBlank() ? "Homes" : plain)
         );
     }
 
@@ -296,8 +294,7 @@ public final class HomesMainGui {
             return item;
         }
 
-        meta.setDisplayName(TextColor.color(name));
-        meta.setLore(lore.stream().map(TextColor::color).toList());
+        GuiText.apply(meta, name, lore);
         item.setItemMeta(meta);
         return item;
     }

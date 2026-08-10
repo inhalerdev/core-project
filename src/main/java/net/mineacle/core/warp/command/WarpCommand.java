@@ -10,7 +10,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Locale;
@@ -33,7 +32,7 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
             @NotNull CommandSender sender,
             @NotNull Command command,
             @NotNull String label,
-            String[] args
+            String @NotNull [] args
     ) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage("Players only");
@@ -82,11 +81,11 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
     }
 
     @Override
-    public @Nullable List<String> onTabComplete(
+    public @NotNull List<String> onTabComplete(
             @NotNull CommandSender sender,
             @NotNull Command command,
             @NotNull String alias,
-            String[] args
+            String @NotNull [] args
     ) {
         if (!sender.hasPermission("mineaclewarps.use")) {
             return List.of();

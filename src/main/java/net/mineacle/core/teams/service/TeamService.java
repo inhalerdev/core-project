@@ -21,14 +21,10 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Main-thread team registry with indexed membership and incremental YAML state.
- *
  * The current on-disk schema remains compatible, but routine mutations no
  * longer clear and rebuild every team/member/ban section before each save.
  */
 public final class TeamService {
-
-    private static final String PRIMARY = "&#8436FE";
-    private static final String BODY = "&#bbbbbb";
 
     private final Core core;
     private final Map<String, TeamRecord> teams = new HashMap<>();
@@ -252,7 +248,7 @@ public final class TeamService {
         TeamMemberRecord actor = members.get(actorId);
         TeamMemberRecord target = members.get(targetId);
 
-        if (!canModerate(actorId, actor, targetId, target)) {
+        if (cannotModerate(actorId, actor, targetId, target)) {
             return false;
         }
 
@@ -265,7 +261,7 @@ public final class TeamService {
         TeamMemberRecord actor = members.get(actorId);
         TeamMemberRecord target = members.get(targetId);
 
-        if (!canModerate(actorId, actor, targetId, target)) {
+        if (cannotModerate(actorId, actor, targetId, target)) {
             return false;
         }
 
@@ -431,11 +427,11 @@ public final class TeamService {
         return true;
     }
 
-    public boolean setFriendlyFire(String teamId, boolean friendlyFire) {
+    public void setFriendlyFire(String teamId, boolean friendlyFire) {
         TeamRecord old = teams.get(teamId);
 
         if (old == null) {
-            return false;
+            return;
         }
 
         TeamRecord updated = new TeamRecord(
@@ -450,13 +446,6 @@ public final class TeamService {
                 friendlyFire
         );
         persist();
-        return true;
-    }
-
-    public String formatTeamName(TeamRecord team) {
-        return team == null
-                ? BODY + "No Team"
-                : PRIMARY + team.name();
     }
 
     private int memberCount(String teamId) {
@@ -464,25 +453,22 @@ public final class TeamService {
         return indexed == null ? 0 : indexed.size();
     }
 
-    private boolean canModerate(
+    private boolean cannotModerate(
             UUID actorId,
             TeamMemberRecord actor,
             UUID targetId,
             TeamMemberRecord target
     ) {
-        if (actor == null
+        return actor == null
                 || target == null
                 || actorId == null
                 || targetId == null
                 || !actor.teamId().equals(target.teamId())
                 || actorId.equals(targetId)
                 || target.role() == TeamRole.FOUNDER
-                || !actor.role().isAdmin()) {
-            return false;
-        }
-
-        return actor.role() != TeamRole.ADMIN
-                || target.role() == TeamRole.MEMBER;
+                || !actor.role().isAdmin()
+                || (actor.role() == TeamRole.ADMIN
+                && target.role() != TeamRole.MEMBER);
     }
 
     private void removeMemberState(TeamMemberRecord member) {

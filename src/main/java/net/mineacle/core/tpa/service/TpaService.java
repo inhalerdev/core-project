@@ -24,10 +24,16 @@ import java.util.UUID;
  */
 public final class TpaService {
 
+    public enum CreateResult {
+        SUCCESS,
+        INVALID_REQUEST
+    }
+
     private final Core core;
     private final Map<UUID, TpaRequest> requestsByTarget = new HashMap<>();
     private final Map<UUID, LinkedHashSet<UUID>> targetsByRequester = new HashMap<>();
     private final Set<UUID> autoAccept = new HashSet<>();
+    private final Map<UUID, UUID> menuTargets = new HashMap<>();
     private BukkitTask expiryTask;
 
     public TpaService(Core core) {
@@ -56,6 +62,7 @@ public final class TpaService {
         requestsByTarget.clear();
         targetsByRequester.clear();
         autoAccept.clear();
+        menuTargets.clear();
     }
 
     public int timeoutSeconds() {
@@ -68,24 +75,20 @@ public final class TpaService {
         );
     }
 
-    public int activeRequestCount() {
-        return requestsByTarget.size();
-    }
-
-    public boolean createRequest(
+    public CreateResult createRequest(
             Player requester,
             Player target,
             TpaRequestType type
     ) {
         if (requester == null || target == null || type == null) {
-            return false;
+            return CreateResult.INVALID_REQUEST;
         }
 
         UUID requesterId = requester.getUniqueId();
         UUID targetId = target.getUniqueId();
 
         if (requesterId.equals(targetId)) {
-            return false;
+            return CreateResult.INVALID_REQUEST;
         }
 
         // A target has one actionable incoming request at a time. Replacing it
@@ -105,7 +108,7 @@ public final class TpaService {
                         ignored -> new LinkedHashSet<>()
                 )
                 .add(targetId);
-        return true;
+        return CreateResult.SUCCESS;
     }
 
     public TpaRequest getRequest(UUID targetId) {
@@ -125,10 +128,6 @@ public final class TpaService {
         }
 
         return request;
-    }
-
-    public boolean hasRequest(UUID targetId) {
-        return getRequest(targetId) != null;
     }
 
     public TpaRequest removeRequest(UUID targetId) {
@@ -165,29 +164,27 @@ public final class TpaService {
         return null;
     }
 
-    public boolean hasOutgoing(UUID requesterId) {
-        if (requesterId == null) {
-            return false;
+    public void selectMenuTarget(UUID viewerId, UUID targetId) {
+        if (viewerId == null || targetId == null) {
+            return;
         }
 
-        LinkedHashSet<UUID> targets = targetsByRequester.get(requesterId);
+        menuTargets.put(viewerId, targetId);
+    }
 
-        if (targets == null || targets.isEmpty()) {
-            return false;
+    public Player menuTarget(UUID viewerId) {
+        if (viewerId == null) {
+            return null;
         }
 
-        for (UUID targetId : new ArrayList<>(targets)) {
-            TpaRequest request = requestsByTarget.get(targetId);
+        UUID targetId = menuTargets.get(viewerId);
+        return targetId == null ? null : Bukkit.getPlayer(targetId);
+    }
 
-            if (request == null || isExpired(request)) {
-                removeRequestInternal(targetId);
-                continue;
-            }
-
-            return true;
+    public void clearMenuTarget(UUID viewerId) {
+        if (viewerId != null) {
+            menuTargets.remove(viewerId);
         }
-
-        return false;
     }
 
     public boolean toggleAutoAccept(UUID playerId) {
@@ -222,6 +219,8 @@ public final class TpaService {
         }
 
         autoAccept.remove(playerId);
+        menuTargets.remove(playerId);
+        menuTargets.values().removeIf(playerId::equals);
     }
 
     public Player requester(TpaRequest request) {
@@ -270,7 +269,7 @@ public final class TpaService {
             return;
         }
 
-        Component message = component("&cTeleport request expired");
+        Component message = expiredMessage();
         player.sendMessage(message);
         player.sendActionBar(message);
         SoundService.guiError(player, core);
@@ -312,9 +311,9 @@ public final class TpaService {
         return age > timeoutSeconds() * 1_000L;
     }
 
-    private Component component(String message) {
+    private Component expiredMessage() {
         return LegacyComponentSerializer
                 .legacySection()
-                .deserialize(TextColor.color(message));
+                .deserialize(TextColor.color("&cTeleport request expired"));
     }
 }

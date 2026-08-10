@@ -33,7 +33,7 @@ public final class TpaModule extends Module {
         }
 
         TpaCommand command = new TpaCommand(core, tpaService, teleportService);
-        TpaMenuCommand menuCommand = new TpaMenuCommand(core);
+        TpaMenuCommand menuCommand = new TpaMenuCommand(tpaService);
 
         registerCommand(core, "tpa", command);
         registerCommand(core, "tpahere", command);

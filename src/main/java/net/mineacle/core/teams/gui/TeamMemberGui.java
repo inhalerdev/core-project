@@ -1,7 +1,7 @@
 package net.mineacle.core.teams.gui;
 
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.common.player.DisplayNames;
-import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.teams.model.TeamMemberRecord;
 import net.mineacle.core.teams.model.TeamRole;
 import net.mineacle.core.teams.service.TeamService;
@@ -39,7 +39,7 @@ public final class TeamMemberGui {
         TeamMemberRecord viewerMember = teamService.getMember(viewer.getUniqueId());
         TeamMemberRecord targetMember = teamService.getMember(targetId);
         String plainName = DisplayNames.displayName(target);
-        String titleName = TextColor.strip(plainName);
+        String titleName = GuiText.plain(plainName);
         String role = targetMember == null
                 ? "Unknown"
                 : targetMember.role().displayName();
@@ -48,7 +48,7 @@ public final class TeamMemberGui {
         Inventory inventory = Bukkit.createInventory(
                 null,
                 27,
-                color(PRIMARY + TITLE_PREFIX + titleName)
+                GuiText.component(PRIMARY + TITLE_PREFIX + titleName)
         );
 
         inventory.setItem(
@@ -209,8 +209,7 @@ public final class TeamMemberGui {
         }
 
         meta.setOwningPlayer(owner);
-        meta.setDisplayName(color(name));
-        meta.setLore(lore.stream().map(TeamMemberGui::color).toList());
+        GuiText.apply(meta, name, lore);
         item.setItemMeta(meta);
         return item;
     }
@@ -227,14 +226,10 @@ public final class TeamMemberGui {
             return item;
         }
 
-        meta.setDisplayName(color(name));
-        meta.setLore(lore.stream().map(TeamMemberGui::color).toList());
+        GuiText.apply(meta, name, lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
     }
 
-    private static String color(String input) {
-        return TextColor.color(input);
-    }
 }

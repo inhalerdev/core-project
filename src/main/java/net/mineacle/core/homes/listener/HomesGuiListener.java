@@ -3,14 +3,14 @@ package net.mineacle.core.homes.listener;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.mineacle.core.Core;
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.homes.gui.ConfirmDeleteHomeGui;
 import net.mineacle.core.homes.gui.HomesMainGui;
+import net.mineacle.core.homes.service.HomeGuiState;
 import net.mineacle.core.homes.service.HomeService;
-import net.mineacle.core.homes.service.HomeWorldRules;
 import net.mineacle.core.common.teleport.TeleportService;
 import net.mineacle.core.teams.TeamsModule;
 import net.mineacle.core.teams.model.TeamRecord;
@@ -22,7 +22,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.metadata.FixedMetadataValue;
 
 import java.util.UUID;
 
@@ -30,30 +29,21 @@ import java.util.UUID;
 public final class HomesGuiListener
         implements Listener {
 
-    private static final String META_HOME_PENDING =
-            "mh_pendingDelete";
-    private static final String META_HOME_CONFIRM =
-            "mh_deleteConfirm";
-    private static final String META_TEAM_HOME_PENDING =
-            "mh_teamHomePending";
-    private static final String META_TEAM_HOME_CONFIRM =
-            "mh_teamHomeConfirm";
-
     private final Core core;
     private final HomeService homeService;
-    private final HomeWorldRules worldRules;
     private final TeleportService teleportService;
+    private final HomeGuiState guiState;
 
     public HomesGuiListener(
             Core core,
             HomeService homeService,
-            HomeWorldRules worldRules,
-            TeleportService teleportService
+            TeleportService teleportService,
+            HomeGuiState guiState
     ) {
         this.core = core;
         this.homeService = homeService;
-        this.worldRules = worldRules;
         this.teleportService = teleportService;
+        this.guiState = guiState;
     }
 
     @EventHandler
@@ -68,12 +58,7 @@ public final class HomesGuiListener
             return;
         }
 
-        String title =
-                PlainTextComponentSerializer
-                        .plainText()
-                        .serialize(
-                                event.getView().title()
-                        );
+        String title = GuiText.plain(event.getView().title());
         String homesTitle =
                 plainTitle("homes.gui.title");
         String deleteTitle =
@@ -312,30 +297,12 @@ public final class HomesGuiListener
                 player,
                 core
         );
-        player.setMetadata(
-                META_HOME_PENDING,
-                new FixedMetadataValue(
-                        core,
-                        id
-                )
+        guiState.startPersonal(player, id);
+        ConfirmDeleteHomeGui.openPlayerDelete(
+                core,
+                player,
+                homeService.getDisplayName(playerId, id)
         );
-        player.setMetadata(
-                META_HOME_CONFIRM,
-                new FixedMetadataValue(
-                        core,
-                        0
-                )
-        );
-        ConfirmDeleteHomeGui
-                .openPlayerDelete(
-                        core,
-                        player,
-                        id,
-                        homeService.getDisplayName(
-                                playerId,
-                                id
-                        )
-                );
     }
 
     private void handleTeamHomeClick(
@@ -375,10 +342,7 @@ public final class HomesGuiListener
         }
 
         TeamHomeService teamHomeService =
-                new TeamHomeService(
-                        core,
-                        teamService
-                );
+                new TeamHomeService(core);
         TeamRecord team =
                 teamService.getTeamByPlayer(
                         player.getUniqueId()
@@ -477,236 +441,124 @@ public final class HomesGuiListener
             return;
         }
 
-        if (slot == dyeSlot && isFounder) {
-            SoundService.guiClick(
-                    player,
-                    core
-            );
-            player.setMetadata(
-                    META_TEAM_HOME_PENDING,
-                    new FixedMetadataValue(
-                            core,
-                            team.teamId()
-                    )
-            );
-            player.setMetadata(
-                    META_TEAM_HOME_CONFIRM,
-                    new FixedMetadataValue(
-                            core,
-                            false
-                    )
-            );
-            ConfirmDeleteHomeGui
-                    .openTeamDelete(
-                            core,
-                            player
-                    );
+        if (isFounder) {
+            SoundService.guiClick(player, core);
+            guiState.startTeam(player, team.teamId());
+            ConfirmDeleteHomeGui.openTeamDelete(core, player);
             return;
         }
 
-        if (slot == dyeSlot) {
-            sendPopup(
-                    player,
-                    "&cOnly the founder can delete Team Home"
-            );
-            SoundService.guiError(
-                    player,
-                    core
-            );
-        }
+        sendPopup(
+                player,
+                "&cOnly the founder can delete Team Home"
+        );
+        SoundService.guiError(player, core);
     }
 
     private void handleTeamHomeDeleteConfirm(
             Player player,
             int slot
     ) {
-        if (!player.hasMetadata(
-                META_TEAM_HOME_PENDING
-        )) {
+        HomeGuiState.TeamDeleteState state = guiState.team(player);
+
+        if (state == null) {
             player.closeInventory();
-            SoundService.guiError(
-                    player,
-                    core
-            );
+            SoundService.guiError(player, core);
             return;
         }
 
-        String teamId =
-                player.getMetadata(
-                        META_TEAM_HOME_PENDING
-                ).getFirst().asString();
-        boolean confirmed =
-                player.hasMetadata(
-                        META_TEAM_HOME_CONFIRM
-                )
-                        && player.getMetadata(
-                        META_TEAM_HOME_CONFIRM
-                ).getFirst().asBoolean();
+        String teamId = state.teamId();
 
-        if (slot
-                == ConfirmDeleteHomeGui.CANCEL_SLOT) {
-            clearTeamHomeDeleteMeta(player);
+        if (slot == ConfirmDeleteHomeGui.CANCEL_SLOT) {
+            guiState.clearTeam(player);
             player.closeInventory();
-            HomesMainGui.open(
-                    core,
-                    player,
-                    homeService
+            HomesMainGui.open(core, player, homeService);
+            sendPopup(player, "&cTeam home delete cancelled");
+            SoundService.guiCancel(player, core);
+            return;
+        }
+
+        if (slot == ConfirmDeleteHomeGui.ACTION_SLOT) {
+            return;
+        }
+
+        if (slot != ConfirmDeleteHomeGui.CONFIRM_SLOT) {
+            return;
+        }
+
+        if (!guiState.teamReady(player, teamId)) {
+            int timeout = core.getConfig().getInt(
+                    "homes.delete-confirm.timeout-seconds",
+                    5
             );
+            long confirmationExpiresAt =
+                    guiState.armTeam(player, teamId, timeout);
             sendPopup(
                     player,
-                    "&cTeam home delete cancelled"
+                    "&#bbbbbbClick &#D0AFFFconfirm again &#bbbbbbto continue"
             );
-            SoundService.guiCancel(
-                    player,
-                    core
+            SoundService.guiConfirm(player, core);
+            scheduleTeamDeleteTimeout(
+                    player.getUniqueId(),
+                    teamId,
+                    timeout,
+                    confirmationExpiresAt
             );
             return;
         }
 
-        if (slot
-                == ConfirmDeleteHomeGui.ACTION_SLOT) {
-            return;
-        }
-
-        if (slot
-                != ConfirmDeleteHomeGui.CONFIRM_SLOT) {
-            return;
-        }
-
-        if (!confirmed) {
-            player.setMetadata(
-                    META_TEAM_HOME_CONFIRM,
-                    new FixedMetadataValue(
-                            core,
-                            true
-                    )
-            );
-            sendPopup(
-                    player,
-                    "&#bbbbbbClick "
-                            + "&#D0AFFFconfirm again "
-                            + "&#bbbbbbto continue"
-            );
-            SoundService.guiConfirm(
-                    player,
-                    core
-            );
-
-            int timeout =
-                    core.getConfig().getInt(
-                            "homes.delete-confirm.timeout-seconds",
-                            5
-                    );
-
-            core.getServer()
-                    .getScheduler()
-                    .runTaskLater(
-                            core,
-                            () -> {
-                                if (!player.isOnline()
-                                        || !player.hasMetadata(
-                                        META_TEAM_HOME_PENDING
-                                )
-                                        || !player.hasMetadata(
-                                        META_TEAM_HOME_CONFIRM
-                                )) {
-                                    return;
-                                }
-
-                                String currentTeamId =
-                                        player.getMetadata(
-                                                META_TEAM_HOME_PENDING
-                                        ).getFirst().asString();
-                                boolean currentConfirmed =
-                                        player.getMetadata(
-                                                META_TEAM_HOME_CONFIRM
-                                        ).getFirst().asBoolean();
-
-                                if (currentTeamId
-                                        .equals(teamId)
-                                        && currentConfirmed) {
-                                    player.setMetadata(
-                                            META_TEAM_HOME_CONFIRM,
-                                            new FixedMetadataValue(
-                                                    core,
-                                                    false
-                                            )
-                                    );
-                                    sendPopup(
-                                            player,
-                                            "&cAction timed out"
-                                    );
-                                    SoundService.guiError(
-                                            player,
-                                            core
-                                    );
-                                }
-                            },
-                            20L * Math.max(
-                                    1,
-                                    timeout
-                            )
-                    );
-            return;
-        }
-
-        TeamService teamService =
-                TeamsModule.teamService();
+        TeamService teamService = TeamsModule.teamService();
 
         if (teamService == null) {
+            guiState.clearTeam(player);
             player.closeInventory();
-            sendPopup(
-                    player,
-                    "&cTeams are temporarily unavailable"
-            );
-            SoundService.guiError(
-                    player,
-                    core
-            );
+            sendPopup(player, "&cTeams are temporarily unavailable");
+            SoundService.guiError(player, core);
             return;
         }
 
-        TeamHomeService teamHomeService =
-                new TeamHomeService(
-                        core,
-                        teamService
-                );
+        TeamHomeService teamHomeService = new TeamHomeService(core);
 
-        if (!teamHomeService.deleteTeamHome(
-                teamId
-        )) {
-            clearTeamHomeDeleteMeta(player);
+        if (!teamHomeService.deleteTeamHome(teamId)) {
+            guiState.clearTeam(player);
             player.closeInventory();
-            sendPopup(
-                    player,
-                    "&cYour team does not have a home set"
-            );
-            SoundService.guiError(
-                    player,
-                    core
-            );
-            HomesMainGui.open(
-                    core,
-                    player,
-                    homeService
-            );
+            sendPopup(player, "&cYour team does not have a home set");
+            SoundService.guiError(player, core);
+            HomesMainGui.open(core, player, homeService);
             return;
         }
 
-        clearTeamHomeDeleteMeta(player);
+        guiState.clearTeam(player);
         player.closeInventory();
-        sendPopup(
-                player,
-                "&cTeam Home deleted"
-        );
-        SoundService.homeDelete(
-                player,
-                core
-        );
-        HomesMainGui.open(
+        sendPopup(player, "&cTeam Home deleted");
+        SoundService.homeDelete(player, core);
+        HomesMainGui.open(core, player, homeService);
+    }
+
+    private void scheduleTeamDeleteTimeout(
+            UUID playerId,
+            String teamId,
+            int timeoutSeconds,
+            long confirmationExpiresAt
+    ) {
+        core.getServer().getScheduler().runTaskLater(
                 core,
-                player,
-                homeService
+                () -> {
+                    Player online = core.getServer().getPlayer(playerId);
+                    if (online == null
+                            || !guiState.teamConfirmationMatches(
+                            online,
+                            teamId,
+                            confirmationExpiresAt
+                    )) {
+                        return;
+                    }
+
+                    guiState.startTeam(online, teamId);
+                    sendPopup(online, "&cAction timed out");
+                    SoundService.guiError(online, core);
+                },
+                Math.max(1, timeoutSeconds) * 20L
         );
     }
 
@@ -714,160 +566,94 @@ public final class HomesGuiListener
             Player player,
             int slot
     ) {
-        if (!player.hasMetadata(
-                META_HOME_PENDING
-        )) {
+        HomeGuiState.PersonalDeleteState state = guiState.personal(player);
+
+        if (state == null) {
             player.closeInventory();
-            SoundService.guiError(
-                    player,
-                    core
-            );
+            SoundService.guiError(player, core);
             return;
         }
 
-        int id =
-                player.getMetadata(
-                        META_HOME_PENDING
-                ).getFirst().asInt();
-        String displayName =
-                homeService.getDisplayName(
-                        player.getUniqueId(),
-                        id
-                );
-
-        if (slot
-                == ConfirmDeleteHomeGui.CANCEL_SLOT) {
-            clearPlayerDeleteMeta(player);
-            player.closeInventory();
-            HomesMainGui.open(
-                    core,
-                    player,
-                    homeService
-            );
-            sendPopup(
-                    player,
-                    core.getMessage(
-                            "homes.delete-cancelled"
-                    )
-            );
-            SoundService.guiCancel(
-                    player,
-                    core
-            );
-            return;
-        }
-
-        if (slot
-                == ConfirmDeleteHomeGui.ACTION_SLOT) {
-            return;
-        }
-
-        if (slot
-                != ConfirmDeleteHomeGui.CONFIRM_SLOT) {
-            return;
-        }
-
-        int confirmValue =
-                player.getMetadata(
-                        META_HOME_CONFIRM
-                ).getFirst().asInt();
-
-        if (confirmValue == id) {
-            homeService.delete(
-                    player.getUniqueId(),
-                    id
-            );
-            clearPlayerDeleteMeta(player);
-            player.closeInventory();
-            sendPopup(
-                    player,
-                    core.getMessage(
-                            "homes.deleted"
-                    ).replace(
-                            "%home%",
-                            displayName
-                    )
-            );
-            SoundService.homeDelete(
-                    player,
-                    core
-            );
-            return;
-        }
-
-        player.setMetadata(
-                META_HOME_CONFIRM,
-                new FixedMetadataValue(
-                        core,
-                        id
-                )
+        int id = state.homeId();
+        String displayName = homeService.getDisplayName(
+                player.getUniqueId(),
+                id
         );
+
+        if (slot == ConfirmDeleteHomeGui.CANCEL_SLOT) {
+            guiState.clearPersonal(player);
+            player.closeInventory();
+            HomesMainGui.open(core, player, homeService);
+            sendPopup(player, core.getMessage("homes.delete-cancelled"));
+            SoundService.guiCancel(player, core);
+            return;
+        }
+
+        if (slot == ConfirmDeleteHomeGui.ACTION_SLOT) {
+            return;
+        }
+
+        if (slot != ConfirmDeleteHomeGui.CONFIRM_SLOT) {
+            return;
+        }
+
+        if (guiState.personalReady(player, id)) {
+            homeService.delete(player.getUniqueId(), id);
+            guiState.clearPersonal(player);
+            player.closeInventory();
+            sendPopup(
+                    player,
+                    core.getMessage("homes.deleted")
+                            .replace("%home%", displayName)
+            );
+            SoundService.homeDelete(player, core);
+            return;
+        }
+
+        int timeout = core.getConfig().getInt(
+                "homes.delete-confirm.timeout-seconds",
+                5
+        );
+        long confirmationExpiresAt =
+                guiState.armPersonal(player, id, timeout);
         sendPopup(
                 player,
-                "&#bbbbbbClick "
-                        + "&#D0AFFFconfirm again "
-                        + "&#bbbbbbto continue"
+                "&#bbbbbbClick &#D0AFFFconfirm again &#bbbbbbto continue"
         );
-        SoundService.guiConfirm(
-                player,
-                core
+        SoundService.guiConfirm(player, core);
+        schedulePersonalDeleteTimeout(
+                player.getUniqueId(),
+                id,
+                timeout,
+                confirmationExpiresAt
         );
+    }
 
-        int timeout =
-                core.getConfig().getInt(
-                        "homes.delete-confirm.timeout-seconds",
-                        5
-                );
+    private void schedulePersonalDeleteTimeout(
+            UUID playerId,
+            int homeId,
+            int timeoutSeconds,
+            long confirmationExpiresAt
+    ) {
+        core.getServer().getScheduler().runTaskLater(
+                core,
+                () -> {
+                    Player online = core.getServer().getPlayer(playerId);
+                    if (online == null
+                            || !guiState.personalConfirmationMatches(
+                            online,
+                            homeId,
+                            confirmationExpiresAt
+                    )) {
+                        return;
+                    }
 
-        core.getServer()
-                .getScheduler()
-                .runTaskLater(
-                        core,
-                        () -> {
-                            if (!player.isOnline()
-                                    || !player.hasMetadata(
-                                    META_HOME_PENDING
-                            )
-                                    || !player.hasMetadata(
-                                    META_HOME_CONFIRM
-                            )) {
-                                return;
-                            }
-
-                            int pendingId =
-                                    player.getMetadata(
-                                            META_HOME_PENDING
-                                    ).getFirst().asInt();
-                            int currentConfirmValue =
-                                    player.getMetadata(
-                                            META_HOME_CONFIRM
-                                    ).getFirst().asInt();
-
-                            if (pendingId == id
-                                    && currentConfirmValue
-                                    == id) {
-                                player.setMetadata(
-                                        META_HOME_CONFIRM,
-                                        new FixedMetadataValue(
-                                                core,
-                                                0
-                                        )
-                                );
-                                sendPopup(
-                                        player,
-                                        "&cAction timed out"
-                                );
-                                SoundService.guiError(
-                                        player,
-                                        core
-                                );
-                            }
-                        },
-                        20L * Math.max(
-                                1,
-                                timeout
-                        )
-                );
+                    guiState.startPersonal(online, homeId);
+                    sendPopup(online, "&cAction timed out");
+                    SoundService.guiError(online, core);
+                },
+                Math.max(1, timeoutSeconds) * 20L
+        );
     }
 
     private void sendBlockedHomeWorld(
@@ -896,32 +682,6 @@ public final class HomesGuiListener
         );
         SoundService.guiError(
                 player,
-                core
-        );
-    }
-
-    private void clearPlayerDeleteMeta(
-            Player player
-    ) {
-        player.removeMetadata(
-                META_HOME_PENDING,
-                core
-        );
-        player.removeMetadata(
-                META_HOME_CONFIRM,
-                core
-        );
-    }
-
-    private void clearTeamHomeDeleteMeta(
-            Player player
-    ) {
-        player.removeMetadata(
-                META_TEAM_HOME_PENDING,
-                core
-        );
-        player.removeMetadata(
-                META_TEAM_HOME_CONFIRM,
                 core
         );
     }

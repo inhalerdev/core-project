@@ -121,8 +121,7 @@ public final class SpawnTeleportService {
                         )
                 );
 
-        return stripped == null
-                || stripped.isBlank()
+        return stripped.isBlank()
                 ? point.id()
                 : stripped;
     }

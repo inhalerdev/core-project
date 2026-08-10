@@ -1,7 +1,6 @@
 package net.mineacle.core.teams.gui;
 
-import net.mineacle.core.Core;
-import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.teams.service.TeamInviteService;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -15,7 +14,7 @@ import java.util.List;
 
 public final class TeamStartGui {
 
-    public static final String TITLE = TextColor.color("&#8436FETeam Menu");
+    public static final String TITLE = "&#8436FETeam Menu";
 
     public static final int CREATE_SLOT = 11;
     public static final int INVITES_SLOT = 13;
@@ -30,11 +29,14 @@ public final class TeamStartGui {
     }
 
     public static void open(
-            Core core,
             Player player,
             TeamInviteService inviteService
     ) {
-        Inventory inventory = Bukkit.createInventory(null, 27, TITLE);
+        Inventory inventory = Bukkit.createInventory(
+                null,
+                27,
+                GuiText.component(TITLE)
+        );
         boolean hasInvite = inviteService.hasInvite(player.getUniqueId());
 
         inventory.setItem(
@@ -95,8 +97,7 @@ public final class TeamStartGui {
             return item;
         }
 
-        meta.setDisplayName(TextColor.color(name));
-        meta.setLore(lore.stream().map(TextColor::color).toList());
+        GuiText.apply(meta, name, lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;

@@ -567,7 +567,7 @@ public final class OriginRtpQueueService {
         Session session =
                 sessionsByPlayer.get(playerId);
 
-        if (!matches(
+        if (mismatched(
                 session,
                 sessionId,
                 Phase.SEARCHING
@@ -669,7 +669,7 @@ public final class OriginRtpQueueService {
         Session session =
                 sessionsByPlayer.get(playerId);
 
-        if (!matches(
+        if (mismatched(
                 session,
                 sessionId,
                 Phase.SEARCHING
@@ -709,7 +709,7 @@ public final class OriginRtpQueueService {
         Session session =
                 sessionsByPlayer.get(playerId);
 
-        if (!matches(
+        if (mismatched(
                 session,
                 sessionId,
                 Phase.COUNTDOWN
@@ -739,7 +739,7 @@ public final class OriginRtpQueueService {
         Session session =
                 sessionsByPlayer.get(playerId);
 
-        if (!matches(
+        if (mismatched(
                 session,
                 sessionId,
                 Phase.COUNTDOWN
@@ -935,16 +935,16 @@ public final class OriginRtpQueueService {
         return count;
     }
 
-    private boolean matches(
+    private boolean mismatched(
             Session session,
             UUID sessionId,
             Phase phase
     ) {
-        return session != null
-                && session.request()
+        return session == null
+                || !session.request()
                 .sessionId()
                 .equals(sessionId)
-                && session.phase() == phase;
+                || session.phase() != phase;
     }
 
     private boolean enabled(

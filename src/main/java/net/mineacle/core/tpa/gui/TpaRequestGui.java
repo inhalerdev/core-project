@@ -1,9 +1,8 @@
 package net.mineacle.core.tpa.gui;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.common.player.DisplayNames;
-import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.tpa.service.TpaRequest;
 import net.mineacle.core.tpa.service.TpaRequestType;
 import org.bukkit.Bukkit;
@@ -23,7 +22,7 @@ import java.util.Locale;
 public final class TpaRequestGui {
 
     public static final Component TITLE =
-            component("&#8436FETeleport Request");
+            GuiText.component("&#8436FETeleport Request");
     public static final int DENY_SLOT = 11;
     public static final int REQUESTER_SLOT = 13;
     public static final int ACCEPT_SLOT = 15;
@@ -47,7 +46,7 @@ public final class TpaRequestGui {
     ) {
         if (request == null) {
             viewer.sendMessage(
-                    component(
+                    GuiText.component(
                             "&cYou have no pending teleport requests"
                     )
             );
@@ -255,28 +254,10 @@ public final class TpaRequestGui {
             String name,
             List<String> lore
     ) {
-        meta.displayName(
-                component(name)
-        );
-        meta.lore(
-                lore.stream()
-                        .map(
-                                TpaRequestGui::component
-                        )
-                        .toList()
-        );
+        GuiText.apply(meta, name, lore);
         meta.addItemFlags(
                 ItemFlag.HIDE_ATTRIBUTES
         );
     }
 
-    private static Component component(
-            String input
-    ) {
-        return LegacyComponentSerializer
-                .legacySection()
-                .deserialize(
-                        TextColor.color(input)
-                );
-    }
 }

@@ -46,8 +46,7 @@ public final class SpawnGuiListener
                         spawnService.title()
                 );
 
-        if (expected == null
-                || !title.equals(expected)) {
+        if (!title.equals(expected)) {
             return;
         }
 

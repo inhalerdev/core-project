@@ -4,23 +4,20 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
-import net.mineacle.core.tpa.command.TpaMenuCommand;
 import net.mineacle.core.tpa.gui.TpaTargetMenuGui;
 import net.mineacle.core.tpa.service.TpaRequestType;
 import net.mineacle.core.tpa.service.TpaService;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 
-import java.util.UUID;
-
+@SuppressWarnings("unused")
 public final class TpaTargetMenuListener implements Listener {
 
     private static final String PRIMARY = "&#8436FE";
@@ -35,9 +32,9 @@ public final class TpaTargetMenuListener implements Listener {
         this.tpaService = tpaService;
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryClick(InventoryClickEvent event) {
-        String title = ChatColor.stripColor(event.getView().getTitle());
+        String title = GuiText.plain(event.getView().title());
 
         if (!TpaTargetMenuGui.isTitle(title)) {
             return;
@@ -58,7 +55,7 @@ public final class TpaTargetMenuListener implements Listener {
         }
 
         if (rawSlot == TpaTargetMenuGui.CANCEL_SLOT) {
-            player.removeMetadata(TpaMenuCommand.META_TARGET, core);
+            tpaService.clearMenuTarget(player.getUniqueId());
             player.closeInventory();
             sendBoth(player, "&cTeleport request cancelled");
             SoundService.guiCancel(player, core);
@@ -69,10 +66,10 @@ public final class TpaTargetMenuListener implements Listener {
             return;
         }
 
-        Player target = target(player);
+        Player target = tpaService.menuTarget(player.getUniqueId());
+        tpaService.clearMenuTarget(player.getUniqueId());
 
-        if (target == null) {
-            player.removeMetadata(TpaMenuCommand.META_TARGET, core);
+        if (target == null || !target.isOnline()) {
             player.closeInventory();
             sendBoth(player, "&cThat player is no longer online");
             SoundService.guiError(player, core);
@@ -80,33 +77,22 @@ public final class TpaTargetMenuListener implements Listener {
         }
 
         if (target.getUniqueId().equals(player.getUniqueId())) {
-            player.removeMetadata(TpaMenuCommand.META_TARGET, core);
             player.closeInventory();
             sendBoth(player, "&cYou cannot teleport to yourself");
             SoundService.guiError(player, core);
             return;
         }
 
-        player.removeMetadata(TpaMenuCommand.META_TARGET, core);
         player.closeInventory();
         sendRequest(player, target);
     }
 
-    private Player target(Player player) {
-        if (!player.hasMetadata(TpaMenuCommand.META_TARGET)) {
-            return null;
-        }
-
-        String raw = player.getMetadata(TpaMenuCommand.META_TARGET).get(0).asString();
-        try {
-            return Bukkit.getPlayer(UUID.fromString(raw));
-        } catch (IllegalArgumentException ignored) {
-            return null;
-        }
-    }
-
     private void sendRequest(Player requester, Player target) {
-        if (!tpaService.createRequest(requester, target, TpaRequestType.TO_TARGET)) {
+        if (tpaService.createRequest(
+                requester,
+                target,
+                TpaRequestType.TO_TARGET
+        ) != TpaService.CreateResult.SUCCESS) {
             sendBoth(requester, "&cCould not send teleport request");
             SoundService.guiError(requester, core);
             return;
@@ -126,7 +112,6 @@ public final class TpaTargetMenuListener implements Listener {
                 BODY + requesterName + " " + SECONDARY + "wants to teleport to you"
         ));
         SoundService.teleportReceived(target, core);
-
     }
 
     private Component requestMessage(String message, Player requester) {

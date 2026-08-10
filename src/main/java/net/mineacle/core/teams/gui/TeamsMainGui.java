@@ -1,8 +1,8 @@
 package net.mineacle.core.teams.gui;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.common.player.DisplayNames;
-import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.stats.VaultMoneyHook;
 import net.mineacle.core.teams.model.TeamMemberRecord;
 import net.mineacle.core.teams.model.TeamRecord;
@@ -27,8 +27,6 @@ import java.util.Map;
 import java.util.UUID;
 
 public final class TeamsMainGui {
-
-    public static final String TITLE_SUFFIX = ")";
 
     public static final int TEAM_HOME_SLOT = 47;
     public static final int TEAM_CHAT_SLOT = 48;
@@ -55,11 +53,11 @@ public final class TeamsMainGui {
         TeamRecord team = teamService.getTeamByPlayer(player.getUniqueId());
 
         if (team == null) {
-            TeamStartGui.open(core, player, inviteService);
+            TeamStartGui.open(player, inviteService);
             return;
         }
 
-        TeamHomeService teamHomeService = new TeamHomeService(core, teamService);
+        TeamHomeService teamHomeService = new TeamHomeService(core);
         boolean hasTeamHome = teamHomeService.hasTeamHome(team.teamId());
         boolean teamChatEnabled = teamService.isTeamChatEnabled(player.getUniqueId());
         List<UUID> members = sortedMembers(player, team.teamId(), teamService);
@@ -68,7 +66,7 @@ public final class TeamsMainGui {
         Inventory inventory = Bukkit.createInventory(
                 null,
                 54,
-                color(
+                GuiText.component(
                         PRIMARY + team.name()
                                 + " " + BODY + "("
                                 + memberCount + "/"
@@ -221,7 +219,7 @@ public final class TeamsMainGui {
     private static double parsedBalance(OfflinePlayer player) {
         String formatted = VaultMoneyHook.formattedBalance(player);
 
-        if (formatted == null || formatted.isBlank()) {
+        if (formatted.isBlank()) {
             return 0.0D;
         }
 
@@ -319,8 +317,7 @@ public final class TeamsMainGui {
         }
 
         meta.setOwningPlayer(owner);
-        meta.setDisplayName(color(name));
-        meta.setLore(lore.stream().map(TeamsMainGui::color).toList());
+        GuiText.apply(meta, name, lore);
         item.setItemMeta(meta);
         return item;
     }
@@ -337,14 +334,10 @@ public final class TeamsMainGui {
             return item;
         }
 
-        meta.setDisplayName(color(name));
-        meta.setLore(lore.stream().map(TeamsMainGui::color).toList());
+        GuiText.apply(meta, name, lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
     }
 
-    private static String color(String input) {
-        return TextColor.color(input);
-    }
 }

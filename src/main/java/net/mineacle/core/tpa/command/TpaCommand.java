@@ -21,7 +21,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Locale;
@@ -29,7 +28,6 @@ import java.util.Locale;
 public final class TpaCommand
         implements CommandExecutor, TabCompleter {
 
-    private static final String PRIMARY = "&#8436FE";
     private static final String SECONDARY = "&#B078FF";
     private static final String ACCENT = "&#D0AFFF";
     private static final String BODY = "&#bbbbbb";
@@ -152,11 +150,11 @@ public final class TpaCommand
             return;
         }
 
-        if (!tpaService.createRequest(
+        if (tpaService.createRequest(
                 requester,
                 target,
                 type
-        )) {
+        ) != TpaService.CreateResult.SUCCESS) {
             error(
                     requester,
                     "&cCould not send teleport request"
@@ -377,7 +375,7 @@ public final class TpaCommand
     }
 
     @Override
-    public @Nullable List<String> onTabComplete(
+    public @NotNull List<String> onTabComplete(
             @NotNull CommandSender sender,
             @NotNull Command command,
             @NotNull String alias,

@@ -12,6 +12,7 @@ import net.mineacle.core.teams.listener.TeamCombatListener;
 import net.mineacle.core.teams.listener.TeamDeathListener;
 import net.mineacle.core.teams.listener.TeamJoinListener;
 import net.mineacle.core.teams.listener.TeamsGuiListener;
+import net.mineacle.core.teams.service.TeamGuiState;
 import net.mineacle.core.teams.service.TeamHomeService;
 import net.mineacle.core.teams.service.TeamInviteService;
 import net.mineacle.core.teams.service.TeamService;
@@ -24,6 +25,7 @@ public final class TeamsModule extends Module {
     private Core core;
     private TeamService teamService;
     private TeamInviteService inviteService;
+    private TeamGuiState guiState;
     private TeamHomeService teamHomeService;
     private HomeService homeService;
     private TeleportService teleportService;
@@ -48,7 +50,8 @@ public final class TeamsModule extends Module {
         this.teamService = new TeamService(core);
         activeTeamService = this.teamService;
         this.inviteService = new TeamInviteService(core, teamService);
-        this.teamHomeService = new TeamHomeService(core, teamService);
+        this.guiState = new TeamGuiState();
+        this.teamHomeService = new TeamHomeService(core);
         this.playerStatisticsGui = new PlayerStatisticsGui();
 
         if (homeService == null || teleportService == null) {
@@ -61,7 +64,8 @@ public final class TeamsModule extends Module {
                 inviteService,
                 teamHomeService,
                 teleportService,
-                homeService
+                homeService,
+                guiState
         );
 
         PluginCommand team = core.getCommand("team");
@@ -81,10 +85,12 @@ public final class TeamsModule extends Module {
                         teamHomeService,
                         homeService,
                         teleportService,
-                        playerStatisticsGui
+                        playerStatisticsGui,
+                        guiState
                 ),
                 core
         );
+        core.getServer().getPluginManager().registerEvents(guiState, core);
         core.getServer().getPluginManager().registerEvents(
                 new TeamCombatListener(teamService),
                 core
@@ -118,6 +124,7 @@ public final class TeamsModule extends Module {
         teleportService = null;
         homeService = null;
         teamHomeService = null;
+        guiState = null;
         inviteService = null;
         teamService = null;
         core = null;

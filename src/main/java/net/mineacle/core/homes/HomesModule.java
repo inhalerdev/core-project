@@ -5,15 +5,15 @@ import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.common.teleport.TeleportService;
 import net.mineacle.core.homes.command.HomeCommand;
 import net.mineacle.core.homes.listener.HomesGuiListener;
+import net.mineacle.core.homes.service.HomeGuiState;
 import net.mineacle.core.homes.service.HomeService;
-import net.mineacle.core.homes.service.HomeWorldRules;
 import org.bukkit.command.PluginCommand;
 
 public final class HomesModule extends Module {
 
     private Core core;
     private HomeService homeService;
-    private HomeWorldRules worldRules;
+    private HomeGuiState guiState;
     private TeleportService teleportService;
 
     @Override
@@ -24,19 +24,20 @@ public final class HomesModule extends Module {
     @Override
     public void enable(Core core) {
         this.core = core;
-        this.homeService = new HomeService(core);
-        this.worldRules = new HomeWorldRules(core);
-        this.teleportService = core.teleports();
+        homeService = new HomeService(core);
+        guiState = new HomeGuiState();
+        teleportService = core.teleports();
 
         if (teleportService == null) {
-            throw new IllegalStateException("Core TeleportService is not initialized");
+            throw new IllegalStateException(
+                    "Core TeleportService is not initialized"
+            );
         }
 
         HomeCommand homeCommand = new HomeCommand(
                 core,
                 homeService,
-                worldRules,
-                teleportService
+                guiState
         );
 
         registerCommand("home", homeCommand);
@@ -49,11 +50,12 @@ public final class HomesModule extends Module {
                 new HomesGuiListener(
                         core,
                         homeService,
-                        worldRules,
-                        teleportService
+                        teleportService,
+                        guiState
                 ),
                 core
         );
+        core.getServer().getPluginManager().registerEvents(guiState, core);
     }
 
     @Override
@@ -63,16 +65,20 @@ public final class HomesModule extends Module {
         }
 
         teleportService = null;
-        worldRules = null;
+        guiState = null;
         homeService = null;
         core = null;
     }
 
-    private void registerCommand(String name, HomeCommand executor) {
+    private void registerCommand(
+            String name,
+            HomeCommand executor
+    ) {
         PluginCommand command = core.getCommand(name);
-
         if (command == null) {
-            throw new IllegalStateException("Missing command in plugin.yml: " + name);
+            throw new IllegalStateException(
+                    "Missing command in plugin.yml: " + name
+            );
         }
 
         command.setExecutor(executor);
@@ -83,7 +89,4 @@ public final class HomesModule extends Module {
         return homeService;
     }
 
-    public TeleportService teleportService() {
-        return teleportService;
-    }
 }

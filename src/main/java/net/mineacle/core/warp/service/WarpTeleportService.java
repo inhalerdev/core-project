@@ -55,8 +55,7 @@ public final class WarpTeleportService {
                         )
                 );
 
-        return stripped == null
-                || stripped.isBlank()
+        return stripped.isBlank()
                 ? point.key()
                 : stripped;
     }

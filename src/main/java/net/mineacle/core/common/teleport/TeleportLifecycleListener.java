@@ -11,6 +11,7 @@ import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 
 /** One lifecycle listener for every Mineacle delayed teleport. */
+@SuppressWarnings("unused")
 public final class TeleportLifecycleListener implements Listener {
 
     private final TeleportService teleports;
@@ -27,7 +28,7 @@ public final class TeleportLifecycleListener implements Listener {
 
         Location to = event.getTo();
 
-        if (to == null || samePosition(event.getFrom(), to)) {
+        if (samePosition(event.getFrom(), to)) {
             return;
         }
 
@@ -36,7 +37,7 @@ public final class TeleportLifecycleListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onTeleport(PlayerTeleportEvent event) {
-        if (!teleports.isActive(event.getPlayer()) || event.getTo() == null) {
+        if (!teleports.isActive(event.getPlayer())) {
             return;
         }
 

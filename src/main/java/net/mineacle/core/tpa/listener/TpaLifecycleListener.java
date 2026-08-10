@@ -7,6 +7,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 
 /** Clears session-only TPA request and auto-accept state immediately on quit. */
+@SuppressWarnings("unused")
 public final class TpaLifecycleListener implements Listener {
 
     private final TpaService tpaService;

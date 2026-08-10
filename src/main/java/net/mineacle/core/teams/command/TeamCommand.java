@@ -14,8 +14,8 @@ import net.mineacle.core.teams.gui.TeamConfirmGui;
 import net.mineacle.core.teams.gui.TeamInviteGui;
 import net.mineacle.core.teams.gui.TeamStartGui;
 import net.mineacle.core.teams.gui.TeamsMainGui;
-import net.mineacle.core.teams.model.TeamInviteRecord;
 import net.mineacle.core.teams.model.TeamRecord;
+import net.mineacle.core.teams.service.TeamGuiState;
 import net.mineacle.core.teams.service.TeamHomeService;
 import net.mineacle.core.teams.service.TeamInviteService;
 import net.mineacle.core.teams.service.TeamService;
@@ -25,7 +25,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
-import org.bukkit.metadata.FixedMetadataValue;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,9 +33,6 @@ import java.util.Locale;
 
 public final class TeamCommand implements CommandExecutor, TabCompleter {
 
-    private static final String META_TARGET = "simple_team_target";
-    private static final String META_ACTION = "simple_team_action";
-    private static final String META_CONFIRM = "simple_team_confirm";
     private static final String PRIMARY = "&#8436FE";
     private static final String SECONDARY = "&#B078FF";
     private static final String BODY = "&#bbbbbb";
@@ -46,6 +43,7 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
     private final TeamHomeService teamHomeService;
     private final TeleportService teleportService;
     private final HomeService homeService;
+    private final TeamGuiState guiState;
 
     public TeamCommand(
             Core core,
@@ -53,7 +51,8 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
             TeamInviteService inviteService,
             TeamHomeService teamHomeService,
             TeleportService teleportService,
-            HomeService homeService
+            HomeService homeService,
+            TeamGuiState guiState
     ) {
         this.core = core;
         this.teamService = teamService;
@@ -61,10 +60,16 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
         this.teamHomeService = teamHomeService;
         this.teleportService = teleportService;
         this.homeService = homeService;
+        this.guiState = guiState;
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public boolean onCommand(
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String label,
+            String @NotNull [] args
+    ) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage("Players only");
             return true;
@@ -89,11 +94,15 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
                 && !sub.equals("accept")
                 && !sub.equals("decline")
                 && !sub.equals("deny")) {
-            MenuHistory.openRoot(core, player, () -> TeamStartGui.open(core, player, inviteService));
+            MenuHistory.openRoot(
+                    core,
+                    player,
+                    () -> TeamStartGui.open(player, inviteService)
+            );
             return true;
         }
 
-        return switch (sub) {
+        switch (sub) {
             case "create" -> create(player, args);
             case "join", "invites" -> invites(player);
             case "accept" -> accept(player);
@@ -102,20 +111,49 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
             case "chat" -> teamChat(player);
             case "leave" -> leave(player);
             case "disband" -> disband(player);
-            case "kick" -> confirmTargetAction(player, args, "KICK", "Kick Player", "&cUsage: /team kick <player>");
-            case "ban" -> confirmTargetAction(player, args, "BAN", "Ban Player", "&cUsage: /team ban <player>");
-            case "promote" -> confirmTargetAction(player, args, "PROMOTE", "Promote Player", "&cUsage: /team promote <player>");
-            case "demote" -> confirmTargetAction(player, args, "DEMOTE", "Demote Player", "&cUsage: /team demote <player>");
-            case "transfer" -> confirmTargetAction(player, args, "TRANSFER", "Transfer Founder", "&cUsage: /team transfer <player>");
+            case "kick" -> confirmTargetAction(
+                    player,
+                    args,
+                    "KICK",
+                    "Kick Player",
+                    "&cUsage: /team kick <player>"
+            );
+            case "ban" -> confirmTargetAction(
+                    player,
+                    args,
+                    "BAN",
+                    "Ban Player",
+                    "&cUsage: /team ban <player>"
+            );
+            case "promote" -> confirmTargetAction(
+                    player,
+                    args,
+                    "PROMOTE",
+                    "Promote Player",
+                    "&cUsage: /team promote <player>"
+            );
+            case "demote" -> confirmTargetAction(
+                    player,
+                    args,
+                    "DEMOTE",
+                    "Demote Player",
+                    "&cUsage: /team demote <player>"
+            );
+            case "transfer" -> confirmTargetAction(
+                    player,
+                    args,
+                    "TRANSFER",
+                    "Transfer Founder",
+                    "&cUsage: /team transfer <player>"
+            );
             case "home" -> home(player);
             case "sethome" -> setHome(player);
             case "delhome" -> delHome(player);
             case "pvp" -> pvp(player);
-            default -> {
-                sendError(player, "&cUnknown team command");
-                yield true;
-            }
-        };
+            default -> sendError(player, "&cUnknown team command");
+        }
+
+        return true;
     }
 
     private void openTeamRoot(Player player) {
@@ -123,119 +161,135 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
             MenuHistory.openRoot(
                     core,
                     player,
-                    () -> TeamsMainGui.open(core, player, teamService, inviteService)
+                    () -> TeamsMainGui.open(
+                            core,
+                            player,
+                            teamService,
+                            inviteService
+                    )
             );
-        } else {
-            MenuHistory.openRoot(
-                    core,
-                    player,
-                    () -> TeamStartGui.open(core, player, inviteService)
-            );
-        }
-    }
-
-    private boolean create(Player player, String[] args) {
-        if (teamService.hasTeam(player.getUniqueId())) {
-            sendError(player, "&cYou are already in a team");
-            return true;
+            return;
         }
 
-        if (args.length < 2) {
-            Component prompt = legacy(BODY + "Type " + PRIMARY + "/team create " + BODY + "to create a team")
-                    .clickEvent(ClickEvent.suggestCommand("/team create "));
-            player.sendMessage(prompt);
-            player.sendActionBar(actionBar(BODY + "Type " + PRIMARY + "/team create " + BODY + "to create a team"));
-            return true;
-        }
-
-        String name = args[1];
-
-        if (!teamService.createTeam(player.getUniqueId(), name)) {
-            sendError(player, "&cCould not create that team Use 3-16 letters, numbers, or underscores");
-            return true;
-        }
-
-        sendBoth(player, BODY + "Team " + PRIMARY + name + " " + BODY + "created");
-        SoundService.teamCreate(player, core);
-        return true;
-    }
-
-    private boolean invites(Player player) {
         MenuHistory.openRoot(
                 core,
                 player,
-                () -> TeamInviteGui.open(core, player, inviteService, teamService)
+                () -> TeamStartGui.open(player, inviteService)
         );
-        return true;
     }
 
-    private boolean accept(Player player) {
-        TeamInviteRecord invite = inviteService.getInvite(player.getUniqueId());
+    private void create(Player player, String[] args) {
+        if (teamService.hasTeam(player.getUniqueId())) {
+            sendError(player, "&cYou are already in a team");
+            return;
+        }
 
-        if (invite == null) {
+        if (args.length < 2) {
+            Component prompt = legacy(
+                    BODY + "Type " + PRIMARY + "/team create "
+                            + BODY + "to create a team"
+            ).clickEvent(ClickEvent.suggestCommand("/team create "));
+            player.sendMessage(prompt);
+            player.sendActionBar(
+                    actionBar(
+                            BODY + "Type " + PRIMARY + "/team create "
+                                    + BODY + "to create a team"
+                    )
+            );
+            return;
+        }
+
+        String name = args[1];
+        if (!teamService.createTeam(player.getUniqueId(), name)) {
+            sendError(
+                    player,
+                    "&cCould not create that team Use 3-16 letters, numbers, or underscores"
+            );
+            return;
+        }
+
+        sendBoth(
+                player,
+                BODY + "Team " + PRIMARY + name + " " + BODY + "created"
+        );
+        SoundService.teamCreate(player, core);
+    }
+
+    private void invites(Player player) {
+        MenuHistory.openRoot(
+                core,
+                player,
+                () -> TeamInviteGui.open(player, inviteService, teamService)
+        );
+    }
+
+    private void accept(Player player) {
+        if (inviteService.getInvite(player.getUniqueId()) == null) {
             sendError(player, "&cYou have no current team invites");
-            return true;
+            return;
         }
 
         if (!inviteService.acceptInvite(player.getUniqueId())) {
             sendError(player, "&cCould not accept invite");
-            return true;
+            return;
         }
 
         sendBoth(player, "&aInvite accepted");
         SoundService.guiConfirm(player, core);
         openTeamRoot(player);
-        return true;
     }
 
-    private boolean decline(Player player) {
+    private void decline(Player player) {
         if (!inviteService.denyInvite(player.getUniqueId())) {
             sendError(player, "&cYou have no current team invites");
-            return true;
+            return;
         }
 
         sendBoth(player, "&cInvite declined");
         SoundService.guiCancel(player, core);
-        return true;
     }
 
-    private boolean invite(Player player, String[] args) {
+    private void invite(Player player, String[] args) {
         TeamRecord team = teamService.getTeamByPlayer(player.getUniqueId());
 
         if (team == null) {
             sendError(player, "&cYou are not in a team");
-            return true;
+            return;
         }
         if (!teamService.isAdmin(player.getUniqueId())) {
             sendError(player, "&cOnly admins can invite players");
-            return true;
+            return;
         }
         if (args.length < 2) {
             sendError(player, "&cUsage: /team invite <player>");
-            return true;
+            return;
         }
-        if (teamService.getTeamMembers(team.teamId()).size() >= teamService.maxMembers()) {
+        if (teamService.getTeamMembers(team.teamId()).size()
+                >= teamService.maxMembers()) {
             sendError(player, "&cYour team is full");
-            return true;
+            return;
         }
 
         Player target = Bukkit.getPlayerExact(args[1]);
-
         if (target == null) {
             sendError(player, "&cThat player is offline");
-            return true;
+            return;
         }
         if (teamService.hasTeam(target.getUniqueId())) {
             sendError(player, "&cThat player is already in a team");
-            return true;
+            return;
         }
         if (teamService.isBanned(team.teamId(), target.getUniqueId())) {
             sendError(player, "&cThat player is banned from joining this team");
-            return true;
+            return;
         }
-        if (!inviteService.createInvite(team.teamId(), player.getUniqueId(), target.getUniqueId())) {
+        if (!inviteService.createInvite(
+                team.teamId(),
+                player.getUniqueId(),
+                target.getUniqueId()
+        )) {
             sendError(player, "&cCould not send invite");
-            return true;
+            return;
         }
 
         String senderName = DisplayNames.prefixedDisplayName(player);
@@ -251,56 +305,64 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
         Component view = legacy(PRIMARY + "[View]")
                 .clickEvent(ClickEvent.runCommand("/team invites"));
         Component inviteMessage = legacy(
-                BODY + "You received a team invite to " + PRIMARY + team.name() + " " + BODY
+                BODY + "You received a team invite to "
+                        + PRIMARY + team.name() + " " + BODY
         ).append(accept)
                 .append(Component.space())
                 .append(deny)
                 .append(Component.space())
                 .append(view);
 
-        target.sendActionBar(actionBar(PRIMARY + "Team invite from " + SECONDARY + senderName));
+        target.sendActionBar(
+                actionBar(PRIMARY + "Team invite from " + SECONDARY + senderName)
+        );
         target.sendMessage(inviteMessage);
         SoundService.teamInvite(target, core);
-        return true;
     }
 
-    private boolean teamChat(Player player) {
+    private void teamChat(Player player) {
         if (!teamService.hasTeam(player.getUniqueId())) {
             sendError(player, "&cYou are not in a team");
-            return true;
+            return;
         }
 
         boolean enabled = teamService.toggleTeamChat(player.getUniqueId());
-        sendBoth(player, enabled ? "&aTeam chat enabled" : "&cTeam chat disabled");
+        sendBoth(
+                player,
+                enabled ? "&aTeam chat enabled" : "&cTeam chat disabled"
+        );
         SoundService.guiConfirm(player, core);
-        return true;
     }
 
-    private boolean leave(Player player) {
+    private void leave(Player player) {
         if (teamService.isFounder(player.getUniqueId())) {
             sendError(player, "&cYou cannot leave as founder Use /team disband");
-            return true;
+            return;
         }
 
-        clearConfirmMeta(player);
-        player.setMetadata(META_ACTION, new FixedMetadataValue(core, "LEAVE"));
-        MenuHistory.openRoot(core, player, () -> TeamConfirmGui.open(core, player, "Leave Team"));
-        return true;
+        guiState.beginAction(player, "LEAVE");
+        MenuHistory.openRoot(
+                core,
+                player,
+                () -> TeamConfirmGui.open(player, "Leave Team")
+        );
     }
 
-    private boolean disband(Player player) {
+    private void disband(Player player) {
         if (!teamService.isFounder(player.getUniqueId())) {
             sendError(player, "&cOnly the founder can disband the team");
-            return true;
+            return;
         }
 
-        clearConfirmMeta(player);
-        player.setMetadata(META_ACTION, new FixedMetadataValue(core, "DISBAND"));
-        MenuHistory.openRoot(core, player, () -> TeamConfirmGui.open(core, player, "Disband Team"));
-        return true;
+        guiState.beginAction(player, "DISBAND");
+        MenuHistory.openRoot(
+                core,
+                player,
+                () -> TeamConfirmGui.open(player, "Disband Team")
+        );
     }
 
-    private boolean confirmTargetAction(
+    private void confirmTargetAction(
             Player player,
             String[] args,
             String action,
@@ -309,46 +371,43 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
     ) {
         if (args.length < 2) {
             sendError(player, usage);
-            return true;
+            return;
         }
 
         Player target = Bukkit.getPlayerExact(args[1]);
-
         if (target == null) {
             sendError(player, "&cThat player must be online");
-            return true;
+            return;
         }
 
         TeamRecord playerTeam = teamService.getTeamByPlayer(player.getUniqueId());
         TeamRecord targetTeam = teamService.getTeamByPlayer(target.getUniqueId());
-
         if (playerTeam == null
                 || targetTeam == null
                 || !playerTeam.teamId().equals(targetTeam.teamId())) {
             sendError(player, "&cThat player is not in your team");
-            return true;
+            return;
         }
 
-        clearConfirmMeta(player);
-        player.setMetadata(META_ACTION, new FixedMetadataValue(core, action));
-        player.setMetadata(META_TARGET, new FixedMetadataValue(core, target.getUniqueId().toString()));
-        MenuHistory.openRoot(core, player, () -> TeamConfirmGui.open(core, player, title));
-        return true;
+        guiState.beginAction(player, action, target.getUniqueId());
+        MenuHistory.openRoot(
+                core,
+                player,
+                () -> TeamConfirmGui.open(player, title)
+        );
     }
 
-    private boolean home(Player player) {
+    private void home(Player player) {
         TeamRecord team = teamService.getTeamByPlayer(player.getUniqueId());
-
         if (team == null) {
             sendError(player, "&cYou are not in a team");
-            return true;
+            return;
         }
 
         org.bukkit.Location home = teamHomeService.getTeamHome(team.teamId());
-
         if (home == null) {
             sendError(player, "&cYour team does not have a home set");
-            return true;
+            return;
         }
 
         SoundService.guiSelect(player, core);
@@ -358,84 +417,77 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
                 home,
                 TeleportService.TeleportKind.TEAM_HOME
         );
-        return true;
     }
 
-    private boolean setHome(Player player) {
+    private void setHome(Player player) {
         TeamRecord team = teamService.getTeamByPlayer(player.getUniqueId());
-
         if (team == null) {
             sendError(player, "&cYou are not in a team");
-            return true;
+            return;
         }
         if (!teamService.isAdmin(player.getUniqueId())) {
             sendError(player, "&cOnly admins can set team home");
-            return true;
+            return;
         }
         if (!homeService.canSetTeamHomeHere(player)) {
             sendError(player, "&cYou cannot set Team Home in this world");
-            return true;
+            return;
         }
 
         teamHomeService.setTeamHome(team.teamId(), player.getLocation());
         sendBoth(player, "&aTeam Home set " + BODY + "to your current location");
         SoundService.homeSet(player, core);
-        return true;
     }
 
-    private boolean delHome(Player player) {
+    private void delHome(Player player) {
         TeamRecord team = teamService.getTeamByPlayer(player.getUniqueId());
-
         if (team == null) {
             sendError(player, "&cYou are not in a team");
-            return true;
+            return;
         }
         if (!teamService.isAdmin(player.getUniqueId())) {
             sendError(player, "&cOnly admins can delete team home");
-            return true;
+            return;
         }
         if (teamHomeService.getTeamHome(team.teamId()) == null) {
             sendError(player, "&cYour team does not have a home set");
-            return true;
+            return;
         }
 
-        clearConfirmMeta(player);
-        player.setMetadata(META_ACTION, new FixedMetadataValue(core, "DELETE_HOME"));
-        MenuHistory.openRoot(core, player, () -> TeamConfirmGui.open(core, player, "Delete Team Home"));
-        return true;
+        guiState.beginAction(player, "DELETE_HOME");
+        MenuHistory.openRoot(
+                core,
+                player,
+                () -> TeamConfirmGui.open(player, "Delete Team Home")
+        );
     }
 
-    private boolean pvp(Player player) {
+    private void pvp(Player player) {
         TeamRecord team = teamService.getTeamByPlayer(player.getUniqueId());
-
         if (team == null) {
             sendError(player, "&cYou are not in a team");
-            return true;
+            return;
         }
         if (!teamService.isAdmin(player.getUniqueId())) {
             sendError(player, "&cOnly admins can toggle Team PvP");
-            return true;
+            return;
         }
 
         boolean enabled = !team.friendlyFire();
         teamService.setFriendlyFire(team.teamId(), enabled);
-        sendBoth(player, enabled ? "&aTeam PvP enabled" : "&cTeam PvP disabled");
+        sendBoth(
+                player,
+                enabled ? "&aTeam PvP enabled" : "&cTeam PvP disabled"
+        );
         SoundService.guiConfirm(player, core);
-        return true;
-    }
-
-    private void clearConfirmMeta(Player player) {
-        player.removeMetadata(META_ACTION, core);
-        player.removeMetadata(META_TARGET, core);
-        player.removeMetadata(META_CONFIRM, core);
     }
 
     @Override
-    public List<String> onTabComplete(
-            CommandSender sender,
-            Command command,
-            String alias,
-            String[] args
+    public @NotNull List<String> onTabComplete(
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String alias,
+            String @NotNull [] args
     ) {
         List<String> completions = new ArrayList<>();
 
@@ -445,13 +497,13 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 1) {
             List<String> options;
-
             if (!teamService.hasTeam(player.getUniqueId())) {
                 options = List.of("create", "join", "invites", "accept", "deny");
             } else if (teamService.isAdmin(player.getUniqueId())) {
                 options = List.of(
                         "invite", "chat", "home", "sethome", "delhome", "pvp",
-                        "promote", "demote", "kick", "ban", "transfer", "leave", "disband"
+                        "promote", "demote", "kick", "ban", "transfer",
+                        "leave", "disband"
                 );
             } else {
                 options = List.of("chat", "home", "leave");
@@ -466,15 +518,8 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
             return completions;
         }
 
-        if (args.length == 2
-                && (args[0].equalsIgnoreCase("invite")
-                || args[0].equalsIgnoreCase("promote")
-                || args[0].equalsIgnoreCase("demote")
-                || args[0].equalsIgnoreCase("kick")
-                || args[0].equalsIgnoreCase("ban")
-                || args[0].equalsIgnoreCase("transfer"))) {
+        if (args.length == 2 && isPlayerTargetSubcommand(args[0])) {
             String partial = args[1].toLowerCase(Locale.ROOT);
-
             for (Player online : Bukkit.getOnlinePlayers()) {
                 if (online.getUniqueId().equals(player.getUniqueId())) {
                     continue;
@@ -486,6 +531,15 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
         }
 
         return completions;
+    }
+
+    private boolean isPlayerTargetSubcommand(String subcommand) {
+        return subcommand.equalsIgnoreCase("invite")
+                || subcommand.equalsIgnoreCase("promote")
+                || subcommand.equalsIgnoreCase("demote")
+                || subcommand.equalsIgnoreCase("kick")
+                || subcommand.equalsIgnoreCase("ban")
+                || subcommand.equalsIgnoreCase("transfer");
     }
 
     private void sendError(Player player, String message) {
@@ -503,6 +557,7 @@ public final class TeamCommand implements CommandExecutor, TabCompleter {
     }
 
     private Component legacy(String message) {
-        return LegacyComponentSerializer.legacySection().deserialize(TextColor.color(message));
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(TextColor.color(message));
     }
 }

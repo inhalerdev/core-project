@@ -1,7 +1,6 @@
 package net.mineacle.core.teams.gui;
 
-import net.mineacle.core.Core;
-import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.common.gui.GuiText;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -14,8 +13,7 @@ import java.util.List;
 
 public final class TeamConfirmGui {
 
-    public static final String TITLE = TextColor.color("&#8436FEConfirm Action");
-    public static final String DELETE_HOME_TITLE = TITLE;
+    public static final String TITLE = "&#8436FEConfirm Action";
 
     public static final int CANCEL_SLOT = 11;
     public static final int ACTION_SLOT = 13;
@@ -27,8 +25,12 @@ public final class TeamConfirmGui {
     private TeamConfirmGui() {
     }
 
-    public static void open(Core core, Player player, String actionName) {
-        Inventory inventory = Bukkit.createInventory(null, 27, TITLE);
+    public static void open(Player player, String actionName) {
+        Inventory inventory = Bukkit.createInventory(
+                null,
+                27,
+                GuiText.component(TITLE)
+        );
 
         inventory.setItem(
                 CANCEL_SLOT,
@@ -67,10 +69,6 @@ public final class TeamConfirmGui {
         player.openInventory(inventory);
     }
 
-    public static void openDeleteHome(Core core, Player player) {
-        open(core, player, "Delete Team Home");
-    }
-
     private static ItemStack item(
             Material material,
             String name,
@@ -83,8 +81,7 @@ public final class TeamConfirmGui {
             return item;
         }
 
-        meta.setDisplayName(TextColor.color(name));
-        meta.setLore(lore.stream().map(TextColor::color).toList());
+        GuiText.apply(meta, name, lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;

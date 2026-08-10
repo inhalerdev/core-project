@@ -22,12 +22,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 
 /**
  * Coalesces hot YAML saves and moves filesystem I/O off the server thread.
- *
  * Bukkit's FileConfiguration is only serialized on the primary thread. The
  * resulting immutable String snapshot is written by one ordered background
  * writer using temp-file + atomic replace where the filesystem supports it.
@@ -209,12 +209,12 @@ public final class DebouncedYamlPersistence {
             String content,
             Path target
     ) {
-        long generation = ++slot.latestGeneration;
+        long generation = slot.latestGeneration.incrementAndGet();
 
         return writer.submit(() -> {
             // When several snapshots queue faster than disk can write, only the
             // newest not-yet-started generation needs to touch the filesystem.
-            if (generation < slot.latestGeneration) {
+            if (generation < slot.latestGeneration.get()) {
                 return;
             }
 
@@ -340,7 +340,7 @@ public final class DebouncedYamlPersistence {
         private File file;
         private boolean dirty;
         private BukkitTask snapshotTask;
-        private volatile long latestGeneration;
+        private final AtomicLong latestGeneration = new AtomicLong();
 
         private Slot(String label) {
             this.label = label;

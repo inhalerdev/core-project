@@ -1,16 +1,16 @@
 package net.mineacle.core.tpa.command;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.tpa.gui.TpaTargetMenuGui;
+import net.mineacle.core.tpa.service.TpaService;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
-import org.bukkit.metadata.FixedMetadataValue;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,16 +18,19 @@ import java.util.Locale;
 
 public final class TpaMenuCommand implements CommandExecutor, TabCompleter {
 
-    public static final String META_TARGET = "mineacle_tpa_menu_target";
+    private final TpaService tpaService;
 
-    private final Core core;
-
-    public TpaMenuCommand(Core core) {
-        this.core = core;
+    public TpaMenuCommand(TpaService tpaService) {
+        this.tpaService = tpaService;
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public boolean onCommand(
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String label,
+            String @NotNull [] args
+    ) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage(TextColor.color("&cOnly players can use this command"));
             return true;
@@ -59,29 +62,30 @@ public final class TpaMenuCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        player.setMetadata(META_TARGET, new FixedMetadataValue(core, target.getUniqueId().toString()));
+        tpaService.selectMenuTarget(
+                player.getUniqueId(),
+                target.getUniqueId()
+        );
         TpaTargetMenuGui.open(player, target);
         return true;
     }
 
     private void send(Player player, String message) {
-        String colored = TextColor.color(message);
-        player.sendMessage(colored);
+        player.sendMessage(TextColor.color(message));
     }
 
     @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+    public @NotNull List<String> onTabComplete(
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String alias,
+            String @NotNull [] args
+    ) {
         List<String> completions = new ArrayList<>();
 
-        if (!(sender instanceof Player player)) {
-            return completions;
-        }
-
-        if (!player.hasPermission("mineacletpa.use")) {
-            return completions;
-        }
-
-        if (args.length != 1) {
+        if (!(sender instanceof Player player)
+                || !player.hasPermission("mineacletpa.use")
+                || args.length != 1) {
             return completions;
         }
 
