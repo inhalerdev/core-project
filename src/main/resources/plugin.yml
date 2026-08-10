@@ -94,6 +94,10 @@ commands:
     description: Toggle automatic teleport-request acceptance
     usage: /tpauto
     permission: mineacletpa.use
+  tpamenu:
+    description: Review a teleport request target
+    usage: /tpamenu <player>
+    permission: mineacletpa.use
   stats:
     description: View player statistics
     usage: /stats [player]

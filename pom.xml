@@ -124,6 +124,25 @@
                 <version>3.2.0</version>
                 <executions>
                     <execution>
+                        <id>verify-plugin-command-manifest</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <condition property="mineacle.tpamenu.present">
+                                    <resourcecontains
+                                            resource="${project.build.outputDirectory}/plugin.yml"
+                                            substring="  tpamenu:"/>
+                                </condition>
+                                <fail unless="mineacle.tpamenu.present"
+                                      message="MineacleCore packaging aborted: plugin.yml is missing required command tpamenu"/>
+                            </target>
+                        </configuration>
+                    </execution>
+
+                    <execution>
                         <id>remove-unshaded-backup</id>
                         <phase>package</phase>
                         <goals>
@@ -131,7 +150,8 @@
                         </goals>
                         <configuration>
                             <target>
-                                <delete file="${project.build.directory}/original-${project.build.finalName}.jar" quiet="true"/>
+                                <delete file="${project.build.directory}/original-${project.build.finalName}.jar"
+                                        quiet="true"/>
                             </target>
                         </configuration>
                     </execution>
