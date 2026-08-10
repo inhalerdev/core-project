@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 import java.util.logging.Level;
 
 public final class TeleportService {
@@ -24,9 +25,14 @@ public final class TeleportService {
             "&eYou already have a teleport in progress";
     private static final String FAILED_MESSAGE =
             "&cTeleport failed";
-    private static final String COUNTDOWN_MESSAGE =
+
+    private static final String HOME_COUNTDOWN_MESSAGE =
             "&#bbbbbbTeleporting to &#8436FE%target% "
-                    + "&#bbbbbbin &#8436FE%seconds%s";
+                    + "&#bbbbbbin &#B078FF%seconds%s";
+
+    private static final String TPA_COUNTDOWN_MESSAGE =
+            "&#bbbbbbTeleporting to &#B078FF%target% "
+                    + "&#bbbbbbin &#B078FF%seconds%s";
 
     private final Core core;
     private final Map<UUID, PendingTeleport> pending =
@@ -56,7 +62,9 @@ public final class TeleportService {
     ) {
         TeleportContext context =
                 targetName != null
-                        && targetName.equalsIgnoreCase("Team Home")
+                        && targetName.equalsIgnoreCase(
+                        "Team Home"
+                )
                         ? TeleportContext.TEAM_HOME
                         : TeleportContext.HOME;
 
@@ -65,14 +73,17 @@ public final class TeleportService {
                 targetName,
                 context,
                 false,
-                action
+                () -> {
+                    action.run();
+                    return true;
+                }
         );
     }
 
     public void beginTpa(
             Player player,
             String destinationPlayerName,
-            Runnable action
+            BooleanSupplier action
     ) {
         beginInternal(
                 player,
@@ -88,7 +99,7 @@ public final class TeleportService {
             String displayedTarget,
             TeleportContext context,
             boolean tickInitialNumber,
-            Runnable action
+            BooleanSupplier action
     ) {
         if (player == null
                 || !player.isOnline()
@@ -116,7 +127,10 @@ public final class TeleportService {
         );
 
         if (delaySeconds <= 0) {
-            runTeleportAction(player, action);
+            runTeleportAction(
+                    player,
+                    action
+            );
             return;
         }
 
@@ -172,10 +186,14 @@ public final class TeleportService {
         }
 
         PendingTeleport teleport =
-                pending.get(player.getUniqueId());
+                pending.get(
+                        player.getUniqueId()
+                );
 
         if (teleport == null
-                || !cancelOnMove(teleport.context())) {
+                || !cancelOnMove(
+                teleport.context()
+        )) {
             return;
         }
 
@@ -189,11 +207,12 @@ public final class TeleportService {
 
         clear(player.getUniqueId());
 
-        String message =
-                TextColor.color(
-                        CANCELLED_MOVE_MESSAGE
-                );
-        player.sendActionBar(actionBar(message));
+        String message = TextColor.color(
+                CANCELLED_MOVE_MESSAGE
+        );
+        player.sendActionBar(
+                actionBar(message)
+        );
         player.sendMessage(message);
         SoundService.teleportCancelled(
                 player,
@@ -202,7 +221,8 @@ public final class TeleportService {
     }
 
     private void tick(UUID uuid) {
-        PendingTeleport teleport = pending.get(uuid);
+        PendingTeleport teleport =
+                pending.get(uuid);
 
         if (teleport == null) {
             return;
@@ -216,8 +236,9 @@ public final class TeleportService {
             return;
         }
 
-        if (cancelOnMove(teleport.context())
-                && TeleportMovement.movedTooFar(
+        if (cancelOnMove(
+                teleport.context()
+        ) && TeleportMovement.movedTooFar(
                 core,
                 teleport.origin(),
                 player.getLocation()
@@ -259,10 +280,14 @@ public final class TeleportService {
 
     private void runTeleportAction(
             Player player,
-            Runnable action
+            BooleanSupplier action
     ) {
         try {
-            action.run();
+            if (!action.getAsBoolean()) {
+                sendFailure(player);
+                return;
+            }
+
             SoundService.teleportComplete(
                     player,
                     core
@@ -274,14 +299,22 @@ public final class TeleportService {
                             + player.getUniqueId(),
                     exception
             );
-
-            String message =
-                    TextColor.color(FAILED_MESSAGE);
-            player.sendActionBar(
-                    actionBar(message)
-            );
-            player.sendMessage(message);
+            sendFailure(player);
         }
+    }
+
+    private void sendFailure(Player player) {
+        String message = TextColor.color(
+                FAILED_MESSAGE
+        );
+        player.sendActionBar(
+                actionBar(message)
+        );
+        player.sendMessage(message);
+        SoundService.guiError(
+                player,
+                core
+        );
     }
 
     private void clear(UUID uuid) {
@@ -351,9 +384,10 @@ public final class TeleportService {
                         "mineacle.plus"
                 );
 
-        if (player != null
-                && !plusPermission.isBlank()
-                && player.hasPermission(plusPermission)) {
+        if (!plusPermission.isBlank()
+                && player.hasPermission(
+                plusPermission
+        )) {
             return plusDelay;
         }
 
@@ -391,18 +425,29 @@ public final class TeleportService {
                 context == TeleportContext.TPA
                         ? "tpa.teleporting"
                         : "homes.teleporting";
+
+        String fallback =
+                context == TeleportContext.TPA
+                        ? TPA_COUNTDOWN_MESSAGE
+                        : HOME_COUNTDOWN_MESSAGE;
+
         String message =
                 core.getMessagesConfig() == null
-                        ? COUNTDOWN_MESSAGE
+                        ? fallback
                         : core.getMessagesConfig()
                         .getString(
                                 path,
-                                COUNTDOWN_MESSAGE
+                                fallback
                         );
 
         if (message.isBlank()) {
-            message = COUNTDOWN_MESSAGE;
+            message = fallback;
         }
+
+        message = normalizeCountdownPalette(
+                message,
+                context
+        );
 
         return TextColor.color(message)
                 .replace(
@@ -415,7 +460,65 @@ public final class TeleportService {
                 );
     }
 
-    private Component actionBar(String message) {
+    private String normalizeCountdownPalette(
+            String message,
+            TeleportContext context
+    ) {
+        String targetColor =
+                context == TeleportContext.TPA
+                        ? "&#B078FF"
+                        : "&#8436FE";
+
+        return message
+                .replace(
+                        "&#8436FE%target%",
+                        targetColor + "%target%"
+                )
+                .replace(
+                        "&#B078FF%target%",
+                        targetColor + "%target%"
+                )
+                .replace(
+                        "&#D0AFFF%target%",
+                        targetColor + "%target%"
+                )
+                .replace(
+                        "&#ff55ff%target%",
+                        targetColor + "%target%"
+                )
+                .replace(
+                        "&#ff88ff%target%",
+                        targetColor + "%target%"
+                )
+                .replace(
+                        "&d%target%",
+                        targetColor + "%target%"
+                )
+                .replace(
+                        "&#8436FE%seconds%",
+                        "&#B078FF%seconds%"
+                )
+                .replace(
+                        "&#D0AFFF%seconds%",
+                        "&#B078FF%seconds%"
+                )
+                .replace(
+                        "&#ff55ff%seconds%",
+                        "&#B078FF%seconds%"
+                )
+                .replace(
+                        "&#ff88ff%seconds%",
+                        "&#B078FF%seconds%"
+                )
+                .replace(
+                        "&d%seconds%",
+                        "&#B078FF%seconds%"
+                );
+    }
+
+    private Component actionBar(
+            String message
+    ) {
         return LegacyComponentSerializer
                 .legacySection()
                 .deserialize(
@@ -434,7 +537,7 @@ public final class TeleportService {
         private final Location origin;
         private final String displayedTarget;
         private final TeleportContext context;
-        private final Runnable action;
+        private final BooleanSupplier action;
         private int secondsRemaining;
         private BukkitTask task;
 
@@ -442,14 +545,15 @@ public final class TeleportService {
                 Location origin,
                 String displayedTarget,
                 TeleportContext context,
-                Runnable action,
+                BooleanSupplier action,
                 int secondsRemaining
         ) {
             this.origin = origin;
             this.displayedTarget = displayedTarget;
             this.context = context;
             this.action = action;
-            this.secondsRemaining = secondsRemaining;
+            this.secondsRemaining =
+                    secondsRemaining;
         }
 
         private Location origin() {
@@ -464,7 +568,7 @@ public final class TeleportService {
             return context;
         }
 
-        private Runnable action() {
+        private BooleanSupplier action() {
             return action;
         }
 
@@ -473,7 +577,9 @@ public final class TeleportService {
             return secondsRemaining;
         }
 
-        private void setTask(BukkitTask task) {
+        private void setTask(
+                BukkitTask task
+        ) {
             this.task = task;
         }
 

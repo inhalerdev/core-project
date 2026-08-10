@@ -1,12 +1,12 @@
 package net.mineacle.core.tpa.gui;
 
-import net.mineacle.core.Core;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.tpa.service.TpaRequest;
 import net.mineacle.core.tpa.service.TpaRequestType;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
@@ -18,31 +18,62 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 
 import java.util.List;
+import java.util.Locale;
 
 public final class TpaRequestGui {
 
-    public static final String TITLE = ChatColor.DARK_GRAY + "Teleport Request";
+    public static final Component TITLE =
+            Component.text("Teleport Request");
     public static final int DENY_SLOT = 11;
     public static final int REQUESTER_SLOT = 13;
     public static final int ACCEPT_SLOT = 15;
     public static final int WORLD_SLOT = 22;
 
+    private static final String PRIMARY =
+            "&#8436FE";
+    private static final String SECONDARY =
+            "&#B078FF";
+    private static final String ACCENT =
+            "&#D0AFFF";
+    private static final String NEUTRAL =
+            "&#bbbbbb";
+
     private TpaRequestGui() {
     }
 
-    public static void open(Core core, Player viewer, TpaRequest request) {
+    public static void open(
+            Player viewer,
+            TpaRequest request
+    ) {
         if (request == null) {
-            viewer.sendMessage(TextColor.color("&cYou have no pending teleport requests"));
+            viewer.sendMessage(
+                    component(
+                            "&cYou have no pending teleport requests"
+                    )
+            );
             return;
         }
 
-        OfflinePlayer requester = Bukkit.getOfflinePlayer(request.requesterId());
-        Player requesterOnline = Bukkit.getPlayer(request.requesterId());
+        OfflinePlayer requester =
+                Bukkit.getOfflinePlayer(
+                        request.requesterId()
+                );
+        Player requesterOnline =
+                Bukkit.getPlayer(
+                        request.requesterId()
+                );
 
-        String requesterName = DisplayNames.prefixedDisplayName(requester);
-        String plainRequesterName = DisplayNames.displayName(requester);
+        String requesterName =
+                DisplayNames.displayName(
+                        requester
+                );
 
-        Inventory inventory = Bukkit.createInventory(null, 27, TITLE);
+        Inventory inventory =
+                Bukkit.createInventory(
+                        null,
+                        27,
+                        TITLE
+                );
 
         inventory.setItem(
                 DENY_SLOT,
@@ -50,8 +81,12 @@ public final class TpaRequestGui {
                         Material.RED_STAINED_GLASS_PANE,
                         "&cDeny",
                         List.of(
-                                "&#bbbbbbDecline this teleport request",
-                                "&#bbbbbbFrom &#ff88ff" + plainRequesterName
+                                NEUTRAL
+                                        + "Decline this teleport request",
+                                NEUTRAL
+                                        + "From "
+                                        + SECONDARY
+                                        + requesterName
                         )
                 )
         );
@@ -60,18 +95,38 @@ public final class TpaRequestGui {
                 REQUESTER_SLOT,
                 playerHead(
                         requester,
-                        requesterName,
-                        request.type() == TpaRequestType.TO_TARGET
+                        SECONDARY
+                                + requesterName,
+                        request.type()
+                                == TpaRequestType.TO_TARGET
                                 ? List.of(
-                                        "&#bbbbbbWants to teleport to you",
-                                        "&#bbbbbbClick &#ff88ffAccept &#bbbbbbto allow",
-                                        "&#bbbbbbClick &cDeny &#bbbbbbto decline"
-                                )
+                                NEUTRAL
+                                        + "Wants to teleport to you",
+                                NEUTRAL
+                                        + "Click "
+                                        + PRIMARY
+                                        + "Accept "
+                                        + NEUTRAL
+                                        + "to allow",
+                                NEUTRAL
+                                        + "Click &cDeny "
+                                        + NEUTRAL
+                                        + "to decline"
+                        )
                                 : List.of(
-                                        "&#bbbbbbWants you to teleport to them",
-                                        "&#bbbbbbClick &#ff88ffAccept &#bbbbbbto teleport",
-                                        "&#bbbbbbClick &cDeny &#bbbbbbto decline"
-                                )
+                                NEUTRAL
+                                        + "Wants you to teleport to them",
+                                NEUTRAL
+                                        + "Click "
+                                        + PRIMARY
+                                        + "Accept "
+                                        + NEUTRAL
+                                        + "to teleport",
+                                NEUTRAL
+                                        + "Click &cDeny "
+                                        + NEUTRAL
+                                        + "to decline"
+                        )
                 )
         );
 
@@ -79,50 +134,78 @@ public final class TpaRequestGui {
                 ACCEPT_SLOT,
                 item(
                         Material.LIME_STAINED_GLASS_PANE,
-                        "&dAccept",
+                        PRIMARY + "Accept",
                         List.of(
-                                "&#bbbbbbAccept this teleport request",
-                                "&#bbbbbbFrom &#ff88ff" + plainRequesterName
+                                NEUTRAL
+                                        + "Accept this teleport request",
+                                NEUTRAL
+                                        + "From "
+                                        + SECONDARY
+                                        + requesterName
                         )
                 )
         );
 
-        inventory.setItem(WORLD_SLOT, worldItem(requesterOnline, request));
+        inventory.setItem(
+                WORLD_SLOT,
+                worldItem(
+                        requesterOnline,
+                        request
+                )
+        );
 
         viewer.openInventory(inventory);
     }
 
-    private static ItemStack worldItem(Player requesterOnline, TpaRequest request) {
+    private static ItemStack worldItem(
+            Player requesterOnline,
+            TpaRequest request
+    ) {
         if (requesterOnline == null) {
             return item(
                     Material.COMPASS,
-                    "&dRequest Location",
-                    List.of("&#bbbbbbRequester is no longer online")
+                    PRIMARY + "Request Location",
+                    List.of(
+                            NEUTRAL
+                                    + "Requester is no longer online"
+                    )
             );
         }
 
-        World world = requesterOnline.getWorld();
-        Material material = worldMaterial(world);
-        String worldName = world == null ? "Unknown" : world.getName();
+        World world =
+                requesterOnline.getWorld();
+        Material material =
+                worldMaterial(world);
+        String worldName =
+                world.getName();
 
         return item(
                 material,
-                "&dRequest Location",
+                PRIMARY + "Request Location",
                 List.of(
-                        "&#bbbbbbWorld: &#ff88ff" + worldName,
-                        request.type() == TpaRequestType.TO_TARGET
-                                ? "&#bbbbbbThey will teleport to you"
-                                : "&#bbbbbbYou will teleport to them"
+                        NEUTRAL
+                                + "World: "
+                                + SECONDARY
+                                + worldName,
+                        ACCENT
+                                + (
+                                request.type()
+                                        == TpaRequestType.TO_TARGET
+                                        ? "They will teleport to you"
+                                        : "You will teleport to them"
+                        )
                 )
         );
     }
 
-    private static Material worldMaterial(World world) {
-        if (world == null) {
-            return Material.COMPASS;
-        }
-
-        String name = world.getName().toLowerCase();
+    private static Material worldMaterial(
+            World world
+    ) {
+        String name =
+                world.getName()
+                        .toLowerCase(
+                                Locale.ROOT
+                        );
 
         if (name.contains("nether")) {
             return Material.NETHERRACK;
@@ -132,45 +215,91 @@ public final class TpaRequestGui {
             return Material.END_STONE;
         }
 
-        if (name.contains("spawn") || name.contains("lobby")) {
+        if (name.contains("spawn")
+                || name.contains("lobby")) {
             return Material.NETHER_STAR;
         }
 
         return Material.GRASS_BLOCK;
     }
 
-    private static ItemStack playerHead(OfflinePlayer owner, String name, List<String> lore) {
-        ItemStack item = new ItemStack(Material.PLAYER_HEAD);
-        ItemMeta rawMeta = item.getItemMeta();
+    private static ItemStack playerHead(
+            OfflinePlayer owner,
+            String name,
+            List<String> lore
+    ) {
+        ItemStack item =
+                new ItemStack(
+                        Material.PLAYER_HEAD
+                );
+        ItemMeta rawMeta =
+                item.getItemMeta();
 
-        if (!(rawMeta instanceof SkullMeta meta)) {
+        if (!(rawMeta
+                instanceof SkullMeta meta)) {
             return item;
         }
 
         meta.setOwningPlayer(owner);
-        meta.setDisplayName(color(name));
-        meta.setLore(lore.stream().map(TpaRequestGui::color).toList());
-        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        applyPresentation(
+                meta,
+                name,
+                lore
+        );
         item.setItemMeta(meta);
         return item;
     }
 
-    private static ItemStack item(Material material, String name, List<String> lore) {
-        ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
+    private static ItemStack item(
+            Material material,
+            String name,
+            List<String> lore
+    ) {
+        ItemStack item =
+                new ItemStack(material);
+        ItemMeta meta =
+                item.getItemMeta();
 
         if (meta == null) {
             return item;
         }
 
-        meta.setDisplayName(color(name));
-        meta.setLore(lore.stream().map(TpaRequestGui::color).toList());
-        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        applyPresentation(
+                meta,
+                name,
+                lore
+        );
         item.setItemMeta(meta);
         return item;
     }
 
-    private static String color(String input) {
-        return TextColor.color(input);
+    private static void applyPresentation(
+            ItemMeta meta,
+            String name,
+            List<String> lore
+    ) {
+        meta.displayName(
+                component(name)
+        );
+        meta.lore(
+                lore.stream()
+                        .map(
+                                TpaRequestGui::component
+                        )
+                        .toList()
+        );
+        meta.addItemFlags(
+                ItemFlag.HIDE_ATTRIBUTES
+        );
+    }
+
+    private static Component component(
+            String input
+    ) {
+        return LegacyComponentSerializer
+                .legacySection()
+                .deserialize(
+                        TextColor.color(input)
+                );
     }
 }
