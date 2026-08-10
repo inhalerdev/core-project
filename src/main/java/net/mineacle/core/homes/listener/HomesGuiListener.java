@@ -519,7 +519,7 @@ public final class HomesGuiListener
 
         TeamHomeService teamHomeService = new TeamHomeService(core);
 
-        if (!teamHomeService.deleteTeamHome(teamId)) {
+        if (!teamHomeService.hasTeamHome(teamId)) {
             guiState.clearTeam(player);
             player.closeInventory();
             sendPopup(player, "&cYour team does not have a home set");
@@ -527,6 +527,8 @@ public final class HomesGuiListener
             HomesMainGui.open(core, player, homeService);
             return;
         }
+
+        teamHomeService.deleteTeamHome(teamId);
 
         guiState.clearTeam(player);
         player.closeInventory();

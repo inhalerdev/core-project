@@ -441,10 +441,12 @@ public final class TeamsGuiListener implements Listener {
             failConfirmed(player, "&cOnly admins can delete team home");
             return;
         }
-        if (!teamHomeService.deleteTeamHome(team.teamId())) {
+        if (!teamHomeService.hasTeamHome(team.teamId())) {
             failConfirmed(player, "&cYour team does not have a home set");
             return;
         }
+
+        teamHomeService.deleteTeamHome(team.teamId());
 
         guiState.clear(player);
         player.closeInventory();

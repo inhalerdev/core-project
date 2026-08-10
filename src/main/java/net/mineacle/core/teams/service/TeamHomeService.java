@@ -86,13 +86,12 @@ public final class TeamHomeService {
         core.saveTeamsFile();
     }
 
-    public boolean deleteTeamHome(String teamId) {
-        if (!hasTeamHome(teamId)) {
-            return false;
+    public void deleteTeamHome(String teamId) {
+        if (teamId == null || teamId.isBlank()) {
+            return;
         }
 
         core.getTeamsConfig().set("team-homes." + teamId, null);
         core.saveTeamsFile();
-        return true;
     }
 }
