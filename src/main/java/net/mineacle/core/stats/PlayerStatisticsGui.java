@@ -1,10 +1,10 @@
 package net.mineacle.core.stats;
 
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.stats.service.StatsService;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.HumanEntity;
@@ -24,6 +24,7 @@ import java.util.UUID;
 public final class PlayerStatisticsGui implements Listener {
 
     private static final int SIZE = 27;
+    private static final String TITLE_SUFFIX = " Stats";
 
     private static final int SLOT_MONEY = 10;
     private static final int SLOT_PLAYTIME = 11;
@@ -55,7 +56,7 @@ public final class PlayerStatisticsGui implements Listener {
         Inventory inventory = Bukkit.createInventory(
                 null,
                 SIZE,
-                TextColor.color(DisplayNames.displayName(target) + " &8Stats")
+                GuiText.component(DisplayNames.displayName(target) + " &#8436FEStats")
         );
 
         inventory.setItem(SLOT_MONEY, statItem(
@@ -66,7 +67,7 @@ public final class PlayerStatisticsGui implements Listener {
 
         inventory.setItem(SLOT_PLAYTIME, statItem(
                 Material.CLOCK,
-                "&ePlaytime",
+                "&#D0AFFFPlaytime",
                 "&#bbbbbb" + service.playtime(targetId)
         ));
 
@@ -78,31 +79,32 @@ public final class PlayerStatisticsGui implements Listener {
 
         inventory.setItem(SLOT_DEATHS, statItem(
                 Material.SKELETON_SKULL,
-                "&#ffa033Deaths",
+                "&cDeaths",
                 "&#bbbbbb" + service.deaths(targetId)
         ));
 
         inventory.setItem(SLOT_BLOCKS_PLACED, statItem(
                 Material.GRASS_BLOCK,
-                "&dBlocks Placed",
+                "&#8436FEBlocks Placed",
                 "&#bbbbbb" + service.blocksPlaced(targetId)
         ));
 
         inventory.setItem(SLOT_BLOCKS_BROKEN, statItem(
                 Material.COBBLESTONE,
-                "&dBlocks Broken",
+                "&#8436FEBlocks Broken",
                 "&#bbbbbb" + service.blocksBroken(targetId)
         ));
 
         inventory.setItem(SLOT_MOBS_KILLED, statItem(
                 Material.ZOMBIE_HEAD,
-                "&dMobs Killed",
+                "&#8436FEMobs Killed",
                 "&#bbbbbb" + service.mobsKilled(targetId)
         ));
 
         viewer.openInventory(inventory);
     }
 
+    @SuppressWarnings("unused")
     @EventHandler
     public void onClick(InventoryClickEvent event) {
         HumanEntity clicker = event.getWhoClicked();
@@ -111,9 +113,7 @@ public final class PlayerStatisticsGui implements Listener {
             return;
         }
 
-        String title = ChatColor.stripColor(event.getView().getTitle());
-
-        if (title == null || !title.endsWith(" Stats")) {
+        if (isNotStatsView(event.getView().title())) {
             return;
         }
 
@@ -121,14 +121,19 @@ public final class PlayerStatisticsGui implements Listener {
         event.setResult(org.bukkit.event.Event.Result.DENY);
     }
 
+    @SuppressWarnings("unused")
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
-        String title = ChatColor.stripColor(event.getView().getTitle());
-
-        if (title != null && title.endsWith(" Stats")) {
-            event.setCancelled(true);
-            event.setResult(org.bukkit.event.Event.Result.DENY);
+        if (isNotStatsView(event.getView().title())) {
+            return;
         }
+
+        event.setCancelled(true);
+        event.setResult(org.bukkit.event.Event.Result.DENY);
+    }
+
+    private boolean isNotStatsView(net.kyori.adventure.text.Component title) {
+        return !GuiText.plain(title).endsWith(TITLE_SUFFIX);
     }
 
     private StatsService service() {
@@ -147,14 +152,9 @@ public final class PlayerStatisticsGui implements Listener {
             return item;
         }
 
-        meta.setDisplayName(color(name));
-        meta.setLore(List.of(color(value)));
+        GuiText.apply(meta, name, List.of(value));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
-    }
-
-    private String color(String input) {
-        return TextColor.color(input);
     }
 }

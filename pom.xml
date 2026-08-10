@@ -92,6 +92,7 @@
                 <version>3.13.0</version>
                 <configuration>
                     <release>21</release>
+                    <proc>none</proc>
                 </configuration>
             </plugin>
 
@@ -100,7 +101,7 @@
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>3.6.0</version>
                 <configuration>
-                    <outputFile>${project.build.directory}/${project.build.finalName}.jar</outputFile>
+                    <shadedArtifactAttached>false</shadedArtifactAttached>
                     <createDependencyReducedPom>false</createDependencyReducedPom>
                     <filters>
                         <filter>
