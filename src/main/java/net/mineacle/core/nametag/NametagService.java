@@ -57,19 +57,19 @@ public final class NametagService {
     private boolean seeThrough;
     private boolean defaultBackground;
     private String rankFallback;
-    private String defaultNameColor;
-    private String opNameColor;
     private String suffix;
     private boolean rankEnabled;
     private boolean worldRestrictionEnabled;
-    private Set<String> enabledWorlds = Set.of();
+    private Set<String> enabledWorlds =
+            Set.of();
 
     public NametagService(
             Core core,
             PlayerCollisionService collisionService
     ) {
         this.core = core;
-        this.collisionService = collisionService;
+        this.collisionService =
+                collisionService;
         this.file = new File(
                 core.getDataFolder(),
                 "nametags.yml"
@@ -89,7 +89,9 @@ public final class NametagService {
 
         FileConfiguration config =
                 YamlConfiguration
-                        .loadConfiguration(file);
+                        .loadConfiguration(
+                                file
+                        );
 
         enabled = config.getBoolean(
                 "enabled",
@@ -153,30 +155,17 @@ public final class NametagService {
                 true
         );
         rankFallback =
-                valueOrDefault(
+                valueOrEmpty(
                         config.getString(
                                 "rank.fallback"
-                        ),
-                        ""
-                );
-
-        defaultNameColor =
-                normalizeColor(
-                        config.getString(
-                                "name-color.default"
-                        ),
-                        "#bbbbbb"
-                );
-        opNameColor =
-                normalizeOpNameColor(
-                        config.getString(
-                                "name-color.op"
                         )
                 );
+
         suffix =
-                valueOrDefault(
-                        config.getString("suffix"),
-                        ""
+                valueOrEmpty(
+                        config.getString(
+                                "suffix"
+                        )
                 );
 
         worldRestrictionEnabled =
@@ -235,8 +224,12 @@ public final class NametagService {
                 : new ArrayList<>(
                 displays.keySet()
         )) {
-            if (!online.contains(playerId)) {
-                removeDisplayOnly(playerId);
+            if (!online.contains(
+                    playerId
+            )) {
+                removeDisplayOnly(
+                        playerId
+                );
             }
         }
 
@@ -251,14 +244,18 @@ public final class NametagService {
         }
     }
 
-    public void refresh(Player player) {
+    public void refresh(
+            Player player
+    ) {
         if (player == null
                 || !player.isOnline()) {
             return;
         }
 
         if (!enabled
-                || !enabledInWorld(player)) {
+                || !enabledInWorld(
+                player
+        )) {
             removeDisplayOnly(
                     player.getUniqueId()
             );
@@ -276,7 +273,9 @@ public final class NametagService {
                         true
                 );
 
-        if (shouldHideCustomTag(player)) {
+        if (shouldHideCustomTag(
+                player
+        )) {
             removeDisplayOnly(
                     player.getUniqueId()
             );
@@ -301,8 +300,11 @@ public final class NametagService {
         if (!rendered.equals(
                 state.renderedText
         )) {
-            state.display.text(rendered);
-            state.renderedText = rendered;
+            state.display.text(
+                    rendered
+            );
+            state.renderedText =
+                    rendered;
         }
 
         player.hideEntity(
@@ -311,7 +313,9 @@ public final class NametagService {
         );
     }
 
-    public void rebuild(Player player) {
+    public void rebuild(
+            Player player
+    ) {
         if (player == null) {
             return;
         }
@@ -320,38 +324,6 @@ public final class NametagService {
                 player.getUniqueId()
         );
         refresh(player);
-    }
-
-    /**
-     * Kept for pose/listener compatibility. The tag's translation is now
-     * relative to the passenger mount point instead of absolute world Y.
-     * <p>
-     * Paper places a passenger display on top of its vehicle. The old code
-     * subtracted display.getLocation().getY() from the player's bounding-box
-     * top. Immediately after mounting, that location could still be the
-     * display's pre-mount spawn Y, producing a large upward translation until
-     * a later pose change recalculated it. A fixed local translation removes
-     * that stale-coordinate race completely.
-     */
-    public void refreshGeometry(Player player) {
-        if (player == null
-                || !player.isOnline()) {
-            return;
-        }
-
-        DisplayState state =
-                displays.get(
-                        player.getUniqueId()
-                );
-
-        if (state == null
-                || !state.validFor(player)) {
-            return;
-        }
-
-        updateTransformation(
-                state.display
-        );
     }
 
     public boolean shouldTrack(
@@ -384,7 +356,8 @@ public final class NametagService {
             Player viewer,
             Player owner
     ) {
-        if (viewer == null || owner == null) {
+        if (viewer == null
+                || owner == null) {
             return;
         }
 
@@ -412,7 +385,9 @@ public final class NametagService {
                 .equals(
                         owner.getUniqueId()
                 )
-                || !viewer.canSee(owner)) {
+                || !viewer.canSee(
+                owner
+        )) {
             return;
         }
 
@@ -430,7 +405,9 @@ public final class NametagService {
         }
     }
 
-    public void removePlayer(Player player) {
+    public void removePlayer(
+            Player player
+    ) {
         if (player == null) {
             return;
         }
@@ -470,7 +447,8 @@ public final class NametagService {
             Player player
     ) {
         if (!worldRestrictionEnabled
-                || enabledWorlds.isEmpty()) {
+                || enabledWorlds
+                .isEmpty()) {
             return true;
         }
 
@@ -507,7 +485,9 @@ public final class NametagService {
                 );
 
         if (current != null
-                && current.validFor(player)) {
+                && current.validFor(
+                player
+        )) {
             return current;
         }
 
@@ -516,17 +496,20 @@ public final class NametagService {
         );
 
         TextDisplay display =
-                player.getWorld().spawn(
-                        player.getLocation(),
-                        TextDisplay.class,
-                        spawned ->
-                                configureDisplay(
-                                        spawned,
-                                        player
-                                )
-                );
+                player.getWorld()
+                        .spawn(
+                                player.getLocation(),
+                                TextDisplay.class,
+                                spawned ->
+                                        configureDisplay(
+                                                spawned,
+                                                player
+                                        )
+                        );
 
-        if (!player.addPassenger(display)) {
+        if (!player.addPassenger(
+                display
+        )) {
             display.remove();
 
             if (mountWarnings.add(
@@ -546,10 +529,6 @@ public final class NametagService {
                 player.getUniqueId()
         );
 
-        /*
-         * Translation is local to the passenger mount point, so it is safe to
-         * apply immediately and remains correct when the player's pose changes.
-         */
         updateTransformation(display);
 
         DisplayState created =
@@ -585,15 +564,25 @@ public final class NametagService {
                 Display.Billboard.CENTER
         );
         display.setAlignment(
-                TextDisplay.TextAlignment.CENTER
+                TextDisplay
+                        .TextAlignment
+                        .CENTER
         );
-        display.setLineWidth(lineWidth);
-        display.setShadowed(shadowed);
-        display.setSeeThrough(seeThrough);
+        display.setLineWidth(
+                lineWidth
+        );
+        display.setShadowed(
+                shadowed
+        );
+        display.setSeeThrough(
+                seeThrough
+        );
         display.setDefaultBackground(
                 defaultBackground
         );
-        display.setViewRange(viewRange);
+        display.setViewRange(
+                viewRange
+        );
         display.setTeleportDuration(0);
         display.setInterpolationDelay(0);
         display.setInterpolationDuration(0);
@@ -630,29 +619,26 @@ public final class NametagService {
         );
     }
 
-    private Component render(Player player) {
+    private Component render(
+            Player player
+    ) {
         StringBuilder value =
                 new StringBuilder();
 
         String rank =
-                stripTrailingSpaces(
-                        rankPrefix(player)
-                );
+                rankPrefix(player)
+                        .stripTrailing();
 
         if (!rank.isBlank()) {
-            value.append(rank);
-            value.append(' ');
+            value.append(rank)
+                    .append(' ');
         }
 
         value.append(
-                player.isOp()
-                        ? opNameColor
-                        : defaultNameColor
-        );
-        value.append(
-                DisplayNames.displayName(
-                        player
-                )
+                DisplayNames
+                        .coloredDisplayName(
+                                player
+                        )
         );
 
         if (!suffix.isBlank()) {
@@ -673,10 +659,12 @@ public final class NametagService {
     }
 
     /**
-     * Prefix is read directly from LuckPerms' cached metadata. No Mineacle
-     * rank placeholder, group switch, or prefix table sits in between.
+     * Prefix comes directly from LuckPerms cached metadata. No Mineacle rank
+     * name, priority table, PlaceholderAPI bridge or group switch is involved.
      */
-    private String rankPrefix(Player player) {
+    private String rankPrefix(
+            Player player
+    ) {
         if (!rankEnabled) {
             return "";
         }
@@ -686,8 +674,7 @@ public final class NametagService {
                         player
                 );
 
-        return resolved == null
-                || resolved.isBlank()
+        return resolved.isBlank()
                 ? rankFallback
                 : resolved;
     }
@@ -717,14 +704,16 @@ public final class NametagService {
     }
 
     private void removeOrphanDisplaysAtStartup() {
-        for (World world : Bukkit.getWorlds()) {
-            for (Entity entity
-                    : world.getEntities()) {
-                if (!(entity
-                        instanceof TextDisplay display)) {
-                    continue;
-                }
-
+        for (World world
+                : Bukkit.getWorlds()) {
+            /*
+             * Query only TextDisplay entities instead of allocating and
+             * scanning the complete entity list for every loaded world.
+             */
+            for (TextDisplay display
+                    : world.getEntitiesByClass(
+                    TextDisplay.class
+            )) {
                 String owner =
                         display
                                 .getPersistentDataContainer()
@@ -773,14 +762,16 @@ public final class NametagService {
             return "";
         }
 
-        String trimmed = rawWorld.trim();
+        String trimmed =
+                rawWorld.trim();
 
         return switch (
                 trimmed.toLowerCase(
                         Locale.ROOT
                 )
         ) {
-            case "origins" -> "overworld";
+            case "origins" ->
+                    "overworld";
             case "origins_nether" ->
                     "overworld_nether";
             case "origins_the_end" ->
@@ -789,69 +780,13 @@ public final class NametagService {
         };
     }
 
-    private String normalizeOpNameColor(
-            String input
-    ) {
-        String normalized =
-                normalizeColor(
-                        input,
-                        "#B078FF"
-                );
-
-        if (normalized.equalsIgnoreCase(
-                "&#8436FE"
-        ) || normalized.equalsIgnoreCase(
-                "&#ff55ff"
-        ) || normalized.equalsIgnoreCase(
-                "&d"
-        )) {
-            return "&#B078FF";
-        }
-
-        return normalized;
-    }
-
-    private String normalizeColor(
-            String input,
-            String fallback
-    ) {
-        String cleaned =
-                valueOrDefault(
-                        input,
-                        fallback
-                ).trim();
-
-        if (cleaned.matches(
-                "(?i)^#[a-f0-9]{6}$"
-        )) {
-            return "&" + cleaned;
-        }
-
-        return cleaned;
-    }
-
-    private String valueOrDefault(
-            String value,
-            String fallback
+    private String valueOrEmpty(
+            String value
     ) {
         return value == null
                 || value.isBlank()
-                ? fallback
+                ? ""
                 : value;
-    }
-
-    private String stripTrailingSpaces(
-            String input
-    ) {
-        if (input == null
-                || input.isEmpty()) {
-            return "";
-        }
-
-        return input.replaceFirst(
-                "\\s+$",
-                ""
-        );
     }
 
     private double clampFinite(

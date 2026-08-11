@@ -41,13 +41,15 @@ public final class NicknameService {
     }
 
     private static final Set<String> RESERVED =
-            Set.of("reset", "clear", "off");
-
-    private static final int BODY_COLOR = 0xBBBBBB;
-    private static final int SECONDARY_COLOR = 0xB078FF;
+            Set.of(
+                    "reset",
+                    "clear",
+                    "off"
+            );
 
     private final Core core;
     private final File file;
+
     private final Map<UUID, String> nicknames =
             new HashMap<>();
     private final Map<String, UUID> nicknameOwners =
@@ -57,7 +59,9 @@ public final class NicknameService {
     private final Map<UUID, List<BukkitTask>> refreshTasks =
             new HashMap<>();
 
-    public NicknameService(Core core) throws IOException {
+    public NicknameService(
+            Core core
+    ) throws IOException {
         this.core = core;
         this.file = new File(
                 core.getDataFolder(),
@@ -68,10 +72,9 @@ public final class NicknameService {
         load();
     }
 
-    /**
-     * Returns the stored nickname body exactly as Mineacle displays it.
-     */
-    public String nickname(OfflinePlayer player) {
+    public String nickname(
+            OfflinePlayer player
+    ) {
         if (player == null) {
             return "";
         }
@@ -82,19 +85,22 @@ public final class NicknameService {
         );
     }
 
-    public boolean nicknameMissing(OfflinePlayer player) {
+    public boolean nicknameMissing(
+            OfflinePlayer player
+    ) {
         return nickname(player).isBlank();
     }
 
-    /**
-     * Public identity is the nickname itself when set, otherwise username.
-     * The legacy "." marker is no longer rendered.
-     */
-    public String displayName(OfflinePlayer player) {
-        String nickname = nickname(player);
+    public String displayName(
+            OfflinePlayer player
+    ) {
+        String nickname =
+                nickname(player);
 
         return nickname.isBlank()
-                ? DisplayNames.username(player)
+                ? DisplayNames.username(
+                        player
+                )
                 : nickname;
     }
 
@@ -102,31 +108,42 @@ public final class NicknameService {
             Player player,
             String input
     ) {
-        if (player == null || input == null) {
+        if (player == null
+                || input == null) {
             return NicknameResult.INVALID;
         }
 
-        if (TextColor.containsFormatting(input)) {
+        if (TextColor.containsFormatting(
+                input
+        )) {
             return NicknameResult.INVALID;
         }
 
-        String cleaned = cleanInput(input);
+        String cleaned =
+                cleanInput(input);
 
         if (invalidNickname(cleaned)) {
             return NicknameResult.INVALID;
         }
 
-        String current = nickname(player);
+        String current =
+                nickname(player);
 
-        if (current.equalsIgnoreCase(cleaned)) {
+        if (current.equalsIgnoreCase(
+                cleaned
+        )) {
             return NicknameResult.UNCHANGED;
         }
 
-        if (!available(player, cleaned)) {
+        if (!available(
+                player,
+                cleaned
+        )) {
             return NicknameResult.TAKEN;
         }
 
-        UUID playerId = player.getUniqueId();
+        UUID playerId =
+                player.getUniqueId();
 
         if (!current.isBlank()) {
             nicknameOwners.remove(
@@ -134,7 +151,10 @@ public final class NicknameService {
             );
         }
 
-        nicknames.put(playerId, cleaned);
+        nicknames.put(
+                playerId,
+                cleaned
+        );
         nicknameOwners.put(
                 normalize(cleaned),
                 playerId
@@ -157,19 +177,23 @@ public final class NicknameService {
                 );
             }
 
-            return NicknameResult.STORAGE_ERROR;
+            return NicknameResult
+                    .STORAGE_ERROR;
         }
 
         updatePlayerDisplay(player);
         return NicknameResult.SUCCESS;
     }
 
-    public boolean clearNickname(Player player) {
+    public boolean clearNickname(
+            Player player
+    ) {
         if (player == null) {
             return false;
         }
 
-        UUID playerId = player.getUniqueId();
+        UUID playerId =
+                player.getUniqueId();
         String removed =
                 nicknames.remove(playerId);
 
@@ -200,7 +224,8 @@ public final class NicknameService {
     public OfflinePlayer findByNickname(
             String input
     ) {
-        String cleaned = cleanInput(input);
+        String cleaned =
+                cleanInput(input);
 
         if (cleaned.isBlank()) {
             return null;
@@ -227,7 +252,10 @@ public final class NicknameService {
         suggestions.sort(
                 String.CASE_INSENSITIVE_ORDER
         );
-        return List.copyOf(suggestions);
+
+        return List.copyOf(
+                suggestions
+        );
     }
 
     public void updatePlayerDisplay(
@@ -239,12 +267,13 @@ public final class NicknameService {
 
         UUID playerId =
                 player.getUniqueId();
+
         rememberUsername(player);
         cancelRefreshTasks(playerId);
         applyPlayerDisplay(player);
 
         List<BukkitTask> tasks =
-                new ArrayList<>();
+                new ArrayList<>(2);
 
         tasks.add(
                 core.getServer()
@@ -287,7 +316,9 @@ public final class NicknameService {
         );
     }
 
-    public void cleanupPlayer(UUID playerId) {
+    public void cleanupPlayer(
+            UUID playerId
+    ) {
         cancelRefreshTasks(playerId);
     }
 
@@ -296,17 +327,17 @@ public final class NicknameService {
                 : new ArrayList<>(
                 refreshTasks.keySet()
         )) {
-            cancelRefreshTasks(playerId);
+            cancelRefreshTasks(
+                    playerId
+            );
         }
 
         save();
     }
 
     /**
-     * Legacy input marker only.
-     * <p>
-     * Old commands and stored values may still contain a leading dot. We
-     * accept and strip it during lookup/migration but never render it.
+     * Legacy input marker only. It is accepted for old data/searches but is
+     * never rendered in Mineacle's public display name.
      */
     public String prefix() {
         String configured =
@@ -337,47 +368,58 @@ public final class NicknameService {
     private void applyPlayerDisplay(
             Player player
     ) {
-        int color = player.isOp()
-                ? SECONDARY_COLOR
-                : BODY_COLOR;
-
-        Component name = Component.text(
-                        displayName(player),
-                        net.kyori.adventure.text
-                                .format.TextColor
-                                .color(color)
-                )
-                .decoration(
-                        TextDecoration.ITALIC,
-                        false
-                );
+        Component name =
+                Component.text(
+                                displayName(
+                                        player
+                                ),
+                                net.kyori.adventure.text
+                                        .format.TextColor
+                                        .color(
+                                                DisplayNames
+                                                        .nameColorRgb(
+                                                                player
+                                                        )
+                                        )
+                        )
+                        .decoration(
+                                TextDecoration.ITALIC,
+                                false
+                        );
 
         player.displayName(name);
         player.playerListName(name);
     }
 
-    private String cleanInput(String input) {
+    private String cleanInput(
+            String input
+    ) {
         if (input == null) {
             return "";
         }
 
         String cleaned =
-                TextColor.strip(input).trim();
-        String legacyPrefix = prefix();
+                TextColor.strip(input)
+                        .trim();
+        String legacyPrefix =
+                prefix();
 
         if (!legacyPrefix.isBlank()
                 && cleaned.startsWith(
                 legacyPrefix
         )) {
-            cleaned = cleaned.substring(
-                    legacyPrefix.length()
-            );
+            cleaned =
+                    cleaned.substring(
+                            legacyPrefix.length()
+                    );
         }
 
         return cleaned.trim();
     }
 
-    private boolean invalidNickname(String nickname) {
+    private boolean invalidNickname(
+            String nickname
+    ) {
         if (nickname.isBlank()
                 || nickname.length()
                 > maxLength()
@@ -395,10 +437,13 @@ public final class NicknameService {
             return !allowedPattern()
                     .matcher(nickname)
                     .matches();
-        } catch (PatternSyntaxException exception) {
+        } catch (
+                PatternSyntaxException exception
+        ) {
             core.getLogger().warning(
                     "Invalid nickname.allowed-regex, using safe default"
             );
+
             return !Pattern.compile(
                             "^[a-zA-Z0-9_]+$"
                     )
@@ -414,7 +459,9 @@ public final class NicknameService {
         String normalized =
                 normalize(nickname);
         UUID nicknameOwner =
-                nicknameOwners.get(normalized);
+                nicknameOwners.get(
+                        normalized
+                );
 
         if (nicknameOwner != null
                 && !nicknameOwner.equals(
@@ -431,7 +478,11 @@ public final class NicknameService {
         }
 
         String ownerUsername =
-                normalize(DisplayNames.username(owner));
+                normalize(
+                        DisplayNames.username(
+                                owner
+                        )
+                );
 
         return normalized.equals(
                 ownerUsername
@@ -457,21 +508,25 @@ public final class NicknameService {
         }
     }
 
-    private String normalize(String value) {
+    private String normalize(
+            String value
+    ) {
         return value == null
                 ? ""
                 : value.trim()
-                .toLowerCase(Locale.ROOT);
+                .toLowerCase(
+                        Locale.ROOT
+                );
     }
 
     private Pattern allowedPattern() {
-        String regex =
-                core.getConfig().getString(
-                        "nickname.allowed-regex",
-                        "^[a-zA-Z0-9_]+$"
-                );
-
-        return Pattern.compile(regex);
+        return Pattern.compile(
+                core.getConfig()
+                        .getString(
+                                "nickname.allowed-regex",
+                                "^[a-zA-Z0-9_]+$"
+                        )
+        );
     }
 
     private synchronized void load() {
@@ -479,6 +534,12 @@ public final class NicknameService {
         nicknameOwners.clear();
         knownUsernames.clear();
 
+        /*
+         * This is deliberately retained for exact historical-username
+         * impersonation protection. Paper's non-blocking cached name lookup
+         * can return null for uncached players, so replacing this with that
+         * API would weaken the guarantee.
+         */
         for (OfflinePlayer player
                 : Bukkit.getOfflinePlayers()) {
             rememberUsername(player);
@@ -486,7 +547,10 @@ public final class NicknameService {
 
         YamlConfiguration configuration =
                 YamlConfiguration
-                        .loadConfiguration(file);
+                        .loadConfiguration(
+                                file
+                        );
+
         ConfigurationSection section =
                 configuration
                         .getConfigurationSection(
@@ -503,7 +567,9 @@ public final class NicknameService {
 
         List<String> keys =
                 new ArrayList<>(
-                        section.getKeys(false)
+                        section.getKeys(
+                                false
+                        )
                 );
         keys.sort(
                 String.CASE_INSENSITIVE_ORDER
@@ -512,31 +578,39 @@ public final class NicknameService {
         for (String rawId : keys) {
             try {
                 UUID playerId =
-                        UUID.fromString(rawId);
+                        UUID.fromString(
+                                rawId
+                        );
+
                 String stored =
                         configuration.getString(
                                 "nicknames."
                                         + rawId,
                                 ""
                         );
+
                 String cleaned =
                         cleanInput(stored);
 
-                if (!cleaned.equals(stored)) {
+                if (!cleaned.equals(
+                        stored
+                )) {
                     migrated = true;
                 }
 
-                if (invalidNickname(cleaned)) {
+                if (invalidNickname(
+                        cleaned
+                )) {
                     migrated = true;
                     continue;
                 }
 
                 String normalized =
-                        cleaned.toLowerCase(
-                                Locale.ROOT
-                        );
+                        normalize(cleaned);
 
-                if (!claimed.add(normalized)) {
+                if (!claimed.add(
+                        normalized
+                )) {
                     migrated = true;
                     continue;
                 }
@@ -586,6 +660,7 @@ public final class NicknameService {
                 new ArrayList<>(
                         nicknames.entrySet()
                 );
+
         entries.sort(
                 Comparator.comparing(
                         entry ->
@@ -603,11 +678,16 @@ public final class NicknameService {
             );
         }
 
-        File temporary = new File(
-                file.getParentFile(),
-                file.getName() + ".tmp"
+        File temporary =
+                new File(
+                        file.getParentFile(),
+                        file.getName()
+                                + ".tmp"
+                );
+
+        configuration.save(
+                temporary
         );
-        configuration.save(temporary);
 
         try {
             Files.move(

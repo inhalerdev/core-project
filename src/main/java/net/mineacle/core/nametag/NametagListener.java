@@ -1,11 +1,11 @@
 package net.mineacle.core.nametag;
 
 import io.papermc.paper.event.player.PlayerTrackEntityEvent;
+import net.mineacle.core.Core;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityPoseChangeEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerHideEntityEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -14,21 +14,26 @@ import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerShowEntityEvent;
 
 @SuppressWarnings("unused")
-public final class NametagListener implements Listener {
+public final class NametagListener
+        implements Listener {
 
-    private final net.mineacle.core.Core core;
+    private final Core core;
     private final NametagService service;
 
     public NametagListener(
-            net.mineacle.core.Core core,
+            Core core,
             NametagService service
     ) {
         this.core = core;
         this.service = service;
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onJoin(PlayerJoinEvent event) {
+    @EventHandler(
+            priority = EventPriority.MONITOR
+    )
+    public void onJoin(
+            PlayerJoinEvent event
+    ) {
         scheduleRefresh(
                 event.getPlayer(),
                 2L,
@@ -36,14 +41,20 @@ public final class NametagListener implements Listener {
         );
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onQuit(PlayerQuitEvent event) {
+    @EventHandler(
+            priority = EventPriority.MONITOR
+    )
+    public void onQuit(
+            PlayerQuitEvent event
+    ) {
         service.removePlayer(
                 event.getPlayer()
         );
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(
+            priority = EventPriority.MONITOR
+    )
     public void onWorldChange(
             PlayerChangedWorldEvent event
     ) {
@@ -54,7 +65,9 @@ public final class NametagListener implements Listener {
         );
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(
+            priority = EventPriority.MONITOR
+    )
     public void onRespawn(
             PlayerRespawnEvent event
     ) {
@@ -63,29 +76,6 @@ public final class NametagListener implements Listener {
                 1L,
                 true
         );
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onPoseChange(
-            EntityPoseChangeEvent event
-    ) {
-        if (!(event.getEntity()
-                instanceof Player player)) {
-            return;
-        }
-
-        core.getServer()
-                .getScheduler()
-                .runTask(
-                        core,
-                        () -> {
-                            if (player.isOnline()) {
-                                service.refreshGeometry(
-                                        player
-                                );
-                            }
-                        }
-                );
     }
 
     @EventHandler(
@@ -103,7 +93,9 @@ public final class NametagListener implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(
+            priority = EventPriority.MONITOR
+    )
     public void onHideEntity(
             PlayerHideEntityEvent event
     ) {
@@ -116,7 +108,9 @@ public final class NametagListener implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(
+            priority = EventPriority.MONITOR
+    )
     public void onShowEntity(
             PlayerShowEntityEvent event
     ) {
@@ -144,9 +138,13 @@ public final class NametagListener implements Listener {
                             }
 
                             if (rebuild) {
-                                service.rebuild(player);
+                                service.rebuild(
+                                        player
+                                );
                             } else {
-                                service.refresh(player);
+                                service.refresh(
+                                        player
+                                );
                             }
                         },
                         delayTicks

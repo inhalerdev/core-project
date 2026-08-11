@@ -12,6 +12,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,41 +24,56 @@ public final class SpeedCommand
     private static final int MIN_SPEED = -20;
     private static final int MAX_SPEED = 20;
 
-    private static final float DEFAULT_WALK_SPEED = 0.20F;
-    private static final float DEFAULT_FLY_SPEED = 0.10F;
+    private static final float DEFAULT_WALK_SPEED =
+            0.20F;
+    private static final float DEFAULT_FLY_SPEED =
+            0.10F;
 
-    private static final float MIN_WALK_SPEED = 0.02F;
-    private static final float MIN_FLY_SPEED = 0.01F;
+    private static final float MIN_WALK_SPEED =
+            0.02F;
+    private static final float MIN_FLY_SPEED =
+            0.01F;
 
     private static final List<String> SPEED_OPTIONS =
             createSpeedOptions();
 
     private final Core core;
 
-    public SpeedCommand(Core core) {
+    public SpeedCommand(
+            Core core
+    ) {
         this.core = core;
     }
 
     @Override
     public boolean onCommand(
-            CommandSender sender,
-            Command command,
-            String label,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String label,
+            @NotNull String @NotNull [] args
     ) {
-        if (!(sender instanceof Player player)) {
+        if (!(sender
+                instanceof Player player)) {
             sender.sendMessage(
-                    core.getMessage("general.players-only")
+                    core.getMessage(
+                            "general.players-only"
+                    )
             );
             return true;
         }
 
-        if (lacksUsePermission(player)) {
-            error(player, "&cYou do not have permission");
+        if (lacksUsePermission(
+                player
+        )) {
+            error(
+                    player,
+                    "&cYou do not have permission"
+            );
             return true;
         }
 
-        if (args.length < 1 || args.length > 2) {
+        if (args.length < 1
+                || args.length > 2) {
             error(
                     player,
                     "&cUsage: /speed <-20--1|1-20> [player]"
@@ -65,7 +81,8 @@ public final class SpeedCommand
             return true;
         }
 
-        Integer input = parseSpeed(args[0]);
+        Integer input =
+                parseSpeed(args[0]);
 
         if (input == null) {
             error(
@@ -78,63 +95,98 @@ public final class SpeedCommand
         Player target = player;
 
         if (args.length == 2) {
-            Player resolved = DisplayNames.resolveOnline(args[1]);
+            Player resolved =
+                    DisplayNames.resolveOnline(
+                            args[1]
+                    );
 
             if (resolved == null) {
-                error(player, "&cPlayer not found");
+                error(
+                        player,
+                        "&cPlayer not found"
+                );
                 return true;
             }
 
             if (!resolved.getUniqueId()
-                    .equals(player.getUniqueId())
-                    && lacksOthersPermission(player)) {
-                error(player, "&cYou do not have permission");
+                    .equals(
+                            player.getUniqueId()
+                    )
+                    && lacksOthersPermission(
+                    player
+            )) {
+                error(
+                        player,
+                        "&cYou do not have permission"
+                );
                 return true;
             }
 
             target = resolved;
         }
 
-        SpeedMode mode = target.isFlying()
-                ? SpeedMode.FLY
-                : SpeedMode.WALK;
-        float appliedSpeed = apply(target, mode, input);
+        SpeedMode mode =
+                target.isFlying()
+                        ? SpeedMode.FLY
+                        : SpeedMode.WALK;
 
-        if (target.getUniqueId().equals(player.getUniqueId())) {
+        float appliedSpeed =
+                apply(
+                        target,
+                        mode,
+                        input
+                );
+
+        if (target.getUniqueId()
+                .equals(
+                        player.getUniqueId()
+                )) {
             success(
                     player,
                     "&#bbbbbb"
                             + mode.display()
-                            + " speed set to &#ff88ff"
+                            + " speed set to &#B078FF"
                             + input
                             + " &#bbbbbb("
-                            + decimal(appliedSpeed)
+                            + decimal(
+                            appliedSpeed
+                    )
                             + ")"
             );
         } else {
-            String targetName = DisplayNames.displayName(target);
+            String targetName =
+                    DisplayNames.displayName(
+                            target
+                    );
 
             success(
                     player,
-                    "&#bbbbbbSet &#bbbbbb"
+                    "&#bbbbbbSet &#B078FF"
                             + targetName
                             + "&#bbbbbb's "
                             + mode.display()
-                            .toLowerCase(Locale.ROOT)
-                            + " speed to &#ff88ff"
+                            .toLowerCase(
+                                    Locale.ROOT
+                            )
+                            + " speed to &#B078FF"
                             + input
                             + " &#bbbbbb("
-                            + decimal(appliedSpeed)
+                            + decimal(
+                            appliedSpeed
+                    )
                             + ")"
             );
+
             success(
                     target,
                     "&#bbbbbb"
                             + mode.display()
-                            + " speed set to &#ff88ff"
+                            + " speed set to &#B078FF"
                             + input
                             + " &#bbbbbb("
-                            + decimal(appliedSpeed)
+                            + decimal(
+                            appliedSpeed
+                    )
                             + ")"
             );
         }
@@ -148,12 +200,20 @@ public final class SpeedCommand
             int input
     ) {
         if (input == 1) {
-            player.setWalkSpeed(DEFAULT_WALK_SPEED);
-            player.setFlySpeed(DEFAULT_FLY_SPEED);
+            player.setWalkSpeed(
+                    DEFAULT_WALK_SPEED
+            );
+            player.setFlySpeed(
+                    DEFAULT_FLY_SPEED
+            );
             return mode.defaultSpeed();
         }
 
-        float speed = positiveBukkitSpeed(mode, input);
+        float speed =
+                positiveBukkitSpeed(
+                        mode,
+                        input
+                );
 
         if (mode == SpeedMode.FLY) {
             player.setFlySpeed(speed);
@@ -168,44 +228,70 @@ public final class SpeedCommand
             SpeedMode mode,
             int input
     ) {
-        float speed = input < 0
-                ? slowerSpeed(mode, Math.abs(input))
-                : fasterSpeed(mode, input);
+        float speed =
+                input < 0
+                        ? slowerSpeed(
+                        mode,
+                        Math.abs(input)
+                )
+                        : fasterSpeed(
+                        mode,
+                        input
+                );
 
-        return clampPositive(speed, mode.defaultSpeed());
+        return clampPositive(
+                speed,
+                mode.defaultSpeed()
+        );
     }
 
     private float slowerSpeed(
             SpeedMode mode,
             int amount
     ) {
-        int clamped = Math.min(20, Math.max(1, amount));
+        int clamped =
+                Math.clamp(
+                        amount,
+                        1,
+                        20
+                );
 
         if (clamped >= 20) {
             return mode.minimumSpeed();
         }
 
-        float progress = clamped / 20.0F;
+        float progress =
+                clamped / 20.0F;
 
         return mode.defaultSpeed()
                 - ((mode.defaultSpeed()
-                - mode.minimumSpeed()) * progress);
+                - mode.minimumSpeed())
+                * progress);
     }
 
     private float fasterSpeed(
             SpeedMode mode,
             int amount
     ) {
-        int clamped = Math.min(20, Math.max(1, amount));
+        int clamped =
+                Math.clamp(
+                        amount,
+                        1,
+                        20
+                );
 
         if (clamped <= 1) {
             return mode.defaultSpeed();
         }
 
-        float progress = (clamped - 1) / 19.0F;
+        float progress =
+                (clamped - 1)
+                        / 19.0F;
 
         return mode.defaultSpeed()
-                + ((1.0F - mode.defaultSpeed()) * progress);
+                + ((1.0F
+                - mode.defaultSpeed())
+                * progress);
     }
 
     private float clampPositive(
@@ -216,16 +302,24 @@ public final class SpeedCommand
             return fallback;
         }
 
-        return Math.max(0.001F, Math.min(1.0F, speed));
+        return Math.clamp(
+                speed,
+                0.001F,
+                1.0F
+        );
     }
 
-    private Integer parseSpeed(String input) {
-        if (input == null || input.isBlank()) {
+    private Integer parseSpeed(
+            String input
+    ) {
+        if (input == null
+                || input.isBlank()) {
             return null;
         }
 
         try {
-            int value = Integer.parseInt(input);
+            int value =
+                    Integer.parseInt(input);
 
             if (value == 0
                     || value < MIN_SPEED
@@ -234,61 +328,102 @@ public final class SpeedCommand
             }
 
             return value;
-        } catch (NumberFormatException ignored) {
+        } catch (
+                NumberFormatException ignored
+        ) {
             return null;
         }
     }
 
-    private boolean lacksUsePermission(Player player) {
-        return !player.hasPermission("mineaclespeed.use")
-                && !player.hasPermission("mineaclespeed.admin")
-                && !player.hasPermission(
-                "mineaclespeed.developer"
+    /**
+     * These are capability checks only. No LuckPerms group/rank name is
+     * special-cased by MineacleCore.
+     */
+    private boolean lacksUsePermission(
+            Player player
+    ) {
+        return !player.hasPermission(
+                "mineaclespeed.use"
         )
-                && !player.hasPermission("mineaclefly.admin");
-    }
-
-    private boolean lacksOthersPermission(Player player) {
-        return !player.hasPermission("mineaclespeed.others")
-                && !player.hasPermission("mineaclespeed.admin")
                 && !player.hasPermission(
-                "mineaclespeed.developer"
+                "mineaclespeed.admin"
+        );
+    }
+
+    private boolean lacksOthersPermission(
+            Player player
+    ) {
+        return !player.hasPermission(
+                "mineaclespeed.others"
         )
-                && !player.hasPermission("mineaclefly.admin");
+                && !player.hasPermission(
+                "mineaclespeed.admin"
+        );
     }
 
-    private String decimal(float value) {
-        return String.format(Locale.US, "%.3f", value);
+    private String decimal(
+            float value
+    ) {
+        return String.format(
+                Locale.US,
+                "%.3f",
+                value
+        );
     }
 
-    private void success(Player player, String message) {
+    private void success(
+            Player player,
+            String message
+    ) {
         send(player, message);
-        SoundService.featureEnable(player, core);
+        SoundService.featureEnable(
+                player,
+                core
+        );
     }
 
-    private void error(Player player, String message) {
+    private void error(
+            Player player,
+            String message
+    ) {
         send(player, message);
-        SoundService.guiError(player, core);
+        SoundService.guiError(
+                player,
+                core
+        );
     }
 
-    private void send(Player player, String message) {
-        Component component = LegacyComponentSerializer
-                .legacySection()
-                .deserialize(TextColor.color(message));
+    private void send(
+            Player player,
+            String message
+    ) {
+        Component component =
+                LegacyComponentSerializer
+                        .legacySection()
+                        .deserialize(
+                                TextColor.color(
+                                        message
+                                )
+                        );
 
         player.sendMessage(component);
-        player.sendActionBar(component);
+        player.sendActionBar(
+                component
+        );
     }
 
     @Override
     public List<String> onTabComplete(
-            CommandSender sender,
-            Command command,
-            String alias,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String alias,
+            @NotNull String @NotNull [] args
     ) {
-        if (!(sender instanceof Player player)
-                || lacksUsePermission(player)) {
+        if (!(sender
+                instanceof Player player)
+                || lacksUsePermission(
+                player
+        )) {
             return List.of();
         }
 
@@ -300,7 +435,9 @@ public final class SpeedCommand
         }
 
         if (args.length == 2
-                && !lacksOthersPermission(player)) {
+                && !lacksOthersPermission(
+                player
+        )) {
             return PlayerTabComplete.onlinePlayers(
                     player,
                     args[1],
@@ -311,12 +448,23 @@ public final class SpeedCommand
         return List.of();
     }
 
-    private static List<String> createSpeedOptions() {
-        List<String> options = new ArrayList<>();
+    private static List<String>
+    createSpeedOptions() {
+        List<String> options =
+                new ArrayList<>(
+                        MAX_SPEED
+                                - MIN_SPEED
+                );
 
-        for (int speed = MIN_SPEED; speed <= MAX_SPEED; speed++) {
+        for (int speed = MIN_SPEED;
+             speed <= MAX_SPEED;
+             speed++) {
             if (speed != 0) {
-                options.add(String.valueOf(speed));
+                options.add(
+                        String.valueOf(
+                                speed
+                        )
+                );
             }
         }
 
@@ -324,8 +472,16 @@ public final class SpeedCommand
     }
 
     private enum SpeedMode {
-        WALK("Walk", DEFAULT_WALK_SPEED, MIN_WALK_SPEED),
-        FLY("Fly", DEFAULT_FLY_SPEED, MIN_FLY_SPEED);
+        WALK(
+                "Walk",
+                DEFAULT_WALK_SPEED,
+                MIN_WALK_SPEED
+        ),
+        FLY(
+                "Fly",
+                DEFAULT_FLY_SPEED,
+                MIN_FLY_SPEED
+        );
 
         private final String display;
         private final float defaultSpeed;
@@ -337,8 +493,10 @@ public final class SpeedCommand
                 float minimumSpeed
         ) {
             this.display = display;
-            this.defaultSpeed = defaultSpeed;
-            this.minimumSpeed = minimumSpeed;
+            this.defaultSpeed =
+                    defaultSpeed;
+            this.minimumSpeed =
+                    minimumSpeed;
         }
 
         private String display() {

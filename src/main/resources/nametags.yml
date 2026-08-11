@@ -1,7 +1,8 @@
 enabled: true
 
 updates:
-  # Low-frequency self-heal only. Rank/nickname changes are event-driven.
+  # Low-frequency self-heal only. LuckPerms rank changes and nickname changes
+  # refresh the affected player immediately through their owning modules.
   audit-ticks: 600
 
 worlds:
@@ -15,14 +16,13 @@ worlds:
     - overworld_the_end
 
 rank:
-  # Prefix is read directly from LuckPerms cached metadata.
+  # Effective prefix is read directly from LuckPerms cached metadata.
   enabled: true
   fallback: ""
 
-name-color:
-  default: "#bbbbbb"
-  op: "#B078FF"
-
+# Player-name color is centralized in DisplayNames:
+# normal = #bbbbbb
+# OP = #B078FF
 suffix: ""
 
 display:

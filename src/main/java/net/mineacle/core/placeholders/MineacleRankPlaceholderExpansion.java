@@ -14,7 +14,9 @@ public final class MineacleRankPlaceholderExpansion
 
     private final Core core;
 
-    public MineacleRankPlaceholderExpansion(Core core) {
+    public MineacleRankPlaceholderExpansion(
+            Core core
+    ) {
         this.core = core;
     }
 
@@ -30,7 +32,8 @@ public final class MineacleRankPlaceholderExpansion
 
     @Override
     public @NotNull String getVersion() {
-        return core.getPluginMeta().getVersion();
+        return core.getPluginMeta()
+                .getVersion();
     }
 
     @Override
@@ -53,17 +56,32 @@ public final class MineacleRankPlaceholderExpansion
         }
 
         RankDisplayResolver.DisplayRank rank =
-                RankDisplayResolver.resolve(player);
-        String key = params
-                .trim()
-                .toLowerCase(Locale.ROOT);
+                RankDisplayResolver.resolve(
+                        player
+                );
+
+        String key =
+                params.trim()
+                        .toLowerCase(
+                                Locale.ROOT
+                        );
 
         return switch (key) {
-            case "prefix" -> rank.prefix();
-            case "key" -> rank.key();
-            case "name" -> rank.name();
+            case "prefix" ->
+                    rank.prefix();
+            case "webprefix",
+                 "web-prefix" ->
+                    rank.webPrefix();
+            case "key" ->
+                    rank.key();
+            case "name" ->
+                    rank.name();
+            case "color" ->
+                    rank.color();
             case "weight" ->
-                    String.valueOf(rank.weight());
+                    String.valueOf(
+                            rank.weight()
+                    );
             default -> null;
         };
     }

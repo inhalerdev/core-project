@@ -44,6 +44,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 
@@ -73,25 +74,37 @@ public final class Core extends JavaPlugin {
 
         try {
             initializeCoreFiles();
-            yamlPersistence = new DebouncedYamlPersistence(this);
 
-            teleportService = new TeleportService(this);
+            yamlPersistence =
+                    new DebouncedYamlPersistence(this);
+
+            teleportService =
+                    new TeleportService(this);
             teleportService.start();
 
-            getServer().getPluginManager().registerEvents(
-                    new TeleportLifecycleListener(teleportService),
-                    this
-            );
-            getServer().getPluginManager().registerEvents(
-                    new MenuCloseListener(this),
-                    this
-            );
-            getServer().getPluginManager().registerEvents(
-                    new GuiSoundListener(this),
-                    this
-            );
+            getServer()
+                    .getPluginManager()
+                    .registerEvents(
+                            new TeleportLifecycleListener(
+                                    teleportService
+                            ),
+                            this
+                    );
+            getServer()
+                    .getPluginManager()
+                    .registerEvents(
+                            new MenuCloseListener(this),
+                            this
+                    );
+            getServer()
+                    .getPluginManager()
+                    .registerEvents(
+                            new GuiSoundListener(this),
+                            this
+                    );
 
-            moduleManager = new ModuleManager(this);
+            moduleManager =
+                    new ModuleManager(this);
             registerModules();
 
             getLogger().info(
@@ -108,50 +121,29 @@ public final class Core extends JavaPlugin {
                     exception
             );
 
-            if (moduleManager != null) {
-                moduleManager.disableAll();
-            }
-            if (teleportService != null) {
-                teleportService.shutdown();
-            }
-            if (yamlPersistence != null) {
-                yamlPersistence.flushAndShutdown(persistenceTargets());
-            }
-
-            getServer().getPluginManager().disablePlugin(this);
+            shutdownRuntime();
+            getServer()
+                    .getPluginManager()
+                    .disablePlugin(this);
         }
     }
 
     @Override
     public void onDisable() {
-        try {
-            if (moduleManager != null) {
-                moduleManager.disableAll();
-            }
-        } finally {
-            if (teleportService != null) {
-                teleportService.shutdown();
-            }
-            if (yamlPersistence != null) {
-                yamlPersistence.flushAndShutdown(persistenceTargets());
-            }
-
-            SoundService.clearCache();
-
-            teleportService = null;
-            yamlPersistence = null;
-            moduleManager = null;
-            instance = null;
-        }
+        shutdownRuntime();
     }
 
     public TeleportService teleports() {
         return teleportService;
     }
 
-    public void registerModule(Module module) throws Exception {
+    public void registerModule(
+            Module module
+    ) throws Exception {
         if (moduleManager == null) {
-            throw new IllegalStateException("ModuleManager is not initialized");
+            throw new IllegalStateException(
+                    "ModuleManager is not initialized"
+            );
         }
 
         moduleManager.register(module);
@@ -159,7 +151,9 @@ public final class Core extends JavaPlugin {
 
     public void reloadCoreFiles() {
         if (yamlPersistence != null) {
-            yamlPersistence.flushNow(persistenceTargets());
+            yamlPersistence.flushNow(
+                    persistenceTargets()
+            );
         }
 
         reloadConfig();
@@ -188,11 +182,17 @@ public final class Core extends JavaPlugin {
 
     public String getMessage(String path) {
         if (messagesConfig == null) {
-            return TextColor.color("&cMissing message: " + path);
+            return TextColor.color(
+                    "&cMissing message: " + path
+            );
         }
 
-        String value = messagesConfig.getString(path, "&cMissing message: " + path);
-        return TextColor.color(value);
+        return TextColor.color(
+                messagesConfig.getString(
+                        path,
+                        "&cMissing message: " + path
+                )
+        );
     }
 
     public String getMessageText(String value) {
@@ -207,36 +207,43 @@ public final class Core extends JavaPlugin {
         return moduleManager.modules();
     }
 
-    private void registerModules() throws Exception {
-        registerModule(new HomesModule());
-        registerModule(new TeamsModule());
-        registerModule(new TpaModule());
-        registerModule(new StatsModule());
-        registerModule(new EconomyModule());
-        registerModule(new BalTopModule());
-        registerModule(new ChatModule());
-        registerModule(new CollisionModule());
-        registerModule(new LinksModule());
-        registerModule(new SecurityModule());
-        registerModule(new AdminInspectModule());
-        registerModule(new EnchantModule());
-        registerModule(new NametagModule());
-        registerModule(new HideModule());
-        registerModule(new PlaceholdersModule());
-        registerModule(new WebProfilesModule());
-        registerModule(new SpawnModule());
-        registerModule(new WarpModule());
-        registerModule(new SpawnProtectionModule());
-        registerModule(new DoubleJumpModule());
-        registerModule(new RtpModule());
-        registerModule(new WorldMaintenanceModule());
-        registerModule(new DuelsModule());
-        registerModule(new OrdersModule());
-        registerModule(new SellModule());
-        registerModule(new AuctionHouseModule());
-        registerModule(new ShulkerPreviewModule());
-        registerModule(new BountyModule());
-        registerModule(new GamemodeModule());
+    private void registerModules()
+            throws Exception {
+        List<Module> modules = List.of(
+                new HomesModule(),
+                new TeamsModule(),
+                new TpaModule(),
+                new StatsModule(),
+                new EconomyModule(),
+                new BalTopModule(),
+                new ChatModule(),
+                new CollisionModule(),
+                new LinksModule(),
+                new SecurityModule(),
+                new AdminInspectModule(),
+                new EnchantModule(),
+                new NametagModule(),
+                new HideModule(),
+                new PlaceholdersModule(),
+                new WebProfilesModule(),
+                new SpawnModule(),
+                new WarpModule(),
+                new SpawnProtectionModule(),
+                new DoubleJumpModule(),
+                new RtpModule(),
+                new WorldMaintenanceModule(),
+                new DuelsModule(),
+                new OrdersModule(),
+                new SellModule(),
+                new AuctionHouseModule(),
+                new ShulkerPreviewModule(),
+                new BountyModule(),
+                new GamemodeModule()
+        );
+
+        for (Module module : modules) {
+            registerModule(module);
+        }
     }
 
     private void initializeCoreFiles() {
@@ -248,72 +255,134 @@ public final class Core extends JavaPlugin {
         loadEconomyFile();
     }
 
+    private void loadMessagesFile() {
+        messagesConfig =
+                YamlConfiguration
+                        .loadConfiguration(
+                                ensureBundledFile(
+                                        "messages.yml"
+                                )
+                        );
+    }
+
+    private void loadHomesFile() {
+        homesFile =
+                ensureBundledFile("homes.yml");
+        homesConfig =
+                YamlConfiguration
+                        .loadConfiguration(
+                                homesFile
+                        );
+    }
+
+    private void loadTeamsFile() {
+        teamsFile =
+                ensureBundledFile("teams.yml");
+        teamsConfig =
+                YamlConfiguration
+                        .loadConfiguration(
+                                teamsFile
+                        );
+    }
+
+    private void loadEconomyFile() {
+        File economyFile =
+                ensureEconomyFile();
+
+        economyConfig =
+                YamlConfiguration
+                        .loadConfiguration(
+                                economyFile
+                        );
+    }
+
+    private File ensureBundledFile(
+            String resourceName
+    ) {
+        ensureDataFolder();
+
+        File file = new File(
+                getDataFolder(),
+                resourceName
+        );
+
+        if (!file.exists()) {
+            saveResource(
+                    resourceName,
+                    false
+            );
+        }
+
+        if (!file.isFile()) {
+            throw new IllegalStateException(
+                    "Could not initialize "
+                            + resourceName
+            );
+        }
+
+        return file;
+    }
+
+    private File ensureEconomyFile() {
+        ensureDataFolder();
+
+        File file = new File(
+                getDataFolder(),
+                "economy.yml"
+        );
+
+        if (!file.exists()) {
+            try {
+                if (!file.createNewFile()
+                        && !file.exists()) {
+                    throw new IOException(
+                            "createNewFile returned false"
+                    );
+                }
+            } catch (IOException exception) {
+                throw new IllegalStateException(
+                        "Could not create economy.yml",
+                        exception
+                );
+            }
+        }
+
+        if (!file.isFile()) {
+            throw new IllegalStateException(
+                    "Could not initialize economy.yml"
+            );
+        }
+
+        return file;
+    }
+
     private void ensureDataFolder() {
         if (getDataFolder().exists()) {
             return;
         }
 
-        if (!getDataFolder().mkdirs() && !getDataFolder().exists()) {
-            throw new IllegalStateException("Could not create MineacleCore data folder");
+        if (!getDataFolder().mkdirs()
+                && !getDataFolder().exists()) {
+            throw new IllegalStateException(
+                    "Could not create MineacleCore data folder"
+            );
         }
-    }
-
-    private void loadMessagesFile() {
-        ensureDataFolder();
-        File messagesFile = new File(getDataFolder(), "messages.yml");
-
-        if (!messagesFile.exists()) {
-            saveResource("messages.yml", false);
-        }
-
-        messagesConfig = YamlConfiguration.loadConfiguration(messagesFile);
-    }
-
-    private void loadHomesFile() {
-        ensureDataFolder();
-        homesFile = new File(getDataFolder(), "homes.yml");
-
-        if (!homesFile.exists()) {
-            saveResource("homes.yml", false);
-        }
-
-        homesConfig = YamlConfiguration.loadConfiguration(homesFile);
-    }
-
-    private void loadTeamsFile() {
-        ensureDataFolder();
-        teamsFile = new File(getDataFolder(), "teams.yml");
-
-        if (!teamsFile.exists()) {
-            saveResource("teams.yml", false);
-        }
-
-        teamsConfig = YamlConfiguration.loadConfiguration(teamsFile);
-    }
-
-    private void loadEconomyFile() {
-        ensureDataFolder();
-        File economyFile = new File(getDataFolder(), "economy.yml");
-
-        if (!economyFile.exists()) {
-            try {
-                if (!economyFile.createNewFile() && !economyFile.exists()) {
-                    throw new IOException("createNewFile returned false");
-                }
-            } catch (IOException exception) {
-                throw new IllegalStateException("Could not create economy.yml", exception);
-            }
-        }
-
-        economyConfig = YamlConfiguration.loadConfiguration(economyFile);
     }
 
     public void saveHomesFile() {
-        requestYamlSave("homes.yml", homesConfig, homesFile);
+        requestYamlSave(
+                "homes.yml",
+                homesConfig,
+                homesFile
+        );
     }
 
     public void saveTeamsFile() {
-        requestYamlSave("teams.yml", teamsConfig, teamsFile);
+        requestYamlSave(
+                "teams.yml",
+                teamsConfig,
+                teamsFile
+        );
     }
 
     private void requestYamlSave(
@@ -321,48 +390,108 @@ public final class Core extends JavaPlugin {
             FileConfiguration configuration,
             File file
     ) {
-        if (configuration == null || file == null) {
+        if (configuration == null
+                || file == null) {
             return;
         }
 
-        if (yamlPersistence == null) {
-            try {
-                configuration.save(file);
-            } catch (IOException exception) {
-                getLogger().log(
-                        Level.SEVERE,
-                        "Could not save " + label,
-                        exception
-                );
-            }
+        if (yamlPersistence != null) {
+            yamlPersistence.request(
+                    label,
+                    configuration,
+                    file
+            );
             return;
         }
 
-        yamlPersistence.request(label, configuration, file);
+        try {
+            configuration.save(file);
+        } catch (IOException exception) {
+            getLogger().log(
+                    Level.SEVERE,
+                    "Could not save " + label,
+                    exception
+            );
+        }
     }
 
-    private List<DebouncedYamlPersistence.Target> persistenceTargets() {
-        List<DebouncedYamlPersistence.Target> targets = new java.util.ArrayList<>();
+    private List<DebouncedYamlPersistence.Target>
+    persistenceTargets() {
+        List<DebouncedYamlPersistence.Target>
+                targets =
+                new ArrayList<>(2);
 
-        if (homesConfig != null && homesFile != null) {
-            targets.add(new DebouncedYamlPersistence.Target(
-                    "homes.yml",
-                    homesConfig,
-                    homesFile
-            ));
-        }
-        if (teamsConfig != null && teamsFile != null) {
-            targets.add(new DebouncedYamlPersistence.Target(
-                    "teams.yml",
-                    teamsConfig,
-                    teamsFile
-            ));
+        if (homesConfig != null
+                && homesFile != null) {
+            targets.add(
+                    new DebouncedYamlPersistence
+                            .Target(
+                            "homes.yml",
+                            homesConfig,
+                            homesFile
+                    )
+            );
         }
 
-        return targets;
+        if (teamsConfig != null
+                && teamsFile != null) {
+            targets.add(
+                    new DebouncedYamlPersistence
+                            .Target(
+                            "teams.yml",
+                            teamsConfig,
+                            teamsFile
+                    )
+            );
+        }
+
+        return List.copyOf(targets);
     }
 
-    private long elapsedMillis(long startedAt) {
-        return Math.max(0L, (System.nanoTime() - startedAt) / 1_000_000L);
+    /**
+     * One idempotent shutdown path is used for normal disable and startup
+     * rollback. Modules are stopped before shared services so module cleanup
+     * can still request persistence or use the teleport service if required.
+     */
+    private void shutdownRuntime() {
+        ModuleManager modules =
+                moduleManager;
+
+        if (modules != null) {
+            modules.disableAll();
+            moduleManager = null;
+        }
+
+        TeleportService teleports =
+                teleportService;
+
+        if (teleports != null) {
+            teleports.shutdown();
+            teleportService = null;
+        }
+
+        DebouncedYamlPersistence persistence =
+                yamlPersistence;
+
+        if (persistence != null) {
+            persistence.flushAndShutdown(
+                    persistenceTargets()
+            );
+            yamlPersistence = null;
+        }
+
+        SoundService.clearCache();
+        instance = null;
+    }
+
+    private long elapsedMillis(
+            long startedAt
+    ) {
+        return Math.max(
+                0L,
+                (System.nanoTime()
+                        - startedAt)
+                        / 1_000_000L
+        );
     }
 }

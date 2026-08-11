@@ -8,17 +8,22 @@ import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.collision.CollisionModule;
 import net.mineacle.core.collision.PlayerCollisionService;
-import net.mineacle.core.common.player.RankDisplayResolver;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
-public final class NametagModule extends Module {
+public final class NametagModule
+        extends Module {
 
     private static NametagService service;
+
+    private final Set<UUID> pendingRankRefreshes =
+            ConcurrentHashMap.newKeySet();
 
     private BukkitTask auditTask;
     private EventSubscription<UserDataRecalculateEvent>
@@ -30,7 +35,9 @@ public final class NametagModule extends Module {
     }
 
     @Override
-    public void enable(Core core) {
+    public void enable(
+            Core core
+    ) {
         PlayerCollisionService collisionService =
                 CollisionModule.service();
 
@@ -46,21 +53,28 @@ public final class NametagModule extends Module {
         );
 
         PluginCommand command =
-                core.getCommand("mineaclenametags");
+                core.getCommand(
+                        "mineaclenametags"
+                );
 
         if (command == null) {
             service.clear();
             service = null;
             throw new IllegalStateException(
-                    "Missing command in plugin.yml: "
-                            + "mineaclenametags"
+                    "Missing command in plugin.yml: mineaclenametags"
             );
         }
 
         NametagCommand executor =
-                new NametagCommand(core, service);
+                new NametagCommand(
+                        core,
+                        service
+                );
+
         command.setExecutor(executor);
-        command.setTabCompleter(executor);
+        command.setTabCompleter(
+                executor
+        );
 
         core.getServer()
                 .getPluginManager()
@@ -74,14 +88,15 @@ public final class NametagModule extends Module {
 
         subscribeToRankChanges(core);
 
-        auditTask = core.getServer()
-                .getScheduler()
-                .runTaskTimer(
-                        core,
-                        service::audit,
-                        service.auditTicks(),
-                        service.auditTicks()
-                );
+        auditTask =
+                core.getServer()
+                        .getScheduler()
+                        .runTaskTimer(
+                                core,
+                                service::audit,
+                                service.auditTicks(),
+                                service.auditTicks()
+                        );
 
         service.refreshAll();
     }
@@ -93,6 +108,8 @@ public final class NametagModule extends Module {
             rankSubscription = null;
         }
 
+        pendingRankRefreshes.clear();
+
         if (auditTask != null) {
             auditTask.cancel();
             auditTask = null;
@@ -102,8 +119,6 @@ public final class NametagModule extends Module {
             service.clear();
             service = null;
         }
-
-        RankDisplayResolver.clearCache();
     }
 
     public static void refreshAll() {
@@ -112,49 +127,73 @@ public final class NametagModule extends Module {
         }
     }
 
-    public static void refresh(Player player) {
-        if (service != null && player != null) {
+    public static void refresh(
+            Player player
+    ) {
+        if (service != null
+                && player != null) {
             service.refresh(player);
         }
     }
 
-    private void subscribeToRankChanges(Core core) {
-        LuckPerms luckPerms = LuckPermsProvider.get();
+    private void subscribeToRankChanges(
+            Core core
+    ) {
+        LuckPerms luckPerms =
+                LuckPermsProvider.get();
 
-        rankSubscription = luckPerms
-                .getEventBus()
-                .subscribe(
-                        core,
-                        UserDataRecalculateEvent.class,
-                        event -> {
-                            RankDisplayResolver.resolveUser(
-                                    event.getUser()
-                            );
+        rankSubscription =
+                luckPerms.getEventBus()
+                        .subscribe(
+                                core,
+                                UserDataRecalculateEvent.class,
+                                event -> {
+                                    UUID playerId =
+                                            event.getUser()
+                                                    .getUniqueId();
 
-                            UUID playerId = event
-                                    .getUser()
-                                    .getUniqueId();
+                                    /*
+                                     * LuckPerms can recalculate the same user
+                                     * repeatedly during a burst of node/meta
+                                     * updates. One queued main-thread refresh
+                                     * per player is sufficient.
+                                     */
+                                    if (!pendingRankRefreshes.add(
+                                            playerId
+                                    )) {
+                                        return;
+                                    }
 
-                            core.getServer()
-                                    .getScheduler()
-                                    .runTask(
-                                            core,
-                                            () -> {
-                                                Player player =
-                                                        Bukkit.getPlayer(
-                                                                playerId
-                                                        );
+                                    core.getServer()
+                                            .getScheduler()
+                                            .runTask(
+                                                    core,
+                                                    () -> {
+                                                        pendingRankRefreshes
+                                                                .remove(
+                                                                        playerId
+                                                                );
 
-                                                if (player != null
-                                                        && player.isOnline()
-                                                        && service != null) {
-                                                    service.refresh(
-                                                            player
-                                                    );
-                                                }
-                                            }
-                                    );
-                        }
-                );
+                                                        Player player =
+                                                                Bukkit.getPlayer(
+                                                                        playerId
+                                                                );
+
+                                                        NametagService current =
+                                                                service;
+
+                                                        if (current != null
+                                                                && player
+                                                                != null
+                                                                && player
+                                                                .isOnline()) {
+                                                            current.refresh(
+                                                                    player
+                                                            );
+                                                        }
+                                                    }
+                                            );
+                                }
+                        );
     }
 }
