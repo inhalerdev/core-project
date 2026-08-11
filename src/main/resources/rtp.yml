@@ -1,7 +1,7 @@
 enabled: true
 menus:
   main:
-    title: '&#8436FERandom Teleport'
+    title: 'Random Teleport'
     size: 27
     items:
       overworld:

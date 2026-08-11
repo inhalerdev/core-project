@@ -32,8 +32,6 @@ public final class OriginRtpQueueService {
             "&#8436FE";
     private static final String SECONDARY =
             "&#B078FF";
-    private static final String ACCENT =
-            "&#D0AFFF";
     private static final String BODY =
             "&#bbbbbb";
 
@@ -230,7 +228,7 @@ public final class OriginRtpQueueService {
                         + " "
                         + BODY
                         + "destination "
-                        + ACCENT
+                        + SECONDARY
                         + "#"
                         + queuePosition(player)
         );
@@ -495,6 +493,7 @@ public final class OriginRtpQueueService {
             Session session
     ) {
         session.phase(Phase.SEARCHING);
+        session.beginSearchPass();
 
         CompletableFuture<Location> future =
                 locationService.findSafeLocation(
@@ -508,10 +507,10 @@ public final class OriginRtpQueueService {
         UUID sessionId =
                 session.request().sessionId();
         int timeoutSeconds = Math.max(
-                5,
+                60,
                 core.getConfig().getInt(
                         "origin-rtp.search.timeout-seconds",
-                        30
+                        60
                 )
         );
 
@@ -596,7 +595,7 @@ public final class OriginRtpQueueService {
 
         if (throwable != null
                 || location == null) {
-            failSearch(
+            retryOrFailSearch(
                     player,
                     session
             );
@@ -678,28 +677,26 @@ public final class OriginRtpQueueService {
         }
 
         session.cancelSearch();
-        removeSession(playerId);
-        teleportService.releaseReservation(
-                playerId,
-                TeleportService
-                        .TeleportKind
-                        .RTP
-        );
 
         Player player =
                 Bukkit.getPlayer(playerId);
 
-        if (player != null
-                && player.isOnline()) {
-            error(
-                    player,
-                    message(
-                            session.request()
-                                    .destination(),
-                            "failed"
-                    )
+        if (player == null
+                || !player.isOnline()) {
+            removeSession(playerId);
+            teleportService.releaseReservation(
+                    playerId,
+                    TeleportService
+                            .TeleportKind
+                            .RTP
             );
+            return;
         }
+
+        retryOrFailSearch(
+                player,
+                session
+        );
     }
 
     private void completeTeleport(
@@ -799,6 +796,34 @@ public final class OriginRtpQueueService {
                     )
             );
         }
+    }
+
+    private void retryOrFailSearch(
+            Player player,
+            Session session
+    ) {
+        session.cancelSearch();
+
+        if (session.searchPasses() < 2) {
+            session.reservedLocation(null);
+            session.phase(Phase.QUEUED);
+            enqueue(session, true);
+            sendActionBar(
+                    player,
+                    BODY
+                            + "Still searching for safe "
+                            + PRIMARY
+                            + displayName(
+                            session.request()
+                                    .destination()
+                    )
+                            + BODY
+                            + " terrain"
+            );
+            return;
+        }
+
+        failSearch(player, session);
     }
 
     private void failSearch(
@@ -1264,6 +1289,7 @@ public final class OriginRtpQueueService {
         private Location reservedLocation;
         private CompletableFuture<Location> searchFuture;
         private BukkitTask searchTimeoutTask;
+        private int searchPasses;
 
         private Session(
                 OriginRtpRequest request,
@@ -1303,6 +1329,14 @@ public final class OriginRtpQueueService {
                 CompletableFuture<Location> value
         ) {
             searchFuture = value;
+        }
+
+        private void beginSearchPass() {
+            searchPasses++;
+        }
+
+        private int searchPasses() {
+            return searchPasses;
         }
 
         private void searchTimeoutTask(

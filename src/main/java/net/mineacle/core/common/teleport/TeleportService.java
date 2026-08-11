@@ -7,6 +7,7 @@ import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerTeleportEvent;
@@ -67,10 +68,12 @@ public final class TeleportService {
     private final Map<UUID, PendingTeleport> pending = new HashMap<>();
     private final Map<UUID, TeleportKind> reservations = new HashMap<>();
     private final Map<UUID, InFlightTeleport> inFlight = new HashMap<>();
+    private final TeleportAttachmentGuard attachmentGuard;
     private BukkitTask tickerTask;
 
     public TeleportService(Core core) {
         this.core = core;
+        this.attachmentGuard = new TeleportAttachmentGuard(core);
     }
 
     public void start() {
@@ -481,7 +484,13 @@ public final class TeleportService {
                             + player.getUniqueId()
                             + " context=" + kind
             );
-            fail(player, displayTarget, kind, FailureReason.EXCEPTION, callbacks);
+            fail(
+                    player,
+                    displayTarget,
+                    kind,
+                    FailureReason.EXCEPTION,
+                    callbacks
+            );
             return false;
         }
 
@@ -499,26 +508,38 @@ public final class TeleportService {
             return false;
         }
 
+        /*
+         * Do not use teleportAsync directly here.
+         *
+         * Mineacle's nametag is a TextDisplay passenger. Paper 1.21.10+
+         * retains passengers by default and rejects cross-world Player
+         * teleports while passengers are mounted. We therefore prepare the
+         * destination chunk asynchronously first, then detach attachments for
+         * only the short synchronous execution window.
+         */
         try {
-            CompletableFuture<Boolean> future = player.teleportAsync(
-                    execution.destination(),
-                    PlayerTeleportEvent.TeleportCause.PLUGIN
-            );
+            CompletableFuture<Chunk> chunkFuture =
+                    execution.destination()
+                            .getWorld()
+                            .getChunkAtAsync(
+                                    execution.destination(),
+                                    true
+                            );
 
-            future.whenComplete((teleported, throwable) ->
-                    completeAsyncTeleport(
-                            playerId,
-                            execution,
-                            teleported,
-                            throwable
-                    )
+            chunkFuture.whenComplete(
+                    (chunk, throwable) ->
+                            executePreparedTeleport(
+                                    playerId,
+                                    execution,
+                                    throwable
+                            )
             );
             return true;
         } catch (RuntimeException exception) {
             inFlight.remove(playerId, execution);
             core.getLogger().log(
                     Level.WARNING,
-                    "Teleport execution could not start for "
+                    "Teleport chunk preparation could not start for "
                             + playerId
                             + " context=" + kind,
                     exception
@@ -534,26 +555,26 @@ public final class TeleportService {
         }
     }
 
-    private void completeAsyncTeleport(
+    private void executePreparedTeleport(
             UUID playerId,
             InFlightTeleport execution,
-            Boolean teleported,
-            Throwable throwable
+            Throwable preparationFailure
     ) {
-        Runnable completion = () -> {
-            if (!inFlight.remove(playerId, execution)) {
+        Runnable task = () -> {
+            if (inFlight.get(playerId) != execution) {
                 return;
             }
 
             Player player = core.getServer().getPlayer(playerId);
 
-            if (throwable != null) {
+            if (preparationFailure != null) {
+                inFlight.remove(playerId, execution);
                 core.getLogger().log(
                         Level.WARNING,
-                        "Teleport execution failed for "
+                        "Teleport chunk preparation failed for "
                                 + playerId
                                 + " context=" + execution.kind(),
-                        throwable
+                        preparationFailure
                 );
                 fail(
                         player,
@@ -565,14 +586,63 @@ public final class TeleportService {
                 return;
             }
 
-            if (!Boolean.TRUE.equals(teleported)) {
-                if (player != null) {
-                    logRejected(
+            if (player == null || !player.isOnline()) {
+                inFlight.remove(playerId, execution);
+                execution.callbacks().failure(
+                        FailureReason.CANCELLED
+                );
+                return;
+            }
+
+            TeleportAttachmentGuard.Snapshot attachments =
+                    attachmentGuard.suspendFor(
                             player,
-                            execution.destination(),
-                            execution.kind()
+                            execution.destination()
                     );
-                }
+
+            boolean teleported;
+
+            try {
+                teleported = player.teleport(
+                        execution.destination(),
+                        PlayerTeleportEvent.TeleportCause.PLUGIN
+                );
+            } catch (RuntimeException exception) {
+                attachmentGuard.restoreAfterFailure(
+                        player,
+                        attachments
+                );
+                inFlight.remove(playerId, execution);
+                core.getLogger().log(
+                        Level.WARNING,
+                        "Teleport execution failed for "
+                                + playerId
+                                + " context=" + execution.kind(),
+                        exception
+                );
+                fail(
+                        player,
+                        execution.displayTarget(),
+                        execution.kind(),
+                        FailureReason.EXCEPTION,
+                        execution.callbacks()
+                );
+                return;
+            }
+
+            inFlight.remove(playerId, execution);
+
+            if (!teleported) {
+                attachmentGuard.restoreAfterFailure(
+                        player,
+                        attachments
+                );
+                logRejected(
+                        player,
+                        execution.destination(),
+                        execution.kind(),
+                        attachments
+                );
                 fail(
                         player,
                         execution.displayTarget(),
@@ -583,8 +653,15 @@ public final class TeleportService {
                 return;
             }
 
-            if (player == null || !player.isOnline()) {
-                execution.callbacks().failure(FailureReason.CANCELLED);
+            attachmentGuard.completeSuccess(
+                    playerId,
+                    attachments
+            );
+
+            if (!player.isOnline()) {
+                execution.callbacks().failure(
+                        FailureReason.CANCELLED
+                );
                 return;
             }
 
@@ -600,13 +677,16 @@ public final class TeleportService {
         };
 
         if (!core.isEnabled()) {
+            inFlight.remove(playerId, execution);
             return;
         }
 
         if (Bukkit.isPrimaryThread()) {
-            completion.run();
+            task.run();
         } else {
-            core.getServer().getScheduler().runTask(core, completion);
+            core.getServer()
+                    .getScheduler()
+                    .runTask(core, task);
         }
     }
 
@@ -793,7 +873,8 @@ public final class TeleportService {
     private void logRejected(
             Player player,
             Location destination,
-            TeleportKind kind
+            TeleportKind kind,
+            TeleportAttachmentGuard.Snapshot attachments
     ) {
         core.getLogger().warning(
                 "Paper rejected Mineacle teleport player="
@@ -802,6 +883,14 @@ public final class TeleportService {
                         + " cause=PLUGIN"
                         + " from=" + locationSummary(player.getLocation())
                         + " to=" + locationSummary(destination)
+                        + " detachedPassengers="
+                        + attachments.detachedPassengerCount()
+                        + " mineacleNametags="
+                        + attachments.mineacleNametags()
+                        + " vehicleDetached="
+                        + (attachments.vehicle() != null)
+                        + " remainingPassengers="
+                        + player.getPassengers().size()
         );
     }
 

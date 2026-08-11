@@ -1,9 +1,6 @@
 package net.mineacle.core.rtp.gui;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.TextDecoration;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.rtp.service.RtpMenuItem;
 import net.mineacle.core.rtp.service.RtpMenuService;
 import org.bukkit.Bukkit;
@@ -13,8 +10,7 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-
-import java.util.List;
+import org.jetbrains.annotations.NotNull;
 
 public final class RtpMenuGui {
 
@@ -42,7 +38,7 @@ public final class RtpMenuGui {
         Inventory inventory = Bukkit.createInventory(
                 holder,
                 definition.size(),
-                component(definition.title())
+                GuiText.title(definition.title())
         );
         holder.inventory = inventory;
 
@@ -85,7 +81,7 @@ public final class RtpMenuGui {
         }
 
         meta.displayName(
-                component(
+                GuiText.component(
                         service.parse(
                                 player,
                                 definition.name()
@@ -97,7 +93,7 @@ public final class RtpMenuGui {
                         player,
                         definition
                 ).stream()
-                        .map(RtpMenuGui::component)
+                        .map(GuiText::component)
                         .toList()
         );
         meta.addItemFlags(
@@ -108,19 +104,6 @@ public final class RtpMenuGui {
         );
         item.setItemMeta(meta);
         return item;
-    }
-
-    private static Component component(String input) {
-        return LegacyComponentSerializer.legacySection()
-                .deserialize(
-                        TextColor.color(
-                                input == null ? "" : input
-                        )
-                )
-                .decoration(
-                        TextDecoration.ITALIC,
-                        false
-                );
     }
 
     public static final class Holder
@@ -140,7 +123,7 @@ public final class RtpMenuGui {
         }
 
         @Override
-        public Inventory getInventory() {
+        public @NotNull Inventory getInventory() {
             return inventory;
         }
     }
