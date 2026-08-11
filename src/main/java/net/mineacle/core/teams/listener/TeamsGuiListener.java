@@ -35,7 +35,8 @@ import java.util.UUID;
 @SuppressWarnings("unused")
 public final class TeamsGuiListener implements Listener {
 
-    private static final String PRIMARY = "&#8436FE";
+    private static final String SECONDARY = "&#B078FF";
+    private static final String ACCENT = "&#D0AFFF";
     private static final String BODY = "&#bbbbbb";
 
     private final Core core;
@@ -132,13 +133,13 @@ public final class TeamsGuiListener implements Listener {
             player.closeInventory();
 
             Component prompt = legacy(
-                    BODY + "Type " + PRIMARY + "/team create "
+                    BODY + "Type " + ACCENT + "/team create "
                             + BODY + "to create a team"
             ).clickEvent(ClickEvent.suggestCommand("/team create "));
             player.sendMessage(prompt);
             player.sendActionBar(
                     actionBar(
-                            BODY + "Type " + PRIMARY + "/team create "
+                            BODY + "Type " + ACCENT + "/team create "
                                     + BODY + "to create a team"
                     )
             );
@@ -201,7 +202,7 @@ public final class TeamsGuiListener implements Listener {
                 SoundService.guiClick(player, core);
                 player.closeInventory();
                 Component invitePrompt = legacy(
-                        BODY + "Type " + PRIMARY + "/team invite "
+                        BODY + "Type " + ACCENT + "/team invite "
                                 + BODY + "to invite a player"
                 ).clickEvent(ClickEvent.suggestCommand("/team invite "));
                 player.sendMessage(invitePrompt);
@@ -218,7 +219,7 @@ public final class TeamsGuiListener implements Listener {
             boolean enabled = teamService.toggleTeamChat(player.getUniqueId());
             sendBoth(
                     player,
-                    enabled ? "&aTeam chat enabled" : "&cTeam chat disabled"
+                    BODY + "Team chat " + (enabled ? SECONDARY + "enabled" : ACCENT + "disabled")
             );
             SoundService.guiConfirm(player, core);
             reopenMain(player);
@@ -242,7 +243,7 @@ public final class TeamsGuiListener implements Listener {
             teamService.setFriendlyFire(team.teamId(), enabled);
             sendBoth(
                     player,
-                    enabled ? "&aTeam PvP enabled" : "&cTeam PvP disabled"
+                    BODY + "Team PvP " + (enabled ? SECONDARY + "enabled" : ACCENT + "disabled")
             );
             SoundService.guiConfirm(player, core);
             reopenMain(player);
@@ -467,7 +468,7 @@ public final class TeamsGuiListener implements Listener {
                         targetId,
                         TeamRole.ADMIN
                 )) {
-                    confirmedSuccess(player, "&aPlayer promoted");
+                    confirmedSuccess(player, BODY + "Player " + SECONDARY + "promoted");
                 } else {
                     failConfirmed(player, "&cYou cannot promote this player");
                 }
@@ -478,7 +479,7 @@ public final class TeamsGuiListener implements Listener {
                         targetId,
                         TeamRole.MEMBER
                 )) {
-                    confirmedSuccess(player, "&aPlayer demoted");
+                    confirmedSuccess(player, BODY + "Player " + SECONDARY + "demoted");
                 } else {
                     failConfirmed(player, "&cYou cannot demote this player");
                 }
@@ -505,7 +506,7 @@ public final class TeamsGuiListener implements Listener {
             }
             case "TRANSFER" -> {
                 if (teamService.transferFounder(player.getUniqueId(), targetId)) {
-                    confirmedSuccess(player, "&aFounder transferred");
+                    confirmedSuccess(player, BODY + "Founder " + SECONDARY + "transferred");
                 } else {
                     failConfirmed(
                             player,

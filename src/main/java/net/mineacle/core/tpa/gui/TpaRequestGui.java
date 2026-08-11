@@ -28,8 +28,6 @@ public final class TpaRequestGui {
     public static final int ACCEPT_SLOT = 15;
     public static final int WORLD_SLOT = 22;
 
-    private static final String PRIMARY =
-            "&#8436FE";
     private static final String SECONDARY =
             "&#B078FF";
     private static final String BODY =
@@ -144,7 +142,7 @@ public final class TpaRequestGui {
         if (requester == null) {
             return item(
                     Material.COMPASS,
-                    PRIMARY + "Request Location",
+                    SECONDARY + "Request Location",
                     List.of(
                             "&cRequester is no longer online"
                     )
@@ -155,7 +153,7 @@ public final class TpaRequestGui {
 
         return item(
                 worldMaterial(world),
-                PRIMARY + "Request Location",
+                SECONDARY + "Request Location",
                 List.of(
                         BODY
                                 + "World: "

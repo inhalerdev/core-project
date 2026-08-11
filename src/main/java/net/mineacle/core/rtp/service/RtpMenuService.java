@@ -22,6 +22,10 @@ public final class RtpMenuService {
 
     public static final String MAIN_MENU = "main";
 
+    private static final String SECONDARY = "&#B078FF";
+    private static final String ACCENT = "&#D0AFFF";
+    private static final String BODY = "&#bbbbbb";
+
     private final Core core;
     private final File file;
 
@@ -94,7 +98,9 @@ public final class RtpMenuService {
             String input
     ) {
         String parsed = TextColor.color(
-                input == null ? "" : input
+                normalizePalette(
+                        input == null ? "" : input
+                )
         );
 
         if (Bukkit.getPluginManager()
@@ -134,12 +140,16 @@ public final class RtpMenuService {
         for (String line : item.lore()) {
             String resolved = line;
 
-            if ((item.destination().equals("nether")
-                    || item.destination().equals("end"))
-                    && resolved.contains(
+            /*
+             * Compatibility for an existing server-side rtp.yml from before
+             * the large-border profile. The live effective minimum is always
+             * displayed instead of leaving a stale hardcoded 1,000 value.
+             */
+            if (resolved.contains(
                     "At least 1,000 blocks from world spawn"
             )) {
-                resolved = "&#bbbbbbExplores at least "
+                resolved = BODY
+                        + "Explores at least "
                         + "%minimum_distance% blocks from spawn";
             }
 
@@ -266,7 +276,7 @@ public final class RtpMenuService {
                                 ),
                                 configuration.getString(
                                         itemBase + ".name",
-                                        "&d" + key
+                                        SECONDARY + key
                                 ),
                                 List.copyOf(
                                         configuration.getStringList(
@@ -298,9 +308,10 @@ public final class RtpMenuService {
                                 "overworld",
                                 11,
                                 Material.GRASS_BLOCK,
-                                "&dOverworld",
+                                SECONDARY + "Overworld",
                                 List.of(
-                                        "&#bbbbbbClick to random teleport"
+                                        ACCENT
+                                                + "Click to random teleport"
                                 ),
                                 "overworld"
                         ),
@@ -309,9 +320,10 @@ public final class RtpMenuService {
                                 "nether",
                                 13,
                                 Material.NETHERRACK,
-                                "&dNether",
+                                SECONDARY + "Nether",
                                 List.of(
-                                        "&#bbbbbbClick to random teleport"
+                                        ACCENT
+                                                + "Click to random teleport"
                                 ),
                                 "nether"
                         ),
@@ -320,14 +332,30 @@ public final class RtpMenuService {
                                 "end",
                                 15,
                                 Material.END_STONE,
-                                "&dThe End",
+                                SECONDARY + "The End",
                                 List.of(
-                                        "&#bbbbbbClick to random teleport"
+                                        ACCENT
+                                                + "Click to random teleport"
                                 ),
                                 "end"
                         )
                 )
         );
+    }
+
+    private String normalizePalette(String value) {
+        if (value == null || value.isEmpty()) {
+            return "";
+        }
+
+        return value
+                .replace("&#8436FE", SECONDARY)
+                .replace("&#8436fe", SECONDARY)
+                .replace("&#ff55ff", SECONDARY)
+                .replace("&#FF55FF", SECONDARY)
+                .replace("&#ff88ff", SECONDARY)
+                .replace("&#FF88FF", SECONDARY)
+                .replace("&d", SECONDARY);
     }
 
     private int normalizeSize(int size) {

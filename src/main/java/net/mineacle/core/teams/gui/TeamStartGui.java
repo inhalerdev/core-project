@@ -20,7 +20,7 @@ public final class TeamStartGui {
     public static final int INVITES_SLOT = 13;
     public static final int INFO_SLOT = 15;
 
-    private static final String PRIMARY = "&#8436FE";
+    private static final String ACCENT = "&#D0AFFF";
     private static final String SECONDARY = "&#B078FF";
     private static final String BODY = "&#bbbbbb";
 
@@ -42,10 +42,10 @@ public final class TeamStartGui {
                 CREATE_SLOT,
                 item(
                         Material.PURPLE_BANNER,
-                        PRIMARY + "Create Team",
+                        SECONDARY + "Create Team",
                         List.of(
                                 BODY + "Create your own team",
-                                BODY + "Click to autofill " + PRIMARY + "/team create"
+                                BODY + "Click to autofill " + ACCENT + "/team create"
                         )
                 )
         );
@@ -72,7 +72,7 @@ public final class TeamStartGui {
                 INFO_SLOT,
                 item(
                         Material.BOOK,
-                        PRIMARY + "Teams",
+                        SECONDARY + "Teams",
                         List.of(
                                 BODY + "Create a team and invite friends",
                                 BODY + "Set Team Home and manage Team PvP",

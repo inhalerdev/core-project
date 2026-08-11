@@ -22,7 +22,7 @@ public final class TeamMemberGui {
 
     public static final String TITLE_PREFIX = "Member: ";
 
-    private static final String PRIMARY = "&#8436FE";
+    private static final String ACCENT = "&#D0AFFF";
     private static final String SECONDARY = "&#B078FF";
     private static final String BODY = "&#bbbbbb";
 
@@ -54,11 +54,11 @@ public final class TeamMemberGui {
                 4,
                 playerHead(
                         target,
-                        (online ? "&a" : BODY) + plainName,
+                        (online ? SECONDARY : BODY) + plainName,
                         List.of(
                                 BODY + "Role: " + SECONDARY + role,
                                 BODY + "Status: "
-                                        + (online ? "&aOnline" : BODY + "Offline"),
+                                        + (online ? ACCENT + "Online" : BODY + "Offline"),
                                 "",
                                 BODY + "Use the options below"
                         )
@@ -69,7 +69,7 @@ public final class TeamMemberGui {
                 13,
                 item(
                         Material.BOOK,
-                        PRIMARY + "View Stats",
+                        SECONDARY + "View Stats",
                         List.of(
                                 BODY + "Open this player's stats",
                                 "",
@@ -92,7 +92,7 @@ public final class TeamMemberGui {
                     22,
                     item(
                             Material.PAPER,
-                            PRIMARY + "Your Team Profile",
+                            SECONDARY + "Your Team Profile",
                             List.of(
                                     BODY + "Role: " + SECONDARY + role,
                                     BODY + "Use Team Chat from the toolbar"
@@ -110,7 +110,7 @@ public final class TeamMemberGui {
                         10,
                         item(
                                 Material.LIME_DYE,
-                                "&aPromote",
+                                SECONDARY + "Promote",
                                 List.of(
                                         BODY + "Promote this member",
                                         BODY + "Founder only"
@@ -159,7 +159,7 @@ public final class TeamMemberGui {
                     22,
                     item(
                             Material.NETHER_STAR,
-                            PRIMARY + "Transfer Founder",
+                            SECONDARY + "Transfer Founder",
                             List.of(
                                     BODY + "Transfer team ownership",
                                     BODY + "Requires confirmation"

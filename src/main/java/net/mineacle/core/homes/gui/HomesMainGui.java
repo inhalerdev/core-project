@@ -24,7 +24,7 @@ public final class HomesMainGui {
     private static final int FIRST_DYE_SLOT = 21;
     private static final int HOME_SLOT_COUNT = 5;
 
-    private static final String PRIMARY = "&#8436FE";
+    private static final String ACCENT = "&#D0AFFF";
     private static final String SECONDARY = "&#B078FF";
     private static final String BODY = "&#bbbbbb";
 
@@ -55,7 +55,7 @@ public final class HomesMainGui {
                         bedSlot,
                         item(
                                 Material.PURPLE_BED,
-                                PRIMARY + displayName,
+                                SECONDARY + displayName,
                                 List.of(
                                         BODY + "Click to teleport to this home"
                                 )
@@ -65,7 +65,7 @@ public final class HomesMainGui {
                         dyeSlot,
                         item(
                                 Material.PURPLE_DYE,
-                                PRIMARY + displayName,
+                                SECONDARY + displayName,
                                 List.of(
                                         BODY + "Click to &cdelete "
                                                 + BODY + "this home"
@@ -80,7 +80,7 @@ public final class HomesMainGui {
                         bedSlot,
                         item(
                                 Material.WHITE_BED,
-                                PRIMARY + displayName,
+                                SECONDARY + displayName,
                                 List.of(
                                         BODY + "Click to save this location"
                                 )
@@ -90,7 +90,7 @@ public final class HomesMainGui {
                         dyeSlot,
                         item(
                                 Material.GRAY_DYE,
-                                PRIMARY + displayName,
+                                SECONDARY + displayName,
                                 List.of(
                                         BODY + "Click to save this location"
                                 )
@@ -179,16 +179,16 @@ public final class HomesMainGui {
         if (team == null) {
             List<String> lore = List.of(
                     BODY + "You are not in a team",
-                    BODY + "Type " + PRIMARY + "/team create",
+                    BODY + "Type " + ACCENT + "/team create",
                     BODY + "to create a team"
             );
             inventory.setItem(
                     bannerSlot,
-                    item(Material.LIGHT_GRAY_BANNER, PRIMARY + "No Team", lore)
+                    item(Material.LIGHT_GRAY_BANNER, SECONDARY + "No Team", lore)
             );
             inventory.setItem(
                     dyeSlot,
-                    item(Material.GRAY_DYE, PRIMARY + "No Team", lore)
+                    item(Material.GRAY_DYE, SECONDARY + "No Team", lore)
             );
             return;
         }
@@ -196,7 +196,7 @@ public final class HomesMainGui {
         boolean hasHome = teamHomeService.hasTeamHome(team.teamId());
         boolean isAdmin = teamService.isAdmin(player.getUniqueId());
         boolean isFounder = teamService.isFounder(player.getUniqueId());
-        String teamDisplay = PRIMARY + team.name();
+        String teamDisplay = SECONDARY + team.name();
 
         if (!hasHome) {
             if (isAdmin) {
@@ -207,11 +207,11 @@ public final class HomesMainGui {
                 );
                 inventory.setItem(
                         bannerSlot,
-                        item(Material.WHITE_BANNER, PRIMARY + "Team Home", lore)
+                        item(Material.WHITE_BANNER, SECONDARY + "Team Home", lore)
                 );
                 inventory.setItem(
                         dyeSlot,
-                        item(Material.LIGHT_GRAY_DYE, PRIMARY + "Team Home", lore)
+                        item(Material.LIGHT_GRAY_DYE, SECONDARY + "Team Home", lore)
                 );
             } else {
                 List<String> lore = List.of(
@@ -221,11 +221,11 @@ public final class HomesMainGui {
                 );
                 inventory.setItem(
                         bannerSlot,
-                        item(Material.LIGHT_GRAY_BANNER, PRIMARY + "Team Home", lore)
+                        item(Material.LIGHT_GRAY_BANNER, SECONDARY + "Team Home", lore)
                 );
                 inventory.setItem(
                         dyeSlot,
-                        item(Material.GRAY_DYE, PRIMARY + "Team Home", lore)
+                        item(Material.GRAY_DYE, SECONDARY + "Team Home", lore)
                 );
             }
             return;
@@ -235,7 +235,7 @@ public final class HomesMainGui {
                 bannerSlot,
                 item(
                         Material.PURPLE_BANNER,
-                        PRIMARY + "Team Home",
+                        SECONDARY + "Team Home",
                         List.of(
                                 BODY + "Team: " + teamDisplay,
                                 BODY + "Click to teleport to Team Home"
@@ -260,7 +260,7 @@ public final class HomesMainGui {
                     dyeSlot,
                     item(
                             Material.GRAY_DYE,
-                            PRIMARY + "Team Home",
+                            SECONDARY + "Team Home",
                             List.of(
                                     BODY + "Your team home is set",
                                     BODY + "Only the founder can delete it"

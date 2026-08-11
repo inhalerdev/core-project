@@ -1,6 +1,7 @@
 package net.mineacle.core.rtp.service;
 
 import net.mineacle.core.Core;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.World;
 
@@ -8,6 +9,14 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 
+/**
+ * Immutable RTP search policy.
+ *
+ * The configured values remain the baseline, but a wide live world border
+ * receives safer defaults automatically. This lets an existing Mineacle
+ * config benefit from the 100k x 100k map profile without forcing server
+ * operators to delete or regenerate config.yml.
+ */
 public record OriginRtpSearchSettings(
         String destination,
         String displayName,
@@ -35,15 +44,37 @@ public record OriginRtpSearchSettings(
         Set<Material> unsafeBlocks
 ) {
 
+    private static final double WIDE_BORDER_THRESHOLD = 80_000.0D;
+    private static final int WIDE_BORDER_EDGE_PADDING = 256;
+
     public static OriginRtpSearchSettings fromConfig(
             Core core,
             String rawDestination
     ) {
-        String destination = canonicalDestination(
-                rawDestination
+        String destination = canonicalDestination(rawDestination);
+        String base = "origin-rtp.destinations." + destination;
+
+        String worldName = canonicalWorld(
+                core.getConfig().getString(
+                        base + ".world",
+                        defaultWorld(destination)
+                )
         );
-        String base = "origin-rtp.destinations."
-                + destination;
+
+        boolean useWorldBorder = core.getConfig().getBoolean(
+                base + ".search.use-world-border",
+                core.getConfig().getBoolean(
+                        "origin-rtp.search.use-world-border",
+                        true
+                )
+        );
+
+        World world = Bukkit.getWorld(worldName);
+        boolean wideBorder = useWorldBorder
+                && world != null
+                && world.getWorldBorder().getSize()
+                >= WIDE_BORDER_THRESHOLD;
+
         int minimumY = integer(
                 core,
                 base + ".search.min-y",
@@ -65,12 +96,12 @@ public record OriginRtpSearchSettings(
                 0,
                 integer(
                         core,
-                        base
-                                + ".search.minimum-distance-from-world-spawn",
+                        base + ".search.minimum-distance-from-world-spawn",
                         "origin-rtp.search.minimum-distance-from-world-spawn",
                         1000
                 )
         );
+
         int minimumDistance = Math.max(
                 configuredMinimumDistance,
                 Math.max(
@@ -82,12 +113,19 @@ public record OriginRtpSearchSettings(
                         )
                 )
         );
+
+        if (wideBorder && destination.equals("overworld")) {
+            minimumDistance = Math.max(
+                    minimumDistance,
+                    2500
+            );
+        }
+
         int maximumDistance = Math.max(
                 0,
                 integer(
                         core,
-                        base
-                                + ".search.maximum-distance-from-world-spawn",
+                        base + ".search.maximum-distance-from-world-spawn",
                         "origin-rtp.search.maximum-distance-from-world-spawn",
                         0
                 )
@@ -98,35 +136,162 @@ public record OriginRtpSearchSettings(
             maximumDistance = 0;
         }
 
+        int worldBorderPadding = Math.max(
+                0,
+                integer(
+                        core,
+                        base + ".search.world-border-padding",
+                        "origin-rtp.search.world-border-padding",
+                        32
+                )
+        );
+
+        if (wideBorder) {
+            worldBorderPadding = Math.max(
+                    worldBorderPadding,
+                    WIDE_BORDER_EDGE_PADDING
+            );
+        }
+
+        int maximumAttempts = Math.max(
+                1,
+                integer(
+                        core,
+                        base + ".search.max-attempts",
+                        "origin-rtp.search.max-attempts",
+                        160
+                )
+        );
+
+        if (wideBorder) {
+            maximumAttempts = Math.max(
+                    maximumAttempts,
+                    switch (destination) {
+                        case "end" -> 320;
+                        case "nether" -> 240;
+                        default -> 192;
+                    }
+            );
+        }
+
+        int safePlatformRadius = Math.max(
+                0,
+                Math.min(
+                        2,
+                        integer(
+                                core,
+                                base + ".search.safe-platform-radius",
+                                "origin-rtp.search.safe-platform-radius",
+                                1
+                        )
+                )
+        );
+
+        /*
+         * Nether terrain is naturally enclosed and uneven. Requiring a 3x3
+         * platform rejects many otherwise safe fortress/cave/quartz locations.
+         * The center block still must be solid and feet/head space must be safe.
+         */
+        if (wideBorder && destination.equals("nether")) {
+            safePlatformRadius = 0;
+        }
+
+        int hazardCheckRadius = Math.max(
+                0,
+                Math.min(
+                        4,
+                        integer(
+                                core,
+                                base + ".search.hazard-check-radius",
+                                "origin-rtp.search.hazard-check-radius",
+                                2
+                        )
+                )
+        );
+
+        if (wideBorder && destination.equals("nether")) {
+            hazardCheckRadius = Math.min(
+                    hazardCheckRadius,
+                    1
+            );
+        }
+
+        boolean preferUnexplored = destinationBoolean(
+                core,
+                base + ".search.prefer-unexplored-chunks",
+                wideBorder || defaultPreferUnexplored(destination)
+        );
+
+        int candidatePoolMultiplier = Math.max(
+                1,
+                Math.min(
+                        16,
+                        integer(
+                                core,
+                                base + ".search.candidate-pool-multiplier",
+                                "origin-rtp.search.candidate-pool-multiplier",
+                                8
+                        )
+                )
+        );
+
+        if (wideBorder) {
+            candidatePoolMultiplier = Math.max(
+                    candidatePoolMultiplier,
+                    12
+            );
+        }
+
+        int recentHistory = Math.max(
+                0,
+                Math.min(
+                        64,
+                        integer(
+                                core,
+                                base + ".search.recent-destination-history",
+                                "origin-rtp.search.recent-destination-history",
+                                defaultRecentHistory(destination)
+                        )
+                )
+        );
+
+        if (wideBorder) {
+            recentHistory = Math.max(
+                    recentHistory,
+                    destination.equals("overworld")
+                            ? 24
+                            : 32
+            );
+        }
+
+        int recentDistance = Math.max(
+                0,
+                integer(
+                        core,
+                        base + ".search.minimum-recent-destination-distance",
+                        "origin-rtp.search.minimum-recent-destination-distance",
+                        defaultRecentDistance(destination)
+                )
+        );
+
+        if (wideBorder) {
+            recentDistance = Math.max(
+                    recentDistance,
+                    destination.equals("overworld")
+                            ? 1500
+                            : 4096
+            );
+        }
+
         return new OriginRtpSearchSettings(
                 destination,
                 core.getConfig().getString(
                         base + ".display-name",
                         defaultDisplayName(destination)
                 ),
-                canonicalWorld(
-                        core.getConfig().getString(
-                                base + ".world",
-                                defaultWorld(destination)
-                        )
-                ),
-                core.getConfig().getBoolean(
-                        base + ".search.use-world-border",
-                        core.getConfig().getBoolean(
-                                "origin-rtp.search.use-world-border",
-                                true
-                        )
-                ),
-                Math.max(
-                        0,
-                        integer(
-                                core,
-                                base
-                                        + ".search.world-border-padding",
-                                "origin-rtp.search.world-border-padding",
-                                32
-                        )
-                ),
+                worldName,
+                useWorldBorder,
+                worldBorderPadding,
                 integer(
                         core,
                         base + ".search.center-x",
@@ -145,8 +310,7 @@ public record OriginRtpSearchSettings(
                                 1,
                                 integer(
                                         core,
-                                        base
-                                                + ".search.fallback-maximum-radius",
+                                        base + ".search.fallback-maximum-radius",
                                         "origin-rtp.search.fallback-maximum-radius",
                                         5000
                                 )
@@ -156,23 +320,14 @@ public record OriginRtpSearchSettings(
                 maximumDistance,
                 minimumY,
                 maximumY,
-                Math.max(
-                        1,
-                        integer(
-                                core,
-                                base + ".search.max-attempts",
-                                "origin-rtp.search.max-attempts",
-                                160
-                        )
-                ),
+                maximumAttempts,
                 Math.max(
                         1,
                         Math.min(
                                 8,
                                 integer(
                                         core,
-                                        base
-                                                + ".search.candidates-per-batch",
+                                        base + ".search.candidates-per-batch",
                                         "origin-rtp.search.candidates-per-batch",
                                         4
                                 )
@@ -182,91 +337,27 @@ public record OriginRtpSearchSettings(
                         base + ".search.surface-only",
                         !destination.equals("nether")
                 ),
-                Math.max(
-                        0,
-                        Math.min(
-                                2,
-                                integer(
-                                        core,
-                                        base
-                                                + ".search.safe-platform-radius",
-                                        "origin-rtp.search.safe-platform-radius",
-                                        1
-                                )
-                        )
-                ),
+                safePlatformRadius,
                 Math.max(
                         0,
                         Math.min(
                                 4,
                                 integer(
                                         core,
-                                        base
-                                                + ".search.maximum-ground-height-difference",
+                                        base + ".search.maximum-ground-height-difference",
                                         "origin-rtp.search.maximum-ground-height-difference",
                                         2
                                 )
                         )
                 ),
-                Math.max(
-                        0,
-                        Math.min(
-                                4,
-                                integer(
-                                        core,
-                                        base
-                                                + ".search.hazard-check-radius",
-                                        "origin-rtp.search.hazard-check-radius",
-                                        2
-                                )
-                        )
-                ),
+                hazardCheckRadius,
+                preferUnexplored,
+                candidatePoolMultiplier,
+                recentHistory,
+                recentDistance,
                 destinationBoolean(
                         core,
-                        base
-                                + ".search.prefer-unexplored-chunks",
-                        defaultPreferUnexplored(destination)
-                ),
-                Math.max(
-                        1,
-                        Math.min(
-                                16,
-                                integer(
-                                        core,
-                                        base
-                                                + ".search.candidate-pool-multiplier",
-                                        "origin-rtp.search.candidate-pool-multiplier",
-                                        8
-                                )
-                        )
-                ),
-                Math.max(
-                        0,
-                        Math.min(
-                                64,
-                                integer(
-                                        core,
-                                        base
-                                                + ".search.recent-destination-history",
-                                        "origin-rtp.search.recent-destination-history",
-                                        defaultRecentHistory(destination)
-                                )
-                        )
-                ),
-                Math.max(
-                        0,
-                        integer(
-                                core,
-                                base
-                                        + ".search.minimum-recent-destination-distance",
-                                "origin-rtp.search.minimum-recent-destination-distance",
-                                defaultRecentDistance(destination)
-                        )
-                ),
-                destinationBoolean(
-                        core,
-                        base
-                                + ".search.randomized-vertical-search",
+                        base + ".search.randomized-vertical-search",
                         destination.equals("nether")
                 ),
                 Set.copyOf(
@@ -362,11 +453,6 @@ public record OriginRtpSearchSettings(
             materials.add(material);
         }
 
-        /*
-         * These are mandatory safety exclusions rather than optional defaults.
-         * Adding them unconditionally makes the fix work with an existing
-         * config.yml whose old unsafe-block list is already non-empty.
-         */
         materials.add(Material.WATER);
         materials.add(Material.LAVA);
         materials.add(Material.FIRE);
@@ -474,7 +560,7 @@ public record OriginRtpSearchSettings(
     ) {
         return switch (destination) {
             case "nether", "end" -> 5000;
-            default -> 0;
+            default -> 1000;
         };
     }
 

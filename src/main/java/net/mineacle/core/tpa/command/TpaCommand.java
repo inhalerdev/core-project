@@ -1,5 +1,4 @@
-package net.mineacle.core.tpa.command;
-
+package net.mineacle.core.tpa.command
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
@@ -29,6 +28,7 @@ public final class TpaCommand
         implements CommandExecutor, TabCompleter {
 
     private static final String SECONDARY = "&#B078FF";
+    private static final String ACCENT = "&#D0AFFF";
     private static final String BODY = "&#bbbbbb";
 
     private final Core core;
@@ -354,10 +354,10 @@ public final class TpaCommand
                 enabled
                         ? BODY
                         + "TPA auto accept "
-                        + "&aenabled"
+                        + SECONDARY + "enabled"
                         : BODY
                         + "TPA auto accept "
-                        + "&cdisabled"
+                        + ACCENT + "disabled"
         );
 
         if (enabled) {

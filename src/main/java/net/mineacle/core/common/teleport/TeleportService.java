@@ -51,10 +51,9 @@ public final class TeleportService {
         CANCELLED_MOVE
     }
 
-    public static final String SUCCESS = "&a";
     public static final String ERROR = "&c";
-    public static final String PRIMARY = "&#8436FE";
     public static final String SECONDARY = "&#B078FF";
+    public static final String ACCENT = "&#D0AFFF";
     public static final String BODY = "&#bbbbbb";
 
     private static final String CANCELLED_MOVE =
@@ -667,9 +666,8 @@ public final class TeleportService {
 
             sendBoth(
                     player,
-                    SUCCESS + "Teleported "
-                            + BODY + "to "
-                            + targetColor(execution.kind())
+                    BODY + "Teleported to "
+                            + SECONDARY
                             + execution.displayTarget()
             );
             SoundService.teleportComplete(player, core);
@@ -742,17 +740,14 @@ public final class TeleportService {
         sendActionBar(
                 player,
                 BODY + "Teleporting to "
-                        + targetColor(teleport.kind())
+                        + SECONDARY
                         + teleport.displayTarget() + " "
                         + BODY + "in "
-                        + SECONDARY
+                        + ACCENT
                         + teleport.secondsRemaining() + "s"
         );
     }
 
-    private String targetColor(TeleportKind kind) {
-        return kind == TeleportKind.TPA ? SECONDARY : PRIMARY;
-    }
 
     private void sendBoth(Player player, String message) {
         String colored = TextColor.color(message);

@@ -718,7 +718,7 @@ public final class HomesGuiListener
         Component clickable =
                 component(
                         "&#bbbbbbType "
-                                + "&#8436FE/team create "
+                                + "&#D0AFFF/team create "
                                 + "&#bbbbbbto create a team"
                 ).clickEvent(
                         ClickEvent.suggestCommand(

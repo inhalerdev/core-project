@@ -23,7 +23,6 @@ public final class TpaTargetMenuGui {
     public static final int LOCATION_SLOT = 14;
     public static final int CONFIRM_SLOT = 16;
 
-    private static final String PRIMARY = "&#8436FE";
     private static final String SECONDARY = "&#B078FF";
     private static final String BODY = "&#bbbbbb";
 
@@ -49,7 +48,7 @@ public final class TpaTargetMenuGui {
                 REGION_SLOT,
                 item(
                         regionMaterial(target),
-                        PRIMARY + "Region",
+                        SECONDARY + "Region",
                         List.of(BODY + regionName(target))
                 )
         );
@@ -64,7 +63,7 @@ public final class TpaTargetMenuGui {
                 LOCATION_SLOT,
                 item(
                         Material.FEATHER,
-                        PRIMARY + "Location",
+                        SECONDARY + "Location",
                         List.of(BODY + target.getWorld().getName())
                 )
         );
@@ -121,7 +120,7 @@ public final class TpaTargetMenuGui {
         }
 
         meta.setOwningPlayer(owner);
-        GuiText.apply(meta, PRIMARY + "Player", lore);
+        GuiText.apply(meta, SECONDARY + "Player", lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;

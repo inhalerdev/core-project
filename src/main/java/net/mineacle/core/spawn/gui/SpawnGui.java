@@ -15,6 +15,9 @@ import java.util.List;
 
 public final class SpawnGui {
 
+    private static final String SECONDARY = "&#B078FF";
+    private static final String ACCENT = "&#D0AFFF";
+
     private SpawnGui() {
     }
 
@@ -33,28 +36,70 @@ public final class SpawnGui {
             boolean current = spawnService.isCurrentWorld(player, point);
             int online = spawnService.onlineInWorld(point);
 
-            inventory.setItem(point.slot(), spawnItem(
-                    current,
-                    point.displayName(),
-                    spawnService.applyLorePlaceholders(
-                            current
-                                    ? spawnService.currentSpawnLore()
-                                    : spawnService.availableSpawnLore(),
-                            point,
-                            online
+            inventory.setItem(
+                    point.slot(),
+                    spawnItem(
+                            current,
+                            normalizePalette(
+                                    point.displayName()
+                            ),
+                            normalizeLore(
+                                    spawnService.applyLorePlaceholders(
+                                            current
+                                                    ? spawnService.currentSpawnLore()
+                                                    : spawnService.availableSpawnLore(),
+                                            point,
+                                            online
+                                    )
+                            )
                     )
-            ));
+            );
         }
 
         if (spawnService.randomEnabled()) {
-            inventory.setItem(spawnService.randomSlot(), item(
-                    Material.NETHER_STAR,
-                    spawnService.randomDisplayName(),
-                    spawnService.randomLore()
-            ));
+            inventory.setItem(
+                    spawnService.randomSlot(),
+                    item(
+                            Material.NETHER_STAR,
+                            normalizePalette(
+                                    spawnService.randomDisplayName()
+                            ),
+                            normalizeLore(
+                                    spawnService.randomLore()
+                            )
+                    )
+            );
         }
 
         player.openInventory(inventory);
+    }
+
+    private static List<String> normalizeLore(
+            List<String> lore
+    ) {
+        if (lore == null || lore.isEmpty()) {
+            return List.of();
+        }
+
+        return lore.stream()
+                .map(SpawnGui::normalizePalette)
+                .toList();
+    }
+
+    private static String normalizePalette(String input) {
+        if (input == null || input.isEmpty()) {
+            return "";
+        }
+
+        return input
+                .replace("&#8436FE", SECONDARY)
+                .replace("&#8436fe", SECONDARY)
+                .replace("&#ff55ff", SECONDARY)
+                .replace("&#FF55FF", SECONDARY)
+                .replace("&d", SECONDARY)
+                .replace("&#ff88ff", ACCENT)
+                .replace("&#FF88FF", ACCENT)
+                .replace("&a", ACCENT);
     }
 
     private static ItemStack spawnItem(

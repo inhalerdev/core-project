@@ -25,7 +25,6 @@ public final class TeamInviteGui {
     public static final int CENTER_SLOT = 13;
     public static final int DENY_SLOT = 15;
 
-    private static final String PRIMARY = "&#8436FE";
     private static final String SECONDARY = "&#B078FF";
     private static final String BODY = "&#bbbbbb";
 
@@ -82,7 +81,7 @@ public final class TeamInviteGui {
                         Material.LIME_CONCRETE,
                         "&aAccept",
                         List.of(
-                                BODY + "Join " + PRIMARY + team.name(),
+                                BODY + "Join " + SECONDARY + team.name(),
                                 BODY + "Invited by " + SECONDARY + inviterName
                         )
                 )
@@ -91,7 +90,7 @@ public final class TeamInviteGui {
                 CENTER_SLOT,
                 item(
                         Material.PURPLE_BANNER,
-                        PRIMARY + team.name(),
+                        SECONDARY + team.name(),
                         List.of(
                                 BODY + "Team invite",
                                 BODY + "Invited by " + SECONDARY + inviterName,
@@ -107,7 +106,7 @@ public final class TeamInviteGui {
                         "&cDeny",
                         List.of(
                                 BODY + "Decline this invite",
-                                BODY + "Team " + PRIMARY + team.name()
+                                BODY + "Team " + SECONDARY + team.name()
                         )
                 )
         );

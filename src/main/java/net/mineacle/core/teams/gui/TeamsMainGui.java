@@ -34,7 +34,7 @@ public final class TeamsMainGui {
     public static final int SORT_SLOT = 50;
     public static final int TEAM_PVP_SLOT = 51;
 
-    private static final String PRIMARY = "&#8436FE";
+    private static final String ACCENT = "&#D0AFFF";
     private static final String SECONDARY = "&#B078FF";
     private static final String BODY = "&#bbbbbb";
 
@@ -88,13 +88,13 @@ public final class TeamsMainGui {
                     slot,
                     playerHead(
                             offlinePlayer,
-                            (online ? "&a" : BODY) + displayName,
+                            (online ? SECONDARY : BODY) + displayName,
                             List.of(
                                     BODY + "Role: " + SECONDARY + role,
-                                    BODY + "Balance: &a"
+                                    BODY + "Balance: " + SECONDARY
                                             + VaultMoneyHook.formattedBalance(offlinePlayer),
                                     BODY + "Status: "
-                                            + (online ? "&aOnline" : BODY + "Offline"),
+                                            + (online ? ACCENT + "Online" : BODY + "Offline"),
                                     "",
                                     BODY + "Click to manage"
                             )
@@ -110,7 +110,7 @@ public final class TeamsMainGui {
                     slot,
                     item(
                             Material.LIME_STAINED_GLASS_PANE,
-                            "&aInvite Player",
+                            SECONDARY + "Invite Player",
                             List.of(
                                     BODY + "Prepare a team invitation",
                                     "",
@@ -126,7 +126,7 @@ public final class TeamsMainGui {
                 TEAM_INFO_SLOT,
                 item(
                         Material.BOOK,
-                        PRIMARY + "Team Info",
+                        SECONDARY + "Team Info",
                         List.of(
                                 BODY + "Name: " + SECONDARY + team.name(),
                                 BODY + "Members: " + SECONDARY
@@ -238,9 +238,9 @@ public final class TeamsMainGui {
         if (hasTeamHome) {
             return item(
                     Material.PURPLE_BANNER,
-                    PRIMARY + "Team Home",
+                    SECONDARY + "Team Home",
                     List.of(
-                            BODY + "Status: &aSet",
+                            BODY + "Status: " + ACCENT + "Set",
                             "",
                             BODY + "Click to teleport"
                     )
@@ -249,9 +249,9 @@ public final class TeamsMainGui {
 
         return item(
                 Material.WHITE_BANNER,
-                PRIMARY + "Team Home",
+                SECONDARY + "Team Home",
                 List.of(
-                        BODY + "Status: &cNot Set",
+                        BODY + "Status: " + BODY + "Not Set",
                         "",
                         BODY + "Click to open Homes"
                 )
@@ -261,10 +261,10 @@ public final class TeamsMainGui {
     private static ItemStack teamChatItem(boolean enabled) {
         return item(
                 enabled ? Material.LIME_DYE : Material.GRAY_DYE,
-                PRIMARY + "Team Chat",
+                SECONDARY + "Team Chat",
                 List.of(
                         BODY + "Status: "
-                                + (enabled ? "&aEnabled" : "&cDisabled"),
+                                + (enabled ? ACCENT + "Enabled" : BODY + "Disabled"),
                         "",
                         BODY + "Click to toggle"
                 )
@@ -278,7 +278,7 @@ public final class TeamsMainGui {
 
         for (TeamSortMode mode : TeamSortMode.values()) {
             lore.add(
-                    (mode == current ? PRIMARY : BODY)
+                    (mode == current ? ACCENT : BODY)
                             + mode.displayName()
             );
         }
@@ -286,16 +286,16 @@ public final class TeamsMainGui {
         lore.add("");
         lore.add(BODY + "Click to change sorting");
 
-        return item(Material.HOPPER, PRIMARY + "Sort Members", lore);
+        return item(Material.HOPPER, SECONDARY + "Sort Members", lore);
     }
 
     private static ItemStack pvpItem(boolean friendlyFire) {
         return item(
                 Material.DIAMOND_SWORD,
-                PRIMARY + "Team PvP",
+                SECONDARY + "Team PvP",
                 List.of(
                         BODY + "Status: "
-                                + (friendlyFire ? "&aEnabled" : "&cDisabled"),
+                                + (friendlyFire ? ACCENT + "Enabled" : BODY + "Disabled"),
                         "",
                         BODY + "Click to toggle"
                 )

@@ -28,10 +28,10 @@ public final class OriginRtpQueueService {
         COUNTDOWN
     }
 
-    private static final String PRIMARY =
-            "&#8436FE";
     private static final String SECONDARY =
             "&#B078FF";
+    private static final String ACCENT =
+            "&#D0AFFF";
     private static final String BODY =
             "&#bbbbbb";
 
@@ -223,12 +223,12 @@ public final class OriginRtpQueueService {
                 player,
                 BODY
                         + "Finding a safe "
-                        + PRIMARY
+                        + SECONDARY
                         + displayName(destination)
                         + " "
                         + BODY
                         + "destination "
-                        + SECONDARY
+                        + ACCENT
                         + "#"
                         + queuePosition(player)
         );
@@ -549,7 +549,7 @@ public final class OriginRtpQueueService {
                         + "safe terrain "
                         + BODY
                         + "in "
-                        + PRIMARY
+                        + SECONDARY
                         + displayName(
                         session.request()
                                 .destination()
@@ -812,7 +812,7 @@ public final class OriginRtpQueueService {
                     player,
                     BODY
                             + "Still searching for safe "
-                            + PRIMARY
+                            + SECONDARY
                             + displayName(
                             session.request()
                                     .destination()
@@ -1174,7 +1174,7 @@ public final class OriginRtpQueueService {
                 normalizePalette(raw)
                         .replace(
                                 "%world%",
-                                PRIMARY
+                                SECONDARY
                                         + displayName(
                                         destination
                                 )
@@ -1188,12 +1188,20 @@ public final class OriginRtpQueueService {
     ) {
         return value
                 .replace(
+                        "&#8436FE",
+                        SECONDARY
+                )
+                .replace(
+                        "&#8436fe",
+                        SECONDARY
+                )
+                .replace(
                         "&#" + "ff55ff",
-                        PRIMARY
+                        SECONDARY
                 )
                 .replace(
                         "&#" + "FF55FF",
-                        PRIMARY
+                        SECONDARY
                 )
                 .replace(
                         "&#" + "ff88ff",
@@ -1205,7 +1213,7 @@ public final class OriginRtpQueueService {
                 )
                 .replace(
                         "&" + "d",
-                        PRIMARY
+                        SECONDARY
                 )
                 .replace(
                         "&#cccccc",
