@@ -1,5 +1,5 @@
 enabled: true
-title: "&#8436FESpawn"
+title: "Spawn"
 size: 27
 max-players-display: 100
 
@@ -29,12 +29,12 @@ gui:
     available-lore:
       - "&#bbbbbb%online%/%max%"
       - ""
-      - "&#D0AFFFClick to return to Spawn"
+      - "&#bbbbbbClick to return to &#8436FESpawn"
   random:
     lore:
       - "&#bbbbbbClick to teleport to a random &#B078FFSpawn"
       - ""
-      - "&#D0AFFFChooses the lowest-populated spawn"
+      - "&#bbbbbbChooses the lowest-populated spawn"
 
 random:
   enabled: true

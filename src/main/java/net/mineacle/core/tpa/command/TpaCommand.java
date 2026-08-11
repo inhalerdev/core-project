@@ -29,7 +29,6 @@ public final class TpaCommand
         implements CommandExecutor, TabCompleter {
 
     private static final String SECONDARY = "&#B078FF";
-    private static final String ACCENT = "&#D0AFFF";
     private static final String BODY = "&#bbbbbb";
 
     private final Core core;
@@ -227,7 +226,7 @@ public final class TpaCommand
                         );
         Component buttons =
                 component(
-                        ACCENT + "Respond "
+                        BODY + "Respond "
                 )
                         .append(accept)
                         .append(Component.space())

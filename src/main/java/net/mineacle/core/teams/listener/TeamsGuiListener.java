@@ -36,7 +36,6 @@ import java.util.UUID;
 public final class TeamsGuiListener implements Listener {
 
     private static final String PRIMARY = "&#8436FE";
-    private static final String ACCENT = "&#D0AFFF";
     private static final String BODY = "&#bbbbbb";
 
     private final Core core;
@@ -542,7 +541,7 @@ public final class TeamsGuiListener implements Listener {
                 );
         sendBoth(
                 player,
-                ACCENT + "Click confirm again " + BODY + "to continue"
+                BODY + "Click confirm again to continue"
         );
         SoundService.guiConfirm(player, core);
 

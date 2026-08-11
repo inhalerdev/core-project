@@ -16,7 +16,7 @@ import java.util.List;
 
 public final class TpaTargetMenuGui {
 
-    public static final String TITLE = "&#8436FEConfirm Request";
+    public static final String TITLE = "Confirm Request";
     public static final int CANCEL_SLOT = 10;
     public static final int REGION_SLOT = 12;
     public static final int PLAYER_SLOT = 13;
@@ -25,7 +25,6 @@ public final class TpaTargetMenuGui {
 
     private static final String PRIMARY = "&#8436FE";
     private static final String SECONDARY = "&#B078FF";
-    private static final String ACCENT = "&#D0AFFF";
     private static final String BODY = "&#bbbbbb";
 
     private TpaTargetMenuGui() {
@@ -35,7 +34,7 @@ public final class TpaTargetMenuGui {
         Inventory inventory = Bukkit.createInventory(
                 null,
                 27,
-                GuiText.component(TITLE)
+                GuiText.title(TITLE)
         );
 
         inventory.setItem(
@@ -76,7 +75,7 @@ public final class TpaTargetMenuGui {
                         "&aConfirm",
                         List.of(
                                 BODY + "Send " + SECONDARY + DisplayNames.displayName(target),
-                                ACCENT + "a teleport request"
+                                BODY + "a teleport request"
                         )
                 )
         );

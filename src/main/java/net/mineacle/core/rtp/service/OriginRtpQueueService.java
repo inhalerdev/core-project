@@ -546,7 +546,7 @@ public final class OriginRtpQueueService {
                 player,
                 BODY
                         + "Searching "
-                        + ACCENT
+                        + BODY
                         + "safe terrain "
                         + BODY
                         + "in "
@@ -772,7 +772,7 @@ public final class OriginRtpQueueService {
                     player,
                     BODY
                             + "Destination changed "
-                            + ACCENT
+                            + BODY
                             + "finding another safe location"
             );
             return;

@@ -25,6 +25,18 @@ public final class GuiText {
         ).decoration(TextDecoration.ITALIC, false);
     }
 
+
+    /**
+     * Inventory titles intentionally use vanilla/default title styling.
+     * Any configured Mineacle color codes are stripped at this boundary so
+     * accent colors cannot leak into container titles.
+     */
+    public static Component title(String input) {
+        String value = plain(input).trim();
+        return Component.text(value)
+                .decoration(TextDecoration.ITALIC, false);
+    }
+
     public static List<Component> lore(List<String> lines) {
         if (lines == null || lines.isEmpty()) {
             return List.of();

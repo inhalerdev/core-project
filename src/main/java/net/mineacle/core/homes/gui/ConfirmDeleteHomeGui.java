@@ -19,8 +19,6 @@ public final class ConfirmDeleteHomeGui {
     public static final int ACTION_SLOT = 13;
     public static final int CONFIRM_SLOT = 15;
 
-    private static final String PRIMARY = "&#8436FE";
-    private static final String ACCENT = "&#D0AFFF";
     private static final String BODY = "&#bbbbbb";
 
     private ConfirmDeleteHomeGui() {
@@ -44,7 +42,7 @@ public final class ConfirmDeleteHomeGui {
                         "&cCancel",
                         List.of(
                                 BODY + "Do not continue",
-                                ACCENT + "Click to cancel this action"
+                                BODY + "Click to cancel this action"
                         )
                 )
         );
@@ -66,7 +64,7 @@ public final class ConfirmDeleteHomeGui {
                         "&aConfirm",
                         List.of(
                                 BODY + "Click once to ready this action",
-                                ACCENT + "Click again to confirm"
+                                BODY + "Click again to confirm"
                         )
                 )
         );
@@ -88,7 +86,7 @@ public final class ConfirmDeleteHomeGui {
                         "&cCancel",
                         List.of(
                                 BODY + "Do not continue",
-                                ACCENT + "Click to cancel this action"
+                                BODY + "Click to cancel this action"
                         )
                 )
         );
@@ -110,7 +108,7 @@ public final class ConfirmDeleteHomeGui {
                         "&aConfirm",
                         List.of(
                                 BODY + "Click once to ready this action",
-                                ACCENT + "Click again to confirm"
+                                BODY + "Click again to confirm"
                         )
                 )
         );
@@ -124,9 +122,7 @@ public final class ConfirmDeleteHomeGui {
             String fallback
     ) {
         String plain = GuiText.plain(core.getMessage(path));
-        return GuiText.component(
-                PRIMARY + (plain.isBlank() ? fallback : plain)
-        );
+        return GuiText.title(plain.isBlank() ? fallback : plain);
     }
 
     private static ItemStack item(

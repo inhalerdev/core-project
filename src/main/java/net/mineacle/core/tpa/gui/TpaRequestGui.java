@@ -22,7 +22,7 @@ import java.util.Locale;
 public final class TpaRequestGui {
 
     public static final Component TITLE =
-            GuiText.component("&#8436FETeleport Request");
+            GuiText.title("Teleport Request");
     public static final int DENY_SLOT = 11;
     public static final int REQUESTER_SLOT = 13;
     public static final int ACCEPT_SLOT = 15;
@@ -32,8 +32,6 @@ public final class TpaRequestGui {
             "&#8436FE";
     private static final String SECONDARY =
             "&#B078FF";
-    private static final String ACCENT =
-            "&#D0AFFF";
     private static final String BODY =
             "&#bbbbbb";
 
@@ -100,13 +98,13 @@ public final class TpaRequestGui {
                                 ? List.of(
                                 BODY
                                         + "Wants to teleport to you",
-                                ACCENT
+                                BODY
                                         + "Review the request below"
                         )
                                 : List.of(
                                 BODY
                                         + "Wants you to teleport to them",
-                                ACCENT
+                                BODY
                                         + "Review the request below"
                         )
                 )
@@ -163,7 +161,7 @@ public final class TpaRequestGui {
                                 + "World: "
                                 + SECONDARY
                                 + world.getName(),
-                        ACCENT
+                        BODY
                                 + (
                                 request.type()
                                         == TpaRequestType.TO_TARGET

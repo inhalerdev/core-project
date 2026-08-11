@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Level;
@@ -53,7 +54,6 @@ public final class TeleportService {
     public static final String ERROR = "&c";
     public static final String PRIMARY = "&#8436FE";
     public static final String SECONDARY = "&#B078FF";
-    public static final String ACCENT = "&#D0AFFF";
     public static final String BODY = "&#bbbbbb";
 
     private static final String CANCELLED_MOVE =
@@ -66,6 +66,7 @@ public final class TeleportService {
     private final Core core;
     private final Map<UUID, PendingTeleport> pending = new HashMap<>();
     private final Map<UUID, TeleportKind> reservations = new HashMap<>();
+    private final Map<UUID, InFlightTeleport> inFlight = new HashMap<>();
     private BukkitTask tickerTask;
 
     public TeleportService(Core core) {
@@ -92,7 +93,8 @@ public final class TeleportService {
     public boolean isActive(UUID playerId) {
         return playerId != null
                 && (pending.containsKey(playerId)
-                || reservations.containsKey(playerId));
+                || reservations.containsKey(playerId)
+                || inFlight.containsKey(playerId));
     }
 
     public void beginLocation(
@@ -309,6 +311,7 @@ public final class TeleportService {
 
         pending.clear();
         reservations.clear();
+        inFlight.clear();
     }
 
     private boolean beginInternal(
@@ -482,44 +485,128 @@ public final class TeleportService {
             return false;
         }
 
+        UUID playerId = player.getUniqueId();
+        InFlightTeleport execution = new InFlightTeleport(
+                safeDisplayTarget(displayTarget),
+                kind,
+                destination.clone(),
+                callbacks == null ? Callbacks.NONE : callbacks
+        );
+
+        if (inFlight.putIfAbsent(playerId, execution) != null) {
+            sendActionBar(player, ALREADY_ACTIVE);
+            SoundService.guiError(player, core);
+            return false;
+        }
+
         try {
-            boolean teleported = player.teleport(
-                    destination,
-                    PlayerTeleportEvent.TeleportCause.COMMAND
+            CompletableFuture<Boolean> future = player.teleportAsync(
+                    execution.destination(),
+                    PlayerTeleportEvent.TeleportCause.PLUGIN
             );
 
-            if (!teleported) {
-                logRejected(player, destination, kind);
+            future.whenComplete((teleported, throwable) ->
+                    completeAsyncTeleport(
+                            playerId,
+                            execution,
+                            teleported,
+                            throwable
+                    )
+            );
+            return true;
+        } catch (RuntimeException exception) {
+            inFlight.remove(playerId, execution);
+            core.getLogger().log(
+                    Level.WARNING,
+                    "Teleport execution could not start for "
+                            + playerId
+                            + " context=" + kind,
+                    exception
+            );
+            fail(
+                    player,
+                    execution.displayTarget(),
+                    kind,
+                    FailureReason.EXCEPTION,
+                    execution.callbacks()
+            );
+            return false;
+        }
+    }
+
+    private void completeAsyncTeleport(
+            UUID playerId,
+            InFlightTeleport execution,
+            Boolean teleported,
+            Throwable throwable
+    ) {
+        Runnable completion = () -> {
+            if (!inFlight.remove(playerId, execution)) {
+                return;
+            }
+
+            Player player = core.getServer().getPlayer(playerId);
+
+            if (throwable != null) {
+                core.getLogger().log(
+                        Level.WARNING,
+                        "Teleport execution failed for "
+                                + playerId
+                                + " context=" + execution.kind(),
+                        throwable
+                );
                 fail(
                         player,
-                        displayTarget,
-                        kind,
-                        FailureReason.TELEPORT_REJECTED,
-                        callbacks
+                        execution.displayTarget(),
+                        execution.kind(),
+                        FailureReason.EXCEPTION,
+                        execution.callbacks()
                 );
-                return false;
+                return;
+            }
+
+            if (!Boolean.TRUE.equals(teleported)) {
+                if (player != null) {
+                    logRejected(
+                            player,
+                            execution.destination(),
+                            execution.kind()
+                    );
+                }
+                fail(
+                        player,
+                        execution.displayTarget(),
+                        execution.kind(),
+                        FailureReason.TELEPORT_REJECTED,
+                        execution.callbacks()
+                );
+                return;
+            }
+
+            if (player == null || !player.isOnline()) {
+                execution.callbacks().failure(FailureReason.CANCELLED);
+                return;
             }
 
             sendBoth(
                     player,
                     SUCCESS + "Teleported "
                             + BODY + "to "
-                            + targetColor(kind)
-                            + safeDisplayTarget(displayTarget)
+                            + targetColor(execution.kind())
+                            + execution.displayTarget()
             );
             SoundService.teleportComplete(player, core);
-            callbacks.success();
-            return true;
-        } catch (RuntimeException exception) {
-            core.getLogger().log(
-                    Level.WARNING,
-                    "Teleport execution failed for "
-                            + player.getUniqueId()
-                            + " context=" + kind,
-                    exception
-            );
-            fail(player, displayTarget, kind, FailureReason.EXCEPTION, callbacks);
-            return false;
+            execution.callbacks().success();
+        };
+
+        if (!core.isEnabled()) {
+            return;
+        }
+
+        if (Bukkit.isPrimaryThread()) {
+            completion.run();
+        } else {
+            core.getServer().getScheduler().runTask(core, completion);
         }
     }
 
@@ -712,6 +799,7 @@ public final class TeleportService {
                 "Paper rejected Mineacle teleport player="
                         + player.getUniqueId()
                         + " context=" + kind
+                        + " cause=PLUGIN"
                         + " from=" + locationSummary(player.getLocation())
                         + " to=" + locationSummary(destination)
         );
@@ -726,6 +814,14 @@ public final class TeleportService {
                 + ":" + location.getBlockX()
                 + "," + location.getBlockY()
                 + "," + location.getBlockZ();
+    }
+
+    private record InFlightTeleport(
+            String displayTarget,
+            TeleportKind kind,
+            Location destination,
+            Callbacks callbacks
+    ) {
     }
 
     private static final class PendingTeleport {

@@ -1,6 +1,6 @@
 package net.mineacle.core.spawn.gui;
 
-import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.spawn.model.SpawnPoint;
 import net.mineacle.core.spawn.service.SpawnService;
 import org.bukkit.Bukkit;
@@ -19,7 +19,11 @@ public final class SpawnGui {
     }
 
     public static void open(Player player, SpawnService spawnService) {
-        Inventory inventory = Bukkit.createInventory(null, spawnService.size(), spawnService.title());
+        Inventory inventory = Bukkit.createInventory(
+                null,
+                spawnService.size(),
+                GuiText.title(spawnService.title())
+        );
 
         for (SpawnPoint point : spawnService.spawnPoints()) {
             if (!point.enabled()) {
@@ -33,7 +37,9 @@ public final class SpawnGui {
                     current,
                     point.displayName(),
                     spawnService.applyLorePlaceholders(
-                            current ? spawnService.currentSpawnLore() : spawnService.availableSpawnLore(),
+                            current
+                                    ? spawnService.currentSpawnLore()
+                                    : spawnService.availableSpawnLore(),
                             point,
                             online
                     )
@@ -51,7 +57,11 @@ public final class SpawnGui {
         player.openInventory(inventory);
     }
 
-    private static ItemStack spawnItem(boolean current, String displayName, List<String> lore) {
+    private static ItemStack spawnItem(
+            boolean current,
+            String displayName,
+            List<String> lore
+    ) {
         return item(
                 current ? Material.GLOW_ITEM_FRAME : Material.ITEM_FRAME,
                 displayName,
@@ -59,7 +69,11 @@ public final class SpawnGui {
         );
     }
 
-    private static ItemStack item(Material material, String name, List<String> lore) {
+    private static ItemStack item(
+            Material material,
+            String name,
+            List<String> lore
+    ) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
 
@@ -67,10 +81,8 @@ public final class SpawnGui {
             return item;
         }
 
-        meta.setDisplayName(TextColor.color(name));
-        meta.setLore(lore.stream().map(TextColor::color).toList());
+        GuiText.apply(meta, name, lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-
         item.setItemMeta(meta);
         return item;
     }

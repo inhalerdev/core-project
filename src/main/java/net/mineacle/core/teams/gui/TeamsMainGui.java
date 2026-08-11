@@ -36,7 +36,6 @@ public final class TeamsMainGui {
 
     private static final String PRIMARY = "&#8436FE";
     private static final String SECONDARY = "&#B078FF";
-    private static final String ACCENT = "&#D0AFFF";
     private static final String BODY = "&#bbbbbb";
 
     private static final Map<UUID, TeamSortMode> SORT_MODES = new HashMap<>();
@@ -66,10 +65,9 @@ public final class TeamsMainGui {
         Inventory inventory = Bukkit.createInventory(
                 null,
                 54,
-                GuiText.component(
-                        PRIMARY + team.name()
-                                + " " + BODY + "("
-                                + memberCount + "/"
+                GuiText.title(
+                        team.name()
+                                + " (" + memberCount + "/"
                                 + teamService.maxMembers() + ")"
                 )
         );
@@ -98,7 +96,7 @@ public final class TeamsMainGui {
                                     BODY + "Status: "
                                             + (online ? "&aOnline" : BODY + "Offline"),
                                     "",
-                                    ACCENT + "Click to manage"
+                                    BODY + "Click to manage"
                             )
                     )
             );
@@ -116,7 +114,7 @@ public final class TeamsMainGui {
                             List.of(
                                     BODY + "Prepare a team invitation",
                                     "",
-                                    ACCENT + "Click to autofill /team invite"
+                                    BODY + "Click to autofill /team invite"
                             )
                     )
             );
@@ -244,7 +242,7 @@ public final class TeamsMainGui {
                     List.of(
                             BODY + "Status: &aSet",
                             "",
-                            ACCENT + "Click to teleport"
+                            BODY + "Click to teleport"
                     )
             );
         }
@@ -255,7 +253,7 @@ public final class TeamsMainGui {
                 List.of(
                         BODY + "Status: &cNot Set",
                         "",
-                        ACCENT + "Click to open Homes"
+                        BODY + "Click to open Homes"
                 )
         );
     }
@@ -268,7 +266,7 @@ public final class TeamsMainGui {
                         BODY + "Status: "
                                 + (enabled ? "&aEnabled" : "&cDisabled"),
                         "",
-                        ACCENT + "Click to toggle"
+                        BODY + "Click to toggle"
                 )
         );
     }
@@ -286,7 +284,7 @@ public final class TeamsMainGui {
         }
 
         lore.add("");
-        lore.add(ACCENT + "Click to change sorting");
+        lore.add(BODY + "Click to change sorting");
 
         return item(Material.HOPPER, PRIMARY + "Sort Members", lore);
     }
@@ -299,7 +297,7 @@ public final class TeamsMainGui {
                         BODY + "Status: "
                                 + (friendlyFire ? "&aEnabled" : "&cDisabled"),
                         "",
-                        ACCENT + "Click to toggle"
+                        BODY + "Click to toggle"
                 )
         );
     }

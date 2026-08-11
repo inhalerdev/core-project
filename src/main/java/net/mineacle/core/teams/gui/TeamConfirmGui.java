@@ -13,13 +13,12 @@ import java.util.List;
 
 public final class TeamConfirmGui {
 
-    public static final String TITLE = "&#8436FEConfirm Action";
+    public static final String TITLE = "Confirm Action";
 
     public static final int CANCEL_SLOT = 11;
     public static final int ACTION_SLOT = 13;
     public static final int CONFIRM_SLOT = 15;
 
-    private static final String ACCENT = "&#D0AFFF";
     private static final String BODY = "&#bbbbbb";
 
     private TeamConfirmGui() {
@@ -29,7 +28,7 @@ public final class TeamConfirmGui {
         Inventory inventory = Bukkit.createInventory(
                 null,
                 27,
-                GuiText.component(TITLE)
+                GuiText.title(TITLE)
         );
 
         inventory.setItem(
@@ -39,7 +38,7 @@ public final class TeamConfirmGui {
                         "&cCancel",
                         List.of(
                                 BODY + "Do not continue",
-                                ACCENT + "Click to cancel this action"
+                                BODY + "Click to cancel this action"
                         )
                 )
         );
@@ -61,7 +60,7 @@ public final class TeamConfirmGui {
                         "&aConfirm",
                         List.of(
                                 BODY + "Click once to ready this action",
-                                ACCENT + "Click again to confirm"
+                                BODY + "Click again to confirm"
                         )
                 )
         );

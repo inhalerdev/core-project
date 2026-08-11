@@ -33,6 +33,7 @@ public final class HomesGuiListener
     private final HomeService homeService;
     private final TeleportService teleportService;
     private final HomeGuiState guiState;
+    private final TeamHomeService teamHomeService;
 
     public HomesGuiListener(
             Core core,
@@ -44,6 +45,7 @@ public final class HomesGuiListener
         this.homeService = homeService;
         this.teleportService = teleportService;
         this.guiState = guiState;
+        this.teamHomeService = new TeamHomeService(core);
     }
 
     @EventHandler
@@ -81,34 +83,16 @@ public final class HomesGuiListener
                 return;
             }
 
-            for (int index = 0;
-                 index
-                         < HomesMainGui.BED_SLOTS.length;
-                 index++) {
-                if (slot
-                        == HomesMainGui
-                        .BED_SLOTS[index]) {
-                    handleHomeBedClick(
-                            player,
-                            index + 1
-                    );
-                    return;
-                }
+            int bedHomeId = HomesMainGui.homeIdForBedSlot(slot);
+            if (bedHomeId > 0) {
+                handleHomeBedClick(player, bedHomeId);
+                return;
             }
 
-            for (int index = 0;
-                 index
-                         < HomesMainGui.DYE_SLOTS.length;
-                 index++) {
-                if (slot
-                        == HomesMainGui
-                        .DYE_SLOTS[index]) {
-                    handleHomeDyeClick(
-                            player,
-                            index + 1
-                    );
-                    return;
-                }
+            int dyeHomeId = HomesMainGui.homeIdForDyeSlot(slot);
+            if (dyeHomeId > 0) {
+                handleHomeDyeClick(player, dyeHomeId);
+                return;
             }
 
             handleTeamHomeClick(
@@ -341,8 +325,6 @@ public final class HomesGuiListener
             return;
         }
 
-        TeamHomeService teamHomeService =
-                new TeamHomeService(core);
         TeamRecord team =
                 teamService.getTeamByPlayer(
                         player.getUniqueId()
@@ -495,7 +477,7 @@ public final class HomesGuiListener
                     guiState.armTeam(player, teamId, timeout);
             sendPopup(
                     player,
-                    "&#bbbbbbClick &#D0AFFFconfirm again &#bbbbbbto continue"
+                    "&#bbbbbbClick confirm again to continue"
             );
             SoundService.guiConfirm(player, core);
             scheduleTeamDeleteTimeout(
@@ -517,7 +499,17 @@ public final class HomesGuiListener
             return;
         }
 
-        TeamHomeService teamHomeService = new TeamHomeService(core);
+        TeamRecord currentTeam =
+                teamService.getTeamByPlayer(player.getUniqueId());
+        if (currentTeam == null
+                || !currentTeam.teamId().equals(teamId)
+                || !teamService.isFounder(player.getUniqueId())) {
+            guiState.clearTeam(player);
+            player.closeInventory();
+            sendPopup(player, "&cOnly the founder can delete Team Home");
+            SoundService.guiError(player, core);
+            return;
+        }
 
         if (!teamHomeService.hasTeamHome(teamId)) {
             guiState.clearTeam(player);
@@ -620,7 +612,7 @@ public final class HomesGuiListener
                 guiState.armPersonal(player, id, timeout);
         sendPopup(
                 player,
-                "&#bbbbbbClick &#D0AFFFconfirm again &#bbbbbbto continue"
+                "&#bbbbbbClick confirm again to continue"
         );
         SoundService.guiConfirm(player, core);
         schedulePersonalDeleteTimeout(

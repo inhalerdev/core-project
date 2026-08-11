@@ -14,7 +14,7 @@ import java.util.List;
 
 public final class TeamStartGui {
 
-    public static final String TITLE = "&#8436FETeam Menu";
+    public static final String TITLE = "Team Menu";
 
     public static final int CREATE_SLOT = 11;
     public static final int INVITES_SLOT = 13;
@@ -22,7 +22,6 @@ public final class TeamStartGui {
 
     private static final String PRIMARY = "&#8436FE";
     private static final String SECONDARY = "&#B078FF";
-    private static final String ACCENT = "&#D0AFFF";
     private static final String BODY = "&#bbbbbb";
 
     private TeamStartGui() {
@@ -35,7 +34,7 @@ public final class TeamStartGui {
         Inventory inventory = Bukkit.createInventory(
                 null,
                 27,
-                GuiText.component(TITLE)
+                GuiText.title(TITLE)
         );
         boolean hasInvite = inviteService.hasInvite(player.getUniqueId());
 
@@ -46,7 +45,7 @@ public final class TeamStartGui {
                         PRIMARY + "Create Team",
                         List.of(
                                 BODY + "Create your own team",
-                                ACCENT + "Click to autofill " + PRIMARY + "/team create"
+                                BODY + "Click to autofill " + PRIMARY + "/team create"
                         )
                 )
         );
@@ -64,7 +63,7 @@ public final class TeamStartGui {
                                 hasInvite
                                         ? BODY + "You have a pending team invite"
                                         : BODY + "You do not have any team invites",
-                                ACCENT + "Click to view invites"
+                                BODY + "Click to view invites"
                         )
                 )
         );

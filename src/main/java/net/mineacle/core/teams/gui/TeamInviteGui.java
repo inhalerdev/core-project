@@ -19,7 +19,7 @@ import java.util.List;
 
 public final class TeamInviteGui {
 
-    public static final String TITLE = "&#8436FETeam Invites";
+    public static final String TITLE = "Team Invites";
 
     public static final int ACCEPT_SLOT = 11;
     public static final int CENTER_SLOT = 13;
@@ -27,7 +27,6 @@ public final class TeamInviteGui {
 
     private static final String PRIMARY = "&#8436FE";
     private static final String SECONDARY = "&#B078FF";
-    private static final String ACCENT = "&#D0AFFF";
     private static final String BODY = "&#bbbbbb";
 
     private TeamInviteGui() {
@@ -42,7 +41,7 @@ public final class TeamInviteGui {
         Inventory inventory = Bukkit.createInventory(
                 null,
                 27,
-                GuiText.component(TITLE)
+                GuiText.title(TITLE)
         );
 
         if (invite == null) {
@@ -96,7 +95,7 @@ public final class TeamInviteGui {
                         List.of(
                                 BODY + "Team invite",
                                 BODY + "Invited by " + SECONDARY + inviterName,
-                                BODY + "Expires in " + ACCENT
+                                BODY + "Expires in " + SECONDARY
                                         + inviteService.remainingSeconds(player.getUniqueId()) + "s"
                         )
                 )

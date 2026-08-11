@@ -24,7 +24,6 @@ public final class TeamMemberGui {
 
     private static final String PRIMARY = "&#8436FE";
     private static final String SECONDARY = "&#B078FF";
-    private static final String ACCENT = "&#D0AFFF";
     private static final String BODY = "&#bbbbbb";
 
     private TeamMemberGui() {
@@ -48,7 +47,7 @@ public final class TeamMemberGui {
         Inventory inventory = Bukkit.createInventory(
                 null,
                 27,
-                GuiText.component(PRIMARY + TITLE_PREFIX + titleName)
+                GuiText.title(TITLE_PREFIX + titleName)
         );
 
         inventory.setItem(
@@ -61,7 +60,7 @@ public final class TeamMemberGui {
                                 BODY + "Status: "
                                         + (online ? "&aOnline" : BODY + "Offline"),
                                 "",
-                                ACCENT + "Use the options below"
+                                BODY + "Use the options below"
                         )
                 )
         );
@@ -74,7 +73,7 @@ public final class TeamMemberGui {
                         List.of(
                                 BODY + "Open this player's stats",
                                 "",
-                                ACCENT + "Click to view"
+                                BODY + "Click to view"
                         )
                 )
         );
@@ -114,7 +113,7 @@ public final class TeamMemberGui {
                                 "&aPromote",
                                 List.of(
                                         BODY + "Promote this member",
-                                        ACCENT + "Founder only"
+                                        BODY + "Founder only"
                                 )
                         )
                 );
@@ -128,7 +127,7 @@ public final class TeamMemberGui {
                                 SECONDARY + "Demote",
                                 List.of(
                                         BODY + "Demote this admin",
-                                        ACCENT + "Founder only"
+                                        BODY + "Founder only"
                                 )
                         )
                 );
@@ -141,7 +140,7 @@ public final class TeamMemberGui {
                             "&cKick",
                             List.of(
                                     BODY + "Remove this player",
-                                    ACCENT + "Requires confirmation"
+                                    BODY + "Requires confirmation"
                             )
                     )
             );
@@ -163,7 +162,7 @@ public final class TeamMemberGui {
                             PRIMARY + "Transfer Founder",
                             List.of(
                                     BODY + "Transfer team ownership",
-                                    ACCENT + "Requires confirmation"
+                                    BODY + "Requires confirmation"
                             )
                     )
             );
@@ -176,7 +175,7 @@ public final class TeamMemberGui {
                             "&cKick",
                             List.of(
                                     BODY + "Remove this player",
-                                    ACCENT + "Admins can kick members"
+                                    BODY + "Admins can kick members"
                             )
                     )
             );

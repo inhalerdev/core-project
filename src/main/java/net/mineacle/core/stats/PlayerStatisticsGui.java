@@ -56,7 +56,7 @@ public final class PlayerStatisticsGui implements Listener {
         Inventory inventory = Bukkit.createInventory(
                 null,
                 SIZE,
-                GuiText.component(DisplayNames.displayName(target) + " &#8436FEStats")
+                GuiText.title(DisplayNames.displayName(target) + TITLE_SUFFIX)
         );
 
         inventory.setItem(SLOT_MONEY, statItem(
@@ -67,7 +67,7 @@ public final class PlayerStatisticsGui implements Listener {
 
         inventory.setItem(SLOT_PLAYTIME, statItem(
                 Material.CLOCK,
-                "&#D0AFFFPlaytime",
+                "&#8436FEPlaytime",
                 "&#bbbbbb" + service.playtime(targetId)
         ));
 

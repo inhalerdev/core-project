@@ -20,12 +20,12 @@ import java.util.UUID;
 
 public final class HomesMainGui {
 
-    public static final int[] BED_SLOTS = {12, 13, 14, 15, 16};
-    public static final int[] DYE_SLOTS = {21, 22, 23, 24, 25};
+    private static final int FIRST_BED_SLOT = 12;
+    private static final int FIRST_DYE_SLOT = 21;
+    private static final int HOME_SLOT_COUNT = 5;
 
     private static final String PRIMARY = "&#8436FE";
     private static final String SECONDARY = "&#B078FF";
-    private static final String ACCENT = "&#D0AFFF";
     private static final String BODY = "&#bbbbbb";
 
     private HomesMainGui() {
@@ -44,10 +44,9 @@ public final class HomesMainGui {
         UUID uuid = player.getUniqueId();
         boolean hasFreeCapacity = homeService.hasFreeHomeCapacity(player);
 
-        for (int index = 0; index < 5; index++) {
-            int id = index + 1;
-            int bedSlot = BED_SLOTS[index];
-            int dyeSlot = DYE_SLOTS[index];
+        for (int id = 1; id <= HOME_SLOT_COUNT; id++) {
+            int bedSlot = bedSlot(id);
+            int dyeSlot = dyeSlot(id);
             String displayName = homeService.getDisplayName(uuid, id);
             boolean exists = homeService.exists(uuid, id);
 
@@ -58,9 +57,7 @@ public final class HomesMainGui {
                                 Material.PURPLE_BED,
                                 PRIMARY + displayName,
                                 List.of(
-                                        BODY + "Click to " + ACCENT
-                                                + "teleport " + BODY
-                                                + "to this home"
+                                        BODY + "Click to teleport to this home"
                                 )
                         )
                 );
@@ -183,7 +180,7 @@ public final class HomesMainGui {
             List<String> lore = List.of(
                     BODY + "You are not in a team",
                     BODY + "Type " + PRIMARY + "/team create",
-                    ACCENT + "to create a team"
+                    BODY + "to create a team"
             );
             inventory.setItem(
                     bannerSlot,
@@ -205,7 +202,7 @@ public final class HomesMainGui {
             if (isAdmin) {
                 List<String> lore = List.of(
                         BODY + "Team: " + teamDisplay,
-                        BODY + "Click to set " + ACCENT + "Team Home",
+                        BODY + "Click to set Team Home",
                         BODY + "to your current location"
                 );
                 inventory.setItem(
@@ -220,8 +217,7 @@ public final class HomesMainGui {
                 List<String> lore = List.of(
                         BODY + "Team: " + teamDisplay,
                         BODY + "Your team does not have a home yet",
-                        BODY + "Ask a " + ACCENT + "team admin "
-                                + BODY + "to set Team Home"
+                        BODY + "Ask a team admin to set Team Home"
                 );
                 inventory.setItem(
                         bannerSlot,
@@ -242,8 +238,7 @@ public final class HomesMainGui {
                         PRIMARY + "Team Home",
                         List.of(
                                 BODY + "Team: " + teamDisplay,
-                                BODY + "Click to " + ACCENT + "teleport "
-                                        + BODY + "to Team Home"
+                                BODY + "Click to teleport to Team Home"
                         )
                 )
         );
@@ -275,11 +270,30 @@ public final class HomesMainGui {
         }
     }
 
+    public static int homeIdForBedSlot(int slot) {
+        return homeIdForSlot(slot, FIRST_BED_SLOT);
+    }
+
+    public static int homeIdForDyeSlot(int slot) {
+        return homeIdForSlot(slot, FIRST_DYE_SLOT);
+    }
+
+    private static int homeIdForSlot(int slot, int firstSlot) {
+        int homeId = slot - firstSlot + 1;
+        return homeId >= 1 && homeId <= HOME_SLOT_COUNT ? homeId : 0;
+    }
+
+    private static int bedSlot(int homeId) {
+        return FIRST_BED_SLOT + homeId - 1;
+    }
+
+    private static int dyeSlot(int homeId) {
+        return FIRST_DYE_SLOT + homeId - 1;
+    }
+
     private static Component title(Core core) {
         String plain = GuiText.plain(core.getMessage("homes.gui.title"));
-        return GuiText.component(
-                PRIMARY + (plain.isBlank() ? "Homes" : plain)
-        );
+        return GuiText.title(plain.isBlank() ? "Homes" : plain);
     }
 
     private static ItemStack item(

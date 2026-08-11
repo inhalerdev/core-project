@@ -51,27 +51,18 @@ public final class DisplayNames {
         return nickname == null ? "" : nickname;
     }
 
-    public static String coloredDisplayName(
-            OfflinePlayer player
-    ) {
+    public static String coloredDisplayName(OfflinePlayer player) {
         return "&#bbbbbb" + displayName(player);
     }
 
-    /**
-     * Rank prefixes retain their configured styling. Exactly one visible
-     * space is inserted before the Mineacle display name.
-     */
-    public static String prefixedDisplayName(
-            OfflinePlayer player
-    ) {
+    /** LuckPerms owns rank/prefix formatting; Mineacle only consumes it. */
+    public static String prefixedDisplayName(OfflinePlayer player) {
         return luckPermsPrefixWithSpace(player)
                 + "&#bbbbbb"
                 + displayName(player);
     }
 
-    public static String commandDisplayName(
-            OfflinePlayer player
-    ) {
+    public static String commandDisplayName(OfflinePlayer player) {
         return displayName(player);
     }
 
@@ -91,10 +82,8 @@ public final class DisplayNames {
 
         for (Player online : Bukkit.getOnlinePlayers()) {
             if (normalize(username(online)).equals(normalized)
-                    || normalize(displayName(online))
-                    .equals(normalized)
-                    || normalize(nickname(online))
-                    .equals(normalized)) {
+                    || normalize(displayName(online)).equals(normalized)
+                    || normalize(nickname(online)).equals(normalized)) {
                 return online;
             }
         }
@@ -116,8 +105,7 @@ public final class DisplayNames {
         NicknameService service = ChatModule.nicknameService();
 
         if (service != null) {
-            OfflinePlayer byNickname =
-                    service.findByNickname(input);
+            OfflinePlayer byNickname = service.findByNickname(input);
 
             if (byNickname != null) {
                 return byNickname;
@@ -127,10 +115,7 @@ public final class DisplayNames {
         return Bukkit.getOfflinePlayer(input.trim());
     }
 
-    public static boolean startsWithDisplay(
-            Player player,
-            String partial
-    ) {
+    public static boolean startsWithDisplay(Player player, String partial) {
         if (player == null) {
             return false;
         }
@@ -139,21 +124,12 @@ public final class DisplayNames {
 
         return normalized.isEmpty()
                 || normalize(username(player)).startsWith(normalized)
-                || normalize(displayName(player))
-                .startsWith(normalized)
-                || normalize(nickname(player))
-                .startsWith(normalized);
+                || normalize(displayName(player)).startsWith(normalized)
+                || normalize(nickname(player)).startsWith(normalized);
     }
 
-    /**
-     * Compatibility name retained for existing callers. The value now comes
-     * from Mineacle's public rank resolver, so composite ranks such as
-     * Media + Plus render as one intentional prefix instead of whichever
-     * single LuckPerms prefix happens to win primary-prefix resolution.
-     */
-    public static String luckPermsPrefix(
-            OfflinePlayer player
-    ) {
+    /** Returns the effective prefix produced by LuckPerms' configured stack. */
+    public static String luckPermsPrefix(OfflinePlayer player) {
         String parsed = RankDisplayResolver.prefix(player);
 
         if (parsed == null || parsed.isBlank()) {
@@ -163,9 +139,7 @@ public final class DisplayNames {
         return parsed.replaceFirst("\\s+$", "") + " ";
     }
 
-    public static String luckPermsPrefixWithSpace(
-            OfflinePlayer player
-    ) {
+    public static String luckPermsPrefixWithSpace(OfflinePlayer player) {
         return luckPermsPrefix(player);
     }
 
@@ -180,8 +154,7 @@ public final class DisplayNames {
         if (service != null) {
             String prefix = service.prefix();
 
-            if (!prefix.isBlank()
-                    && cleaned.startsWith(prefix)) {
+            if (!prefix.isBlank() && cleaned.startsWith(prefix)) {
                 cleaned = cleaned.substring(prefix.length());
             }
         } else if (cleaned.startsWith(".")) {
