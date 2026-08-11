@@ -22,6 +22,11 @@ import java.util.concurrent.CompletableFuture;
 
 public final class OriginRtpQueueService {
 
+    private static final int DEFAULT_COUNTDOWN_SECONDS =
+            4;
+    private static final int PLUS_COUNTDOWN_SECONDS =
+            3;
+
     private enum Phase {
         QUEUED,
         SEARCHING,
@@ -609,8 +614,8 @@ public final class OriginRtpQueueService {
 
         int delay =
                 session.request().plus()
-                        ? plusDelaySeconds()
-                        : defaultDelaySeconds();
+                        ? PLUS_COUNTDOWN_SECONDS
+                        : DEFAULT_COUNTDOWN_SECONDS;
 
         boolean started =
                 teleportService
@@ -1011,29 +1016,6 @@ public final class OriginRtpQueueService {
                 core.getConfig().getBoolean(
                         "origin-rtp.teleport.cancel-on-move",
                         true
-                )
-        );
-    }
-
-    private int defaultDelaySeconds() {
-        return Math.max(
-                0,
-                core.getConfig().getInt(
-                        "origin-rtp.default.delay-seconds",
-                        5
-                )
-        );
-    }
-
-    private int plusDelaySeconds() {
-        return Math.max(
-                0,
-                core.getConfig().getInt(
-                        "origin-rtp.plus.delay-seconds",
-                        core.getConfig().getInt(
-                                "teleport-perks.plus-delay-seconds",
-                                3
-                        )
                 )
         );
     }

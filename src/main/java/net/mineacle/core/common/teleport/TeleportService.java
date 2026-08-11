@@ -25,7 +25,8 @@ import java.util.logging.Level;
 
 /**
  * The single Mineacle player-teleport state machine.
- * All delayed teleports share one once-per-second ticker. Feature code may
+ * All delayed teleports share one lightweight ticker while each pending
+ * teleport owns its own one-second countdown deadline. Feature code may
  * prepare destinations independently (RTP does), but countdown ownership,
  * overlap prevention, movement cancellation, final Paper teleport execution,
  * result checking, sounds and user-facing status all live here.
@@ -63,6 +64,11 @@ public final class TeleportService {
     private static final String FAILED =
             ERROR + "Teleport failed";
 
+    private static final long COUNTDOWN_STEP_NANOS =
+            1_000_000_000L;
+    private static final long TICKER_PERIOD_TICKS =
+            1L;
+
     private final Core core;
     private final Map<UUID, PendingTeleport> pending = new HashMap<>();
     private final Map<UUID, TeleportKind> reservations = new HashMap<>();
@@ -83,8 +89,8 @@ public final class TeleportService {
         tickerTask = core.getServer().getScheduler().runTaskTimer(
                 core,
                 this::tickAll,
-                20L,
-                20L
+                TICKER_PERIOD_TICKS,
+                TICKER_PERIOD_TICKS
         );
     }
 
@@ -134,7 +140,11 @@ public final class TeleportService {
                 player,
                 displayTarget,
                 kind,
-                Math.max(0, delaySeconds),
+                normalizeExplicitDelay(
+                        player,
+                        kind,
+                        delaySeconds
+                ),
                 cancelOnMove,
                 fixedTarget::clone,
                 Callbacks.NONE
@@ -384,11 +394,21 @@ public final class TeleportService {
         return true;
     }
 
-    /** Single shared once-per-second countdown pass for every teleport kind. */
+    /**
+     * One shared lightweight countdown pass for every teleport kind.
+     *
+     * <p>The scheduler frequency is intentionally independent from the
+     * countdown frequency. Each PendingTeleport advances only after its own
+     * one-second deadline, so a teleport can never inherit the phase of a
+     * global once-per-second timer. This guarantees a full audible/displayed
+     * second for every number.</p>
+     */
     private void tickAll() {
         if (pending.isEmpty()) {
             return;
         }
+
+        long now = System.nanoTime();
 
         // Snapshot IDs so callbacks may safely start/reserve another teleport.
         List<UUID> playerIds = new ArrayList<>(pending.keySet());
@@ -419,9 +439,14 @@ public final class TeleportService {
                 continue;
             }
 
+            if (!teleport.countdownDue(now)) {
+                continue;
+            }
+
             int remaining = teleport.decrementSeconds();
 
             if (remaining > 0) {
+                teleport.scheduleNextCountdown(now);
                 sendCountdown(player, teleport);
                 SoundService.teleportCountdown(player, core);
                 continue;
@@ -791,6 +816,51 @@ public final class TeleportService {
                 : stripped;
     }
 
+    private int normalizeExplicitDelay(
+            Player player,
+            TeleportKind kind,
+            int requestedDelay
+    ) {
+        int safeDelay = Math.max(
+                0,
+                requestedDelay
+        );
+
+        if (kind != TeleportKind.WARP
+                || safeDelay > 0) {
+            return safeDelay;
+        }
+
+        return standardDelay(player);
+    }
+
+    private int standardDelay(Player player) {
+        int defaultDelay = Math.max(
+                0,
+                core.getConfig().getInt(
+                        "teleport-perks.default-delay-seconds",
+                        5
+                )
+        );
+        int plusDelay = Math.max(
+                0,
+                core.getConfig().getInt(
+                        "teleport-perks.plus-delay-seconds",
+                        3
+                )
+        );
+        String plusPermission = core.getConfig().getString(
+                "teleport-perks.plus-permission",
+                "mineacle.plus"
+        );
+
+        return player != null
+                && !plusPermission.isBlank()
+                && player.hasPermission(plusPermission)
+                ? plusDelay
+                : defaultDelay;
+    }
+
     private int delaySeconds(Player player, TeleportKind kind) {
         return switch (kind) {
             case TPA -> configuredDelay(
@@ -916,6 +986,7 @@ public final class TeleportService {
         private final Supplier<Location> destinationSupplier;
         private final Callbacks callbacks;
         private int secondsRemaining;
+        private long nextCountdownAtNanos;
 
         private PendingTeleport(
                 Location origin,
@@ -933,6 +1004,9 @@ public final class TeleportService {
             this.cancelOnMove = cancelOnMove;
             this.destinationSupplier = destinationSupplier;
             this.callbacks = callbacks;
+            this.nextCountdownAtNanos =
+                    System.nanoTime()
+                            + COUNTDOWN_STEP_NANOS;
         }
 
         private Location origin() { return origin; }
@@ -943,6 +1017,15 @@ public final class TeleportService {
         private Callbacks callbacks() { return callbacks; }
         private int secondsRemaining() { return secondsRemaining; }
         private int decrementSeconds() { return --secondsRemaining; }
+
+        private boolean countdownDue(long now) {
+            return now >= nextCountdownAtNanos;
+        }
+
+        private void scheduleNextCountdown(long now) {
+            nextCountdownAtNanos =
+                    now + COUNTDOWN_STEP_NANOS;
+        }
     }
 
     private record Callbacks(
