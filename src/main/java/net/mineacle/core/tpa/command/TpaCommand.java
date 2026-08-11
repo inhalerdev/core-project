@@ -1,4 +1,5 @@
-package net.mineacle.core.tpa.command
+package net.mineacle.core.tpa.command;
+
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
