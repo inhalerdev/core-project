@@ -6,6 +6,7 @@ import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
 import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.model.AuctionHouseListing;
+import net.mineacle.core.auctionhouse.storage.AuctionHouseDatabaseMirror;
 import net.mineacle.core.auctionhouse.storage.AuctionHouseStorage;
 import net.mineacle.core.auctionhouse.storage.AuctionHouseStorage.PurchaseRecovery;
 import net.mineacle.core.auctionhouse.storage.AuctionHouseStorage.PurchaseState;
@@ -33,6 +34,7 @@ import org.bukkit.inventory.meta.BundleMeta;
 import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.RegisteredServiceProvider;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
 import java.io.IOException;
@@ -327,6 +329,9 @@ public final class AuctionHouseService {
     private final File configFile;
     private final AuctionHouseStorage storage;
 
+    private AuctionHouseDatabaseMirror databaseMirror;
+    private BukkitTask databaseMirrorTask;
+
     private final Map<UUID, AuctionHouseListing>
             listings =
             new LinkedHashMap<>();
@@ -370,6 +375,7 @@ public final class AuctionHouseService {
     }
 
     public synchronized void load() {
+        stopDatabaseMirror();
         ensureConfigFile();
 
         config =
@@ -432,9 +438,12 @@ public final class AuctionHouseService {
                                 + " quarantined purchase(s)"
                 )
         );
+
+        startDatabaseMirror();
     }
 
     public synchronized void shutdown() {
+        stopDatabaseMirror();
         listings.clear();
         ownerIndex.clear();
         searchIndex.clear();
@@ -2332,6 +2341,16 @@ public final class AuctionHouseService {
         worthCache.remove(
                 listing.id()
         );
+
+        AuctionHouseDatabaseMirror mirror =
+                databaseMirror;
+
+        if (mirror != null) {
+            mirror.upsert(
+                    listing,
+                    LISTING_LIFETIME_MILLIS
+            );
+        }
     }
 
     private void removeInMemory(
@@ -2352,15 +2371,22 @@ public final class AuctionHouseService {
                         listing.owner()
                 );
 
-        if (ids == null) {
-            return;
+        if (ids != null) {
+            ids.remove(listing.id());
+
+            if (ids.isEmpty()) {
+                ownerIndex.remove(
+                        listing.owner()
+                );
+            }
         }
 
-        ids.remove(listing.id());
+        AuctionHouseDatabaseMirror mirror =
+                databaseMirror;
 
-        if (ids.isEmpty()) {
-            ownerIndex.remove(
-                    listing.owner()
+        if (mirror != null) {
+            mirror.delete(
+                    listing.id()
             );
         }
     }
@@ -3187,6 +3213,90 @@ public final class AuctionHouseService {
                 "audit.enabled",
                 true
         );
+    }
+
+    private void startDatabaseMirror() {
+        AuctionHouseDatabaseMirror mirror =
+                new AuctionHouseDatabaseMirror(
+                        core,
+                        config
+                );
+
+        databaseMirror = mirror;
+        mirror.start();
+
+        if (!mirror.enabled()) {
+            return;
+        }
+
+        mirror.reconcile(
+                List.copyOf(
+                        listings.values()
+                ),
+                LISTING_LIFETIME_MILLIS
+        );
+
+        long syncSeconds =
+                Math.clamp(
+                        config.getLong(
+                                "database.mirror.sync-seconds",
+                                60L
+                        ),
+                        15L,
+                        900L
+                );
+        long syncTicks =
+                syncSeconds * 20L;
+
+        databaseMirrorTask =
+                core.getServer()
+                        .getScheduler()
+                        .runTaskTimer(
+                                core,
+                                this::reconcileDatabaseMirror,
+                                syncTicks,
+                                syncTicks
+                        );
+    }
+
+    private synchronized void reconcileDatabaseMirror() {
+        AuctionHouseDatabaseMirror mirror =
+                databaseMirror;
+
+        if (mirror == null
+                || !mirror.enabled()) {
+            return;
+        }
+
+        mirror.reconcile(
+                List.copyOf(
+                        listings.values()
+                ),
+                LISTING_LIFETIME_MILLIS
+        );
+    }
+
+    private void stopDatabaseMirror() {
+        BukkitTask task =
+                databaseMirrorTask;
+
+        if (task != null) {
+            task.cancel();
+            databaseMirrorTask = null;
+        }
+
+        AuctionHouseDatabaseMirror mirror =
+                databaseMirror;
+
+        if (mirror != null) {
+            databaseMirror = null;
+            mirror.shutdown(
+                    List.copyOf(
+                            listings.values()
+                    ),
+                    LISTING_LIFETIME_MILLIS
+            );
+        }
     }
 
     private void ensureConfigFile() {

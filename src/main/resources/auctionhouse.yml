@@ -3,6 +3,23 @@ enabled: true
 # The Auction House is the player-to-player market layer above /worth.
 # Worth is shown as a reference only; players remain free to choose their price.
 
+database:
+  mirror:
+    # Non-blocking MariaDB mirror for website/read access.
+    # Local atomic AH storage remains authoritative for gameplay.
+    enabled: true
+
+    # Reuse the live MariaDB credentials already used by WebProfiles.
+    # Do not copy database passwords into this file.
+    settings-file: webprofiles.yml
+
+    # Created automatically by the Minecraft server when the DB user has
+    # CREATE TABLE permission.
+    table: mineacle_auction_listings
+
+    # Full reconciliation catches missed writes and updates ACTIVE/EXPIRED.
+    sync-seconds: 60
+
 browse:
   default-sort: LOWEST_PRICE
 
