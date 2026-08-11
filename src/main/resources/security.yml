@@ -199,6 +199,7 @@ groups:
     - warps
     - webprofiles
     - wild
+
   plus:
     permission: mineacle.plus
     priority: 10
@@ -207,6 +208,25 @@ groups:
     visible-commands:
     - fly
     - nick
+
+  # Command visibility follows the same capabilities used by Admin Inspect.
+  inspect-inventory:
+    permission: mineacleadmin.invsee
+    priority: 80
+    inherits: []
+    visible-commands:
+    - invsee
+
+  inspect-ender-chest:
+    permission: mineacleadmin.echest
+    priority: 80
+    inherits: []
+    visible-commands:
+    - echest
+    hidden-commands:
+    - ecsee
+    - enderchest
+
   admin:
     permission: mineaclesecurity.group.admin
     priority: 100
@@ -216,7 +236,6 @@ groups:
     - ban
     - delwarp
     - doublejump
-    - echest
     - eco
     - enchant
     - enchantinfo
@@ -225,7 +244,6 @@ groups:
     - gms
     - gmsp
     - hide
-    - invsee
     - kick
     - mineaclehomes
     - mineaclenametags
@@ -245,8 +263,6 @@ groups:
     - wm
     - worldmaintenance
     hidden-commands:
-    - ecsee
-    - enderchest
     - flyspeed
     - money
     - nametags

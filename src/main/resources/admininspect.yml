@@ -1,0 +1,31 @@
+# MineacleCore Admin Inspect
+#
+# Security model:
+# - Base /invsee and /echest permissions are read-only
+# - Live item changes require the matching *.modify permission
+# - Hidden players require mineacleadmin.inspect.hidden
+# - Targets with mineacleadmin.inspect.protected require
+#   mineacleadmin.inspect.protected.bypass
+
+session-validation-ticks: 20
+read-only-feedback-cooldown-millis: 750
+
+audit:
+  enabled: true
+  log-modifications: true
+
+messages:
+  no-permission: '&cYou do not have permission to inspect player inventories'
+  usage-inventory: '&cUsage: /invsee <player>'
+  usage-ender-chest: '&cUsage: /echest <player>'
+  target-unavailable: '&cThat player is not online'
+  self-inventory: '&cYou cannot inspect your own inventory'
+  self-ender-chest: '&cYou cannot inspect your own ender chest'
+  protected: '&cYou cannot inspect that player'
+  open-failed: '&cCould not open that inventory'
+  open-read-only: '&#bbbbbbInspecting &#B078FF%player% &#bbbbbb— &#D0AFFFRead Only'
+  open-editable: '&#bbbbbbInspecting &#B078FF%player% &#bbbbbb— &cLive Editing'
+  read-only: '&cRead-only inspection'
+  access-changed: '&cInspection closed — access changed'
+  target-left: '&cInspection closed — that player went offline'
+  target-died: '&cInspection closed — that player died'

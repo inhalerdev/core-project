@@ -378,8 +378,6 @@ permissions:
     default: op
   mineaclespeed.admin:
     default: op
-  mineaclespeed.developer:
-    default: op
   mineacleorders.use:
     default: true
   mineacleorders.admin:
@@ -420,14 +418,42 @@ permissions:
     default: true
   mineacleduels.admin:
     default: op
+
+  # Admin Inspect capabilities are LuckPerms-owned. No operator fallback.
+  mineacleadmin.inspect:
+    default: false
+    children:
+      mineacleadmin.invsee: true
+      mineacleadmin.echest: true
+  mineacleadmin.inspect.self:
+    default: false
+    children:
+      mineacleadmin.invsee.self: true
+      mineacleadmin.echest.self: true
+  mineacleadmin.inspect.modify:
+    default: false
+    children:
+      mineacleadmin.invsee.modify: true
+      mineacleadmin.echest.modify: true
   mineacleadmin.invsee:
-    default: op
+    default: false
   mineacleadmin.invsee.self:
-    default: op
+    default: false
+  mineacleadmin.invsee.modify:
+    default: false
   mineacleadmin.echest:
-    default: op
+    default: false
   mineacleadmin.echest.self:
-    default: op
+    default: false
+  mineacleadmin.echest.modify:
+    default: false
+  mineacleadmin.inspect.hidden:
+    default: false
+  mineacleadmin.inspect.protected:
+    default: false
+  mineacleadmin.inspect.protected.bypass:
+    default: false
+
   mineacleshulkerpreview.use:
     default: false
   mineacleshulkerpreview.admin:

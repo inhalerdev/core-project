@@ -1,23 +1,21 @@
 package net.mineacle.core.admininspect.command;
 
 import net.mineacle.core.Core;
-import org.bukkit.entity.Player;
+import net.mineacle.core.admininspect.service.AdminInspectService;
 
-public final class InvSeeCommand extends AbstractInspectCommand {
+public final class InvSeeCommand
+        extends AbstractInspectCommand {
 
-    public InvSeeCommand(Core core) {
+    public InvSeeCommand(
+            Core core,
+            AdminInspectService service
+    ) {
         super(
                 core,
-                "mineacleadmin.invsee",
-                "mineacleadmin.invsee.self",
-                "&cUsage: /invsee <player>",
-                "&cYou cannot inspect yourself",
-                "opened the inventory of"
+                service,
+                AdminInspectService
+                        .InspectType
+                        .INVENTORY
         );
-    }
-
-    @Override
-    protected void openInspection(Player viewer, Player target) {
-        viewer.openInventory(target.getInventory());
     }
 }
