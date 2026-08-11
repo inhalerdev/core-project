@@ -1,5 +1,6 @@
 package net.mineacle.core.auctionhouse.model;
 
+import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.Objects;
@@ -11,6 +12,8 @@ public final class AuctionHouseListing {
     private final UUID owner;
     private final String ownerName;
     private final ItemStack item;
+    private final Material material;
+    private final int amount;
     private final long priceCents;
     private final long createdAt;
 
@@ -22,10 +25,28 @@ public final class AuctionHouseListing {
             long priceCents,
             long createdAt
     ) {
-        this.id = Objects.requireNonNull(id, "id");
-        this.owner = Objects.requireNonNull(owner, "owner");
-        this.ownerName = ownerName == null || ownerName.isBlank() ? "Unknown" : ownerName;
-        this.item = Objects.requireNonNull(item, "item").clone();
+        this.id = Objects.requireNonNull(
+                id,
+                "id"
+        );
+        this.owner = Objects.requireNonNull(
+                owner,
+                "owner"
+        );
+        this.ownerName =
+                ownerName == null
+                        || ownerName.isBlank()
+                        ? "Unknown"
+                        : ownerName;
+        this.item = Objects.requireNonNull(
+                item,
+                "item"
+        ).clone();
+        this.material = this.item.getType();
+        this.amount = Math.max(
+                1,
+                this.item.getAmount()
+        );
         this.priceCents = priceCents;
         this.createdAt = createdAt;
     }
@@ -40,7 +61,7 @@ public final class AuctionHouseListing {
 
     /**
      * Stable username fallback used for storage and audit recovery.
-     * Player-facing output must resolve the current Mineacle display name instead.
+     * Player-facing output resolves the current Mineacle display identity.
      */
     public String ownerName() {
         return ownerName;
@@ -48,6 +69,14 @@ public final class AuctionHouseListing {
 
     public ItemStack item() {
         return item.clone();
+    }
+
+    public Material material() {
+        return material;
+    }
+
+    public int amount() {
+        return amount;
     }
 
     public long priceCents() {

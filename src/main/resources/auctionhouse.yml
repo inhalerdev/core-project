@@ -1,29 +1,73 @@
 enabled: true
 
+# The Auction House is the player-to-player market layer above /worth.
+# Worth is shown as a reference only; players remain free to choose their price.
+
+browse:
+  default-sort: LOWEST_PRICE
+
+  # Normal click opens review. Shift-click buys immediately.
+  shift-click-quick-buy: true
+
 listing:
-  # When true, every player with mineacleauctionhouse.use may list items
+  # Preserve current behavior until the dedicated LuckPerms permission pass.
   allow-default: true
+
   default-slots: 18
-  plus-slots: 27
+  elevated-slots: 27
   admin-slots: 999
-  plus-permission: mineacle.plus
-  plus-groups:
+
+  # Long-term capability authority.
+  elevated-permission: mineacle.plus
+
+  # TEMPORARY bridge while LuckPerms groups only have weights/prefixes.
+  # Remove after capability permissions are assigned.
+  legacy-primary-group-fallback: true
+  legacy-elevated-primary-groups:
     - plus
     - mineacleplus
-  min-price: 1.0
-  max-price: 1000000000.0
+
+  min-price: 1
+  max-price: 1B
+
+  # Listings expire after exactly 24 hours.
+  # Expired listings remain in their owner's slots until manually reclaimed.
+
+  reject-overstacked: true
+  block-filled-containers: true
+  max-item-nbt-bytes: 262144
+
+  blocked-materials:
+    - COMMAND_BLOCK
+    - CHAIN_COMMAND_BLOCK
+    - REPEATING_COMMAND_BLOCK
+    - COMMAND_BLOCK_MINECART
+    - STRUCTURE_BLOCK
+    - STRUCTURE_VOID
+    - JIGSAW
+    - BARRIER
+    - LIGHT
+    - DEBUG_STICK
+    - KNOWLEDGE_BOOK
+
+worth:
+  show-reference: true
+  cache-millis: 3000
 
 search:
   prompt-timeout-seconds: 60
   max-length: 48
 
+audit:
+  enabled: true
+
 search-aliases:
   cobble: cobblestone
-  cobblestone: cobblestone
   stonebrick: stone bricks
   gapple: golden apple
   egap: enchanted golden apple
   epearl: ender pearl
+  pearl: ender pearl
   xp: experience bottle
   exp: experience bottle
   prot: protection
@@ -31,5 +75,45 @@ search-aliases:
   eff: efficiency
   unb: unbreaking
   mend: mending
-  netherite: netherite
   dia: diamond
+  netherite: netherite
+
+messages:
+  disabled: '&cAuction House is currently disabled'
+  reload: '&#bbbbbbAuction House reloaded'
+
+  sell-usage: '&cUsage: /ah sell <price> [amount]'
+  cannot-list: '&cYou cannot list auction items'
+  no-item: '&cHold the item you want to list'
+  item-changed: '&cThe item in your hand changed'
+  invalid-amount: '&cEnter a valid item amount'
+  no-slot: '&cYour auction slots are full — cancel or reclaim a listing first'
+  invalid-price: '&cEnter a valid auction price'
+  below-minimum: '&cMinimum auction price is &a%price%'
+  above-maximum: '&cMaximum auction price is &a%price%'
+  blocked-item: '&cThat item cannot be listed'
+  filled-container: '&cEmpty that container before listing it'
+  oversized-item: '&cThat item contains too much data to list safely'
+  storage-error: '&cCould not safely update the Auction House'
+
+  listed: '&#bbbbbbListed &#B078FF%amount%x %item% &#bbbbbbfor &a%price%'
+  purchased: '&#bbbbbbPurchased &#B078FF%item% &#bbbbbbfor &a%price%'
+  sold: '&#bbbbbbSold &#B078FF%item% &#bbbbbbfor &a+%price%'
+  sold-offline-single: '&#bbbbbbWhile you were away, &#B078FF%item% &#bbbbbbsold for &a+%price%'
+  sold-offline-multiple: '&#bbbbbbWhile you were away, &#D0AFFF%count% &#bbbbbbauction listings sold for &a+%price%'
+  cancelled: '&#bbbbbbCancelled listing for &#B078FF%item%'
+  reclaimed: '&#bbbbbbReclaimed &#B078FF%item%'
+
+  own-item: '&cYou cannot buy your own listing'
+  not-enough-money: '&cYou do not have enough money'
+  inventory-full: '&cYour inventory does not have enough space'
+  economy-missing: '&cEconomy is not available'
+  payment-failed: '&cCould not safely complete that payment'
+  busy: '&cThat listing is already being processed'
+  not-available: '&cThat listing is no longer available'
+
+  search-prompt: '&#bbbbbbType an item name to search'
+  price-prompt: '&#bbbbbbType a price or &#D0AFFFcancel'
+  empty-search: '&cSearch cannot be empty'
+  search-too-long: '&cSearch cannot exceed %max% characters'
+  prompt-timeout: '&cAuction input timed out'

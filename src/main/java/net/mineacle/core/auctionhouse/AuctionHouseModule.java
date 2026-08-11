@@ -7,7 +7,8 @@ import net.mineacle.core.auctionhouse.service.AuctionHouseService;
 import net.mineacle.core.bootstrap.Module;
 import org.bukkit.command.PluginCommand;
 
-public final class AuctionHouseModule extends Module {
+public final class AuctionHouseModule
+        extends Module {
 
     private AuctionHouseService service;
     private AuctionHouseGuiListener listener;
@@ -18,15 +19,36 @@ public final class AuctionHouseModule extends Module {
     }
 
     @Override
-    public void enable(Core core) {
-        service = new AuctionHouseService(core);
+    public void enable(
+            Core core
+    ) {
+        service =
+                new AuctionHouseService(core);
         service.load();
 
-        AuctionHouseCommand command = new AuctionHouseCommand(core, service);
-        register(core, "auction", command);
+        AuctionHouseCommand command =
+                new AuctionHouseCommand(
+                        core,
+                        service
+                );
 
-        listener = new AuctionHouseGuiListener(core, service);
-        core.getServer().getPluginManager().registerEvents(listener, core);
+        register(
+                core,
+                command
+        );
+
+        listener =
+                new AuctionHouseGuiListener(
+                        core,
+                        service
+                );
+
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        listener,
+                        core
+                );
     }
 
     @Override
@@ -37,17 +59,24 @@ public final class AuctionHouseModule extends Module {
         }
 
         if (service != null) {
-            service.save();
+            service.shutdown();
             service = null;
         }
     }
 
-    private void register(Core core, String commandName, AuctionHouseCommand executor) {
-        PluginCommand command = core.getCommand(commandName);
+    private void register(
+            Core core,
+            AuctionHouseCommand executor
+    ) {
+        PluginCommand command =
+                core.getCommand(
+                        "auction"
+                );
 
         if (command == null) {
-            core.getLogger().warning("Missing command in plugin.yml: " + commandName);
-            return;
+            throw new IllegalStateException(
+                    "Missing command in plugin.yml: auction"
+            );
         }
 
         command.setExecutor(executor);
