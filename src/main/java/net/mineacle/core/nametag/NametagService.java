@@ -1,17 +1,16 @@
 package net.mineacle.core.nametag;
 
-import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.collision.PlayerCollisionService;
 import net.mineacle.core.common.player.DisplayNames;
+import net.mineacle.core.common.player.RankDisplayResolver;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.hide.HideModule;
 import net.mineacle.core.hide.HideService;
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -57,13 +56,11 @@ public final class NametagService {
     private boolean shadowed;
     private boolean seeThrough;
     private boolean defaultBackground;
-    private String rankPlaceholder;
     private String rankFallback;
     private String defaultNameColor;
     private String opNameColor;
     private String suffix;
     private boolean rankEnabled;
-    private boolean usePlaceholderApi;
     private boolean worldRestrictionEnabled;
     private Set<String> enabledWorlds = Set.of();
 
@@ -77,10 +74,11 @@ public final class NametagService {
                 core.getDataFolder(),
                 "nametags.yml"
         );
-        this.displayOwnerKey = new NamespacedKey(
-                core,
-                "nametag_owner"
-        );
+        this.displayOwnerKey =
+                new NamespacedKey(
+                        core,
+                        "nametag_owner"
+                );
 
         removeOrphanDisplaysAtStartup();
         reload();
@@ -90,12 +88,14 @@ public final class NametagService {
         ensureDataFile();
 
         FileConfiguration config =
-                YamlConfiguration.loadConfiguration(file);
+                YamlConfiguration
+                        .loadConfiguration(file);
 
         enabled = config.getBoolean(
                 "enabled",
                 true
         );
+
         auditTicks = Math.clamp(
                 config.getLong(
                         "updates.audit-ticks",
@@ -104,6 +104,7 @@ public final class NametagService {
                 100L,
                 20L * 60L * 30L
         );
+
         verticalOffset = clampFinite(
                 config.getDouble(
                         "display.vertical-offset",
@@ -112,22 +113,27 @@ public final class NametagService {
                 -1.0D,
                 3.0D
         );
-        viewRange = (float) clampFinite(
-                config.getDouble(
-                        "display.view-range",
-                        1.0D
-                ),
-                0.1D,
-                10.0D
-        );
-        lineWidth = (int) Math.clamp(
-                config.getLong(
-                        "display.line-width",
-                        200L
-                ),
-                20L,
-                1_000L
-        );
+
+        viewRange =
+                (float) clampFinite(
+                        config.getDouble(
+                                "display.view-range",
+                                1.0D
+                        ),
+                        0.1D,
+                        10.0D
+                );
+
+        lineWidth =
+                (int) Math.clamp(
+                        config.getLong(
+                                "display.line-width",
+                                200L
+                        ),
+                        20L,
+                        1_000L
+                );
+
         shadowed = config.getBoolean(
                 "display.shadowed",
                 true
@@ -136,47 +142,42 @@ public final class NametagService {
                 "display.see-through",
                 false
         );
-        defaultBackground = config.getBoolean(
-                "display.default-background",
-                false
-        );
+        defaultBackground =
+                config.getBoolean(
+                        "display.default-background",
+                        false
+                );
 
         rankEnabled = config.getBoolean(
                 "rank.enabled",
                 true
         );
-        usePlaceholderApi = config.getBoolean(
-                "rank.use-placeholderapi",
-                true
-        );
-        rankPlaceholder = valueOrDefault(
-                config.getString(
-                        "rank.placeholder"
-                ),
-                "%mineaclerank_prefix%"
-        );
-        rankFallback = valueOrDefault(
-                config.getString(
-                        "rank.fallback"
-                ),
-                ""
-        );
-        defaultNameColor = normalizeColor(
-                config.getString(
-                        "name-color.default"
-                ),
-                "#bbbbbb"
-        );
-        opNameColor = normalizeColor(
-                config.getString(
-                        "name-color.op"
-                ),
-                "#8436FE"
-        );
-        suffix = valueOrDefault(
-                config.getString("suffix"),
-                ""
-        );
+        rankFallback =
+                valueOrDefault(
+                        config.getString(
+                                "rank.fallback"
+                        ),
+                        ""
+                );
+
+        defaultNameColor =
+                normalizeColor(
+                        config.getString(
+                                "name-color.default"
+                        ),
+                        "#bbbbbb"
+                );
+        opNameColor =
+                normalizeOpNameColor(
+                        config.getString(
+                                "name-color.op"
+                        )
+                );
+        suffix =
+                valueOrDefault(
+                        config.getString("suffix"),
+                        ""
+                );
 
         worldRestrictionEnabled =
                 config.getBoolean(
@@ -184,9 +185,11 @@ public final class NametagService {
                         false
                 );
 
-        Set<String> worlds = new HashSet<>();
+        Set<String> worlds =
+                new HashSet<>();
 
-        for (String world : config.getStringList(
+        for (String world
+                : config.getStringList(
                 "worlds.list"
         )) {
             String canonical =
@@ -201,10 +204,12 @@ public final class NametagService {
             }
         }
 
-        enabledWorlds = Set.copyOf(worlds);
+        enabledWorlds =
+                Set.copyOf(worlds);
 
-        for (Player player :
-                core.getServer().getOnlinePlayers()) {
+        for (Player player
+                : core.getServer()
+                .getOnlinePlayers()) {
             rebuild(player);
         }
     }
@@ -214,16 +219,22 @@ public final class NametagService {
     }
 
     public void audit() {
-        Set<UUID> online = new HashSet<>();
+        Set<UUID> online =
+                new HashSet<>();
 
-        for (Player player :
-                core.getServer().getOnlinePlayers()) {
-            online.add(player.getUniqueId());
+        for (Player player
+                : core.getServer()
+                .getOnlinePlayers()) {
+            online.add(
+                    player.getUniqueId()
+            );
             refresh(player);
         }
 
-        for (UUID playerId :
-                new ArrayList<>(displays.keySet())) {
+        for (UUID playerId
+                : new ArrayList<>(
+                displays.keySet()
+        )) {
             if (!online.contains(playerId)) {
                 removeDisplayOnly(playerId);
             }
@@ -233,32 +244,37 @@ public final class NametagService {
     }
 
     public void refreshAll() {
-        for (Player player :
-                core.getServer().getOnlinePlayers()) {
+        for (Player player
+                : core.getServer()
+                .getOnlinePlayers()) {
             refresh(player);
         }
     }
 
     public void refresh(Player player) {
-        if (player == null || !player.isOnline()) {
+        if (player == null
+                || !player.isOnline()) {
             return;
         }
 
-        if (!enabled || !enabledInWorld(player)) {
+        if (!enabled
+                || !enabledInWorld(player)) {
             removeDisplayOnly(
                     player.getUniqueId()
             );
-            collisionService.setNativeTagHidden(
-                    player,
-                    false
-            );
+            collisionService
+                    .setNativeTagHidden(
+                            player,
+                            false
+                    );
             return;
         }
 
-        collisionService.setNativeTagHidden(
-                player,
-                true
-        );
+        collisionService
+                .setNativeTagHidden(
+                        player,
+                        true
+                );
 
         if (shouldHideCustomTag(player)) {
             removeDisplayOnly(
@@ -267,17 +283,20 @@ public final class NametagService {
             return;
         }
 
-        DisplayState state = ensureDisplay(player);
+        DisplayState state =
+                ensureDisplay(player);
 
         if (state == null) {
-            collisionService.setNativeTagHidden(
-                    player,
-                    false
-            );
+            collisionService
+                    .setNativeTagHidden(
+                            player,
+                            false
+                    );
             return;
         }
 
-        Component rendered = render(player);
+        Component rendered =
+                render(player);
 
         if (!rendered.equals(
                 state.renderedText
@@ -303,14 +322,27 @@ public final class NametagService {
         refresh(player);
     }
 
+    /**
+     * Kept for pose/listener compatibility. The tag's translation is now
+     * relative to the passenger mount point instead of absolute world Y.
+     * <p>
+     * Paper places a passenger display on top of its vehicle. The old code
+     * subtracted display.getLocation().getY() from the player's bounding-box
+     * top. Immediately after mounting, that location could still be the
+     * display's pre-mount spawn Y, producing a large upward translation until
+     * a later pose change recalculated it. A fixed local translation removes
+     * that stale-coordinate race completely.
+     */
     public void refreshGeometry(Player player) {
-        if (player == null || !player.isOnline()) {
+        if (player == null
+                || !player.isOnline()) {
             return;
         }
 
-        DisplayState state = displays.get(
-                player.getUniqueId()
-        );
+        DisplayState state =
+                displays.get(
+                        player.getUniqueId()
+                );
 
         if (state == null
                 || !state.validFor(player)) {
@@ -318,7 +350,6 @@ public final class NametagService {
         }
 
         updateTransformation(
-                player,
                 state.display
         );
     }
@@ -327,19 +358,22 @@ public final class NametagService {
             Player viewer,
             Entity entity
     ) {
-        UUID ownerId = displayOwners.get(
-                entity.getUniqueId()
-        );
+        UUID ownerId =
+                displayOwners.get(
+                        entity.getUniqueId()
+                );
 
         if (ownerId == null) {
             return true;
         }
 
-        if (viewer.getUniqueId().equals(ownerId)) {
+        if (viewer.getUniqueId()
+                .equals(ownerId)) {
             return false;
         }
 
-        Player owner = Bukkit.getPlayer(ownerId);
+        Player owner =
+                Bukkit.getPlayer(ownerId);
 
         return owner != null
                 && owner.isOnline()
@@ -354,9 +388,10 @@ public final class NametagService {
             return;
         }
 
-        DisplayState state = displays.get(
-                owner.getUniqueId()
-        );
+        DisplayState state =
+                displays.get(
+                        owner.getUniqueId()
+                );
 
         if (state != null
                 && state.display.isValid()) {
@@ -373,16 +408,18 @@ public final class NametagService {
     ) {
         if (viewer == null
                 || owner == null
-                || viewer.getUniqueId().equals(
-                owner.getUniqueId()
-        )
+                || viewer.getUniqueId()
+                .equals(
+                        owner.getUniqueId()
+                )
                 || !viewer.canSee(owner)) {
             return;
         }
 
-        DisplayState state = displays.get(
-                owner.getUniqueId()
-        );
+        DisplayState state =
+                displays.get(
+                        owner.getUniqueId()
+                );
 
         if (state != null
                 && state.display.isValid()) {
@@ -407,17 +444,21 @@ public final class NametagService {
     }
 
     public void clear() {
-        for (UUID playerId :
-                new ArrayList<>(displays.keySet())) {
+        for (UUID playerId
+                : new ArrayList<>(
+                displays.keySet()
+        )) {
             removeDisplayOnly(playerId);
         }
 
-        for (Player player :
-                core.getServer().getOnlinePlayers()) {
-            collisionService.setNativeTagHidden(
-                    player,
-                    false
-            );
+        for (Player player
+                : core.getServer()
+                .getOnlinePlayers()) {
+            collisionService
+                    .setNativeTagHidden(
+                            player,
+                            false
+                    );
         }
 
         displays.clear();
@@ -435,8 +476,11 @@ public final class NametagService {
 
         return enabledWorlds.contains(
                 canonicalWorld(
-                        player.getWorld().getName()
-                ).toLowerCase(Locale.ROOT)
+                        player.getWorld()
+                                .getName()
+                ).toLowerCase(
+                        Locale.ROOT
+                )
         );
     }
 
@@ -448,16 +492,19 @@ public final class NametagService {
 
         return hideService != null
                 && hideService
-                .shouldHideRealNametag(player);
+                .shouldHideRealNametag(
+                        player
+                );
     }
 
     @Nullable
     private DisplayState ensureDisplay(
             Player player
     ) {
-        DisplayState current = displays.get(
-                player.getUniqueId()
-        );
+        DisplayState current =
+                displays.get(
+                        player.getUniqueId()
+                );
 
         if (current != null
                 && current.validFor(player)) {
@@ -468,17 +515,15 @@ public final class NametagService {
                 player.getUniqueId()
         );
 
-        Location spawnLocation =
-                player.getLocation();
-
         TextDisplay display =
                 player.getWorld().spawn(
-                        spawnLocation,
+                        player.getLocation(),
                         TextDisplay.class,
-                        spawned -> configureDisplay(
-                                spawned,
-                                player
-                        )
+                        spawned ->
+                                configureDisplay(
+                                        spawned,
+                                        player
+                                )
                 );
 
         if (!player.addPassenger(display)) {
@@ -488,9 +533,9 @@ public final class NametagService {
                     player.getUniqueId()
             )) {
                 core.getLogger().warning(
-                        "Could not attach nametag display "
-                                + "to "
-                                + player.getUniqueId()
+                        "Could not attach nametag display to "
+                                + player
+                                .getUniqueId()
                 );
             }
 
@@ -500,6 +545,12 @@ public final class NametagService {
         mountWarnings.remove(
                 player.getUniqueId()
         );
+
+        /*
+         * Translation is local to the passenger mount point, so it is safe to
+         * apply immediately and remains correct when the player's pose changes.
+         */
+        updateTransformation(display);
 
         DisplayState created =
                 new DisplayState(display);
@@ -513,18 +564,10 @@ public final class NametagService {
                 player.getUniqueId()
         );
 
-        player.hideEntity(core, display);
-
-        core.getServer()
-                .getScheduler()
-                .runTask(
-                        core,
-                        () -> {
-                            if (player.isOnline()) {
-                                refreshGeometry(player);
-                            }
-                        }
-                );
+        player.hideEntity(
+                core,
+                display
+        );
 
         return created;
     }
@@ -559,27 +602,21 @@ public final class NametagService {
                 .set(
                         displayOwnerKey,
                         PersistentDataType.STRING,
-                        owner.getUniqueId().toString()
+                        owner.getUniqueId()
+                                .toString()
                 );
+
+        updateTransformation(display);
     }
 
     private void updateTransformation(
-            Player player,
             TextDisplay display
     ) {
-        double targetY =
-                player.getBoundingBox().getMaxY()
-                        + verticalOffset;
-        double entityY =
-                display.getLocation().getY();
-        float translationY =
-                (float) (targetY - entityY);
-
         display.setTransformation(
                 new Transformation(
                         new Vector3f(
                                 0.0F,
-                                translationY,
+                                (float) verticalOffset,
                                 0.0F
                         ),
                         new Quaternionf(),
@@ -597,9 +634,10 @@ public final class NametagService {
         StringBuilder value =
                 new StringBuilder();
 
-        String rank = stripTrailingSpaces(
-                rankPrefix(player)
-        );
+        String rank =
+                stripTrailingSpaces(
+                        rankPrefix(player)
+                );
 
         if (!rank.isBlank()) {
             value.append(rank);
@@ -612,7 +650,9 @@ public final class NametagService {
                         : defaultNameColor
         );
         value.append(
-                DisplayNames.displayName(player)
+                DisplayNames.displayName(
+                        player
+                )
         );
 
         if (!suffix.isBlank()) {
@@ -632,43 +672,29 @@ public final class NametagService {
                 );
     }
 
+    /**
+     * Prefix is read directly from LuckPerms' cached metadata. No Mineacle
+     * rank placeholder, group switch, or prefix table sits in between.
+     */
     private String rankPrefix(Player player) {
         if (!rankEnabled) {
             return "";
         }
 
-        if (!usePlaceholderApi
-                || Bukkit.getPluginManager()
-                .getPlugin(
-                        "PlaceholderAPI"
-                ) == null) {
-            return rankFallback;
-        }
+        String resolved =
+                RankDisplayResolver.prefix(
+                        player
+                );
 
-        try {
-            String parsed =
-                    PlaceholderAPI.setPlaceholders(
-                            player,
-                            rankPlaceholder
-                    );
-
-            if (parsed.isBlank()
-                    || parsed.equalsIgnoreCase(
-                    rankPlaceholder
-            )
-                    || parsed.contains(
-                    rankPlaceholder
-            )) {
-                return rankFallback;
-            }
-
-            return parsed;
-        } catch (RuntimeException ignored) {
-            return rankFallback;
-        }
+        return resolved == null
+                || resolved.isBlank()
+                ? rankFallback
+                : resolved;
     }
 
-    private void removeDisplayOnly(UUID playerId) {
+    private void removeDisplayOnly(
+            UUID playerId
+    ) {
         DisplayState state =
                 displays.remove(playerId);
 
@@ -680,7 +706,8 @@ public final class NametagService {
                 state.display.getUniqueId()
         );
 
-        if (state.display.getVehicle() != null) {
+        if (state.display.getVehicle()
+                != null) {
             state.display.leaveVehicle();
         }
 
@@ -691,18 +718,20 @@ public final class NametagService {
 
     private void removeOrphanDisplaysAtStartup() {
         for (World world : Bukkit.getWorlds()) {
-            for (Entity entity : world.getEntities()) {
+            for (Entity entity
+                    : world.getEntities()) {
                 if (!(entity
                         instanceof TextDisplay display)) {
                     continue;
                 }
 
-                String owner = display
-                        .getPersistentDataContainer()
-                        .get(
-                                displayOwnerKey,
-                                PersistentDataType.STRING
-                        );
+                String owner =
+                        display
+                                .getPersistentDataContainer()
+                                .get(
+                                        displayOwnerKey,
+                                        PersistentDataType.STRING
+                                );
 
                 if (owner != null) {
                     display.remove();
@@ -712,7 +741,8 @@ public final class NametagService {
     }
 
     private void ensureDataFile() {
-        File dataFolder = core.getDataFolder();
+        File dataFolder =
+                core.getDataFolder();
 
         if (!dataFolder.exists()
                 && !dataFolder.mkdirs()
@@ -746,7 +776,9 @@ public final class NametagService {
         String trimmed = rawWorld.trim();
 
         return switch (
-                trimmed.toLowerCase(Locale.ROOT)
+                trimmed.toLowerCase(
+                        Locale.ROOT
+                )
         ) {
             case "origins" -> "overworld";
             case "origins_nether" ->
@@ -757,14 +789,37 @@ public final class NametagService {
         };
     }
 
+    private String normalizeOpNameColor(
+            String input
+    ) {
+        String normalized =
+                normalizeColor(
+                        input,
+                        "#B078FF"
+                );
+
+        if (normalized.equalsIgnoreCase(
+                "&#8436FE"
+        ) || normalized.equalsIgnoreCase(
+                "&#ff55ff"
+        ) || normalized.equalsIgnoreCase(
+                "&d"
+        )) {
+            return "&#B078FF";
+        }
+
+        return normalized;
+    }
+
     private String normalizeColor(
             String input,
             String fallback
     ) {
-        String cleaned = valueOrDefault(
-                input,
-                fallback
-        ).trim();
+        String cleaned =
+                valueOrDefault(
+                        input,
+                        fallback
+                ).trim();
 
         if (cleaned.matches(
                 "(?i)^#[a-f0-9]{6}$"
@@ -779,7 +834,8 @@ public final class NametagService {
             String value,
             String fallback
     ) {
-        return value == null || value.isBlank()
+        return value == null
+                || value.isBlank()
                 ? fallback
                 : value;
     }
@@ -787,7 +843,8 @@ public final class NametagService {
     private String stripTrailingSpaces(
             String input
     ) {
-        if (input == null || input.isEmpty()) {
+        if (input == null
+                || input.isEmpty()) {
             return "";
         }
 
@@ -825,7 +882,9 @@ public final class NametagService {
             this.display = display;
         }
 
-        private boolean validFor(Player player) {
+        private boolean validFor(
+                Player player
+        ) {
             return display.isValid()
                     && display.getWorld()
                     == player.getWorld()

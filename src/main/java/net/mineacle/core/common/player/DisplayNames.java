@@ -11,10 +11,15 @@ import java.util.Locale;
 
 public final class DisplayNames {
 
+    private static final String BODY = "&#bbbbbb";
+    private static final String SECONDARY = "&#B078FF";
+
     private DisplayNames() {
     }
 
-    public static String username(OfflinePlayer player) {
+    public static String username(
+            OfflinePlayer player
+    ) {
         if (player == null) {
             return "";
         }
@@ -26,13 +31,24 @@ public final class DisplayNames {
                 : name;
     }
 
-    public static String displayName(OfflinePlayer player) {
-        NicknameService service = ChatModule.nicknameService();
+    /**
+     * Public Mineacle identity.
+     * <p>
+     * NicknameService returns the nickname body exactly as the player set it.
+     * There is no Mineacle "." marker in front of nicknames.
+     */
+    public static String displayName(
+            OfflinePlayer player
+    ) {
+        NicknameService service =
+                ChatModule.nicknameService();
 
         if (service != null) {
-            String displayName = service.displayName(player);
+            String displayName =
+                    service.displayName(player);
 
-            if (displayName != null && !displayName.isBlank()) {
+            if (displayName != null
+                    && !displayName.isBlank()) {
                 return displayName;
             }
         }
@@ -40,39 +56,69 @@ public final class DisplayNames {
         return username(player);
     }
 
-    public static String nickname(OfflinePlayer player) {
-        NicknameService service = ChatModule.nicknameService();
+    public static String nickname(
+            OfflinePlayer player
+    ) {
+        NicknameService service =
+                ChatModule.nicknameService();
 
         if (service == null) {
             return "";
         }
 
-        String nickname = service.nickname(player);
-        return nickname == null ? "" : nickname;
+        String nickname =
+                service.nickname(player);
+
+        return nickname == null
+                ? ""
+                : nickname;
     }
 
-    public static String coloredDisplayName(OfflinePlayer player) {
-        return "&#bbbbbb" + displayName(player);
+    /**
+     * Player-name color only. Rank/prefix color remains entirely LuckPerms.
+     */
+    public static String nameColor(
+            OfflinePlayer player
+    ) {
+        return player != null && player.isOp()
+                ? SECONDARY
+                : BODY;
     }
 
-    /** LuckPerms owns rank/prefix formatting; Mineacle only consumes it. */
-    public static String prefixedDisplayName(OfflinePlayer player) {
-        return luckPermsPrefixWithSpace(player)
-                + "&#bbbbbb"
+    public static String coloredDisplayName(
+            OfflinePlayer player
+    ) {
+        return nameColor(player)
                 + displayName(player);
     }
 
-    public static String commandDisplayName(OfflinePlayer player) {
+    /**
+     * LuckPerms owns prefix formatting; Mineacle only combines the resolved
+     * prefix with Mineacle's public display name.
+     */
+    public static String prefixedDisplayName(
+            OfflinePlayer player
+    ) {
+        return luckPermsPrefixWithSpace(player)
+                + coloredDisplayName(player);
+    }
+
+    public static String commandDisplayName(
+            OfflinePlayer player
+    ) {
         return displayName(player);
     }
 
-    public static Player resolveOnline(String input) {
+    public static Player resolveOnline(
+            String input
+    ) {
         if (input == null || input.isBlank()) {
             return null;
         }
 
         String raw = input.trim();
-        Player exactUsername = Bukkit.getPlayerExact(raw);
+        Player exactUsername =
+                Bukkit.getPlayerExact(raw);
 
         if (exactUsername != null) {
             return exactUsername;
@@ -80,10 +126,17 @@ public final class DisplayNames {
 
         String normalized = normalize(raw);
 
-        for (Player online : Bukkit.getOnlinePlayers()) {
-            if (normalize(username(online)).equals(normalized)
-                    || normalize(displayName(online)).equals(normalized)
-                    || normalize(nickname(online)).equals(normalized)) {
+        for (Player online
+                : Bukkit.getOnlinePlayers()) {
+            if (normalize(
+                    username(online)
+            ).equals(normalized)
+                    || normalize(
+                    displayName(online)
+            ).equals(normalized)
+                    || normalize(
+                    nickname(online)
+            ).equals(normalized)) {
                 return online;
             }
         }
@@ -91,7 +144,9 @@ public final class DisplayNames {
         return null;
     }
 
-    public static OfflinePlayer resolveOffline(String input) {
+    public static OfflinePlayer resolveOffline(
+            String input
+    ) {
         Player online = resolveOnline(input);
 
         if (online != null) {
@@ -102,20 +157,27 @@ public final class DisplayNames {
             return null;
         }
 
-        NicknameService service = ChatModule.nicknameService();
+        NicknameService service =
+                ChatModule.nicknameService();
 
         if (service != null) {
-            OfflinePlayer byNickname = service.findByNickname(input);
+            OfflinePlayer byNickname =
+                    service.findByNickname(input);
 
             if (byNickname != null) {
                 return byNickname;
             }
         }
 
-        return Bukkit.getOfflinePlayer(input.trim());
+        return Bukkit.getOfflinePlayer(
+                input.trim()
+        );
     }
 
-    public static boolean startsWithDisplay(Player player, String partial) {
+    public static boolean startsWithDisplay(
+            Player player,
+            String partial
+    ) {
         if (player == null) {
             return false;
         }
@@ -123,44 +185,76 @@ public final class DisplayNames {
         String normalized = normalize(partial);
 
         return normalized.isEmpty()
-                || normalize(username(player)).startsWith(normalized)
-                || normalize(displayName(player)).startsWith(normalized)
-                || normalize(nickname(player)).startsWith(normalized);
+                || normalize(
+                username(player)
+        ).startsWith(normalized)
+                || normalize(
+                displayName(player)
+        ).startsWith(normalized)
+                || normalize(
+                nickname(player)
+        ).startsWith(normalized);
     }
 
-    /** Returns the effective prefix produced by LuckPerms' configured stack. */
-    public static String luckPermsPrefix(OfflinePlayer player) {
-        String parsed = RankDisplayResolver.prefix(player);
+    /**
+     * Effective prefix from LuckPerms' current context/prefix stack.
+     */
+    public static String luckPermsPrefix(
+            OfflinePlayer player
+    ) {
+        String parsed =
+                RankDisplayResolver.prefix(player);
 
-        if (parsed == null || parsed.isBlank()) {
+        if (parsed.isBlank()) {
             return "";
         }
 
-        return parsed.replaceFirst("\\s+$", "") + " ";
+        return parsed.replaceFirst(
+                "\\s+$",
+                ""
+        ) + " ";
     }
 
-    public static String luckPermsPrefixWithSpace(OfflinePlayer player) {
+    public static String luckPermsPrefixWithSpace(
+            OfflinePlayer player
+    ) {
         return luckPermsPrefix(player);
     }
 
-    private static String normalize(String input) {
+    private static String normalize(
+            String input
+    ) {
         if (input == null) {
             return "";
         }
 
-        String cleaned = TextColor.strip(input).trim();
-        NicknameService service = ChatModule.nicknameService();
+        String cleaned =
+                TextColor.strip(input).trim();
+        NicknameService service =
+                ChatModule.nicknameService();
 
+        /*
+         * Keep accepting the old configured nickname marker as input for
+         * backwards compatibility. It is never rendered publicly.
+         */
         if (service != null) {
-            String prefix = service.prefix();
+            String legacyPrefix =
+                    service.prefix();
 
-            if (!prefix.isBlank() && cleaned.startsWith(prefix)) {
-                cleaned = cleaned.substring(prefix.length());
+            if (!legacyPrefix.isBlank()
+                    && cleaned.startsWith(
+                    legacyPrefix
+            )) {
+                cleaned = cleaned.substring(
+                        legacyPrefix.length()
+                );
             }
         } else if (cleaned.startsWith(".")) {
             cleaned = cleaned.substring(1);
         }
 
-        return cleaned.toLowerCase(Locale.ROOT);
+        return cleaned.toLowerCase(
+                Locale.ROOT
+        );
     }
 }

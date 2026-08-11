@@ -15,13 +15,16 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Read-only view of LuckPerms rank metadata used by Mineacle displays and the
- * public web-profile mirror. MineacleCore never promotes, demotes, assigns or
- * reinterprets ranks here; LuckPerms remains the source of truth.
+ * Read-only LuckPerms identity view.
+ * <p>
+ * MineacleCore does not assign, promote, demote, rename, recolor, or
+ * reinterpret groups here. LuckPerms is the source of truth for group
+ * membership, inheritance, contexts, prefix resolution and group weight.
  */
 public final class RankDisplayResolver {
 
     private static final String DEFAULT_COLOR = "#bbbbbb";
+
     private static final Pattern DIRECT_HEX = Pattern.compile(
             "(?i)&?#([0-9a-f]{6})"
     );
@@ -54,12 +57,15 @@ public final class RankDisplayResolver {
         }
 
         LuckPerms luckPerms = luckPerms();
+
         if (luckPerms == null) {
             return defaultRank();
         }
 
         User user;
-        if (player instanceof Player online && online.isOnline()) {
+
+        if (player instanceof Player online
+                && online.isOnline()) {
             user = luckPerms
                     .getPlayerAdapter(Player.class)
                     .getUser(online);
@@ -78,30 +84,51 @@ public final class RankDisplayResolver {
         }
 
         LuckPerms luckPerms = luckPerms();
-        CachedMetaData meta = user.getCachedData().getMetaData();
+        CachedMetaData meta =
+                user.getCachedData().getMetaData();
 
-        String primaryGroup = normalizeGroup(user.getPrimaryGroup());
+        /*
+         * CachedMetaData is context-aware and already includes LuckPerms
+         * inheritance/prefix-stack resolution. Prefer its primary group, then
+         * fall back to the user's stored/calculated primary group only when
+         * the cached value is unavailable.
+         */
+        String primaryGroup = normalizeGroup(
+                firstNonBlank(
+                        meta.getPrimaryGroup(),
+                        user.getPrimaryGroup()
+                )
+        );
+
         String prefix = safe(meta.getPrefix());
         String publicName = firstNonBlank(
-                meta.getMetaValue("mineacle-rank-name"),
-                groupDisplayName(luckPerms, primaryGroup),
+                groupDisplayName(
+                        luckPerms,
+                        primaryGroup
+                ),
                 friendlyName(primaryGroup)
         );
-        String webPrefix = firstNonBlank(
-                meta.getMetaValue("mineacle-web-prefix"),
-                TextColor.strip(prefix).trim()
-        );
+        String webPrefix =
+                TextColor.strip(
+                        TextColor.color(prefix)
+                ).trim();
+
         String color = firstNonBlank(
-                normalizeHex(meta.getMetaValue("mineacle-rank-color")),
                 extractColor(prefix),
                 DEFAULT_COLOR
         );
+
         int weight = meta.getWeight();
 
         if (weight == 0 && luckPerms != null) {
-            Group group = luckPerms.getGroupManager().getGroup(primaryGroup);
+            Group group = luckPerms
+                    .getGroupManager()
+                    .getGroup(primaryGroup);
+
             if (group != null) {
-                weight = group.getWeight().orElse(0);
+                weight = group
+                        .getWeight()
+                        .orElse(0);
             }
         }
 
@@ -116,9 +143,8 @@ public final class RankDisplayResolver {
     }
 
     /**
-     * Kept for existing lifecycle callers. There is deliberately no per-user
-     * Mineacle rank cache; LuckPerms cached metadata is already fast and this
-     * prevents stale ranks after a LuckPerms promotion or demotion.
+     * Only the cached LuckPerms service handle is cleared. There is no
+     * Mineacle per-player rank cache.
      */
     public static void clearCache() {
         cachedLuckPerms = null;
@@ -136,20 +162,29 @@ public final class RankDisplayResolver {
             return "";
         }
 
-        Group group = luckPerms.getGroupManager().getGroup(groupName);
+        Group group = luckPerms
+                .getGroupManager()
+                .getGroup(groupName);
+
         if (group == null) {
             return "";
         }
 
         String displayName = group.getDisplayName();
-        return displayName == null ? "" : displayName.trim();
+
+        return displayName == null
+                ? ""
+                : displayName.trim();
     }
 
     private static String normalizeGroup(String value) {
         String normalized = safe(value)
                 .trim()
                 .toLowerCase(Locale.ROOT);
-        return normalized.isBlank() ? "default" : normalized;
+
+        return normalized.isBlank()
+                ? "default"
+                : normalized;
     }
 
     private static String friendlyName(String groupName) {
@@ -162,7 +197,8 @@ public final class RankDisplayResolver {
             return "Default";
         }
 
-        StringBuilder output = new StringBuilder(source.length());
+        StringBuilder output =
+                new StringBuilder(source.length());
         boolean capitalize = true;
 
         for (char character : source.toCharArray()) {
@@ -189,14 +225,21 @@ public final class RankDisplayResolver {
         }
 
         Matcher directHex = DIRECT_HEX.matcher(prefix);
+
         if (directHex.find()) {
-            return "#" + directHex.group(1).toLowerCase(Locale.ROOT);
+            return "#"
+                    + directHex
+                    .group(1)
+                    .toLowerCase(Locale.ROOT);
         }
 
         String colored = TextColor.color(prefix);
-        Matcher sectionHex = SECTION_HEX.matcher(colored);
+        Matcher sectionHex =
+                SECTION_HEX.matcher(colored);
+
         if (sectionHex.find()) {
-            return "#" + (
+            return "#"
+                    + (
                     sectionHex.group(1)
                             + sectionHex.group(2)
                             + sectionHex.group(3)
@@ -206,33 +249,21 @@ public final class RankDisplayResolver {
             ).toLowerCase(Locale.ROOT);
         }
 
-        Matcher legacy = LEGACY_COLOR.matcher(prefix);
+        Matcher legacy =
+                LEGACY_COLOR.matcher(prefix);
         String lastCode = null;
+
         while (legacy.find()) {
-            lastCode = legacy.group(1).toLowerCase(Locale.ROOT);
+            lastCode = legacy
+                    .group(1)
+                    .toLowerCase(Locale.ROOT);
         }
 
         return lastCode == null
                 ? ""
-                : legacyHex(lastCode.charAt(0));
-    }
-
-    private static String normalizeHex(String value) {
-        if (value == null) {
-            return "";
-        }
-
-        String normalized = value.trim();
-        if (normalized.startsWith("&#")) {
-            normalized = normalized.substring(1);
-        }
-        if (!normalized.startsWith("#")) {
-            normalized = "#" + normalized;
-        }
-
-        return normalized.matches("(?i)#[0-9a-f]{6}")
-                ? normalized.toLowerCase(Locale.ROOT)
-                : "";
+                : legacyHex(
+                        lastCode.charAt(0)
+                );
     }
 
     private static String legacyHex(char code) {
@@ -257,7 +288,9 @@ public final class RankDisplayResolver {
         };
     }
 
-    private static String firstNonBlank(String... values) {
+    private static String firstNonBlank(
+            String... values
+    ) {
         if (values == null) {
             return "";
         }
@@ -277,13 +310,16 @@ public final class RankDisplayResolver {
 
     private static LuckPerms luckPerms() {
         LuckPerms current = cachedLuckPerms;
+
         if (current != null) {
             return current;
         }
 
         RegisteredServiceProvider<LuckPerms> registration =
                 Bukkit.getServicesManager()
-                        .getRegistration(LuckPerms.class);
+                        .getRegistration(
+                                LuckPerms.class
+                        );
 
         if (registration == null) {
             return null;

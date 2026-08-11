@@ -13,13 +13,32 @@ import net.mineacle.core.webprofiles.storage.WebTeamRepository;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
 
 import java.io.File;
 
 public final class WebProfilesModule extends Module {
 
+    private static WebProfileSyncService activeSyncService;
+
     private WebProfileSyncService syncService;
     private WebTeamSyncService teamSyncService;
+
+    public static void refreshPlayer(Player player) {
+        WebProfileSyncService service =
+                activeSyncService;
+
+        if (service == null
+                || player == null
+                || !player.isOnline()) {
+            return;
+        }
+
+        service.syncPlayer(
+                player,
+                true
+        );
+    }
 
     @Override
     public String name() {
@@ -41,15 +60,17 @@ public final class WebProfilesModule extends Module {
         }
 
         FileConfiguration config =
-                YamlConfiguration.loadConfiguration(
-                        file
-                );
+                YamlConfiguration
+                        .loadConfiguration(
+                                file
+                        );
 
         WebProfileRepository repository =
                 new WebProfileRepository(
                         core,
                         config
                 );
+
         syncService =
                 new WebProfileSyncService(
                         core,
@@ -57,6 +78,7 @@ public final class WebProfilesModule extends Module {
                         repository
                 );
         syncService.start();
+        activeSyncService = syncService;
 
         WebTeamRepository teamRepository =
                 new WebTeamRepository(
@@ -72,7 +94,9 @@ public final class WebProfilesModule extends Module {
         teamSyncService.start();
 
         PluginCommand command =
-                core.getCommand("mineacleweb");
+                core.getCommand(
+                        "mineacleweb"
+                );
 
         if (command == null) {
             throw new IllegalStateException(
@@ -88,7 +112,8 @@ public final class WebProfilesModule extends Module {
         command.setExecutor(executor);
         command.setTabCompleter(executor);
 
-        WebVerificationRepository verificationRepository =
+        WebVerificationRepository
+                verificationRepository =
                 new WebVerificationRepository(
                         core,
                         config
@@ -109,8 +134,12 @@ public final class WebProfilesModule extends Module {
                         core,
                         verificationRepository
                 );
-        verifyCommand.setExecutor(verifyExecutor);
-        verifyCommand.setTabCompleter(verifyExecutor);
+        verifyCommand.setExecutor(
+                verifyExecutor
+        );
+        verifyCommand.setTabCompleter(
+                verifyExecutor
+        );
 
         core.getServer()
                 .getPluginManager()
@@ -125,6 +154,10 @@ public final class WebProfilesModule extends Module {
 
     @Override
     public void disable() {
+        if (activeSyncService == syncService) {
+            activeSyncService = null;
+        }
+
         if (teamSyncService != null) {
             teamSyncService.stop();
             teamSyncService = null;

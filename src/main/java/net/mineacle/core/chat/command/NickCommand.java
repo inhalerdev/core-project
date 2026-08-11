@@ -7,17 +7,24 @@ import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.nametag.NametagModule;
+import net.mineacle.core.webprofiles.WebProfilesModule;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.Locale;
 
 public final class NickCommand
         implements CommandExecutor, TabCompleter {
+
+    private static final String BODY =
+            "&#bbbbbb";
+    private static final String SECONDARY =
+            "&#B078FF";
 
     private final Core core;
     private final NicknameService nicknameService;
@@ -35,14 +42,16 @@ public final class NickCommand
 
     @Override
     public boolean onCommand(
-            CommandSender sender,
-            Command command,
-            String label,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String label,
+            @NotNull String[] args
     ) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage(
-                    core.getMessage("general.players-only")
+                    core.getMessage(
+                            "general.players-only"
+                    )
             );
             return true;
         }
@@ -55,21 +64,20 @@ public final class NickCommand
             return true;
         }
 
-        if (!nicknameSettings.canUse(player)) {
-            player.sendMessage(TextColor.color(
-                    "&cThis is a Mineacle+ feature"
-            ));
-            player.sendActionBar(TextColor.color(
-                    "&cThis is a Mineacle+ feature"
-            ));
-            SoundService.mineaclePlus(player, core);
+        if (nicknameSettings.accessDenied(player)) {
+            error(
+                    player,
+                    "&cYou do not have permission to use nicknames"
+            );
             return true;
         }
 
         if (args.length != 1) {
             error(
                     player,
-                    core.getMessage("chat.nick-usage")
+                    core.getMessage(
+                            "chat.nick-usage"
+                    )
             );
             return true;
         }
@@ -77,7 +85,8 @@ public final class NickCommand
         String input = args[0];
 
         if (isReset(input)) {
-            if (!nicknameService.hasNickname(player)) {
+            if (nicknameService
+                    .nicknameMissing(player)) {
                 error(
                         player,
                         "&cYou do not have a nickname set"
@@ -85,7 +94,8 @@ public final class NickCommand
                 return true;
             }
 
-            if (!nicknameService.clearNickname(player)) {
+            if (!nicknameService
+                    .clearNickname(player)) {
                 error(
                         player,
                         "&cCould not reset your nickname"
@@ -93,33 +103,56 @@ public final class NickCommand
                 return true;
             }
 
-            player.sendMessage(TextColor.color(
-                    "&#bbbbbbYour nickname has been reset"
-            ));
-            SoundService.guiConfirm(player, core);
+            player.sendMessage(
+                    TextColor.color(
+                            BODY
+                                    + "Your nickname has been reset"
+                    )
+            );
+            SoundService.guiConfirm(
+                    player,
+                    core
+            );
             NametagModule.refresh(player);
+            WebProfilesModule.refreshPlayer(player);
             return true;
         }
 
         NicknameService.NicknameResult result =
-                nicknameService.setNicknameDetailed(
-                        player,
-                        input
-                );
+                nicknameService
+                        .setNicknameDetailed(
+                                player,
+                                input
+                        );
 
         switch (result) {
             case SUCCESS -> {
-                player.sendMessage(TextColor.color(
-                        "&#bbbbbbYour nickname is now &#bbbbbb"
-                                + nicknameService.displayName(player)
-                ));
-                SoundService.guiConfirm(player, core);
+                player.sendMessage(
+                        TextColor.color(
+                                BODY
+                                        + "Your nickname is now "
+                                        + SECONDARY
+                                        + nicknameService
+                                        .displayName(player)
+                        )
+                );
+                SoundService.guiConfirm(
+                        player,
+                        core
+                );
                 NametagModule.refresh(player);
+                WebProfilesModule.refreshPlayer(player);
             }
-            case UNCHANGED -> player.sendMessage(TextColor.color(
-                    "&#bbbbbbYour nickname is already &#bbbbbb"
-                            + nicknameService.displayName(player)
-            ));
+            case UNCHANGED ->
+                    player.sendMessage(
+                            TextColor.color(
+                                    BODY
+                                            + "Your nickname is already "
+                                            + SECONDARY
+                                            + nicknameService
+                                            .displayName(player)
+                            )
+                    );
             case TAKEN -> error(
                     player,
                     "&cThat nickname is not available"
@@ -130,11 +163,14 @@ public final class NickCommand
             );
             case INVALID -> error(
                     player,
-                    core.getMessage("chat.nick-invalid")
+                    core.getMessage(
+                                    "chat.nick-invalid"
+                            )
                             .replace(
                                     "%max%",
                                     String.valueOf(
-                                            nicknameService.maxLength()
+                                            nicknameService
+                                                    .maxLength()
                                     )
                             )
             );
@@ -145,16 +181,17 @@ public final class NickCommand
 
     @Override
     public List<String> onTabComplete(
-            CommandSender sender,
-            Command command,
-            String alias,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String alias,
+            @NotNull String[] args
     ) {
         if (!(sender instanceof Player player)
                 || !nicknameSettings.enabled()
-                || !nicknameSettings.canUse(player)
+                || nicknameSettings.accessDenied(player)
                 || args.length != 1
-                || !nicknameService.hasNickname(player)) {
+                || nicknameService
+                .nicknameMissing(player)) {
             return List.of();
         }
 
@@ -165,15 +202,24 @@ public final class NickCommand
     }
 
     private boolean isReset(String input) {
-        String normalized = input.toLowerCase(Locale.ROOT);
+        String normalized =
+                input.toLowerCase(Locale.ROOT);
 
         return normalized.equals("reset")
                 || normalized.equals("clear")
                 || normalized.equals("off");
     }
 
-    private void error(Player player, String message) {
-        player.sendMessage(TextColor.color(message));
-        SoundService.guiError(player, core);
+    private void error(
+            Player player,
+            String message
+    ) {
+        player.sendMessage(
+                TextColor.color(message)
+        );
+        SoundService.guiError(
+                player,
+                core
+        );
     }
 }

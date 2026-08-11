@@ -57,12 +57,14 @@ public final class WebProfileSyncService {
     private final WebRankRepository rankRepository;
     private final LuckPerms luckPerms;
     private final ExecutorService ioExecutor;
+
     private final AtomicBoolean fullSyncInFlight =
             new AtomicBoolean();
     private final AtomicBoolean fullSyncRequested =
             new AtomicBoolean();
     private final AtomicBoolean incrementalFlushScheduled =
             new AtomicBoolean();
+
     private final Map<UUID, WebProfileRecord> pendingPlayerRecords =
             new ConcurrentHashMap<>();
     private final Map<UUID, WebRankRepository.RankUpdate>
@@ -73,12 +75,14 @@ public final class WebProfileSyncService {
     private BukkitTask incrementalFlushTask;
     private EventSubscription<UserDataRecalculateEvent>
             luckPermsRankSubscription;
+
     private RankingSnapshot rankings =
             RankingSnapshot.empty();
     private List<OfflineSnapshot> offlinePopulation =
             List.of();
     private Map<UUID, OfflineSnapshot> offlineById =
             Map.of();
+
     private int offlineCursor;
     private long offlinePopulationRefreshAt;
     private volatile boolean running;
@@ -91,17 +95,19 @@ public final class WebProfileSyncService {
         this.core = core;
         this.config = config;
         this.repository = repository;
-        this.rankRepository = new WebRankRepository(
-                core,
-                config
-        );
+        this.rankRepository =
+                new WebRankRepository(
+                        core,
+                        config
+                );
         this.ioExecutor =
                 Executors.newSingleThreadExecutor(
                         runnable -> {
-                            Thread thread = new Thread(
-                                    runnable,
-                                    "Mineacle-WebProfileIO"
-                            );
+                            Thread thread =
+                                    new Thread(
+                                            runnable,
+                                            "Mineacle-WebProfileIO"
+                                    );
                             thread.setDaemon(true);
                             return thread;
                         }
@@ -110,7 +116,9 @@ public final class WebProfileSyncService {
         RegisteredServiceProvider<LuckPerms> registration =
                 core.getServer()
                         .getServicesManager()
-                        .getRegistration(LuckPerms.class);
+                        .getRegistration(
+                                LuckPerms.class
+                        );
 
         if (registration == null) {
             throw new IllegalStateException(
@@ -118,11 +126,15 @@ public final class WebProfileSyncService {
             );
         }
 
-        this.luckPerms = registration.getProvider();
+        this.luckPerms =
+                registration.getProvider();
     }
 
     public void start() {
-        if (!config.getBoolean("enabled", true)) {
+        if (!config.getBoolean(
+                "enabled",
+                true
+        )) {
             core.getLogger().info(
                     "Web profiles are disabled"
             );
@@ -132,13 +144,14 @@ public final class WebProfileSyncService {
         repository.initialize();
         running = true;
 
-        long intervalTicks = Math.max(
-                20L,
-                config.getLong(
-                        "sync.interval-seconds",
-                        120L
-                ) * 20L
-        );
+        long intervalTicks =
+                Math.max(
+                        20L,
+                        config.getLong(
+                                "sync.interval-seconds",
+                                120L
+                        ) * 20L
+                );
 
         syncTask = core.getServer()
                 .getScheduler()
@@ -150,13 +163,15 @@ public final class WebProfileSyncService {
                 );
 
         luckPermsRankSubscription =
-                luckPerms.getEventBus().subscribe(
-                        core,
-                        UserDataRecalculateEvent.class,
-                        event -> queueLuckPermsRankRefresh(
-                                event.getUser()
-                        )
-                );
+                luckPerms.getEventBus()
+                        .subscribe(
+                                core,
+                                UserDataRecalculateEvent.class,
+                                event ->
+                                        queueLuckPermsRankRefresh(
+                                                event.getUser()
+                                        )
+                        );
 
         core.getLogger().info(
                 "Web profile sync enabled with serialized database I/O"
@@ -189,10 +204,12 @@ public final class WebProfileSyncService {
 
         if (wasRunning
                 && config.getBoolean(
-                        "sync.mark-offline-on-disable",
-                        true
-                )) {
-            submitIo(repository::markOffline);
+                "sync.mark-offline-on-disable",
+                true
+        )) {
+            submitIo(
+                    repository::markOffline
+            );
         }
 
         ioExecutor.shutdown();
@@ -205,14 +222,17 @@ public final class WebProfileSyncService {
                 ioExecutor.shutdownNow();
             }
         } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
+            Thread.currentThread()
+                    .interrupt();
             ioExecutor.shutdownNow();
         }
     }
 
-    // LuckPerms recalculation events are asynchronous. Bukkit state and
-    // public-rank resolution return to the server thread; the database write
-    // is then serialized through the same I/O worker as profile batches.
+    /*
+     * LuckPerms recalculation events may be asynchronous. Bukkit state and
+     * public identity resolution return to the server thread; database writes
+     * then use the serialized web-profile I/O worker.
+     */
     private void queueLuckPermsRankRefresh(
             User recalculatedUser
     ) {
@@ -220,45 +240,62 @@ public final class WebProfileSyncService {
             return;
         }
 
-        UUID uuid = recalculatedUser.getUniqueId();
+        UUID uuid =
+                recalculatedUser.getUniqueId();
 
-        core.getServer().getScheduler().runTask(
-                core,
-                () -> {
-                    if (!running || !core.isEnabled()) {
-                        return;
-                    }
+        core.getServer()
+                .getScheduler()
+                .runTask(
+                        core,
+                        () -> {
+                            if (!running
+                                    || !core.isEnabled()) {
+                                return;
+                            }
 
-                    Player player = Bukkit.getPlayer(uuid);
+                            Player player =
+                                    Bukkit.getPlayer(uuid);
 
-                    if (player != null && player.isOnline()) {
-                        syncPlayer(player, true);
-                        return;
-                    }
+                            if (player != null
+                                    && player.isOnline()) {
+                                syncPlayer(
+                                        player,
+                                        true
+                                );
+                                return;
+                            }
 
-                    User latestUser = luckPerms
-                            .getUserManager()
-                            .getUser(uuid);
-                    User rankSource = latestUser == null
-                            ? recalculatedUser
-                            : latestUser;
-                    WebRank rank = luckPermsRank(rankSource);
-                    String username =
-                            rankSource.getUsername();
+                            User latestUser =
+                                    luckPerms
+                                            .getUserManager()
+                                            .getUser(uuid);
+                            User rankSource =
+                                    latestUser == null
+                                            ? recalculatedUser
+                                            : latestUser;
 
-                    queueRankUpdate(
-                            new WebRankRepository.RankUpdate(
-                                    uuid,
-                                    username,
-                                    rank.key(),
-                                    rank.name(),
-                                    rank.prefix(),
-                                    rank.color(),
-                                    rank.weight()
-                            )
-                    );
-                }
-        );
+                            WebRank rank =
+                                    luckPermsRank(
+                                            rankSource
+                                    );
+                            String username =
+                                    rankSource
+                                            .getUsername();
+
+                            queueRankUpdate(
+                                    new WebRankRepository
+                                            .RankUpdate(
+                                            uuid,
+                                            username,
+                                            rank.key(),
+                                            rank.name(),
+                                            rank.prefix(),
+                                            rank.color(),
+                                            rank.weight()
+                                    )
+                            );
+                        }
+                );
     }
 
     public void syncAll() {
@@ -266,16 +303,18 @@ public final class WebProfileSyncService {
             return;
         }
 
-        if (!fullSyncInFlight.compareAndSet(
-                false,
-                true
-        )) {
+        if (!fullSyncInFlight
+                .compareAndSet(
+                        false,
+                        true
+                )) {
             fullSyncRequested.set(true);
             return;
         }
 
         try {
-            SyncBatch batch = createSyncBatch();
+            SyncBatch batch =
+                    createSyncBatch();
 
             if (batch.drafts().isEmpty()) {
                 finishFullSync();
@@ -302,11 +341,13 @@ public final class WebProfileSyncService {
             boolean online
     ) {
         if (!running
-                || !core.isEnabled()) {
+                || !core.isEnabled()
+                || player == null) {
             return;
         }
 
-        StatsService stats = StatsModule.statsService();
+        StatsService stats =
+                StatsModule.statsService();
         EconomyService economy =
                 EconomyModule.economyService();
 
@@ -314,53 +355,68 @@ public final class WebProfileSyncService {
             return;
         }
 
-        UUID uuid = player.getUniqueId();
+        UUID uuid =
+                player.getUniqueId();
         OfflineSnapshot offline =
                 snapshot(player);
+
         long playtimeSeconds =
                 stats.playtimeSeconds(uuid);
+
         PlayerStatsData statsData =
                 new PlayerStatsData(
                         stats.kills(uuid),
                         stats.deaths(uuid),
                         playtimeSeconds
                 );
-        WebRank rank = luckPermsRank(player);
-        ProfileDraft draft = draft(
-                uuid,
-                player,
-                offline,
-                stats,
-                statsData,
-                economy,
-                online && player.isOnline(),
-                rankings,
-                rank
-        );
+
+        WebRank rank =
+                luckPermsRank(player);
+
+        ProfileDraft draft =
+                draft(
+                        uuid,
+                        player,
+                        offline,
+                        stats,
+                        statsData,
+                        economy,
+                        online
+                                && player.isOnline(),
+                        rankings,
+                        rank
+                );
 
         if (draft == null) {
             return;
         }
 
-        WebProfileRecord record =
-                draft.toRecord(rank);
-
-        queuePlayerRecord(record);
+        queuePlayerRecord(
+                draft.toRecord(rank)
+        );
     }
 
     private SyncBatch createSyncBatch() {
-        StatsService stats = StatsModule.statsService();
+        StatsService stats =
+                StatsModule.statsService();
         EconomyService economy =
                 EconomyModule.economyService();
 
         if (stats == null || economy == null) {
-            return SyncBatch.empty(defaultRank());
+            return SyncBatch.empty(
+                    defaultRank()
+            );
         }
 
         var balances =
-                economy.topBalances(Integer.MAX_VALUE);
+                economy.topBalances(
+                        Integer.MAX_VALUE
+                );
         List<StatProfile> playtime =
-                stats.topPlaytime(Integer.MAX_VALUE);
+                stats.topPlaytime(
+                        Integer.MAX_VALUE
+                );
+
         List<StatProfile> kills =
                 new ArrayList<>(playtime);
         List<StatProfile> deaths =
@@ -368,17 +424,24 @@ public final class WebProfileSyncService {
 
         kills.sort(
                 Comparator
-                        .comparingLong(StatProfile::kills)
+                        .comparingLong(
+                                StatProfile::kills
+                        )
                         .thenComparingLong(
-                                StatProfile::playtimeSeconds
+                                StatProfile
+                                        ::playtimeSeconds
                         )
                         .reversed()
         );
+
         deaths.sort(
                 Comparator
-                        .comparingLong(StatProfile::deaths)
+                        .comparingLong(
+                                StatProfile::deaths
+                        )
                         .thenComparingLong(
-                                StatProfile::playtimeSeconds
+                                StatProfile
+                                        ::playtimeSeconds
                         )
                         .reversed()
         );
@@ -397,7 +460,8 @@ public final class WebProfileSyncService {
                     new PlayerStatsData(
                             profile.kills(),
                             profile.deaths(),
-                            profile.playtimeSeconds()
+                            profile
+                                    .playtimeSeconds()
                     )
             );
         }
@@ -406,8 +470,8 @@ public final class WebProfileSyncService {
                 new HashMap<>();
         int moneyPosition = 0;
 
-        for (Map.Entry<UUID, Long> entry :
-                balances) {
+        for (Map.Entry<UUID, Long> entry
+                : balances) {
             Long value = entry.getValue();
 
             if (value == null || value <= 0L) {
@@ -459,7 +523,9 @@ public final class WebProfileSyncService {
                 new RankingSnapshot(
                         Map.copyOf(moneyRanks),
                         Map.copyOf(killRanks),
-                        Map.copyOf(playtimeRanks)
+                        Map.copyOf(
+                                playtimeRanks
+                        )
                 );
         rankings = rankingSnapshot;
 
@@ -468,9 +534,11 @@ public final class WebProfileSyncService {
         Map<UUID, OfflineSnapshot> metadata =
                 new HashMap<>();
 
-        for (Player player :
-                Bukkit.getOnlinePlayers()) {
-            UUID uuid = player.getUniqueId();
+        for (Player player
+                : Bukkit.getOnlinePlayers()) {
+            UUID uuid =
+                    player.getUniqueId();
+
             ids.add(uuid);
             metadata.put(
                     uuid,
@@ -478,54 +546,67 @@ public final class WebProfileSyncService {
             );
         }
 
-        addOfflineBatch(ids, metadata);
-
-        int leaderboardPull = Math.max(
-                100,
-                config.getInt(
-                        "sync.leaderboard-pull-limit",
-                        500
-                )
+        addOfflineBatch(
+                ids,
+                metadata
         );
+
+        int leaderboardPull =
+                Math.max(
+                        100,
+                        config.getInt(
+                                "sync.leaderboard-pull-limit",
+                                500
+                        )
+                );
 
         addBalanceLeaders(
                 ids,
                 balances,
                 leaderboardPull
         );
-        int killLeaderCount = Math.min(
-                leaderboardPull,
-                kills.size()
-        );
+
+        int killLeaderCount =
+                Math.min(
+                        leaderboardPull,
+                        kills.size()
+                );
 
         for (int index = 0;
              index < killLeaderCount;
              index++) {
-            ids.add(kills.get(index).uuid());
+            ids.add(
+                    kills.get(index).uuid()
+            );
         }
 
-        int playtimeLeaderCount = Math.min(
-                leaderboardPull,
-                playtime.size()
-        );
+        int playtimeLeaderCount =
+                Math.min(
+                        leaderboardPull,
+                        playtime.size()
+                );
 
         for (int index = 0;
              index < playtimeLeaderCount;
              index++) {
             ids.add(
-                    playtime.get(index).uuid()
+                    playtime.get(index)
+                            .uuid()
             );
         }
 
-        int deathLeaderCount = Math.min(
-                leaderboardPull,
-                deaths.size()
-        );
+        int deathLeaderCount =
+                Math.min(
+                        leaderboardPull,
+                        deaths.size()
+                );
 
         for (int index = 0;
              index < deathLeaderCount;
              index++) {
-            ids.add(deaths.get(index).uuid());
+            ids.add(
+                    deaths.get(index).uuid()
+            );
         }
 
         List<ProfileDraft> drafts =
@@ -534,53 +615,65 @@ public final class WebProfileSyncService {
                 new LinkedHashSet<>();
 
         for (UUID uuid : ids) {
-            Player player = Bukkit.getPlayer(uuid);
+            Player player =
+                    Bukkit.getPlayer(uuid);
             OfflineSnapshot offline =
                     metadata.get(uuid);
 
             if (offline == null) {
-                offline = offlineById.get(uuid);
+                offline =
+                        offlineById.get(uuid);
             }
 
             if (offline == null) {
                 offline = snapshot(
-                        Bukkit.getOfflinePlayer(uuid)
+                        Bukkit.getOfflinePlayer(
+                                uuid
+                        )
                 );
             }
 
             WebRank resolvedRank = null;
 
-            if (player != null && player.isOnline()) {
-                resolvedRank = luckPermsRank(player);
+            if (player != null
+                    && player.isOnline()) {
+                resolvedRank =
+                        luckPermsRank(player);
             } else {
-                User loadedUser = luckPerms
-                        .getUserManager()
-                        .getUser(uuid);
+                User loadedUser =
+                        luckPerms
+                                .getUserManager()
+                                .getUser(uuid);
 
                 if (loadedUser != null) {
                     resolvedRank =
-                            luckPermsRank(loadedUser);
+                            luckPermsRank(
+                                    loadedUser
+                            );
                 }
             }
 
             PlayerStatsData statsData =
-                    statsSnapshot.getOrDefault(
-                            uuid,
-                            PlayerStatsData.ZERO
-                    );
+                    statsSnapshot
+                            .getOrDefault(
+                                    uuid,
+                                    PlayerStatsData.ZERO
+                            );
 
-            ProfileDraft draft = draft(
-                    uuid,
-                    player,
-                    offline,
-                    stats,
-                    statsData,
-                    economy,
-                    player != null
-                            && player.isOnline(),
-                    rankingSnapshot,
-                    resolvedRank
-            );
+            ProfileDraft draft =
+                    draft(
+                            uuid,
+                            player,
+                            offline,
+                            stats,
+                            statsData,
+                            economy,
+                            player != null
+                                    && player
+                                    .isOnline(),
+                            rankingSnapshot,
+                            resolvedRank
+                    );
 
             if (draft == null) {
                 continue;
@@ -595,32 +688,39 @@ public final class WebProfileSyncService {
 
         return new SyncBatch(
                 List.copyOf(drafts),
-                Set.copyOf(unresolvedRanks),
+                Set.copyOf(
+                        unresolvedRanks
+                ),
                 defaultRank()
         );
     }
 
-    private void persistBatch(SyncBatch batch) {
+    private void persistBatch(
+            SyncBatch batch
+    ) {
         try {
             Map<UUID, WebRankRepository.StoredRank>
                     storedRanks =
                     rankRepository.findRanks(
                             batch.unresolvedRankIds()
                     );
+
             List<WebProfileRecord> records =
                     new ArrayList<>(
                             batch.drafts().size()
                     );
 
-            for (ProfileDraft draft :
-                    batch.drafts()) {
-                WebRank rank = draft.resolvedRank();
+            for (ProfileDraft draft
+                    : batch.drafts()) {
+                WebRank rank =
+                        draft.resolvedRank();
 
                 if (rank == null) {
                     WebRankRepository.StoredRank stored =
                             storedRanks.get(
                                     draft.uuid()
                             );
+
                     rank = stored == null
                             ? batch.defaultRank()
                             : storedRank(
@@ -651,7 +751,8 @@ public final class WebProfileSyncService {
     private void finishFullSyncFromIo() {
         fullSyncInFlight.set(false);
 
-        if (!fullSyncRequested.getAndSet(false)
+        if (!fullSyncRequested
+                .getAndSet(false)
                 || !running
                 || !core.isEnabled()) {
             return;
@@ -668,7 +769,8 @@ public final class WebProfileSyncService {
     private void finishFullSync() {
         fullSyncInFlight.set(false);
 
-        if (fullSyncRequested.getAndSet(false)
+        if (fullSyncRequested
+                .getAndSet(false)
                 && running
                 && core.isEnabled()) {
             core.getServer()
@@ -703,20 +805,22 @@ public final class WebProfileSyncService {
     private void scheduleIncrementalFlush() {
         if (!running
                 || !core.isEnabled()
-                || !incrementalFlushScheduled.compareAndSet(
-                false,
-                true
-        )) {
+                || !incrementalFlushScheduled
+                .compareAndSet(
+                        false,
+                        true
+                )) {
             return;
         }
 
-        incrementalFlushTask = core.getServer()
-                .getScheduler()
-                .runTaskLater(
-                        core,
-                        this::flushIncremental,
-                        INCREMENTAL_FLUSH_DELAY_TICKS
-                );
+        incrementalFlushTask =
+                core.getServer()
+                        .getScheduler()
+                        .runTaskLater(
+                                core,
+                                this::flushIncremental,
+                                INCREMENTAL_FLUSH_DELAY_TICKS
+                        );
     }
 
     private void flushIncremental() {
@@ -727,8 +831,10 @@ public final class WebProfileSyncService {
 
         if (running
                 && core.isEnabled()
-                && (!pendingPlayerRecords.isEmpty()
-                || !pendingRankUpdates.isEmpty())) {
+                && (!pendingPlayerRecords
+                .isEmpty()
+                || !pendingRankUpdates
+                .isEmpty())) {
             scheduleIncrementalFlush();
         }
     }
@@ -736,7 +842,9 @@ public final class WebProfileSyncService {
     private void flushIncrementalNow() {
         List<WebProfileRecord> records =
                 drainPlayerRecords();
-        List<WebRankRepository.RankUpdate> rankUpdates =
+
+        List<WebRankRepository.RankUpdate>
+                rankUpdates =
                 drainRankUpdates();
 
         if (records.isEmpty()
@@ -744,30 +852,35 @@ public final class WebProfileSyncService {
             return;
         }
 
-        boolean accepted = submitIo(
-                () -> {
-                    if (!records.isEmpty()) {
-                        repository.upsertAll(records);
-                    }
+        boolean accepted =
+                submitIo(
+                        () -> {
+                            if (!records.isEmpty()) {
+                                repository.upsertAll(
+                                        records
+                                );
+                            }
 
-                    if (!rankUpdates.isEmpty()) {
-                        rankRepository.upsertRanks(
-                                rankUpdates
-                        );
-                    }
-                }
-        );
+                            if (!rankUpdates.isEmpty()) {
+                                rankRepository
+                                        .upsertRanks(
+                                                rankUpdates
+                                        );
+                            }
+                        }
+                );
 
         if (!accepted && running) {
-            for (WebProfileRecord record : records) {
+            for (WebProfileRecord record
+                    : records) {
                 pendingPlayerRecords.put(
                         record.uuid(),
                         record
                 );
             }
 
-            for (WebRankRepository.RankUpdate update :
-                    rankUpdates) {
+            for (WebRankRepository.RankUpdate update
+                    : rankUpdates) {
                 pendingRankUpdates.put(
                         update.uuid(),
                         update
@@ -776,7 +889,8 @@ public final class WebProfileSyncService {
         }
     }
 
-    private List<WebProfileRecord> drainPlayerRecords() {
+    private List<WebProfileRecord>
+    drainPlayerRecords() {
         if (pendingPlayerRecords.isEmpty()) {
             return List.of();
         }
@@ -786,8 +900,9 @@ public final class WebProfileSyncService {
                         pendingPlayerRecords.size()
                 );
 
-        for (Map.Entry<UUID, WebProfileRecord> entry :
-                pendingPlayerRecords.entrySet()) {
+        for (Map.Entry<UUID, WebProfileRecord> entry
+                : pendingPlayerRecords
+                .entrySet()) {
             if (pendingPlayerRecords.remove(
                     entry.getKey(),
                     entry.getValue()
@@ -810,13 +925,16 @@ public final class WebProfileSyncService {
                         pendingRankUpdates.size()
                 );
 
-        for (Map.Entry<UUID, WebRankRepository.RankUpdate>
-                entry : pendingRankUpdates.entrySet()) {
+        for (Map.Entry<UUID,
+                WebRankRepository.RankUpdate> entry
+                : pendingRankUpdates.entrySet()) {
             if (pendingRankUpdates.remove(
                     entry.getKey(),
                     entry.getValue()
             )) {
-                updates.add(entry.getValue());
+                updates.add(
+                        entry.getValue()
+                );
             }
         }
 
@@ -831,7 +949,9 @@ public final class WebProfileSyncService {
         try {
             ioExecutor.execute(task);
             return true;
-        } catch (RejectedExecutionException ignored) {
+        } catch (
+                RejectedExecutionException ignored
+        ) {
             return false;
         }
     }
@@ -847,10 +967,12 @@ public final class WebProfileSyncService {
             return;
         }
 
-        long now = System.currentTimeMillis();
+        long now =
+                System.currentTimeMillis();
 
         if (offlinePopulation.isEmpty()
-                || now >= offlinePopulationRefreshAt) {
+                || now
+                >= offlinePopulationRefreshAt) {
             refreshOfflinePopulation(now);
         }
 
@@ -858,27 +980,32 @@ public final class WebProfileSyncService {
             return;
         }
 
-        int batchSize = Math.clamp(
-                config.getInt(
-                        "sync.offline-player-batch-size",
-                        DEFAULT_OFFLINE_BATCH_SIZE
-                ),
-                1,
-                MAX_OFFLINE_BATCH_SIZE
-        );
+        int batchSize =
+                Math.clamp(
+                        config.getInt(
+                                "sync.offline-player-batch-size",
+                                DEFAULT_OFFLINE_BATCH_SIZE
+                        ),
+                        1,
+                        MAX_OFFLINE_BATCH_SIZE
+                );
 
-        int count = Math.min(
-                batchSize,
-                offlinePopulation.size()
-        );
+        int count =
+                Math.min(
+                        batchSize,
+                        offlinePopulation.size()
+                );
 
-        for (int index = 0; index < count; index++) {
+        for (int index = 0;
+             index < count;
+             index++) {
             OfflineSnapshot offline =
                     offlinePopulation.get(
                             offlineCursor
                     );
 
             offlineCursor++;
+
             if (offlineCursor
                     >= offlinePopulation.size()) {
                 offlineCursor = 0;
@@ -898,16 +1025,21 @@ public final class WebProfileSyncService {
         }
     }
 
-    private void refreshOfflinePopulation(long now) {
-        int limit = Math.max(
-                1,
-                config.getInt(
-                        "sync.offline-player-pull-limit",
-                        10000
-                )
-        );
+    private void refreshOfflinePopulation(
+            long now
+    ) {
+        int limit =
+                Math.max(
+                        1,
+                        config.getInt(
+                                "sync.offline-player-pull-limit",
+                                10000
+                        )
+                );
+
         OfflinePlayer[] knownPlayers =
                 Bukkit.getOfflinePlayers();
+
         List<OfflineSnapshot> population =
                 new ArrayList<>(
                         Math.min(
@@ -915,13 +1047,14 @@ public final class WebProfileSyncService {
                                 knownPlayers.length
                         )
                 );
+
         Map<UUID, OfflineSnapshot> byId =
                 new HashMap<>();
 
         int count = 0;
 
-        for (OfflinePlayer offline :
-                knownPlayers) {
+        for (OfflinePlayer offline
+                : knownPlayers) {
             OfflineSnapshot snapshot =
                     snapshot(offline);
 
@@ -932,6 +1065,7 @@ public final class WebProfileSyncService {
             );
 
             count++;
+
             if (count >= limit) {
                 break;
             }
@@ -947,16 +1081,19 @@ public final class WebProfileSyncService {
             offlineCursor = 0;
         }
 
-        long refreshSeconds = Math.max(
-                60L,
-                config.getLong(
-                        "sync.offline-player-refresh-seconds",
-                        DEFAULT_OFFLINE_REFRESH_SECONDS
-                )
-        );
+        long refreshSeconds =
+                Math.max(
+                        60L,
+                        config.getLong(
+                                "sync.offline-player-refresh-seconds",
+                                DEFAULT_OFFLINE_REFRESH_SECONDS
+                        )
+                );
 
         offlinePopulationRefreshAt =
-                now + refreshSeconds * 1000L;
+                now
+                        + refreshSeconds
+                        * 1000L;
     }
 
     private void addBalanceLeaders(
@@ -964,14 +1101,18 @@ public final class WebProfileSyncService {
             List<Map.Entry<UUID, Long>> balances,
             int limit
     ) {
-        int count = Math.min(
-                limit,
-                balances.size()
-        );
+        int count =
+                Math.min(
+                        limit,
+                        balances.size()
+                );
 
-        for (int index = 0; index < count; index++) {
+        for (int index = 0;
+             index < count;
+             index++) {
             ids.add(
-                    balances.get(index).getKey()
+                    balances.get(index)
+                            .getKey()
             );
         }
     }
@@ -987,43 +1128,72 @@ public final class WebProfileSyncService {
             RankingSnapshot rankingSnapshot,
             WebRank resolvedRank
     ) {
-        String username = offline.username();
+        String username =
+                offline.username();
 
-        if (username == null || username.isBlank()) {
+        if (username == null
+                || username.isBlank()) {
             return null;
         }
 
-        long now = System.currentTimeMillis();
-        long balance = economy.getBalanceCents(uuid);
-        long kills = statsData.kills();
-        long deaths = statsData.deaths();
-        long playtime = statsData.playtimeSeconds();
+        long now =
+                System.currentTimeMillis();
+        long balance =
+                economy.getBalanceCents(uuid);
+        long kills =
+                statsData.kills();
+        long deaths =
+                statsData.deaths();
+        long playtime =
+                statsData.playtimeSeconds();
 
-        int moneyRank = balance <= 0L
-                ? 0
-                : rankingSnapshot.moneyRank(uuid);
-        int killsRank = kills <= 0L
-                ? 0
-                : rankingSnapshot.killsRank(uuid);
-        int playtimeRank = playtime <= 0L
-                ? 0
-                : rankingSnapshot.playtimeRank(uuid);
+        int moneyRank =
+                balance <= 0L
+                        ? 0
+                        : rankingSnapshot
+                        .moneyRank(uuid);
+        int killsRank =
+                kills <= 0L
+                        ? 0
+                        : rankingSnapshot
+                        .killsRank(uuid);
+        int playtimeRank =
+                playtime <= 0L
+                        ? 0
+                        : rankingSnapshot
+                        .playtimeRank(uuid);
 
-        String displayName = player != null
-                ? DisplayNames.displayName(player)
-                : username;
-        WorldData world = player != null
-                ? worldData(player.getWorld())
-                : WorldData.none();
-        TeamData team = teamData(uuid);
+        OfflinePlayer identity =
+                player != null
+                        ? player
+                        : Bukkit.getOfflinePlayer(
+                                uuid
+                        );
+
+        String displayName =
+                DisplayNames.displayName(
+                        identity
+                );
+
+        WorldData world =
+                player != null
+                        ? worldData(
+                        player.getWorld()
+                )
+                        : WorldData.none();
+
+        TeamData team =
+                teamData(uuid);
 
         long firstJoinedAt =
                 offline.firstPlayed() <= 0L
                         ? now
                         : offline.firstPlayed();
-        long lastSeen = online
-                ? now
-                : offline.lastSeen();
+
+        long lastSeen =
+                online
+                        ? now
+                        : offline.lastSeen();
 
         if (lastSeen <= 0L) {
             lastSeen = now;
@@ -1039,15 +1209,18 @@ public final class WebProfileSyncService {
                 balance,
                 economy.format(balance),
                 playtime,
-                stats.formatPlaytime(playtime),
+                stats.formatPlaytime(
+                        playtime
+                ),
                 kills,
                 deaths,
                 deaths <= 0L
                         ? kills
                         : Math.round(
-                                (kills / (double) deaths)
-                                        * 100.0D
-                        ) / 100.0D,
+                        (kills
+                                / (double) deaths)
+                                * 100.0D
+                ) / 100.0D,
                 moneyRank,
                 killsRank,
                 playtimeRank,
@@ -1069,21 +1242,37 @@ public final class WebProfileSyncService {
         );
     }
 
-    private WorldData worldData(World world) {
+    private WorldData worldData(
+            World world
+    ) {
         String key = world.getName();
-        String path = "worlds.mappings." + key;
-        String name = config.getString(path + ".name");
-        String group = config.getString(path + ".group");
+        String path =
+                "worlds.mappings." + key;
+        String name =
+                config.getString(
+                        path + ".name"
+                );
+        String group =
+                config.getString(
+                        path + ".group"
+                );
 
-        if (name != null && !name.isBlank()) {
+        if (name != null
+                && !name.isBlank()) {
             return new WorldData(
                     key,
                     name,
-                    group == null ? "" : group
+                    group == null
+                            ? ""
+                            : group
             );
         }
 
-        return switch (key.toLowerCase(Locale.ROOT)) {
+        return switch (
+                key.toLowerCase(
+                        Locale.ROOT
+                )
+        ) {
             case "spawn1" ->
                     new WorldData(
                             key,
@@ -1108,13 +1297,15 @@ public final class WebProfileSyncService {
                             "Overworld",
                             "survival"
                     );
-            case "world_nether", "origins_nether" ->
+            case "world_nether",
+                 "origins_nether" ->
                     new WorldData(
                             key,
                             "Nether",
                             "survival"
                     );
-            case "world_the_end", "origins_the_end" ->
+            case "world_the_end",
+                 "origins_the_end" ->
                     new WorldData(
                             key,
                             "End",
@@ -1136,14 +1327,16 @@ public final class WebProfileSyncService {
     }
 
     private TeamData teamData(UUID uuid) {
-        TeamService teamService = TeamsModule.teamService();
+        TeamService teamService =
+                TeamsModule.teamService();
 
         if (teamService == null) {
             return TeamData.none();
         }
 
         TeamRecord team =
-                teamService.getTeamByPlayer(uuid);
+                teamService
+                        .getTeamByPlayer(uuid);
         TeamMemberRecord member =
                 teamService.getMember(uuid);
 
@@ -1154,14 +1347,20 @@ public final class WebProfileSyncService {
         return new TeamData(
                 team.teamId(),
                 team.name(),
-                roleLabel(member.role().name()),
+                roleLabel(
+                        member.role().name()
+                ),
                 member.joinedAt()
         );
     }
 
-    private String roleLabel(String roleName) {
+    private String roleLabel(
+            String roleName
+    ) {
         String normalized =
-                roleName.toUpperCase(Locale.ROOT);
+                roleName.toUpperCase(
+                        Locale.ROOT
+                );
 
         return switch (normalized) {
             case "MVP" -> "MVP";
@@ -1173,20 +1372,28 @@ public final class WebProfileSyncService {
                     normalized.charAt(0)
                             + normalized
                             .substring(1)
-                            .toLowerCase(Locale.ROOT);
+                            .toLowerCase(
+                                    Locale.ROOT
+                            );
         };
     }
 
-
-    private WebRank luckPermsRank(Player player) {
+    private WebRank luckPermsRank(
+            Player player
+    ) {
         return webRank(
-                RankDisplayResolver.resolve(player)
+                RankDisplayResolver.resolve(
+                        player
+                )
         );
     }
 
-    private WebRank luckPermsRank(User user) {
+    private WebRank luckPermsRank(
+            User user
+    ) {
         return webRank(
-                RankDisplayResolver.resolveUser(user)
+                RankDisplayResolver
+                        .resolveUser(user)
         );
     }
 
@@ -1202,14 +1409,10 @@ public final class WebProfileSyncService {
         );
     }
 
-    private boolean isRetiredRank(String key) {
-        String normalized =
-                key.trim().toLowerCase(Locale.ROOT);
-
-        return normalized.equals("developer")
-                || normalized.equals("dev");
-    }
-
+    /**
+     * Stored MariaDB rank data is a mirror of previously resolved LuckPerms
+     * data. No rank key is blacklisted or reinterpreted by MineacleCore.
+     */
     private WebRank storedRank(
             WebRankRepository.StoredRank stored,
             WebRank fallback
@@ -1220,19 +1423,17 @@ public final class WebProfileSyncService {
                         ? fallback.key()
                         : stored.key();
 
-        if (isRetiredRank(key)) {
-            return fallback;
-        }
-
         String name =
                 stored.name() == null
                         || stored.name().isBlank()
                         ? fallback.name()
                         : stored.name();
+
         String prefix =
                 stored.prefix() == null
                         ? fallback.prefix()
                         : stored.prefix();
+
         String color =
                 stored.color() == null
                         || stored.color().isBlank()
@@ -1250,7 +1451,8 @@ public final class WebProfileSyncService {
 
     private WebRank defaultRank() {
         return webRank(
-                RankDisplayResolver.defaultRank()
+                RankDisplayResolver
+                        .defaultRank()
         );
     }
 
@@ -1298,24 +1500,27 @@ public final class WebProfileSyncService {
         }
 
         private int moneyRank(UUID uuid) {
-            return moneyRanks.getOrDefault(
-                    uuid,
-                    0
-            );
+            return moneyRanks
+                    .getOrDefault(
+                            uuid,
+                            0
+                    );
         }
 
         private int killsRank(UUID uuid) {
-            return killsRanks.getOrDefault(
-                    uuid,
-                    0
-            );
+            return killsRanks
+                    .getOrDefault(
+                            uuid,
+                            0
+                    );
         }
 
         private int playtimeRank(UUID uuid) {
-            return playtimeRanks.getOrDefault(
-                    uuid,
-                    0
-            );
+            return playtimeRanks
+                    .getOrDefault(
+                            uuid,
+                            0
+                    );
         }
     }
 

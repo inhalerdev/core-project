@@ -1,7 +1,7 @@
 enabled: true
 
 updates:
-  # Low-frequency self-heal only. Rank/nickname/hide changes are event-driven.
+  # Low-frequency self-heal only. Rank/nickname changes are event-driven.
   audit-ticks: 600
 
 worlds:
@@ -15,19 +15,18 @@ worlds:
     - overworld_the_end
 
 rank:
+  # Prefix is read directly from LuckPerms cached metadata.
   enabled: true
-  use-placeholderapi: true
-  placeholder: "%mineaclerank_prefix%"
   fallback: ""
 
 name-color:
   default: "#bbbbbb"
-  op: "#8436FE"
+  op: "#B078FF"
 
 suffix: ""
 
 display:
-  # Final visual offset above the player's current bounding box
+  # Local translation above Paper's passenger mount point.
   vertical-offset: 0.32
   view-range: 1.0
   line-width: 200

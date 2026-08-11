@@ -24,18 +24,9 @@ public final class ChatModule extends Module {
 
     private static NicknameService nicknameService;
     private static ChatService chatService;
-    private static NicknameSettings nicknameSettings;
 
     public static NicknameService nicknameService() {
         return nicknameService;
-    }
-
-    public static ChatService chatService() {
-        return chatService;
-    }
-
-    public static NicknameSettings nicknameSettings() {
-        return nicknameSettings;
     }
 
     @Override
@@ -45,31 +36,50 @@ public final class ChatModule extends Module {
 
     @Override
     public void enable(Core core) throws Exception {
-        nicknameSettings = new NicknameSettings(core);
-        nicknameService = new NicknameService(core);
-        chatService = new ChatService(core, nicknameService);
+        NicknameSettings nicknameSettings =
+                new NicknameSettings(core);
+        nicknameService =
+                new NicknameService(core);
+        chatService =
+                new ChatService(
+                        core,
+                        nicknameService
+                );
 
-        TeamService teamService = TeamsModule.teamService();
+        TeamService teamService =
+                TeamsModule.teamService();
 
         register(
                 core,
                 "msg",
-                new MessageCommand(core, chatService)
+                new MessageCommand(
+                        core,
+                        chatService
+                )
         );
         register(
                 core,
                 "r",
-                new ReplyCommand(core, chatService)
+                new ReplyCommand(
+                        core,
+                        chatService
+                )
         );
         register(
                 core,
                 "ignore",
-                new IgnoreCommand(core, chatService)
+                new IgnoreCommand(
+                        core,
+                        chatService
+                )
         );
         register(
                 core,
                 "ignorelist",
-                new IgnoreListCommand(core, chatService)
+                new IgnoreListCommand(
+                        core,
+                        chatService
+                )
         );
         registerNick(
                 core,
@@ -82,28 +92,40 @@ public final class ChatModule extends Module {
         register(
                 core,
                 "realname",
-                new RealNameCommand(core, nicknameService)
-        );
-
-        core.getServer().getPluginManager().registerEvents(
-                new ChatFormatListener(
+                new RealNameCommand(
                         core,
-                        chatService,
-                        teamService
-                ),
-                core
-        );
-        core.getServer().getPluginManager().registerEvents(
-                new JoinQuitMessageListener(
-                        core,
-                        chatService,
                         nicknameService
-                ),
-                core
+                )
         );
 
-        for (Player player : core.getServer().getOnlinePlayers()) {
-            nicknameService.updatePlayerDisplay(player);
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new ChatFormatListener(
+                                core,
+                                chatService,
+                                teamService
+                        ),
+                        core
+                );
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new JoinQuitMessageListener(
+                                core,
+                                chatService,
+                                nicknameService
+                        ),
+                        core
+                );
+
+        for (Player player
+                : core.getServer()
+                .getOnlinePlayers()) {
+            nicknameService
+                    .updatePlayerDisplay(
+                            player
+                    );
         }
     }
 
@@ -119,23 +141,28 @@ public final class ChatModule extends Module {
 
         chatService = null;
         nicknameService = null;
-        nicknameSettings = null;
     }
 
     private void registerNick(
             Core core,
             NickCommand executor
     ) {
-        PluginCommand command = requiredCommand(core, "nick");
+        PluginCommand command =
+                requiredCommand(
+                        core,
+                        "nick"
+                );
 
         /*
-         * Runtime permission handling is intentional. Plus players receive
-         * mineacle.plus, while staff may receive mineaclechat.nick directly.
-         * A plugin.yml-only permission would incorrectly block one group.
+         * The executor performs the contextual permission check itself so
+         * Mineacle can return its own styled denial message. The only
+         * capability checked is mineaclechat.nick (or its configured
+         * replacement); LuckPerms decides which groups/contexts receive it.
          */
         command.setPermission(null);
-        command.setPermissionMessage(null);
-        command.setUsage("/nick <nickname|reset>");
+        command.setUsage(
+                "/nick <nickname|reset>"
+        );
         command.setExecutor(executor);
         command.setTabCompleter(executor);
     }
@@ -145,11 +172,18 @@ public final class ChatModule extends Module {
             String commandName,
             CommandExecutor executor
     ) {
-        PluginCommand command = requiredCommand(core, commandName);
+        PluginCommand command =
+                requiredCommand(
+                        core,
+                        commandName
+                );
         command.setExecutor(executor);
 
-        if (executor instanceof TabCompleter completer) {
-            command.setTabCompleter(completer);
+        if (executor
+                instanceof TabCompleter completer) {
+            command.setTabCompleter(
+                    completer
+            );
         }
     }
 
@@ -157,11 +191,13 @@ public final class ChatModule extends Module {
             Core core,
             String commandName
     ) {
-        PluginCommand command = core.getCommand(commandName);
+        PluginCommand command =
+                core.getCommand(commandName);
 
         if (command == null) {
             throw new IllegalStateException(
-                    "Missing command in plugin.yml: " + commandName
+                    "Missing command in plugin.yml: "
+                            + commandName
             );
         }
 

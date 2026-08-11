@@ -38,6 +38,7 @@ public final class ChatFormatListener
         this.teamService = teamService;
     }
 
+    @SuppressWarnings("unused")
     @EventHandler(
             priority = EventPriority.HIGH,
             ignoreCancelled = true
@@ -54,22 +55,32 @@ public final class ChatFormatListener
 
         event.setCancelled(true);
 
-        String message = chatService.sanitizeMessage(
-                PlainTextComponentSerializer.plainText()
-                        .serialize(event.message())
-        );
+        String message =
+                chatService.sanitizeMessage(
+                        PlainTextComponentSerializer
+                                .plainText()
+                                .serialize(
+                                        event.message()
+                                )
+                );
 
-        core.getServer().getScheduler().runTask(
-                core,
-                () -> sendChat(sender, message)
-        );
+        core.getServer()
+                .getScheduler()
+                .runTask(
+                        core,
+                        () -> sendChat(
+                                sender,
+                                message
+                        )
+                );
     }
 
     private void sendChat(
             Player sender,
             String message
     ) {
-        if (!sender.isOnline() || message.isBlank()) {
+        if (!sender.isOnline()
+                || message.isBlank()) {
             return;
         }
 
@@ -77,17 +88,21 @@ public final class ChatFormatListener
             sender.sendMessage(
                     Component.text(
                             "Chat is currently disabled",
-                            net.kyori.adventure.text.format.TextColor.color(
-                                    0xFF5555
-                            )
+                            net.kyori.adventure.text
+                                    .format.TextColor
+                                    .color(0xFF5555)
                     )
             );
-            SoundService.guiError(sender, core);
+            SoundService.guiError(
+                    sender,
+                    core
+            );
             return;
         }
 
         for (Player recipient
-                : chatService.chatRecipients(sender)) {
+                : chatService
+                .chatRecipients(sender)) {
             recipient.sendMessage(
                     chatComponent(
                             sender,
@@ -112,26 +127,30 @@ public final class ChatFormatListener
             Player recipient,
             String message
     ) {
-        Component identity = legacyPrefix(
-                compactRankPrefix(sender)
-        ).append(
-                neutral(
-                        DisplayNames.displayName(sender)
+        Component identity =
+                legacyPrefix(
+                        compactRankPrefix(sender)
                 )
-        ).hoverEvent(
-                HoverEvent.showText(
-                        hoverStats(sender)
-                )
-        );
+                        .append(
+                                displayName(sender)
+                        )
+                        .hoverEvent(
+                                HoverEvent.showText(
+                                        hoverStats(sender)
+                                )
+                        );
 
         if (!sender.getUniqueId()
-                .equals(recipient.getUniqueId())) {
+                .equals(
+                        recipient.getUniqueId()
+                )) {
             identity = identity.clickEvent(
                     ClickEvent.runCommand(
                             "/tpa "
-                                    + DisplayNames.commandDisplayName(
-                                    sender
-                            )
+                                    + DisplayNames
+                                    .commandDisplayName(
+                                            sender
+                                    )
                     )
             );
         }
@@ -149,51 +168,56 @@ public final class ChatFormatListener
 
         String money = economy == null
                 ? "0"
-                : withoutCurrencySymbol(economy.format(
-                economy.getBalanceCents(
-                        player.getUniqueId()
-                )
-        ));
+                : withoutCurrencySymbol(
+                        economy.format(
+                                economy
+                                        .getBalanceCents(
+                                                player
+                                                        .getUniqueId()
+                                        )
+                        )
+                );
         long kills = stats == null
                 ? 0L
                 : stats.kills(
-                player.getUniqueId()
-        );
+                        player.getUniqueId()
+                );
         long deaths = stats == null
                 ? 0L
                 : stats.deaths(
-                player.getUniqueId()
-        );
+                        player.getUniqueId()
+                );
         String playtime = stats == null
                 ? "0m"
                 : stats.playtime(
-                player.getUniqueId()
-        );
+                        player.getUniqueId()
+                );
 
-        Component hover = legacyPrefix(
-                compactRankPrefix(player)
-        ).append(
-                neutral(DisplayNames.displayName(player))
-        );
-        TeamRecord team = teamService == null
-                ? null
-                : teamService.getTeamByPlayer(
-                player.getUniqueId()
-        );
+        Component hover =
+                legacyPrefix(
+                        compactRankPrefix(player)
+                ).append(
+                        displayName(player)
+                );
 
-        /*
-         * Team information is a real conditional row, not a reserved blank
-         * line. Team changes are read when each chat message is rendered, so
-         * the next message always reflects the current team state.
-         */
+        TeamRecord team =
+                teamService == null
+                        ? null
+                        : teamService
+                        .getTeamByPlayer(
+                                player.getUniqueId()
+                        );
+
         if (team != null
                 && team.name() != null
                 && !team.name().isBlank()) {
             hover = hover
-                    .append(Component.newline())
+                    .append(
+                            Component.newline()
+                    )
                     .append(
                             legacyPrefix(
-                                    "&#ff88ff🔥&#bbbbbb "
+                                    "&#D0AFFF🔥 &#B078FF"
                                             + team.name()
                             )
                     );
@@ -203,53 +227,73 @@ public final class ChatFormatListener
                 .append(Component.newline())
                 .append(
                         legacyPrefix(
-                                "&a$ &#bbbbbb" + money
+                                "&#bbbbbb$ &#B078FF"
+                                        + money
                         )
                 )
                 .append(Component.newline())
                 .append(
                         legacyPrefix(
-                                "&e⌚&#bbbbbb " + playtime
+                                "&#D0AFFF⌚ &#B078FF"
+                                        + playtime
                         )
                 )
                 .append(Component.newline())
                 .append(
                         legacyPrefix(
-                                "&c🗡 &#bbbbbb" + kills
+                                "&c🗡 &#B078FF"
+                                        + kills
                         )
                 )
                 .append(Component.newline())
                 .append(
                         legacyPrefix(
-                                "&#ffa033☠&#bbbbbb " + deaths
+                                "&#ffa033☠ &#B078FF"
+                                        + deaths
                         )
                 );
     }
 
-    private String compactRankPrefix(Player player) {
-        String prefix = DisplayNames.luckPermsPrefix(player);
+    private Component displayName(
+            Player player
+    ) {
+        return legacyPrefix(
+                DisplayNames.coloredDisplayName(
+                        player
+                )
+        );
+    }
 
-        if (prefix == null || prefix.isEmpty()) {
+    private String compactRankPrefix(
+            Player player
+    ) {
+        String prefix =
+                DisplayNames.luckPermsPrefix(
+                        player
+                );
+
+        if (prefix.isEmpty()) {
             return "";
         }
 
-        /*
-         * DisplayNames.luckPermsPrefix intentionally adds one separator for
-         * normal player-facing text. Chat places the neutral display name
-         * directly against the rank, so remove that separator here.
-         */
         return prefix.endsWith(" ")
-                ? prefix.substring(0, prefix.length() - 1)
+                ? prefix.substring(
+                        0,
+                        prefix.length() - 1
+                )
                 : prefix.stripTrailing();
     }
 
-    private String withoutCurrencySymbol(String value) {
+    private String withoutCurrencySymbol(
+            String value
+    ) {
         if (value == null || value.isBlank()) {
             return "0";
         }
 
         if (value.startsWith("-$")) {
-            return "-" + value.substring(2);
+            return "-"
+                    + value.substring(2);
         }
 
         return value.startsWith("$")
@@ -257,18 +301,22 @@ public final class ChatFormatListener
                 : value;
     }
 
-    private Component legacyPrefix(String text) {
+    private Component legacyPrefix(
+            String text
+    ) {
         if (text == null || text.isBlank()) {
             return Component.empty();
         }
 
-        return net.kyori.adventure.text.serializer.legacy
+        return net.kyori.adventure.text
+                .serializer.legacy
                 .LegacyComponentSerializer
                 .legacySection()
                 .deserialize(
-                        net.mineacle.core.common.text.TextColor.color(
-                                text
-                        )
+                        net.mineacle.core
+                                .common.text
+                                .TextColor
+                                .color(text)
                 )
                 .decoration(
                         TextDecoration.ITALIC,
@@ -279,14 +327,13 @@ public final class ChatFormatListener
     private Component neutral(String text) {
         return Component.text(
                         text == null ? "" : text,
-                        net.kyori.adventure.text.format.TextColor.color(
-                                0xBBBBBB
-                        )
+                        net.kyori.adventure.text
+                                .format.TextColor
+                                .color(0xBBBBBB)
                 )
                 .decoration(
                         TextDecoration.ITALIC,
                         false
                 );
     }
-
 }

@@ -18,20 +18,6 @@ public final class NicknameSettings {
         );
     }
 
-    public boolean allowDefault() {
-        return core.getConfig().getBoolean(
-                "nickname.allow-default",
-                false
-        );
-    }
-
-    public String plusPermission() {
-        return core.getConfig().getString(
-                "nickname.plus-permission",
-                "mineacle.plus"
-        );
-    }
-
     public String permission() {
         return core.getConfig().getString(
                 "nickname.permission",
@@ -39,24 +25,15 @@ public final class NicknameSettings {
         );
     }
 
-    public boolean canUse(Player player) {
-        if (player == null || !enabled()) {
-            return false;
-        }
-
-        if (allowDefault()) {
-            return true;
-        }
-
-        return player.hasPermission(plusPermission())
-                || player.hasPermission(permission());
-    }
-
     /**
-     * Runtime permission checks are used because Plus and staff permissions
-     * are intentionally separate.
+     * LuckPerms is the authority. MineacleCore only checks the capability
+     * permission in the player's current context.
      */
-    public String commandPermission() {
-        return "";
+    public boolean accessDenied(Player player) {
+        return player == null
+                || !enabled()
+                || !player.hasPermission(
+                        permission()
+                );
     }
 }
