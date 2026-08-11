@@ -98,15 +98,6 @@ public final class NicknameService {
                 : nickname;
     }
 
-    public String rawChatDisplayName(
-            OfflinePlayer player
-    ) {
-        return (player != null && player.isOp()
-                ? "&#B078FF"
-                : "&#bbbbbb")
-                + displayName(player);
-    }
-
     public NicknameResult setNicknameDetailed(
             Player player,
             String input

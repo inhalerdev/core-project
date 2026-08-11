@@ -45,7 +45,7 @@ public final class NickCommand
             @NotNull CommandSender sender,
             @NotNull Command command,
             @NotNull String label,
-            @NotNull String[] args
+            @NotNull String @NotNull [] args
     ) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage(
@@ -184,7 +184,7 @@ public final class NickCommand
             @NotNull CommandSender sender,
             @NotNull Command command,
             @NotNull String alias,
-            @NotNull String[] args
+            @NotNull String @NotNull [] args
     ) {
         if (!(sender instanceof Player player)
                 || !nicknameSettings.enabled()

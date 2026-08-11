@@ -41,10 +41,7 @@ public final class ChatModule extends Module {
         nicknameService =
                 new NicknameService(core);
         chatService =
-                new ChatService(
-                        core,
-                        nicknameService
-                );
+                new ChatService(core);
 
         TeamService teamService =
                 TeamsModule.teamService();

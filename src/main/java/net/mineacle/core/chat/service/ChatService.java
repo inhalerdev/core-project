@@ -52,7 +52,6 @@ public final class ChatService {
     private static final int MAX_MESSAGE_LENGTH = 256;
 
     private final Core core;
-    private final NicknameService nicknameService;
     private final File file;
 
     private final Map<UUID, UUID> replyTargets =
@@ -61,11 +60,9 @@ public final class ChatService {
             new HashMap<>();
 
     public ChatService(
-            Core core,
-            NicknameService nicknameService
+            Core core
     ) throws IOException {
         this.core = core;
-        this.nicknameService = nicknameService;
         this.file = new File(
                 core.getDataFolder(),
                 "chat.yml"
