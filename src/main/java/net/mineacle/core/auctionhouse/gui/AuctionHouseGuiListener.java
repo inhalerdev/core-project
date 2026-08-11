@@ -5,6 +5,7 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.model.AuctionHouseListing;
 import net.mineacle.core.auctionhouse.service.AuctionHouseService;
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
@@ -766,6 +767,25 @@ public final class AuctionHouseGuiListener
                             "messages.own-item",
                             "&cYou cannot buy your own listing"
                     );
+            case BELOW_SERVER_WORTH -> {
+                failBoth(
+                        player,
+                        TextColor.color(
+                                service.text(
+                                        "messages.listing-below-server-worth",
+                                        "&cThis listing is below the current server sell value &#bbbbbb— it must be relisted"
+                                )
+                        )
+                );
+                returnToBrowseAfterAction(
+                        player,
+                        page,
+                        sortMode,
+                        filterMode,
+                        query,
+                        fromConfirm
+                );
+            }
             case NOT_ENOUGH_MONEY ->
                     failPath(
                             player,
@@ -1028,21 +1048,45 @@ public final class AuctionHouseGuiListener
         ItemStack worthItem =
                 held.clone();
         worthItem.setAmount(amount);
-        long worth =
-                service.worthCents(
+
+        long serverSell =
+                service.serverSellCents(
+                        player,
+                        worthItem
+                );
+        long minimumPrice =
+                service.minimumListingPriceCents(
+                        player,
                         worthItem
                 );
 
-        if (worth > 0L) {
+        if (serverSell > 0L) {
             player.sendMessage(
                     TextColor.color(
-                            "&#bbbbbbWorth: &#D0AFFF"
-                                    + service.format(
-                                    worth
+                            service.text(
+                                    "messages.server-sell-reference",
+                                    "&#bbbbbbServer Sell: &a%price%",
+                                    "%price%",
+                                    service.format(
+                                            serverSell
+                                    )
                             )
                     )
             );
         }
+
+        player.sendMessage(
+                TextColor.color(
+                        service.text(
+                                "messages.minimum-listing-reference",
+                                "&#bbbbbbMinimum Price: &a%price%",
+                                "%price%",
+                                service.format(
+                                        minimumPrice
+                                )
+                        )
+                )
+        );
 
         player.sendMessage(
                 TextColor.color(
@@ -1272,7 +1316,8 @@ public final class AuctionHouseGuiListener
 
         sendCreateError(
                 player,
-                outcome
+                outcome,
+                prompt
         );
         replaceOwn(
                 player,
@@ -1283,7 +1328,8 @@ public final class AuctionHouseGuiListener
     private void sendCreateError(
             Player player,
             AuctionHouseService.CreateOutcome
-                    outcome
+                    outcome,
+            InputPrompt prompt
     ) {
         switch (outcome.result()) {
             case DISABLED ->
@@ -1330,15 +1376,18 @@ public final class AuctionHouseGuiListener
                             "&cEnter a valid auction price"
                     );
             case BELOW_MINIMUM ->
-                    fail(
+                    failBoth(
                             player,
                             TextColor.color(
                                     service.text(
                                             "messages.below-minimum",
-                                            "&cMinimum auction price is &a%price%",
+                                            "&cPrice too low &#bbbbbb— minimum for this listing is &a%price%",
                                             "%price%",
                                             service.format(
-                                                    service.minPriceCents()
+                                                    minimumPriceForPrompt(
+                                                            player,
+                                                            prompt
+                                                    )
                                             )
                                     )
                             )
@@ -1381,7 +1430,32 @@ public final class AuctionHouseGuiListener
                             "messages.storage-error",
                             "&cCould not safely save that listing"
                     );
+            case SUCCESS -> {
+            }
         }
+    }
+
+    private long minimumPriceForPrompt(
+            Player player,
+            InputPrompt prompt
+    ) {
+        ItemStack item =
+                prompt.item();
+
+        if (item == null
+                || item.getType().isAir()
+                || prompt.amount() <= 0) {
+            return service.minPriceCents();
+        }
+
+        item.setAmount(
+                prompt.amount()
+        );
+
+        return service.minimumListingPriceCents(
+                player,
+                item
+        );
     }
 
     private void expirePrompt(
@@ -1636,6 +1710,20 @@ public final class AuctionHouseGuiListener
             String message
     ) {
         player.sendMessage(message);
+        SoundService.guiError(
+                player,
+                core
+        );
+    }
+
+    private void failBoth(
+            Player player,
+            String message
+    ) {
+        player.sendMessage(message);
+        player.sendActionBar(
+                GuiText.component(message)
+        );
         SoundService.guiError(
                 player,
                 core

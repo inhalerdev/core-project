@@ -306,6 +306,7 @@ public final class AuctionHouseService {
         EXPIRED,
         BUSY,
         OWN_ITEM,
+        BELOW_SERVER_WORTH,
         NOT_ENOUGH_MONEY,
         INVENTORY_FULL,
         ECONOMY_MISSING,
@@ -923,13 +924,6 @@ public final class AuctionHouseService {
         }
 
         if (priceCents
-                < minPriceCents()) {
-            return outcome(
-                    CreateResult.BELOW_MINIMUM
-            );
-        }
-
-        if (priceCents
                 > maxPriceCents()) {
             return outcome(
                     CreateResult.ABOVE_MAXIMUM
@@ -986,6 +980,18 @@ public final class AuctionHouseService {
         if (itemCheck
                 != CreateResult.SUCCESS) {
             return outcome(itemCheck);
+        }
+
+        long minimumPrice =
+                minimumListingPriceCents(
+                        player,
+                        saleItem
+                );
+
+        if (priceCents < minimumPrice) {
+            return outcome(
+                    CreateResult.BELOW_MINIMUM
+            );
         }
 
         AuctionHouseListing listing =
@@ -1184,6 +1190,20 @@ public final class AuctionHouseService {
 
         ItemStack item =
                 listing.item();
+
+        long currentMinimum =
+                minimumListingPriceCents(
+                        buyer,
+                        item
+                );
+
+        if (listing.priceCents()
+                < currentMinimum) {
+            return new BuyOutcome(
+                    BuyResult.BELOW_SERVER_WORTH,
+                    listing
+            );
+        }
 
         if (inventoryFullFor(
                 buyer.getInventory(),
@@ -1760,13 +1780,7 @@ public final class AuctionHouseService {
         }
 
         SellService current =
-                sellService;
-
-        if (current == null) {
-            current =
-                    SellModule.sellService();
-            sellService = current;
-        }
+                currentSellService();
 
         if (current == null) {
             return 0L;
@@ -1788,6 +1802,68 @@ public final class AuctionHouseService {
             );
             return 0L;
         }
+    }
+
+    /**
+     * Exact amount the server Sell system would currently pay for this exact
+     * stack. Player-market-only and otherwise unsellable items return zero and
+     * therefore fall back to the normal Auction House minimum.
+     */
+    public long serverSellCents(
+            Player player,
+            ItemStack item
+    ) {
+        if (item == null
+                || item.getType().isAir()) {
+            return 0L;
+        }
+
+        SellService current =
+                currentSellService();
+
+        if (current == null) {
+            return 0L;
+        }
+
+        try {
+            return Math.max(
+                    0L,
+                    current.stackWorthCents(
+                            player,
+                            cleanItem(item)
+                    )
+            );
+        } catch (RuntimeException exception) {
+            core.getLogger().log(
+                    Level.FINE,
+                    "Could not resolve Auction House server-sell floor",
+                    exception
+            );
+            return 0L;
+        }
+    }
+
+    public long minimumListingPriceCents(
+            Player player,
+            ItemStack item
+    ) {
+        long configuredMinimum =
+                minPriceCents();
+
+        if (!config.getBoolean(
+                "listing.enforce-server-sell-floor",
+                true
+        )) {
+            return configuredMinimum;
+        }
+
+        return Math.max(
+                configuredMinimum,
+                serverSellCents(
+                        player,
+                        item
+                )
+        );
     }
 
     public long worthCents(
@@ -2201,6 +2277,19 @@ public final class AuctionHouseService {
         );
     }
 
+    private SellService currentSellService() {
+        SellService current =
+                sellService;
+
+        if (current == null) {
+            current =
+                    SellModule.sellService();
+            sellService = current;
+        }
+
+        return current;
+    }
+
     private ItemStack cleanItem(
             ItemStack raw
     ) {
@@ -2210,13 +2299,7 @@ public final class AuctionHouseService {
         }
 
         SellService current =
-                sellService;
-
-        if (current == null) {
-            current =
-                    SellModule.sellService();
-            sellService = current;
-        }
+                currentSellService();
 
         return current == null
                 ? raw.clone()

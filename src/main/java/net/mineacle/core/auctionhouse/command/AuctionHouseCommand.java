@@ -4,6 +4,7 @@ import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.gui.AuctionHouseGui;
 import net.mineacle.core.auctionhouse.model.AuctionHouseListing;
 import net.mineacle.core.auctionhouse.service.AuctionHouseService;
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
@@ -13,6 +14,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -220,8 +222,18 @@ public final class AuctionHouseCommand
 
         AuctionHouseService.CreateOutcome
                 outcome;
+        int listingAmount;
 
         if (args.length == 2) {
+            ItemStack held =
+                    service.previewHeldItem(
+                            player
+                    );
+            listingAmount =
+                    held == null
+                            ? 0
+                            : held.getAmount();
+
             outcome =
                     service.createListing(
                             player,
@@ -246,6 +258,7 @@ public final class AuctionHouseCommand
                 return;
             }
 
+            listingAmount = amount;
             outcome =
                     service.createListing(
                             player,
@@ -257,14 +270,16 @@ public final class AuctionHouseCommand
 
         handleCreateOutcome(
                 player,
-                outcome
+                outcome,
+                listingAmount
         );
     }
 
     private void handleCreateOutcome(
             Player player,
             AuctionHouseService.CreateOutcome
-                    outcome
+                    outcome,
+            int listingAmount
     ) {
         switch (outcome.result()) {
             case SUCCESS -> {
@@ -340,15 +355,18 @@ public final class AuctionHouseCommand
                             "&cEnter a valid auction price"
                     );
             case BELOW_MINIMUM ->
-                    fail(
+                    failBoth(
                             player,
                             TextColor.color(
                                     service.text(
                                             "messages.below-minimum",
-                                            "&cMinimum auction price is &a%price%",
+                                            "&cPrice too low &#bbbbbb— minimum for this listing is &a%price%",
                                             "%price%",
                                             service.format(
-                                                    service.minPriceCents()
+                                                    minimumPriceForHeldListing(
+                                                            player,
+                                                            listingAmount
+                                                    )
                                             )
                                     )
                             )
@@ -446,6 +464,30 @@ public final class AuctionHouseCommand
         );
     }
 
+    private long minimumPriceForHeldListing(
+            Player player,
+            int amount
+    ) {
+        ItemStack held =
+                service.previewHeldItem(
+                        player
+                );
+
+        if (held == null
+                || held.getType().isAir()
+                || amount <= 0
+                || amount > held.getAmount()) {
+            return service.minPriceCents();
+        }
+
+        held.setAmount(amount);
+
+        return service.minimumListingPriceCents(
+                player,
+                held
+        );
+    }
+
     private void failPath(
             Player player,
             String path,
@@ -467,6 +509,20 @@ public final class AuctionHouseCommand
             String message
     ) {
         player.sendMessage(message);
+        SoundService.guiError(
+                player,
+                core
+        );
+    }
+
+    private void failBoth(
+            Player player,
+            String message
+    ) {
+        player.sendMessage(message);
+        player.sendActionBar(
+                GuiText.component(message)
+        );
         SoundService.guiError(
                 player,
                 core

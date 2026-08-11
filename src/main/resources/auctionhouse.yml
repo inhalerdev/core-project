@@ -1,7 +1,8 @@
 enabled: true
 
-# The Auction House is the player-to-player market layer above /worth.
-# Worth is shown as a reference only; players remain free to choose their price.
+# The Auction House is the player-to-player market layer above /sell and /worth.
+# A listing cannot be created below the current server sell payout for the exact
+# item stack. Player-market-only items fall back to listing.min-price.
 
 database:
   mirror:
@@ -46,6 +47,10 @@ listing:
 
   min-price: 1
   max-price: 1B
+
+  # Prevent AH -> /sell arbitrage. The exact stack is checked when it is
+  # listed and again immediately before a buyer can purchase it.
+  enforce-server-sell-floor: true
 
   # Listings expire after exactly 24 hours.
   # Expired listings remain in their owner's slots until manually reclaimed.
@@ -106,8 +111,9 @@ messages:
   invalid-amount: '&cEnter a valid item amount'
   no-slot: '&cYour auction slots are full — cancel or reclaim a listing first'
   invalid-price: '&cEnter a valid auction price'
-  below-minimum: '&cMinimum auction price is &a%price%'
+  below-minimum: '&cPrice too low &#bbbbbb— minimum for this listing is &a%price%'
   above-maximum: '&cMaximum auction price is &a%price%'
+  listing-below-server-worth: '&cThis listing is below the current server sell value &#bbbbbb— it must be relisted'
   blocked-item: '&cThat item cannot be listed'
   filled-container: '&cEmpty that container before listing it'
   oversized-item: '&cThat item contains too much data to list safely'
@@ -130,6 +136,8 @@ messages:
   not-available: '&cThat listing is no longer available'
 
   search-prompt: '&#bbbbbbType an item name to search'
+  server-sell-reference: '&#bbbbbbServer Sell: &a%price%'
+  minimum-listing-reference: '&#bbbbbbMinimum Price: &a%price%'
   price-prompt: '&#bbbbbbType a price or &#D0AFFFcancel'
   empty-search: '&cSearch cannot be empty'
   search-too-long: '&cSearch cannot exceed %max% characters'
