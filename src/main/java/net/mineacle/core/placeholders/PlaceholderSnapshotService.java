@@ -1,8 +1,7 @@
 package net.mineacle.core.placeholders;
 
 import net.mineacle.core.Core;
-import net.mineacle.core.chat.ChatModule;
-import net.mineacle.core.chat.service.NicknameService;
+import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.stats.service.StatsService;
 import net.mineacle.core.stats.service.StatsStorageService;
@@ -11,7 +10,6 @@ import org.bukkit.OfflinePlayer;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -23,7 +21,8 @@ public final class PlaceholderSnapshotService {
     private final EconomyService economyService;
     private final StatsService statsService;
 
-    private volatile Snapshot snapshot = Snapshot.empty();
+    private volatile Snapshot snapshot =
+            Snapshot.empty();
 
     public PlaceholderSnapshotService(
             Core core,
@@ -37,42 +36,60 @@ public final class PlaceholderSnapshotService {
 
     public void refresh() {
         if (!Bukkit.isPrimaryThread()) {
-            core.getServer().getScheduler().runTask(
-                    core,
-                    this::refresh
-            );
+            core.getServer()
+                    .getScheduler()
+                    .runTask(
+                            core,
+                            this::refresh
+                    );
             return;
         }
 
         try {
-            int maximum = Math.max(
-                    1,
-                    Math.min(
-                            1_000,
-                            core.getConfig().getInt(
+            int maximum = Math.clamp(
+                    core.getConfig()
+                            .getInt(
                                     "placeholders.cache.maximum-leaderboard-positions",
                                     100
-                            )
-                    )
+                            ),
+                    1,
+                    1_000
             );
 
             BalanceSnapshot balances =
-                    buildBalanceSnapshot(maximum);
-            List<StatEntry> kills = buildStats(
-                    statsService == null
-                            ? List.of()
-                            : statsService.topKills(maximum)
-            );
-            List<StatEntry> deaths = buildStats(
-                    statsService == null
-                            ? List.of()
-                            : statsService.topDeaths(maximum)
-            );
-            List<StatEntry> playtime = buildStats(
-                    statsService == null
-                            ? List.of()
-                            : statsService.topPlaytime(maximum)
-            );
+                    buildBalanceSnapshot(
+                            maximum
+                    );
+
+            List<StatEntry> kills =
+                    buildStats(
+                            statsService == null
+                                    ? List.of()
+                                    : statsService
+                                    .topKills(
+                                            maximum
+                                    )
+                    );
+
+            List<StatEntry> deaths =
+                    buildStats(
+                            statsService == null
+                                    ? List.of()
+                                    : statsService
+                                    .topDeaths(
+                                            maximum
+                                    )
+                    );
+
+            List<StatEntry> playtime =
+                    buildStats(
+                            statsService == null
+                                    ? List.of()
+                                    : statsService
+                                    .topPlaytime(
+                                            maximum
+                                    )
+                    );
 
             snapshot = new Snapshot(
                     balances.entries(),
@@ -94,7 +111,8 @@ public final class PlaceholderSnapshotService {
         return snapshot;
     }
 
-    private BalanceSnapshot buildBalanceSnapshot(
+    private BalanceSnapshot
+    buildBalanceSnapshot(
             int maximum
     ) {
         if (economyService == null) {
@@ -105,9 +123,11 @@ public final class PlaceholderSnapshotService {
         }
 
         List<Map.Entry<UUID, Long>> all =
-                economyService.topBalances(
-                        Integer.MAX_VALUE
-                );
+                economyService
+                        .topBalances(
+                                Integer.MAX_VALUE
+                        );
+
         List<BalanceEntry> visible =
                 new ArrayList<>();
         Map<UUID, Integer> ranks =
@@ -115,21 +135,28 @@ public final class PlaceholderSnapshotService {
 
         int rank = 0;
 
-        for (Map.Entry<UUID, Long> entry : all) {
+        for (Map.Entry<UUID, Long> entry
+                : all) {
             if (entry == null
                     || entry.getKey() == null
                     || entry.getValue() == null
-                    || entry.getValue() <= 0L) {
+                    || entry.getValue()
+                    <= 0L) {
                 continue;
             }
 
             rank++;
-            ranks.put(entry.getKey(), rank);
+            ranks.put(
+                    entry.getKey(),
+                    rank
+            );
 
             if (visible.size() < maximum) {
                 visible.add(
                         new BalanceEntry(
-                                player(entry.getKey()),
+                                player(
+                                        entry.getKey()
+                                ),
                                 entry.getValue()
                         )
                 );
@@ -143,17 +170,21 @@ public final class PlaceholderSnapshotService {
     }
 
     private List<StatEntry> buildStats(
-            List<StatsStorageService.StatProfile> profiles
+            List<StatsStorageService.StatProfile>
+                    profiles
     ) {
-        if (profiles == null || profiles.isEmpty()) {
+        if (profiles == null
+                || profiles.isEmpty()) {
             return List.of();
         }
 
         List<StatEntry> entries =
-                new ArrayList<>(profiles.size());
+                new ArrayList<>(
+                        profiles.size()
+                );
 
-        for (StatsStorageService.StatProfile profile
-                : profiles) {
+        for (StatsStorageService.StatProfile
+                profile : profiles) {
             if (profile == null
                     || profile.uuid() == null) {
                 continue;
@@ -161,7 +192,9 @@ public final class PlaceholderSnapshotService {
 
             entries.add(
                     new StatEntry(
-                            player(profile.uuid()),
+                            player(
+                                    profile.uuid()
+                            ),
                             profile
                     )
             );
@@ -170,38 +203,32 @@ public final class PlaceholderSnapshotService {
         return List.copyOf(entries);
     }
 
-    private PlayerIdentity player(UUID uuid) {
+    /**
+     * DisplayNames is the single public identity boundary.
+     * Username, nickname, and display name all resolve through it.
+     */
+    private PlayerIdentity player(
+            UUID uuid
+    ) {
         OfflinePlayer player =
                 Bukkit.getOfflinePlayer(uuid);
-        NicknameService nicknameService =
-                ChatModule.nicknameService();
 
-        String username;
-
-        if (nicknameService != null) {
-            username = nicknameService.username(player);
-        } else {
-            username = player.getName();
-        }
-
-        if (username == null || username.isBlank()) {
-            username = uuid.toString();
-        }
-
-        String displayName = nicknameService == null
-                ? username
-                : nicknameService.displayName(player);
-        String nickname = nicknameService == null
-                ? ""
-                : nicknameService.nickname(player);
+        String username =
+                DisplayNames.username(player);
+        String displayName =
+                DisplayNames.displayName(
+                        player
+                );
+        String nickname =
+                DisplayNames.nickname(player);
 
         return new PlayerIdentity(
                 uuid,
                 username,
-                displayName == null || displayName.isBlank()
+                displayName.isBlank()
                         ? username
                         : displayName,
-                nickname == null ? "" : nickname
+                nickname
         );
     }
 
@@ -223,13 +250,18 @@ public final class PlaceholderSnapshotService {
             );
         }
 
-        public BalanceEntry balanceAt(int position) {
+        public BalanceEntry balanceAt(
+                int position
+        ) {
             if (position < 1
-                    || position > balances.size()) {
+                    || position
+                    > balances.size()) {
                 return null;
             }
 
-            return balances.get(position - 1);
+            return balances.get(
+                    position - 1
+            );
         }
 
         public int balanceRank(UUID uuid) {
@@ -237,26 +269,35 @@ public final class PlaceholderSnapshotService {
                 return 0;
             }
 
-            return balanceRanks.getOrDefault(uuid, 0);
+            return balanceRanks
+                    .getOrDefault(
+                            uuid,
+                            0
+                    );
         }
 
         public StatEntry statAt(
                 String type,
                 int position
         ) {
-            List<StatEntry> source = switch (type) {
-                case "kills" -> kills;
-                case "deaths" -> deaths;
-                case "playtime" -> playtime;
-                default -> List.of();
-            };
+            List<StatEntry> source =
+                    switch (type) {
+                        case "kills" -> kills;
+                        case "deaths" -> deaths;
+                        case "playtime" ->
+                                playtime;
+                        default -> List.of();
+                    };
 
             if (position < 1
-                    || position > source.size()) {
+                    || position
+                    > source.size()) {
                 return null;
             }
 
-            return source.get(position - 1);
+            return source.get(
+                    position - 1
+            );
         }
     }
 
