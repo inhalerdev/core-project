@@ -419,40 +419,41 @@ permissions:
   mineacleduels.admin:
     default: op
 
-  # Admin Inspect capabilities are LuckPerms-owned. No operator fallback.
+  # Admin Inspect capabilities are ready for LuckPerms. OP fallback is
+  # intentionally retained until the dedicated permission migration.
   mineacleadmin.inspect:
-    default: false
+    default: op
     children:
       mineacleadmin.invsee: true
       mineacleadmin.echest: true
   mineacleadmin.inspect.self:
-    default: false
+    default: op
     children:
       mineacleadmin.invsee.self: true
       mineacleadmin.echest.self: true
   mineacleadmin.inspect.modify:
-    default: false
+    default: op
     children:
       mineacleadmin.invsee.modify: true
       mineacleadmin.echest.modify: true
   mineacleadmin.invsee:
-    default: false
+    default: op
   mineacleadmin.invsee.self:
-    default: false
+    default: op
   mineacleadmin.invsee.modify:
-    default: false
+    default: op
   mineacleadmin.echest:
-    default: false
+    default: op
   mineacleadmin.echest.self:
-    default: false
+    default: op
   mineacleadmin.echest.modify:
-    default: false
+    default: op
   mineacleadmin.inspect.hidden:
-    default: false
+    default: op
   mineacleadmin.inspect.protected:
     default: false
   mineacleadmin.inspect.protected.bypass:
-    default: false
+    default: op
 
   mineacleshulkerpreview.use:
     default: false

@@ -66,6 +66,17 @@ public final class AdminInspectListener
             return;
         }
 
+        if (service.blockedEditAction(
+                event.getAction()
+        )) {
+            event.setCancelled(true);
+            service.blockedActionFeedback(
+                    viewer,
+                    event.getAction()
+            );
+            return;
+        }
+
         if (event.getAction()
                 != InventoryAction.NOTHING) {
             service.recordModification(

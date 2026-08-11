@@ -6,9 +6,11 @@ import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryView;
@@ -16,10 +18,12 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class AdminInspectService {
@@ -40,6 +44,12 @@ public final class AdminInspectService {
 
     private FileConfiguration config;
     private BukkitTask validationTask;
+
+    private boolean liveEditingEnabled;
+    private boolean allowCreativeEditing;
+    private boolean singleEditorPerTarget;
+    private Set<InventoryAction> blockedEditActions =
+            Set.of();
 
     public AdminInspectService(
             Core core
@@ -80,6 +90,58 @@ public final class AdminInspectService {
                         .loadConfiguration(
                                 file
                         );
+
+        liveEditingEnabled =
+                config.getBoolean(
+                        "live-editing.enabled",
+                        true
+                );
+        allowCreativeEditing =
+                config.getBoolean(
+                        "live-editing.allow-creative",
+                        false
+                );
+        singleEditorPerTarget =
+                config.getBoolean(
+                        "live-editing.single-editor-per-target",
+                        true
+                );
+
+        EnumSet<InventoryAction> blocked =
+                EnumSet.noneOf(
+                        InventoryAction.class
+                );
+
+        for (String raw
+                : config.getStringList(
+                "live-editing.blocked-actions"
+        )) {
+            if (raw == null
+                    || raw.isBlank()) {
+                continue;
+            }
+
+            try {
+                blocked.add(
+                        InventoryAction.valueOf(
+                                raw.trim()
+                                        .toUpperCase(
+                                                Locale.ROOT
+                                        )
+                        )
+                );
+            } catch (
+                    IllegalArgumentException exception
+            ) {
+                core.getLogger().warning(
+                        "[AdminInspect] Ignoring invalid blocked inventory action: "
+                                + raw
+                );
+            }
+        }
+
+        blockedEditActions =
+                Set.copyOf(blocked);
     }
 
     public OpenResult open(
@@ -99,6 +161,22 @@ public final class AdminInspectService {
             return authorization;
         }
 
+        boolean editable =
+                canModify(
+                        viewer,
+                        type
+                );
+
+        if (editable
+                && singleEditorPerTarget
+                && hasOtherEditableSession(
+                        viewer,
+                        target,
+                        type
+                )) {
+            return OpenResult.EDIT_LOCKED;
+        }
+
         Inventory inventory =
                 inventory(
                         target,
@@ -116,10 +194,12 @@ public final class AdminInspectService {
 
         Session session =
                 new Session(
+                        newSessionId(),
                         viewer.getUniqueId(),
                         target.getUniqueId(),
                         type,
                         inventory,
+                        editable,
                         System.currentTimeMillis()
                 );
 
@@ -127,12 +207,6 @@ public final class AdminInspectService {
                 viewer.getUniqueId(),
                 session
         );
-
-        boolean editable =
-                canModify(
-                        viewer,
-                        type
-                );
 
         viewer.sendActionBar(
                 GuiText.component(
@@ -158,8 +232,7 @@ public final class AdminInspectService {
         auditOpen(
                 viewer,
                 target,
-                type,
-                editable
+                session
         );
 
         return OpenResult.SUCCESS;
@@ -232,6 +305,11 @@ public final class AdminInspectService {
                     message(
                             "messages.protected",
                             "&cYou cannot inspect that player"
+                    );
+            case EDIT_LOCKED ->
+                    message(
+                            "messages.edit-locked",
+                            "&cThat inventory is already being edited"
                     );
             case OPEN_FAILED ->
                     message(
@@ -370,12 +448,86 @@ public final class AdminInspectService {
             return InteractionAccess.UNAUTHORIZED;
         }
 
-        return canModify(
+        if (!session.editable) {
+            return InteractionAccess.READ_ONLY;
+        }
+
+        if (!canModify(
                 viewer,
                 session.type
-        )
-                ? InteractionAccess.EDITABLE
-                : InteractionAccess.READ_ONLY;
+        )) {
+            downgradeToReadOnly(
+                    viewer,
+                    session
+            );
+            return InteractionAccess.READ_ONLY;
+        }
+
+        return InteractionAccess.EDITABLE;
+    }
+
+    public boolean blockedEditAction(
+            InventoryAction action
+    ) {
+        return action != null
+                && blockedEditActions
+                .contains(action);
+    }
+
+    public void blockedActionFeedback(
+            Player viewer,
+            InventoryAction action
+    ) {
+        if (viewer == null) {
+            return;
+        }
+
+        viewer.sendActionBar(
+                GuiText.component(
+                        message(
+                                "messages.blocked-edit-action",
+                                "&cThat action is blocked during inspection"
+                        )
+                )
+        );
+
+        SoundService.guiError(
+                viewer,
+                core
+        );
+
+        Session session =
+                sessions.get(
+                        viewer.getUniqueId()
+                );
+
+        if (session != null
+                && config.getBoolean(
+                "audit.enabled",
+                true
+        )) {
+            core.getLogger().warning(
+                    "[AdminInspect] session="
+                            + session.sessionId
+                            + " "
+                            + identity(viewer)
+                            + " attempted blocked action "
+                            + (
+                            action == null
+                                    ? "UNKNOWN"
+                                    : action.name()
+                    )
+                            + " while editing "
+                            + session.type.auditName
+                            + " of "
+                            + identity(
+                            Bukkit.getPlayer(
+                                    session.targetId
+                            ),
+                            session.targetId
+                    )
+            );
+        }
     }
 
     public void readOnlyFeedback(
@@ -526,7 +678,9 @@ public final class AdminInspectService {
                 );
 
         core.getLogger().warning(
-                "[AdminInspect] "
+                "[AdminInspect] session="
+                        + session.sessionId
+                        + " "
                         + identity(viewer)
                         + " modified "
                         + session.type.auditName
@@ -740,10 +894,94 @@ public final class AdminInspectService {
             Player viewer,
             InspectType type
     ) {
-        return viewer != null
-                && viewer.hasPermission(
+        if (viewer == null
+                || !liveEditingEnabled
+                || !viewer.hasPermission(
                 type.modifyPermission()
+        )) {
+            return false;
+        }
+
+        return allowCreativeEditing
+                || viewer.getGameMode()
+                != GameMode.CREATIVE;
+    }
+
+    private boolean hasOtherEditableSession(
+            Player viewer,
+            Player target,
+            InspectType type
+    ) {
+        UUID viewerId =
+                viewer.getUniqueId();
+        UUID targetId =
+                target.getUniqueId();
+
+        for (Session session
+                : sessions.values()) {
+            if (!session.editable
+                    || session.viewerId
+                    .equals(viewerId)
+                    || !session.targetId
+                    .equals(targetId)
+                    || session.type != type) {
+                continue;
+            }
+
+            Player existingViewer =
+                    Bukkit.getPlayer(
+                            session.viewerId
+                    );
+
+            if (existingViewer == null
+                    || !existingViewer
+                    .isOnline()) {
+                continue;
+            }
+
+            if (existingViewer
+                    .getOpenInventory()
+                    .getTopInventory()
+                    == session.inventory) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void downgradeToReadOnly(
+            Player viewer,
+            Session session
+    ) {
+        if (!session.editable) {
+            return;
+        }
+
+        session.editable = false;
+
+        viewer.sendActionBar(
+                GuiText.component(
+                        message(
+                                "messages.downgraded-read-only",
+                                "&#bbbbbbInspection changed to &#D0AFFFRead Only"
+                        )
+                )
         );
+
+        if (config.getBoolean(
+                "audit.enabled",
+                true
+        )) {
+            core.getLogger().info(
+                    "[AdminInspect] session="
+                            + session.sessionId
+                            + " "
+                            + identity(viewer)
+                            + " changed to READ_ONLY"
+                            + " | reason=edit-access-changed"
+            );
+        }
     }
 
     private Inventory inventory(
@@ -820,6 +1058,17 @@ public final class AdminInspectService {
                     target,
                     session.type
             ) == OpenResult.SUCCESS) {
+                if (session.editable
+                        && !canModify(
+                        viewer,
+                        session.type
+                )) {
+                    downgradeToReadOnly(
+                            viewer,
+                            session
+                    );
+                }
+
                 continue;
             }
 
@@ -922,8 +1171,7 @@ public final class AdminInspectService {
     private void auditOpen(
             Player viewer,
             Player target,
-            InspectType type,
-            boolean editable
+            Session session
     ) {
         if (!config.getBoolean(
                 "audit.enabled",
@@ -933,18 +1181,24 @@ public final class AdminInspectService {
         }
 
         core.getLogger().info(
-                "[AdminInspect] "
+                "[AdminInspect] session="
+                        + session.sessionId
+                        + " "
                         + identity(viewer)
                         + " opened "
-                        + type.auditName
+                        + session.type.auditName
                         + " of "
                         + identity(target)
                         + " | mode="
                         + (
-                        editable
+                        session.editable
                                 ? "EDITABLE"
                                 : "READ_ONLY"
                 )
+                        + " | viewer-world="
+                        + viewer.getWorld().getName()
+                        + " | target-world="
+                        + target.getWorld().getName()
         );
     }
 
@@ -968,7 +1222,9 @@ public final class AdminInspectService {
                 );
 
         core.getLogger().info(
-                "[AdminInspect] "
+                "[AdminInspect] session="
+                        + session.sessionId
+                        + " "
                         + identity(viewer)
                         + " closed "
                         + session.type.auditName
@@ -1050,6 +1306,18 @@ public final class AdminInspectService {
                 );
     }
 
+    private String newSessionId() {
+        return UUID.randomUUID()
+                .toString()
+                .substring(
+                        0,
+                        8
+                )
+                .toUpperCase(
+                        Locale.ROOT
+                );
+    }
+
     private String message(
             String path,
             String fallback
@@ -1105,6 +1373,7 @@ public final class AdminInspectService {
         TARGET_UNAVAILABLE,
         SELF_DENIED,
         PROTECTED,
+        EDIT_LOCKED,
         OPEN_FAILED
     }
 
@@ -1163,26 +1432,32 @@ public final class AdminInspectService {
 
     private static final class Session {
 
+        private final String sessionId;
         private final UUID viewerId;
         private final UUID targetId;
         private final InspectType type;
         private final Inventory inventory;
         private final long openedAt;
 
+        private boolean editable;
         private int modificationEvents;
         private boolean closeQueued;
 
         private Session(
+                String sessionId,
                 UUID viewerId,
                 UUID targetId,
                 InspectType type,
                 Inventory inventory,
+                boolean editable,
                 long openedAt
         ) {
+            this.sessionId = sessionId;
             this.viewerId = viewerId;
             this.targetId = targetId;
             this.type = type;
             this.inventory = inventory;
+            this.editable = editable;
             this.openedAt = openedAt;
         }
     }

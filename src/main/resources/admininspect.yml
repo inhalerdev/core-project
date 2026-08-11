@@ -10,6 +10,28 @@
 session-validation-ticks: 20
 read-only-feedback-cooldown-millis: 750
 
+live-editing:
+  # Emergency master switch. Base inspection remains available when disabled.
+  enabled: true
+
+  # Creative-mode inspectors are forced read-only by default to prevent
+  # creative clone/packet behavior from becoming an item-generation path.
+  allow-creative: false
+
+  # Multiple read-only viewers are fine; only one live editor may hold a
+  # target inventory or ender chest at a time.
+  single-editor-per-target: true
+
+  # Dangerous or lossy actions remain blocked even for live editors.
+  blocked-actions:
+  - CLONE_STACK
+  - COLLECT_TO_CURSOR
+  - DROP_ALL_CURSOR
+  - DROP_ALL_SLOT
+  - DROP_ONE_CURSOR
+  - DROP_ONE_SLOT
+  - UNKNOWN
+
 audit:
   enabled: true
   log-modifications: true
@@ -22,10 +44,13 @@ messages:
   self-inventory: '&cYou cannot inspect your own inventory'
   self-ender-chest: '&cYou cannot inspect your own ender chest'
   protected: '&cYou cannot inspect that player'
+  edit-locked: '&cThat inventory is already being edited'
   open-failed: '&cCould not open that inventory'
   open-read-only: '&#bbbbbbInspecting &#B078FF%player% &#bbbbbb— &#D0AFFFRead Only'
   open-editable: '&#bbbbbbInspecting &#B078FF%player% &#bbbbbb— &cLive Editing'
   read-only: '&cRead-only inspection'
+  downgraded-read-only: '&#bbbbbbInspection changed to &#D0AFFFRead Only'
+  blocked-edit-action: '&cThat action is blocked during inspection'
   access-changed: '&cInspection closed — access changed'
   target-left: '&cInspection closed — that player went offline'
   target-died: '&cInspection closed — that player died'
