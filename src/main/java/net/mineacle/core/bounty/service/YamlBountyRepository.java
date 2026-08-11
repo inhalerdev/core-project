@@ -1,6 +1,8 @@
-package net.mineacle.core.bounty;
+package net.mineacle.core.bounty.service;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.bounty.BountyRecord;
+import net.mineacle.core.bounty.BountyRepository;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 

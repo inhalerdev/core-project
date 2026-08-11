@@ -1,9 +1,9 @@
 package net.mineacle.core.bounty.command;
 
 import net.mineacle.core.Core;
-import net.mineacle.core.bounty.BountyConfirmGui;
-import net.mineacle.core.bounty.BountyMainGui;
-import net.mineacle.core.bounty.BountyService;
+import net.mineacle.core.bounty.gui.BountyConfirmGui;
+import net.mineacle.core.bounty.gui.BountyMainGui;
+import net.mineacle.core.bounty.service.BountyService;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
@@ -16,13 +16,15 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-public final class BountyCommand implements CommandExecutor, TabCompleter {
+public final class BountyCommand
+        implements CommandExecutor, TabCompleter {
 
     private final Core core;
     private final BountyService bountyService;
@@ -37,26 +39,35 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(
-            CommandSender sender,
-            Command command,
-            String label,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String label,
+            @NotNull String @NotNull [] args
     ) {
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage(core.getMessage("general.players-only"));
+        if (!(sender
+                instanceof Player player)) {
+            sender.sendMessage(
+                    core.getMessage(
+                            "general.players-only"
+                    )
+            );
             return true;
         }
 
-        if (!player.hasPermission("mineaclebounty.use")) {
-            sendError(
+        if (!player.hasPermission(
+                "mineaclebounty.use"
+        )) {
+            error(
                     player,
-                    core.getMessage("general.no-permission")
+                    core.getMessage(
+                            "general.no-permission"
+                    )
             );
             return true;
         }
 
         if (!bountyService.enabled()) {
-            sendError(
+            error(
                     player,
                     TextColor.color(
                             "&cBounty system is currently disabled"
@@ -66,13 +77,17 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 0
-                || (args.length == 1
-                && args[0].equalsIgnoreCase("list"))) {
+                || (
+                args.length == 1
+                        && args[0]
+                        .equalsIgnoreCase(
+                                "list"
+                        )
+        )) {
             MenuHistory.openRoot(
                     core,
                     player,
                     () -> BountyMainGui.open(
-                            core,
                             player,
                             bountyService,
                             0
@@ -81,11 +96,17 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        String subcommand = args[0].toLowerCase(Locale.ROOT);
+        String subcommand =
+                args[0]
+                        .toLowerCase(
+                                Locale.ROOT
+                        );
 
-        if (isPlaceSubcommand(subcommand)) {
+        if (isPlaceSubcommand(
+                subcommand
+        )) {
             if (args.length != 3) {
-                sendError(
+                error(
                         player,
                         TextColor.color(
                                 "&cUsage: /bounty set <player> <amount>"
@@ -94,22 +115,35 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            return confirm(
+            confirm(
                     player,
                     args[1],
                     args[2]
             );
+            return true;
         }
 
-        if (subcommand.equals("remove")) {
-            return remove(player, args);
+        if (subcommand.equals(
+                "remove"
+        )) {
+            remove(
+                    player,
+                    args
+            );
+            return true;
         }
 
-        if (subcommand.equals("reload")) {
-            return reload(player, args);
+        if (subcommand.equals(
+                "reload"
+        )) {
+            reload(
+                    player,
+                    args
+            );
+            return true;
         }
 
-        sendError(
+        error(
                 player,
                 TextColor.color(
                         "&cUsage: /bounty set <player> <amount>"
@@ -118,284 +152,365 @@ public final class BountyCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
-    private boolean confirm(
+    private void confirm(
             Player player,
             String targetInput,
             String amountInput
     ) {
-        OfflinePlayer target = bountyService.resolveTarget(
-                targetInput
-        );
+        OfflinePlayer target =
+                bountyService.resolveTarget(
+                        targetInput
+                );
 
         if (target == null) {
-            sendError(
+            error(
                     player,
                     TextColor.color(
                             "&cThat player could not be found"
                     )
             );
-            return true;
+            return;
         }
 
-        if (target.getUniqueId().equals(player.getUniqueId())) {
-            sendError(
+        if (target.getUniqueId()
+                .equals(
+                        player.getUniqueId()
+                )) {
+            error(
                     player,
                     TextColor.color(
                             "&cYou cannot place a bounty on yourself"
                     )
             );
-            return true;
+            return;
         }
 
-        long amount = bountyService.parseAmount(amountInput);
+        long amount =
+                bountyService.parseAmount(
+                        amountInput
+                );
 
         if (amount <= 0L) {
-            sendError(
+            error(
                     player,
                     TextColor.color(
                             "&cEnter a valid bounty amount"
                     )
             );
-            return true;
+            return;
         }
 
-        long minimum = bountyService.minimumCents();
+        long minimum =
+                bountyService.minimumCents();
 
         if (amount < minimum) {
-            sendError(
+            error(
                     player,
                     TextColor.color(
                             "&cMinimum bounty is &a"
-                                    + bountyService.format(minimum)
+                                    + bountyService.format(
+                                    minimum
+                            )
                     )
             );
-            return true;
+            return;
         }
 
         if (bountyService.wouldExceedMaximum(
                 target.getUniqueId(),
                 amount
         )) {
-            sendError(
+            error(
                     player,
                     TextColor.color(
                             "&cMaximum bounty is &a"
                                     + bountyService.format(
-                                    bountyService.maximumCents()
+                                    bountyService
+                                            .maximumCents()
                             )
                     )
             );
-            return true;
+            return;
         }
 
-        EconomyService economy = EconomyModule.economyService();
+        EconomyService economy =
+                EconomyModule.economyService();
 
         if (economy == null) {
-            sendError(
+            error(
                     player,
                     TextColor.color(
                             "&cEconomy is not available"
                     )
             );
-            return true;
+            return;
         }
 
-        if (!economy.has(player.getUniqueId(), amount)) {
-            sendError(
+        if (!economy.has(
+                player.getUniqueId(),
+                amount
+        )) {
+            error(
                     player,
                     TextColor.color(
                             "&cYou do not have enough money"
                     )
             );
-            return true;
+            return;
         }
 
         BountyConfirmGui.open(
-                core,
                 player,
                 target,
                 amount,
+                0,
                 bountyService
         );
-        return true;
     }
 
-    private boolean remove(Player player, String[] args) {
-        if (!player.hasPermission("mineaclebounty.admin")) {
-            sendError(
+    private void remove(
+            Player player,
+            String[] args
+    ) {
+        if (!player.hasPermission(
+                "mineaclebounty.admin"
+        )) {
+            error(
                     player,
-                    core.getMessage("general.no-permission")
+                    core.getMessage(
+                            "general.no-permission"
+                    )
             );
-            return true;
+            return;
         }
 
         if (args.length != 2) {
-            sendError(
+            error(
                     player,
                     TextColor.color(
                             "&cUsage: /bounty remove <player>"
                     )
             );
-            return true;
+            return;
         }
 
-        OfflinePlayer target = bountyService.resolveTarget(args[1]);
+        OfflinePlayer target =
+                bountyService.resolveTarget(
+                        args[1]
+                );
 
         if (target == null) {
-            sendError(
+            error(
                     player,
                     TextColor.color(
                             "&cThat player could not be found"
                     )
             );
-            return true;
+            return;
         }
 
         BountyService.RemoveResult result =
-                bountyService.removeDetailed(target.getUniqueId());
+                bountyService.removeDetailed(
+                        target.getUniqueId()
+                );
 
         switch (result.status()) {
             case SUCCESS -> {
-                player.sendMessage(TextColor.color(
-                        "&#bbbbbbRemoved &a"
-                                + bountyService.format(
-                                result.removedCents()
+                player.sendMessage(
+                        TextColor.color(
+                                "&#bbbbbbRemoved &a"
+                                        + bountyService.format(
+                                        result.removedCents()
+                                )
+                                        + " &#bbbbbbfrom &#B078FF"
+                                        + bountyService.displayName(
+                                        target
+                                )
                         )
-                                + " &#bbbbbbbounty from &#bbbbbb"
-                                + bountyService.displayName(target)
-                ));
-                SoundService.guiConfirm(player, core);
+                );
+                SoundService.guiConfirm(
+                        player,
+                        core
+                );
             }
-            case NOT_FOUND -> sendError(
-                    player,
-                    TextColor.color(
-                            "&cThat player has no bounty"
-                    )
-            );
-            case STORAGE_ERROR -> sendError(
-                    player,
-                    TextColor.color(
-                            "&cCould not remove that bounty"
-                    )
-            );
+            case NOT_FOUND ->
+                    error(
+                            player,
+                            TextColor.color(
+                                    "&cThat player has no bounty"
+                            )
+                    );
+            case STORAGE_ERROR ->
+                    error(
+                            player,
+                            TextColor.color(
+                                    "&cCould not safely remove that bounty"
+                            )
+                    );
         }
-
-        return true;
     }
 
-    private boolean reload(Player player, String[] args) {
-        if (!player.hasPermission("mineaclebounty.admin")) {
-            sendError(
+    private void reload(
+            Player player,
+            String[] args
+    ) {
+        if (!player.hasPermission(
+                "mineaclebounty.admin"
+        )) {
+            error(
                     player,
-                    core.getMessage("general.no-permission")
+                    core.getMessage(
+                            "general.no-permission"
+                    )
             );
-            return true;
+            return;
         }
 
         if (args.length != 1) {
-            sendError(
+            error(
                     player,
                     TextColor.color(
                             "&cUsage: /bounty reload"
                     )
             );
-            return true;
+            return;
         }
 
         try {
             bountyService.reload();
-            player.sendMessage(TextColor.color(
-                    "&#bbbbbbBounty system reloaded"
-            ));
-            SoundService.guiConfirm(player, core);
+
+            player.sendMessage(
+                    TextColor.color(
+                            "&#bbbbbbBounty system reloaded"
+                    )
+            );
+            SoundService.guiConfirm(
+                    player,
+                    core
+            );
         } catch (IOException exception) {
             core.getLogger().severe(
                     "Could not reload bounties.yml: "
                             + exception.getMessage()
             );
-            sendError(
+            error(
                     player,
                     TextColor.color(
                             "&cCould not reload the bounty system"
                     )
             );
         }
-
-        return true;
     }
 
-    private void sendError(Player player, String message) {
+    private void error(
+            Player player,
+            String message
+    ) {
         player.sendMessage(message);
-        SoundService.guiError(player, core);
+        SoundService.guiError(
+                player,
+                core
+        );
     }
 
     @Override
     public List<String> onTabComplete(
-            CommandSender sender,
-            Command command,
-            String alias,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String alias,
+            @NotNull String @NotNull [] args
     ) {
-        if (!(sender instanceof Player player)
-                || !player.hasPermission("mineaclebounty.use")) {
+        if (!(sender
+                instanceof Player player)
+                || !player.hasPermission(
+                "mineaclebounty.use"
+        )) {
             return List.of();
         }
 
         if (args.length == 1) {
-            List<String> options = new ArrayList<>(
-                    List.of("set", "list")
-            );
+            List<String> options =
+                    new ArrayList<>(
+                            List.of(
+                                    "set",
+                                    "list"
+                            )
+                    );
 
-            if (player.hasPermission("mineaclebounty.admin")) {
+            if (player.hasPermission(
+                    "mineaclebounty.admin"
+            )) {
                 options.add("remove");
                 options.add("reload");
             }
 
-            return PlayerTabComplete.options(
-                    args[0],
-                    options
-            );
+            return PlayerTabComplete
+                    .options(
+                            args[0],
+                            options
+                    );
         }
 
         if (args.length == 2
-                && isPlaceSubcommand(args[0])) {
-            return PlayerTabComplete.onlinePlayers(
-                    player,
-                    args[1]
-            );
+                && isPlaceSubcommand(
+                args[0]
+        )) {
+            return PlayerTabComplete
+                    .onlinePlayers(
+                            player,
+                            args[1]
+                    );
         }
 
         if (args.length == 2
-                && args[0].equalsIgnoreCase("remove")
-                && player.hasPermission("mineaclebounty.admin")) {
-            return PlayerTabComplete.options(
-                    args[1],
-                    bountyService.targetSuggestions()
-            );
+                && args[0]
+                .equalsIgnoreCase(
+                        "remove"
+                )
+                && player.hasPermission(
+                "mineaclebounty.admin"
+        )) {
+            return PlayerTabComplete
+                    .options(
+                            args[1],
+                            bountyService
+                                    .targetSuggestions()
+                    );
         }
 
         if (args.length == 3
-                && isPlaceSubcommand(args[0])) {
-            return PlayerTabComplete.options(
-                    args[2],
-                    List.of(
-                            "1k",
-                            "1.5k",
-                            "10k",
-                            "100k",
-                            "1M",
-                            "10M",
-                            "1B"
-                    )
-            );
+                && isPlaceSubcommand(
+                args[0]
+        )) {
+            return PlayerTabComplete
+                    .options(
+                            args[2],
+                            List.of(
+                                    "1k",
+                                    "10k",
+                                    "100k",
+                                    "1M",
+                                    "10M",
+                                    "100M",
+                                    "1B"
+                            )
+                    );
         }
 
         return List.of();
     }
 
-    private boolean isPlaceSubcommand(String input) {
-        return input.equalsIgnoreCase("set")
-                || input.equalsIgnoreCase("add")
-                || input.equalsIgnoreCase("place");
+    private boolean isPlaceSubcommand(
+            String input
+    ) {
+        return input.equalsIgnoreCase(
+                "set"
+        )
+                || input.equalsIgnoreCase(
+                "add"
+        )
+                || input.equalsIgnoreCase(
+                        "place"
+                );
     }
 }

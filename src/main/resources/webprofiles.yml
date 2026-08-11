@@ -8,6 +8,8 @@ database:
   teams-table: mineacle_web_teams
   fights-table: mineacle_web_fights
   fights-reset-backup-table: mineacle_web_fights_pre_reset
+  bounties-table: mineacle_web_bounties
+
 sync:
   interval-seconds: 30
   leaderboard-pull-limit: 500
@@ -19,6 +21,7 @@ sync:
   # Refresh Bukkit's known-offline-player snapshot every 30 minutes
   offline-player-refresh-seconds: 1800
   mark-offline-on-disable: true
+
 worlds:
   mappings:
     spawn1:
@@ -41,6 +44,7 @@ worlds:
       group: survival
   default-name: Unknown
   default-group: other
+
 web-fights:
   enabled: true
   combat-timeout-seconds: 60
@@ -55,11 +59,16 @@ web-fights:
   - overworld_nether
   - overworld_the_end
   log-inserts: true
+
 web-teams:
   enabled: true
   interval-seconds: 30
   min-members: 1
   min-kills: 0
+
+web-bounties:
+  enabled: true
+  interval-seconds: 30
 
 website-auth:
   enabled: true

@@ -1,6 +1,9 @@
-package net.mineacle.core.bounty;
+package net.mineacle.core.bounty.listener;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.bounty.gui.BountyConfirmGui;
+import net.mineacle.core.bounty.gui.BountyMainGui;
+import net.mineacle.core.bounty.service.BountyService;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
@@ -8,6 +11,7 @@ import net.mineacle.core.stats.PlayerStatisticsGui;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -16,92 +20,106 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 
 import java.util.UUID;
 
-public final class BountyGuiListener implements Listener {
+public final class BountyGuiListener
+        implements Listener {
 
     private final Core core;
     private final BountyService bountyService;
-    private final BountySearchInputListener searchInputListener;
+    private final BountySearchInputListener
+            inputListener;
     private final PlayerStatisticsGui statisticsGui =
             new PlayerStatisticsGui();
 
     public BountyGuiListener(
             Core core,
             BountyService bountyService,
-            BountySearchInputListener searchInputListener
+            BountySearchInputListener inputListener
     ) {
         this.core = core;
         this.bountyService = bountyService;
-        this.searchInputListener = searchInputListener;
+        this.inputListener = inputListener;
     }
 
+    @SuppressWarnings("unused")
     @EventHandler(
-            priority = EventPriority.HIGHEST,
-            ignoreCancelled = false
+            priority = EventPriority.HIGHEST
     )
-    public void onClick(InventoryClickEvent event) {
-        BountyMainGui.MainHolder mainHolder =
-                BountyMainGui.holder(
-                        event.getView().getTopInventory()
-                );
-        BountyConfirmGui.ConfirmHolder confirmHolder =
-                BountyConfirmGui.holder(
-                        event.getView().getTopInventory()
-                );
+    public void onClick(
+            InventoryClickEvent event
+    ) {
+        Object holder =
+                event.getView()
+                        .getTopInventory()
+                        .getHolder();
 
-        if (mainHolder == null && confirmHolder == null) {
+        if (!(holder
+                instanceof BountyMainGui.MainHolder)
+                && !(holder
+                instanceof BountyConfirmGui
+                .ConfirmHolder)) {
             return;
         }
 
         event.setCancelled(true);
-        event.setResult(org.bukkit.event.Event.Result.DENY);
+        event.setResult(
+                Event.Result.DENY
+        );
 
-        if (!(event.getWhoClicked() instanceof Player player)) {
+        if (!(event.getWhoClicked()
+                instanceof Player player)) {
             return;
         }
 
-        int rawSlot = event.getRawSlot();
-        int topSize = event.getView()
-                .getTopInventory()
-                .getSize();
-
-        if (rawSlot < 0 || rawSlot >= topSize) {
+        if (event.getClickedInventory()
+                == null
+                || event.getClickedInventory()
+                != event.getView()
+                .getTopInventory()) {
             return;
         }
 
-        if ((rawSlot == BountyMainGui.PREVIOUS_SLOT
-                || rawSlot == BountyMainGui.NEXT_SLOT)
-                && BountyMainGui.isDisabledNavigation(
-                event.getCurrentItem()
-        )) {
-            return;
-        }
+        int rawSlot =
+                event.getRawSlot();
 
-        if (mainHolder != null) {
+        if (holder instanceof BountyMainGui.MainHolder main) {
             handleMain(
                     event,
                     player,
-                    mainHolder,
+                    main,
                     rawSlot
             );
             return;
         }
 
-        handleConfirm(player, confirmHolder, rawSlot);
+        BountyConfirmGui.ConfirmHolder confirm =
+                (BountyConfirmGui.ConfirmHolder) holder;
+
+        handleConfirm(
+                player,
+                confirm,
+                rawSlot
+        );
     }
 
+    @SuppressWarnings("unused")
     @EventHandler(
-            priority = EventPriority.HIGHEST,
-            ignoreCancelled = false
+            priority = EventPriority.HIGHEST
     )
-    public void onDrag(InventoryDragEvent event) {
-        if (!BountyMainGui.isBountyInventory(
-                event.getView().getTopInventory()
-        )) {
+    public void onDrag(
+            InventoryDragEvent event
+    ) {
+        if (!BountyMainGui
+                .isBountyInventory(
+                        event.getView()
+                                .getTopInventory()
+                )) {
             return;
         }
 
         event.setCancelled(true);
-        event.setResult(org.bukkit.event.Event.Result.DENY);
+        event.setResult(
+                Event.Result.DENY
+        );
     }
 
     private void handleMain(
@@ -110,68 +128,152 @@ public final class BountyGuiListener implements Listener {
             BountyMainGui.MainHolder holder,
             int rawSlot
     ) {
-        if (rawSlot == BountyMainGui.PREVIOUS_SLOT) {
-            reopen(player, holder.page() - 1);
-            return;
-        }
-
-        if (rawSlot == BountyMainGui.SORT_SLOT) {
-            BountyMainGui.cycleSort(player);
-            reopen(player, 0);
-            return;
-        }
-
-        if (rawSlot == BountyMainGui.REFRESH_SLOT) {
-            reopen(player, holder.page());
-            return;
-        }
-
-        if (rawSlot == BountyMainGui.SEARCH_SLOT) {
-            if (event.isRightClick()
-                    && BountyMainGui.hasSearch(player)) {
-                BountyMainGui.clearSearch(player);
-                player.sendActionBar(
-                        net.kyori.adventure.text.serializer.legacy
-                                .LegacyComponentSerializer
-                                .legacySection()
-                                .deserialize(
-                                        TextColor.color(
-                                                "&#bbbbbbBounty search cleared"
-                                        )
-                                )
-                );
-                reopen(player, 0);
+        if (rawSlot
+                == BountyMainGui.PREVIOUS_SLOT) {
+            if (holder.page() <= 0) {
                 return;
             }
 
-            searchInputListener.begin(
+            SoundService.guiPage(
+                    player,
+                    core
+            );
+            reopen(
+                    player,
+                    holder.page() - 1
+            );
+            return;
+        }
+
+        if (rawSlot
+                == BountyMainGui.SORT_SLOT) {
+            BountyMainGui.cycleSort(
+                    player,
+                    event.isRightClick()
+            );
+            SoundService.guiSort(
+                    player,
+                    core
+            );
+            reopen(
+                    player,
+                    0
+            );
+            return;
+        }
+
+        if (rawSlot
+                == BountyMainGui.REFRESH_SLOT) {
+            SoundService.guiRefresh(
+                    player,
+                    core
+            );
+            reopen(
                     player,
                     holder.page()
             );
             return;
         }
 
-        if (rawSlot == BountyMainGui.NEXT_SLOT) {
-            reopen(player, holder.page() + 1);
+        if (rawSlot
+                == BountyMainGui.SEARCH_SLOT) {
+            if (event.isRightClick()
+                    && BountyMainGui
+                    .hasSearch(player)) {
+                BountyMainGui.clearSearch(
+                        player
+                );
+                SoundService.guiCancel(
+                        player,
+                        core
+                );
+                reopen(
+                        player,
+                        0
+                );
+                return;
+            }
+
+            SoundService.guiSearch(
+                    player,
+                    core
+            );
+            inputListener.beginSearch(
+                    player,
+                    holder.page()
+            );
             return;
         }
 
-        UUID targetId = holder.targetAt(rawSlot);
+        if (rawSlot
+                == BountyMainGui.PLACE_SLOT) {
+            SoundService.guiSelect(
+                    player,
+                    core
+            );
+            inputListener.beginPlaceTarget(
+                    player,
+                    holder.page()
+            );
+            return;
+        }
+
+        if (rawSlot
+                == BountyMainGui.NEXT_SLOT) {
+            if (!holder.hasNext()) {
+                return;
+            }
+
+            SoundService.guiPage(
+                    player,
+                    core
+            );
+            reopen(
+                    player,
+                    holder.page() + 1
+            );
+            return;
+        }
+
+        UUID targetId =
+                holder.targetAt(
+                        rawSlot
+                );
 
         if (targetId == null) {
             return;
         }
 
+        if (event.isShiftClick()) {
+            SoundService.guiSelect(
+                    player,
+                    core
+            );
+            inputListener.beginAmount(
+                    player,
+                    holder.page(),
+                    targetId
+            );
+            return;
+        }
+
+        SoundService.guiSelect(
+                player,
+                core
+        );
+
         MenuHistory.openChild(
                 core,
                 player,
                 () -> BountyMainGui.open(
-                        core,
                         player,
                         bountyService,
                         holder.page()
                 ),
-                () -> statisticsGui.open(player, targetId)
+                () -> statisticsGui.open(
+                        player,
+                        targetId
+                )
         );
     }
 
@@ -180,20 +282,29 @@ public final class BountyGuiListener implements Listener {
             BountyConfirmGui.ConfirmHolder holder,
             int rawSlot
     ) {
-        if (rawSlot == BountyConfirmGui.CANCEL_SLOT) {
-            SoundService.guiCancel(player, core);
-            reopen(player, 0);
+        if (rawSlot
+                == BountyConfirmGui.CANCEL_SLOT) {
+            SoundService.guiCancel(
+                    player,
+                    core
+            );
+            reopen(
+                    player,
+                    holder.returnPage()
+            );
             return;
         }
 
-        if (rawSlot != BountyConfirmGui.CONFIRM_SLOT
+        if (rawSlot
+                != BountyConfirmGui.CONFIRM_SLOT
                 || !holder.tryConsume()) {
             return;
         }
 
-        OfflinePlayer target = Bukkit.getOfflinePlayer(
-                holder.targetId()
-        );
+        OfflinePlayer target =
+                Bukkit.getOfflinePlayer(
+                        holder.targetId()
+                );
         BountyService.PlaceResult result =
                 bountyService.placeDetailed(
                         player,
@@ -204,90 +315,126 @@ public final class BountyGuiListener implements Listener {
         switch (result.status()) {
             case SUCCESS -> {
                 String targetName =
-                        bountyService.displayName(target);
+                        bountyService.displayName(
+                                target
+                        );
 
-                player.sendMessage(TextColor.color(
-                        "&#bbbbbbPlaced &a"
-                                + bountyService.format(
-                                result.contributionCents()
+                player.sendMessage(
+                        TextColor.color(
+                                "&#bbbbbbPlaced &a"
+                                        + bountyService.format(
+                                        result.contributionCents()
+                                )
+                                        + " &#bbbbbbon &#B078FF"
+                                        + targetName
+                                        + " &#bbbbbb· Total &a"
+                                        + bountyService.format(
+                                        result.totalBountyCents()
+                                )
                         )
-                                + " &#bbbbbbbounty on &#bbbbbb"
-                                + targetName
-                ));
-                SoundService.guiConfirm(player, core);
+                );
+                SoundService.guiConfirm(
+                        player,
+                        core
+                );
 
-                Player onlineTarget = target.getPlayer();
+                Player onlineTarget =
+                        target.getPlayer();
 
                 if (onlineTarget != null
-                        && onlineTarget.isOnline()) {
-                    onlineTarget.sendMessage(TextColor.color(
-                            "&#bbbbbb"
-                                    + bountyService.displayName(player)
-                                    + " placed an &a"
-                                    + bountyService.format(
-                                    result.contributionCents()
+                        && onlineTarget
+                        .isOnline()) {
+                    onlineTarget.sendMessage(
+                            TextColor.color(
+                                    "&#B078FF"
+                                            + bountyService.displayName(
+                                            player
+                                    )
+                                            + " &#bbbbbbadded &a"
+                                            + bountyService.format(
+                                            result.contributionCents()
+                                    )
+                                            + " &#bbbbbbto your bounty · Total &a"
+                                            + bountyService.format(
+                                            result.totalBountyCents()
+                                    )
                             )
-                                    + " &#bbbbbbbounty on you"
-                    ));
+                    );
                     SoundService.guiConfirm(
                             onlineTarget,
                             core
                     );
                 }
             }
-            case DISABLED -> sendError(
-                    player,
-                    "&cBounty system is currently disabled"
-            );
-            case INVALID_TARGET -> sendError(
-                    player,
-                    "&cThat player could not be found"
-            );
-            case SELF_TARGET -> sendError(
-                    player,
-                    "&cYou cannot place a bounty on yourself"
-            );
-            case INVALID_AMOUNT -> sendError(
-                    player,
-                    "&cEnter a valid bounty amount"
-            );
-            case BELOW_MINIMUM -> sendError(
-                    player,
-                    "&cMinimum bounty is &a"
-                            + bountyService.format(
-                            bountyService.minimumCents()
-                    )
-            );
-            case ABOVE_MAXIMUM -> sendError(
-                    player,
-                    "&cMaximum bounty is &a"
-                            + bountyService.format(
-                            bountyService.maximumCents()
-                    )
-            );
-            case ECONOMY_UNAVAILABLE -> sendError(
-                    player,
-                    "&cEconomy is not available"
-            );
-            case NOT_ENOUGH_MONEY -> sendError(
-                    player,
-                    "&cYou do not have enough money"
-            );
-            case STORAGE_ERROR -> sendError(
-                    player,
-                    "&cCould not save that bounty"
-            );
+            case DISABLED ->
+                    error(
+                            player,
+                            "&cBounty system is currently disabled"
+                    );
+            case INVALID_TARGET ->
+                    error(
+                            player,
+                            "&cThat player could not be found"
+                    );
+            case SELF_TARGET ->
+                    error(
+                            player,
+                            "&cYou cannot place a bounty on yourself"
+                    );
+            case INVALID_AMOUNT ->
+                    error(
+                            player,
+                            "&cEnter a valid bounty amount"
+                    );
+            case BELOW_MINIMUM ->
+                    error(
+                            player,
+                            "&cMinimum bounty is &a"
+                                    + bountyService.format(
+                                    bountyService
+                                            .minimumCents()
+                            )
+                    );
+            case ABOVE_MAXIMUM ->
+                    error(
+                            player,
+                            "&cMaximum bounty is &a"
+                                    + bountyService.format(
+                                    bountyService
+                                            .maximumCents()
+                            )
+                    );
+            case ECONOMY_UNAVAILABLE ->
+                    error(
+                            player,
+                            "&cEconomy is not available"
+                    );
+            case NOT_ENOUGH_MONEY ->
+                    error(
+                            player,
+                            "&cYou do not have enough money"
+                    );
+            case STORAGE_ERROR ->
+                    error(
+                            player,
+                            "&cCould not safely save that bounty"
+                    );
         }
 
-        reopen(player, 0);
+        reopen(
+                player,
+                holder.returnPage()
+        );
     }
 
-    private void reopen(Player player, int page) {
+    private void reopen(
+            Player player,
+            int page
+    ) {
         MenuHistory.openWithoutBackTrigger(
                 core,
                 player,
                 () -> BountyMainGui.open(
-                        core,
                         player,
                         bountyService,
                         page
@@ -295,8 +442,16 @@ public final class BountyGuiListener implements Listener {
         );
     }
 
-    private void sendError(Player player, String message) {
-        player.sendMessage(TextColor.color(message));
-        SoundService.guiError(player, core);
+    private void error(
+            Player player,
+            String message
+    ) {
+        player.sendMessage(
+                TextColor.color(message)
+        );
+        SoundService.guiError(
+                player,
+                core
+        );
     }
 }

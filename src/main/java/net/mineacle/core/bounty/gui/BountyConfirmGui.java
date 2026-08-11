@@ -1,10 +1,8 @@
-package net.mineacle.core.bounty;
+package net.mineacle.core.bounty.gui;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.TextDecoration;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.mineacle.core.Core;
-import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.bounty.service.BountyService;
+import net.mineacle.core.common.gui.GuiText;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
@@ -15,6 +13,7 @@ import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,31 +30,52 @@ public final class BountyConfirmGui {
     }
 
     public static void open(
-            Core core,
             Player player,
             OfflinePlayer target,
             long amountCents,
+            int returnPage,
             BountyService bountyService
     ) {
-        ConfirmHolder holder = new ConfirmHolder(
-                target.getUniqueId(),
-                amountCents
-        );
-        Inventory inventory = Bukkit.createInventory(
-                holder,
-                SIZE,
-                legacy("Place Bounty")
-        );
+        ConfirmHolder holder =
+                new ConfirmHolder(
+                        target.getUniqueId(),
+                        amountCents,
+                        returnPage
+                );
+        Inventory inventory =
+                Bukkit.createInventory(
+                        holder,
+                        SIZE,
+                        GuiText.title(
+                                "Place Bounty"
+                        )
+                );
         holder.inventory = inventory;
+
+        long current =
+                bountyService.getAmount(
+                        target.getUniqueId()
+                );
+        long total;
+
+        try {
+            total =
+                    Math.addExact(
+                            current,
+                            amountCents
+                    );
+        } catch (
+                ArithmeticException exception
+        ) {
+            total = Long.MAX_VALUE;
+        }
 
         inventory.setItem(
                 CANCEL_SLOT,
                 item(
                         Material.RED_STAINED_GLASS_PANE,
                         "&cCancel",
-                        List.of(
-                                "&#bbbbbbDo not place this bounty"
-                        )
+                        "&#bbbbbbReturn without placing bounty"
                 )
         );
 
@@ -64,6 +84,8 @@ public final class BountyConfirmGui {
                 targetItem(
                         target,
                         amountCents,
+                        current,
+                        total,
                         bountyService
                 )
         );
@@ -73,28 +95,25 @@ public final class BountyConfirmGui {
                 item(
                         Material.LIME_STAINED_GLASS_PANE,
                         "&aPlace Bounty",
-                        List.of(
-                                "&#bbbbbbYou pay: &a"
-                                        + bountyService.format(
-                                        amountCents
-                                ),
-                                "&#bbbbbbTarget: &#bbbbbb"
-                                        + bountyService.displayName(
-                                        target
-                                ),
-                                "",
-                                "&#bbbbbbThe payment is taken immediately",
-                                "&#bbbbbbThe killer receives the reward",
-                                "",
-                                "&aClick to confirm"
-                        )
+                        "&#bbbbbbPay: &a"
+                                + bountyService.format(
+                                amountCents
+                        ),
+                        "&#bbbbbbNew Bounty: &a"
+                                + bountyService.format(
+                                total
+                        ),
+                        "",
+                        "&#bbbbbbClick to confirm"
                 )
         );
 
         player.openInventory(inventory);
     }
 
-    public static ConfirmHolder holder(Inventory inventory) {
+    public static ConfirmHolder holder(
+            Inventory inventory
+    ) {
         if (inventory == null
                 || !(inventory.getHolder()
                 instanceof ConfirmHolder holder)) {
@@ -106,87 +125,117 @@ public final class BountyConfirmGui {
 
     private static ItemStack targetItem(
             OfflinePlayer target,
-            long amountCents,
+            long contribution,
+            long current,
+            long total,
             BountyService bountyService
     ) {
-        ItemStack item = new ItemStack(Material.PLAYER_HEAD);
-        ItemMeta rawMeta = item.getItemMeta();
+        ItemStack item =
+                new ItemStack(
+                        Material.PLAYER_HEAD
+                );
+        ItemMeta rawMeta =
+                item.getItemMeta();
 
-        if (!(rawMeta instanceof SkullMeta meta)) {
+        if (!(rawMeta
+                instanceof SkullMeta meta)) {
             return item;
         }
 
         meta.setOwningPlayer(target);
         meta.displayName(
-                legacy(
-                        "&#bbbbbb"
-                                + bountyService.displayName(target)
+                GuiText.component(
+                        "&#B078FF"
+                                + bountyService.displayName(
+                                target
+                        )
                 )
         );
-        meta.lore(noItalic(List.of(
-                legacy(
-                        "&#bbbbbbBounty: &a"
-                                + bountyService.format(amountCents)
-                ),
-                legacy(""),
-                legacy(
-                        "&#bbbbbbDefeat this player to claim the reward"
+
+        List<Component> lore =
+                new ArrayList<>();
+        lore.add(
+                GuiText.component(
+                        "&#bbbbbbCurrent: &a"
+                                + bountyService.format(
+                                current
+                        )
                 )
-        )));
-        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        );
+        lore.add(
+                GuiText.component(
+                        "&#bbbbbbAdd: &a"
+                                + bountyService.format(
+                                contribution
+                        )
+                )
+        );
+        lore.add(
+                GuiText.component(
+                        "&#bbbbbbTotal: &a"
+                                + bountyService.format(
+                                total
+                        )
+                )
+        );
+
+        long payout =
+                bountyService.taxedPayout(
+                        total
+                );
+
+        if (payout != total) {
+            lore.add(
+                    GuiText.component(
+                            "&#bbbbbbReward: &a"
+                                    + bountyService.format(
+                                    payout
+                            )
+                    )
+            );
+        }
+
+        meta.lore(
+                List.copyOf(lore)
+        );
+        meta.addItemFlags(
+                ItemFlag.HIDE_ATTRIBUTES
+        );
         item.setItemMeta(meta);
+
         return item;
     }
 
     private static ItemStack item(
             Material material,
             String name,
-            List<String> loreLines
+            String... loreLines
     ) {
-        ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
+        ItemStack item =
+                new ItemStack(material);
+        ItemMeta meta =
+                item.getItemMeta();
 
         if (meta == null) {
             return item;
         }
 
-        meta.displayName(legacy(name));
-
-        List<Component> lore = new ArrayList<>();
-
-        for (String line : loreLines) {
-            lore.add(legacy(line));
-        }
-
-        meta.lore(noItalic(lore));
-        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-        item.setItemMeta(meta);
-        return item;
-    }
-
-    private static List<Component> noItalic(
-            List<Component> input
-    ) {
-        List<Component> output = new ArrayList<>();
-
-        for (Component component : input) {
-            output.add(
-                    component.decoration(
-                            TextDecoration.ITALIC,
-                            false
-                    )
-            );
-        }
-
-        return output;
-    }
-
-    private static Component legacy(String text) {
-        return LegacyComponentSerializer.legacySection()
-                .deserialize(
-                        TextColor.color(text == null ? "" : text)
+        meta.displayName(
+                GuiText.component(name)
+        );
+        meta.lore(
+                GuiText.lore(
+                        List.of(
+                                loreLines
+                        )
                 )
-                .decoration(TextDecoration.ITALIC, false);
+        );
+        meta.addItemFlags(
+                ItemFlag.HIDE_ATTRIBUTES
+        );
+        item.setItemMeta(meta);
+
+        return item;
     }
 
     public static final class ConfirmHolder
@@ -194,15 +243,19 @@ public final class BountyConfirmGui {
 
         private final UUID targetId;
         private final long amountCents;
+        private final int returnPage;
+
         private boolean consumed;
         private Inventory inventory;
 
         private ConfirmHolder(
                 UUID targetId,
-                long amountCents
+                long amountCents,
+                int returnPage
         ) {
             this.targetId = targetId;
             this.amountCents = amountCents;
+            this.returnPage = returnPage;
         }
 
         public UUID targetId() {
@@ -211,6 +264,10 @@ public final class BountyConfirmGui {
 
         public long amountCents() {
             return amountCents;
+        }
+
+        public int returnPage() {
+            return returnPage;
         }
 
         public synchronized boolean tryConsume() {
@@ -223,7 +280,7 @@ public final class BountyConfirmGui {
         }
 
         @Override
-        public Inventory getInventory() {
+        public @NotNull Inventory getInventory() {
             return inventory;
         }
     }
