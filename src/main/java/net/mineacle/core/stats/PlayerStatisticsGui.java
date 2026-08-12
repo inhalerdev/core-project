@@ -32,15 +32,16 @@ public final class PlayerStatisticsGui implements Listener {
 
     private static final String MONEY = "&#11fc7b";
     private static final String SECONDARY = "&#B078FF";
+    private static final String ACCENT = "&#D0AFFF";
     private static final String KILLS = "&#fc1111";
     private static final String DEATHS = "&#fc8611";
     private static final String PLAYTIME = "&#fcd511";
     private static final String NEUTRAL = "&#bbbbbb";
 
     private static final int SLOT_MONEY = 10;
-    private static final int SLOT_PLAYTIME = 11;
-    private static final int SLOT_PLAYER_KILLS = 12;
-    private static final int SLOT_DEATHS = 13;
+    private static final int SLOT_PLAYER_KILLS = 11;
+    private static final int SLOT_DEATHS = 12;
+    private static final int SLOT_PLAYTIME = 13;
     private static final int SLOT_BLOCKS_PLACED = 14;
     private static final int SLOT_BLOCKS_BROKEN = 15;
     private static final int SLOT_MOBS_KILLED = 16;
@@ -95,7 +96,7 @@ public final class PlayerStatisticsGui implements Listener {
 
         inventory.setItem(
                 SLOT_MONEY,
-                statItem(
+                mainStatItem(
                         Material.EMERALD,
                         "$",
                         "Balance",
@@ -105,19 +106,8 @@ public final class PlayerStatisticsGui implements Listener {
         );
 
         inventory.setItem(
-                SLOT_PLAYTIME,
-                statItem(
-                        Material.CLOCK,
-                        "⌚",
-                        "Playtime",
-                        service.playtime(targetId),
-                        PLAYTIME
-                )
-        );
-
-        inventory.setItem(
                 SLOT_PLAYER_KILLS,
-                statItem(
+                mainStatItem(
                         Material.DIAMOND_SWORD,
                         "🗡",
                         "Kills",
@@ -132,7 +122,7 @@ public final class PlayerStatisticsGui implements Listener {
 
         inventory.setItem(
                 SLOT_DEATHS,
-                statItem(
+                mainStatItem(
                         Material.SKELETON_SKULL,
                         "☠",
                         "Deaths",
@@ -146,8 +136,19 @@ public final class PlayerStatisticsGui implements Listener {
         );
 
         inventory.setItem(
+                SLOT_PLAYTIME,
+                mainStatItem(
+                        Material.CLOCK,
+                        "⌚",
+                        "Playtime",
+                        service.playtime(targetId),
+                        PLAYTIME
+                )
+        );
+
+        inventory.setItem(
                 SLOT_BLOCKS_PLACED,
-                statItem(
+                secondaryStatItem(
                         Material.GRASS_BLOCK,
                         "▣",
                         "Blocks Placed",
@@ -155,14 +156,13 @@ public final class PlayerStatisticsGui implements Listener {
                                 service.blocksPlaced(
                                         targetId
                                 )
-                        ),
-                        SECONDARY
+                        )
                 )
         );
 
         inventory.setItem(
                 SLOT_BLOCKS_BROKEN,
-                statItem(
+                secondaryStatItem(
                         Material.COBBLESTONE,
                         "⛏",
                         "Blocks Broken",
@@ -170,14 +170,13 @@ public final class PlayerStatisticsGui implements Listener {
                                 service.blocksBroken(
                                         targetId
                                 )
-                        ),
-                        SECONDARY
+                        )
                 )
         );
 
         inventory.setItem(
                 SLOT_MOBS_KILLED,
-                statItem(
+                secondaryStatItem(
                         Material.ZOMBIE_HEAD,
                         "⚔",
                         "Mobs Killed",
@@ -185,8 +184,7 @@ public final class PlayerStatisticsGui implements Listener {
                                 service.mobsKilled(
                                         targetId
                                 )
-                        ),
-                        SECONDARY
+                        )
                 )
         );
 
@@ -249,12 +247,40 @@ public final class PlayerStatisticsGui implements Listener {
         return StatsModule.statsService();
     }
 
-    private ItemStack statItem(
+    private ItemStack mainStatItem(
             Material material,
             String icon,
             String name,
             String value,
             String color
+    ) {
+        return formattedStatItem(
+                material,
+                color + icon,
+                NEUTRAL + name,
+                color + value
+        );
+    }
+
+    private ItemStack secondaryStatItem(
+            Material material,
+            String icon,
+            String name,
+            String value
+    ) {
+        return formattedStatItem(
+                material,
+                SECONDARY + icon,
+                SECONDARY + name,
+                ACCENT + value
+        );
+    }
+
+    private ItemStack formattedStatItem(
+            Material material,
+            String icon,
+            String name,
+            String value
     ) {
         ItemStack item =
                 new ItemStack(material);
@@ -267,13 +293,10 @@ public final class PlayerStatisticsGui implements Listener {
 
         GuiText.apply(
                 meta,
-                color
-                        + icon
+                icon
                         + " "
-                        + NEUTRAL
                         + name
                         + " "
-                        + color
                         + value,
                 List.of()
         );

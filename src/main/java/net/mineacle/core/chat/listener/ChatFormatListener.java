@@ -228,14 +228,7 @@ public final class ChatFormatListener
                         );
 
         Component hover =
-                legacyPrefix(
-                        compactRankPrefix(
-                                player
-                        )
-                )
-                        .append(
-                                displayName(player)
-                        );
+                displayName(player);
 
         TeamRecord team =
                 teamService == null
@@ -280,17 +273,6 @@ public final class ChatFormatListener
                 )
                 .append(
                         statLine(
-                                PLAYTIME,
-                                "⌚",
-                                "Playtime",
-                                playtime
-                        )
-                )
-                .append(
-                        Component.newline()
-                )
-                .append(
-                        statLine(
                                 KILLS,
                                 "🗡",
                                 "Kills",
@@ -306,6 +288,17 @@ public final class ChatFormatListener
                                 "☠",
                                 "Deaths",
                                 String.valueOf(deaths)
+                        )
+                )
+                .append(
+                        Component.newline()
+                )
+                .append(
+                        statLine(
+                                PLAYTIME,
+                                "⌚",
+                                "Playtime",
+                                playtime
                         )
                 );
     }
