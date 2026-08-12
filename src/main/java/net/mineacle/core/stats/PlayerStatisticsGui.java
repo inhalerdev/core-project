@@ -9,22 +9,33 @@ import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 public final class PlayerStatisticsGui implements Listener {
 
     private static final int SIZE = 27;
     private static final String TITLE_SUFFIX = " Stats";
+
+    private static final String MONEY = "&#11fc7b";
+    private static final String SECONDARY = "&#B078FF";
+    private static final String KILLS = "&#fc1111";
+    private static final String DEATHS = "&#fc8611";
+    private static final String PLAYTIME = "&#fcd511";
+    private static final String NEUTRAL = "&#bbbbbb";
 
     private static final int SLOT_MONEY = 10;
     private static final int SLOT_PLAYTIME = 11;
@@ -40,100 +51,194 @@ public final class PlayerStatisticsGui implements Listener {
         this.statsService = null;
     }
 
-    public PlayerStatisticsGui(StatsService statsService) {
+    public PlayerStatisticsGui(
+            StatsService statsService
+    ) {
         this.statsService = statsService;
     }
 
-    public void open(Player viewer, UUID targetId) {
+    public void open(
+            Player viewer,
+            UUID targetId
+    ) {
         StatsService service = service();
 
         if (service == null) {
-            viewer.sendMessage(TextColor.color("&cStats are not ready"));
+            viewer.sendMessage(
+                    TextColor.color(
+                            "&cStats are not ready"
+                    )
+            );
             return;
         }
 
-        OfflinePlayer target = Bukkit.getOfflinePlayer(targetId);
-        Inventory inventory = Bukkit.createInventory(
-                null,
-                SIZE,
-                GuiText.title(DisplayNames.displayName(target) + TITLE_SUFFIX)
+        OfflinePlayer target =
+                Bukkit.getOfflinePlayer(
+                        targetId
+                );
+
+        StatsHolder holder =
+                new StatsHolder(targetId);
+        Inventory inventory =
+                Bukkit.createInventory(
+                        holder,
+                        SIZE,
+                        GuiText.title(
+                                DisplayNames
+                                        .displayName(
+                                                target
+                                        )
+                                        + TITLE_SUFFIX
+                        )
+                );
+        holder.attach(inventory);
+
+        inventory.setItem(
+                SLOT_MONEY,
+                statItem(
+                        Material.EMERALD,
+                        "$",
+                        "Balance",
+                        service.money(targetId),
+                        MONEY
+                )
         );
 
-        inventory.setItem(SLOT_MONEY, statItem(
-                Material.EMERALD,
-                "&#B078FFMoney",
-                "&#D0AFFF$" + service.money(targetId)
-        ));
+        inventory.setItem(
+                SLOT_PLAYTIME,
+                statItem(
+                        Material.CLOCK,
+                        "⌚",
+                        "Playtime",
+                        service.playtime(targetId),
+                        PLAYTIME
+                )
+        );
 
-        inventory.setItem(SLOT_PLAYTIME, statItem(
-                Material.CLOCK,
-                "&#B078FFPlaytime",
-                "&#D0AFFF" + service.playtime(targetId)
-        ));
+        inventory.setItem(
+                SLOT_PLAYER_KILLS,
+                statItem(
+                        Material.DIAMOND_SWORD,
+                        "🗡",
+                        "Kills",
+                        String.valueOf(
+                                service.kills(
+                                        targetId
+                                )
+                        ),
+                        KILLS
+                )
+        );
 
-        inventory.setItem(SLOT_PLAYER_KILLS, statItem(
-                Material.DIAMOND_SWORD,
-                "&#B078FFKills",
-                "&#D0AFFF" + service.kills(targetId)
-        ));
+        inventory.setItem(
+                SLOT_DEATHS,
+                statItem(
+                        Material.SKELETON_SKULL,
+                        "☠",
+                        "Deaths",
+                        String.valueOf(
+                                service.deaths(
+                                        targetId
+                                )
+                        ),
+                        DEATHS
+                )
+        );
 
-        inventory.setItem(SLOT_DEATHS, statItem(
-                Material.SKELETON_SKULL,
-                "&cDeaths",
-                "&#D0AFFF" + service.deaths(targetId)
-        ));
+        inventory.setItem(
+                SLOT_BLOCKS_PLACED,
+                statItem(
+                        Material.GRASS_BLOCK,
+                        "▣",
+                        "Blocks Placed",
+                        String.valueOf(
+                                service.blocksPlaced(
+                                        targetId
+                                )
+                        ),
+                        SECONDARY
+                )
+        );
 
-        inventory.setItem(SLOT_BLOCKS_PLACED, statItem(
-                Material.GRASS_BLOCK,
-                "&#B078FFBlocks Placed",
-                "&#D0AFFF" + service.blocksPlaced(targetId)
-        ));
+        inventory.setItem(
+                SLOT_BLOCKS_BROKEN,
+                statItem(
+                        Material.COBBLESTONE,
+                        "⛏",
+                        "Blocks Broken",
+                        String.valueOf(
+                                service.blocksBroken(
+                                        targetId
+                                )
+                        ),
+                        SECONDARY
+                )
+        );
 
-        inventory.setItem(SLOT_BLOCKS_BROKEN, statItem(
-                Material.COBBLESTONE,
-                "&#B078FFBlocks Broken",
-                "&#D0AFFF" + service.blocksBroken(targetId)
-        ));
-
-        inventory.setItem(SLOT_MOBS_KILLED, statItem(
-                Material.ZOMBIE_HEAD,
-                "&#B078FFMobs Killed",
-                "&#D0AFFF" + service.mobsKilled(targetId)
-        ));
+        inventory.setItem(
+                SLOT_MOBS_KILLED,
+                statItem(
+                        Material.ZOMBIE_HEAD,
+                        "⚔",
+                        "Mobs Killed",
+                        String.valueOf(
+                                service.mobsKilled(
+                                        targetId
+                                )
+                        ),
+                        SECONDARY
+                )
+        );
 
         viewer.openInventory(inventory);
     }
 
     @SuppressWarnings("unused")
     @EventHandler
-    public void onClick(InventoryClickEvent event) {
-        HumanEntity clicker = event.getWhoClicked();
+    public void onClick(
+            InventoryClickEvent event
+    ) {
+        HumanEntity clicker =
+                event.getWhoClicked();
 
-        if (!(clicker instanceof Player)) {
-            return;
-        }
-
-        if (isNotStatsView(event.getView().title())) {
+        if (!(clicker instanceof Player)
+                || isNotStatsView(
+                event.getView()
+                        .getTopInventory()
+        )) {
             return;
         }
 
         event.setCancelled(true);
-        event.setResult(org.bukkit.event.Event.Result.DENY);
+        event.setResult(
+                Event.Result.DENY
+        );
     }
 
     @SuppressWarnings("unused")
     @EventHandler
-    public void onDrag(InventoryDragEvent event) {
-        if (isNotStatsView(event.getView().title())) {
+    public void onDrag(
+            InventoryDragEvent event
+    ) {
+        if (isNotStatsView(
+                event.getView()
+                        .getTopInventory()
+        )) {
             return;
         }
 
         event.setCancelled(true);
-        event.setResult(org.bukkit.event.Event.Result.DENY);
+        event.setResult(
+                Event.Result.DENY
+        );
     }
 
-    private boolean isNotStatsView(net.kyori.adventure.text.Component title) {
-        return !GuiText.plain(title).endsWith(TITLE_SUFFIX);
+    private boolean isNotStatsView(
+            Inventory inventory
+    ) {
+        return inventory == null
+                || !(inventory.getHolder()
+                instanceof StatsHolder);
     }
 
     private StatsService service() {
@@ -144,17 +249,78 @@ public final class PlayerStatisticsGui implements Listener {
         return StatsModule.statsService();
     }
 
-    private ItemStack statItem(Material material, String name, String value) {
-        ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
+    private ItemStack statItem(
+            Material material,
+            String icon,
+            String name,
+            String value,
+            String color
+    ) {
+        ItemStack item =
+                new ItemStack(material);
+        ItemMeta meta =
+                item.getItemMeta();
 
         if (meta == null) {
             return item;
         }
 
-        GuiText.apply(meta, name, List.of(value));
-        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        GuiText.apply(
+                meta,
+                color
+                        + icon
+                        + " "
+                        + NEUTRAL
+                        + name
+                        + " "
+                        + color
+                        + value,
+                List.of()
+        );
+        meta.addItemFlags(
+                ItemFlag.HIDE_ATTRIBUTES
+        );
         item.setItemMeta(meta);
         return item;
+    }
+
+    private static final class StatsHolder
+            implements InventoryHolder {
+
+        private final UUID targetId;
+        private Inventory inventory;
+
+        private StatsHolder(
+                UUID targetId
+        ) {
+            this.targetId =
+                    Objects.requireNonNull(
+                            targetId,
+                            "targetId"
+                    );
+        }
+
+        private void attach(
+                Inventory inventory
+        ) {
+            this.inventory =
+                    Objects.requireNonNull(
+                            inventory,
+                            "inventory"
+                    );
+        }
+
+        @SuppressWarnings("unused")
+        private UUID targetId() {
+            return targetId;
+        }
+
+        @Override
+        public @NotNull Inventory getInventory() {
+            return Objects.requireNonNull(
+                    inventory,
+                    "Stats inventory is not attached"
+            );
+        }
     }
 }

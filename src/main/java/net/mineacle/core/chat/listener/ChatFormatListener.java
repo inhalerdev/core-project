@@ -24,6 +24,19 @@ import org.bukkit.event.Listener;
 public final class ChatFormatListener
         implements Listener {
 
+    private static final String TEAM =
+            "&#B078FF";
+    private static final String MONEY =
+            "&#11fc7b";
+    private static final String KILLS =
+            "&#fc1111";
+    private static final String DEATHS =
+            "&#fc8611";
+    private static final String PLAYTIME =
+            "&#fcd511";
+    private static final String NEUTRAL =
+            "&#bbbbbb";
+
     private final Core core;
     private final ChatService chatService;
     private final TeamService teamService;
@@ -43,13 +56,17 @@ public final class ChatFormatListener
             priority = EventPriority.HIGH,
             ignoreCancelled = true
     )
-    public void onChat(AsyncChatEvent event) {
-        Player sender = event.getPlayer();
+    public void onChat(
+            AsyncChatEvent event
+    ) {
+        Player sender =
+                event.getPlayer();
 
         if (teamService != null
-                && teamService.isTeamChatEnabled(
-                sender.getUniqueId()
-        )) {
+                && teamService
+                .isTeamChatEnabled(
+                        sender.getUniqueId()
+                )) {
             return;
         }
 
@@ -129,14 +146,18 @@ public final class ChatFormatListener
     ) {
         Component identity =
                 legacyPrefix(
-                        compactRankPrefix(sender)
+                        compactRankPrefix(
+                                sender
+                        )
                 )
                         .append(
                                 displayName(sender)
                         )
                         .hoverEvent(
                                 HoverEvent.showText(
-                                        hoverStats(sender)
+                                        hoverStats(
+                                                sender
+                                        )
                                 )
                         );
 
@@ -144,61 +165,77 @@ public final class ChatFormatListener
                 .equals(
                         recipient.getUniqueId()
                 )) {
-            identity = identity.clickEvent(
-                    ClickEvent.runCommand(
-                            "/tpa "
-                                    + DisplayNames
-                                    .commandDisplayName(
-                                            sender
-                                    )
-                    )
-            );
+            identity =
+                    identity.clickEvent(
+                            ClickEvent.runCommand(
+                                    "/tpa "
+                                            + DisplayNames
+                                            .commandDisplayName(
+                                                    sender
+                                            )
+                            )
+                    );
         }
 
         return identity
-                .append(neutral(": "))
-                .append(neutral(message));
+                .append(
+                        neutral(": ")
+                )
+                .append(
+                        neutral(message)
+                );
     }
 
-    private Component hoverStats(Player player) {
+    private Component hoverStats(
+            Player player
+    ) {
         EconomyService economy =
-                EconomyModule.economyService();
+                EconomyModule
+                        .economyService();
         StatsService stats =
                 StatsModule.statsService();
 
-        String money = economy == null
-                ? "0"
-                : withoutCurrencySymbol(
-                        economy.format(
-                                economy
-                                        .getBalanceCents(
-                                                player
-                                                        .getUniqueId()
-                                        )
-                        )
-                );
-        long kills = stats == null
-                ? 0L
-                : stats.kills(
-                        player.getUniqueId()
-                );
-        long deaths = stats == null
-                ? 0L
-                : stats.deaths(
-                        player.getUniqueId()
-                );
-        String playtime = stats == null
-                ? "0m"
-                : stats.playtime(
-                        player.getUniqueId()
-                );
+        String money =
+                economy == null
+                        ? "0"
+                        : withoutCurrencySymbol(
+                                economy.format(
+                                        economy
+                                                .getBalanceCents(
+                                                        player
+                                                                .getUniqueId()
+                                                )
+                                )
+                        );
+
+        long kills =
+                stats == null
+                        ? 0L
+                        : stats.kills(
+                                player.getUniqueId()
+                        );
+        long deaths =
+                stats == null
+                        ? 0L
+                        : stats.deaths(
+                                player.getUniqueId()
+                        );
+        String playtime =
+                stats == null
+                        ? "0m"
+                        : stats.playtime(
+                                player.getUniqueId()
+                        );
 
         Component hover =
                 legacyPrefix(
-                        compactRankPrefix(player)
-                ).append(
-                        displayName(player)
-                );
+                        compactRankPrefix(
+                                player
+                        )
+                )
+                        .append(
+                                displayName(player)
+                        );
 
         TeamRecord team =
                 teamService == null
@@ -211,56 +248,94 @@ public final class ChatFormatListener
         if (team != null
                 && team.name() != null
                 && !team.name().isBlank()) {
-            hover = hover
-                    .append(
-                            Component.newline()
-                    )
-                    .append(
-                            legacyPrefix(
-                                    "&#D0AFFF🔥 &#B078FF"
-                                            + team.name()
+            hover =
+                    hover
+                            .append(
+                                    Component.newline()
                             )
-                    );
+                            .append(
+                                    statLine(
+                                            TEAM,
+                                            "🔥",
+                                            "Team",
+                                            team.name()
+                                    )
+                            );
         }
 
         return hover
-                .append(Component.newline())
                 .append(
-                        legacyPrefix(
-                                "&#bbbbbb$ &#B078FF"
-                                        + money
+                        Component.newline()
+                )
+                .append(
+                        statLine(
+                                MONEY,
+                                "$",
+                                "Balance",
+                                money
                         )
                 )
-                .append(Component.newline())
                 .append(
-                        legacyPrefix(
-                                "&#D0AFFF⌚ &#B078FF"
-                                        + playtime
+                        Component.newline()
+                )
+                .append(
+                        statLine(
+                                PLAYTIME,
+                                "⌚",
+                                "Playtime",
+                                playtime
                         )
                 )
-                .append(Component.newline())
                 .append(
-                        legacyPrefix(
-                                "&c🗡 &#B078FF"
-                                        + kills
+                        Component.newline()
+                )
+                .append(
+                        statLine(
+                                KILLS,
+                                "🗡",
+                                "Kills",
+                                String.valueOf(kills)
                         )
                 )
-                .append(Component.newline())
                 .append(
-                        legacyPrefix(
-                                "&#ffa033☠ &#B078FF"
-                                        + deaths
+                        Component.newline()
+                )
+                .append(
+                        statLine(
+                                DEATHS,
+                                "☠",
+                                "Deaths",
+                                String.valueOf(deaths)
                         )
                 );
+    }
+
+    private Component statLine(
+            String color,
+            String icon,
+            String name,
+            String value
+    ) {
+        return legacyPrefix(
+                color
+                        + icon
+                        + " "
+                        + NEUTRAL
+                        + name
+                        + " "
+                        + color
+                        + value
+        );
     }
 
     private Component displayName(
             Player player
     ) {
         return legacyPrefix(
-                DisplayNames.coloredDisplayName(
-                        player
-                )
+                DisplayNames
+                        .coloredDisplayName(
+                                player
+                        )
         );
     }
 
@@ -268,9 +343,10 @@ public final class ChatFormatListener
             Player player
     ) {
         String prefix =
-                DisplayNames.luckPermsPrefix(
-                        player
-                );
+                DisplayNames
+                        .luckPermsPrefix(
+                                player
+                        );
 
         if (prefix.isEmpty()) {
             return "";
@@ -287,7 +363,8 @@ public final class ChatFormatListener
     private String withoutCurrencySymbol(
             String value
     ) {
-        if (value == null || value.isBlank()) {
+        if (value == null
+                || value.isBlank()) {
             return "0";
         }
 
@@ -304,7 +381,8 @@ public final class ChatFormatListener
     private Component legacyPrefix(
             String text
     ) {
-        if (text == null || text.isBlank()) {
+        if (text == null
+                || text.isBlank()) {
             return Component.empty();
         }
 
@@ -324,9 +402,13 @@ public final class ChatFormatListener
                 );
     }
 
-    private Component neutral(String text) {
+    private Component neutral(
+            String text
+    ) {
         return Component.text(
-                        text == null ? "" : text,
+                        text == null
+                                ? ""
+                                : text,
                         net.kyori.adventure.text
                                 .format.TextColor
                                 .color(0xBBBBBB)
