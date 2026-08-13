@@ -8,13 +8,11 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPickupItemEvent;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
-import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 
+@SuppressWarnings("unused")
 public final class ItemStackNormalizeListener
         implements Listener {
 
@@ -29,84 +27,99 @@ public final class ItemStackNormalizeListener
         this.sellService = sellService;
     }
 
+    /**
+     * Old Sell revisions could leave their temporary Worth marker on an item.
+     * Clean only the picked-up entity before Bukkit transfers it into a player
+     * inventory. This path is O(1) and never scans the recipient inventory.
+     */
     @EventHandler(
             priority = EventPriority.HIGHEST,
             ignoreCancelled = true
     )
-    public void onPickup(EntityPickupItemEvent event) {
-        if (!(event.getEntity() instanceof Player player)) {
+    public void onPickup(
+            EntityPickupItemEvent event
+    ) {
+        if (!(event.getEntity()
+                instanceof Player)) {
             return;
         }
 
-        Item entity = event.getItem();
-        ItemStack clean = sellService.stripWorthLore(
-                entity.getItemStack()
-        );
+        Item entity =
+                event.getItem();
+        ItemStack current =
+                entity.getItemStack();
 
-        entity.setItemStack(clean);
-        normalizeLater(player, 1L);
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onInventoryClick(InventoryClickEvent event) {
-        if (event.getWhoClicked() instanceof Player player) {
-            normalizeLater(player, 1L);
+        if (sellService.shouldStripWorthLore(
+                current
+        )) {
+            entity.setItemStack(
+                    sellService.stripWorthLore(
+                            current
+                    )
+            );
         }
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onInventoryDrag(InventoryDragEvent event) {
-        if (event.getWhoClicked() instanceof Player player) {
-            normalizeLater(player, 1L);
-        }
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onInventoryClose(InventoryCloseEvent event) {
-        if (event.getPlayer() instanceof Player player) {
-            normalizeLater(player, 1L);
-        }
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onJoin(PlayerJoinEvent event) {
-        normalizeLater(event.getPlayer(), 20L);
-    }
-
-    private void normalizeLater(
-            Player player,
-            long delay
+    /**
+     * One bounded migration scan per login is enough to clean legacy items
+     * saved by versions that predate packet-only Worth rendering. Normal
+     * inventory clicks/drags/closes never trigger a full inventory scan.
+     */
+    @EventHandler(
+            priority = EventPriority.MONITOR
+    )
+    public void onJoin(
+            PlayerJoinEvent event
     ) {
-        core.getServer().getScheduler().runTaskLater(
-                core,
-                () -> {
-                    if (player.isOnline()) {
-                        normalizeInventory(player);
-                    }
-                },
-                delay
-        );
+        Player player =
+                event.getPlayer();
+
+        core.getServer()
+                .getScheduler()
+                .runTaskLater(
+                        core,
+                        () -> {
+                            if (player.isOnline()) {
+                                normalizeInventory(
+                                        player
+                                );
+                            }
+                        },
+                        20L
+                );
     }
 
-    private void normalizeInventory(Player player) {
-        PlayerInventory inventory = player.getInventory();
-        ItemStack[] contents = inventory.getStorageContents();
-        boolean changed = false;
+    private void normalizeInventory(
+            Player player
+    ) {
+        PlayerInventory inventory =
+                player.getInventory();
+        ItemStack[] contents =
+                inventory.getContents();
+        boolean changed =
+                false;
 
-        for (int index = 0; index < contents.length; index++) {
-            ItemStack original = contents[index];
+        for (int index = 0;
+             index < contents.length;
+             index++) {
+            ItemStack original =
+                    contents[index];
 
-            if (!sellService.hasInjectedWorthLore(original)) {
-                continue;
+            if (sellService.shouldStripWorthLore(
+                    original
+            )) {
+                contents[index] =
+                        sellService.stripWorthLore(
+                                original
+                        );
+                changed = true;
             }
-
-            contents[index] =
-                    sellService.stripWorthLore(original);
-            changed = true;
         }
 
         if (changed) {
-            inventory.setStorageContents(contents);
+            inventory.setContents(
+                    contents
+            );
         }
     }
 }

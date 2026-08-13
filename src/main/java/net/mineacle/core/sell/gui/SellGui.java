@@ -1,8 +1,9 @@
 package net.mineacle.core.sell.gui;
 
+import net.kyori.adventure.text.Component;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.CenteredToolbar;
-import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.sell.model.SellQuote;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.Bukkit;
@@ -10,8 +11,10 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,39 +33,49 @@ public final class SellGui {
             Player player,
             SellService sellService
     ) {
-        Holder holder = new Holder();
-        Inventory inventory = Bukkit.createInventory(
-                holder,
-                SIZE,
-                title(core)
-        );
-        holder.inventory = inventory;
+        Holder holder =
+                new Holder();
+        Inventory inventory =
+                Bukkit.createInventory(
+                        holder,
+                        SIZE,
+                        title(core)
+                );
+        holder.inventory =
+                inventory;
 
-        updateSummary(player, inventory, sellService);
-        player.openInventory(inventory);
+        updateSummary(
+                player,
+                inventory,
+                sellService
+        );
+        player.openInventory(
+                inventory
+        );
     }
 
-    public static void open(Core core, Player player) {
+    public static void open(
+            Core core,
+            Player player
+    ) {
         SellService sellService =
                 net.mineacle.core.sell.SellModule.sellService();
 
         if (sellService != null) {
-            open(core, player, sellService);
+            open(
+                    core,
+                    player,
+                    sellService
+            );
         }
     }
 
-    public static boolean isInventory(Inventory inventory) {
+    public static boolean isInventory(
+            Inventory inventory
+    ) {
         return inventory != null
-                && inventory.getHolder(false) instanceof Holder;
-    }
-
-    public static String title(Core core) {
-        return TextColor.color(
-                core.getConfig().getString(
-                        "sell.gui.title",
-                        "Place Items In Here To Sell"
-                )
-        );
+                && inventory.getHolder(false)
+                instanceof Holder;
     }
 
     public static void updateSummary(
@@ -73,7 +86,8 @@ public final class SellGui {
         if (player == null
                 || inventory == null
                 || sellService == null
-                || inventory.getSize() <= SUMMARY_SLOT) {
+                || inventory.getSize()
+                <= SUMMARY_SLOT) {
             return;
         }
 
@@ -81,38 +95,46 @@ public final class SellGui {
         long totalAmount = 0L;
         long ignoredAmount = 0L;
 
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
+        for (int slot = 0;
+             slot < inventory.getSize();
+             slot++) {
             if (slot == SUMMARY_SLOT) {
                 continue;
             }
 
-            ItemStack item = inventory.getItem(slot);
+            ItemStack item =
+                    inventory.getItem(slot);
 
-            if (item == null || item.getType().isAir()) {
+            if (item == null
+                    || item.getType().isAir()) {
                 continue;
             }
 
-            SellQuote quote = sellService.quote(
-                    player.getUniqueId(),
-                    item
-            );
+            SellQuote quote =
+                    sellService.quote(
+                            player.getUniqueId(),
+                            item
+                    );
 
             if (!quote.sellable()) {
-                ignoredAmount = safeAdd(
-                        ignoredAmount,
-                        item.getAmount()
-                );
+                ignoredAmount =
+                        safeAdd(
+                                ignoredAmount,
+                                item.getAmount()
+                        );
                 continue;
             }
 
-            totalCents = safeAdd(
-                    totalCents,
-                    quote.totalCents()
-            );
-            totalAmount = safeAdd(
-                    totalAmount,
-                    item.getAmount()
-            );
+            totalCents =
+                    safeAdd(
+                            totalCents,
+                            quote.totalCents()
+                    );
+            totalAmount =
+                    safeAdd(
+                            totalAmount,
+                            item.getAmount()
+                    );
         }
 
         inventory.setItem(
@@ -126,49 +148,83 @@ public final class SellGui {
         );
     }
 
+    private static Component title(
+            Core core
+    ) {
+        return GuiText.title(
+                core.getConfig().getString(
+                        "sell.gui.title",
+                        "Place Items In Here To Sell"
+                )
+        );
+    }
+
     private static ItemStack summaryItem(
             SellService sellService,
             long totalCents,
             long totalAmount,
             long ignoredAmount
     ) {
-        ItemStack item = new ItemStack(
-                Material.GREEN_STAINED_GLASS_PANE
-        );
-        ItemMeta meta = item.getItemMeta();
+        ItemStack item =
+                new ItemStack(
+                        Material.GREEN_STAINED_GLASS_PANE
+                );
+        ItemMeta meta =
+                item.getItemMeta();
 
         if (meta == null) {
             return item;
         }
 
-        List<String> lore = new ArrayList<>();
+        List<String> lore =
+                new ArrayList<>();
         lore.add(
-                "&#bbbbbbPending Payout: &a"
-                        + sellService.format(totalCents)
+                "&#bbbbbbPending Payout: &#11fc7b"
+                        + sellService.format(
+                        totalCents
+                )
         );
         lore.add(
-                "&#bbbbbbItems: &#ff88ff" + totalAmount
+                "&#bbbbbbItems: &#D0AFFF"
+                        + totalAmount
         );
 
         if (ignoredAmount > 0L) {
             lore.add(
-                    "&#bbbbbbIgnored: &c" + ignoredAmount
+                    "&#bbbbbbIgnored: &c"
+                            + ignoredAmount
             );
         }
 
         lore.add("");
-        lore.add("&#bbbbbbClose this menu to sell");
-        lore.add("&#bbbbbbUnsold items are returned");
+        lore.add(
+                "&#bbbbbbClose this menu to sell"
+        );
+        lore.add(
+                "&#bbbbbbUnsold items are returned"
+        );
 
-        meta.setDisplayName(TextColor.color("&aSell Summary"));
-        meta.setLore(lore.stream().map(TextColor::color).toList());
+        GuiText.apply(
+                meta,
+                "&#B078FFSell Summary",
+                lore
+        );
+        meta.addItemFlags(
+                ItemFlag.HIDE_ATTRIBUTES
+        );
         item.setItemMeta(meta);
         return item;
     }
 
-    private static long safeAdd(long first, long second) {
+    private static long safeAdd(
+            long first,
+            long second
+    ) {
         try {
-            return Math.addExact(first, second);
+            return Math.addExact(
+                    first,
+                    second
+            );
         } catch (ArithmeticException exception) {
             return Long.MAX_VALUE;
         }
@@ -180,7 +236,7 @@ public final class SellGui {
         private Inventory inventory;
 
         @Override
-        public Inventory getInventory() {
+        public @NotNull Inventory getInventory() {
             return inventory;
         }
     }

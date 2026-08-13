@@ -50,8 +50,10 @@ import java.util.logging.Level;
  * legitimate non-recipe survival items at a one-cent floor. Revision 6 also
  * activates supported metadata-sensitive vanilla variants at a fixed one-cent
  * runtime floor. Revision 7 resolves additional recipe outputs through a
- * fixed-point server-buyback audit; newly proven floor outputs are fixed-price
- * and market-disabled so they cannot create a second dynamic arbitrage path.</p>
+ * fixed-point server-buyback audit. Revision 8 turns every automatic safety
+ * floor into a strict server-cash invariant: one cent per accepted item,
+ * market-disabled, fixed 1.0x, with no category/enchantment buyback applied.
+ * Operator-locked rows remain explicit operator authority.</p>
  *
  * <p>If SQL, migration, audit, snapshot loading, or runtime activation fails,
  * SellService keeps the known-safe YAML definitions for that boot.</p>
@@ -60,16 +62,16 @@ import java.util.logging.Level;
 public final class SellCatalogBootstrapService {
 
     private static final String DEFAULT_PREFIX = "mineacle_sell";
-    private static final int CATALOG_REVISION = 7;
+    private static final int CATALOG_REVISION = 8;
     private static final long UNTRUSTED_FLOOR_CENTS = 1L;
-    private static final long SAFE_VARIANT_UNIT_CENTS = 1L;
     private static final double RECIPE_HAIRCUT = 0.70D;
     private static final int DERIVATION_PASSES = 16;
 
     /*
      * These Materials are metadata-sensitive, so recipe derivation does not
-     * invent per-variant values. Revision 6 activates legitimate variants at
-     * SAFE_VARIANT_UNIT_CENTS and keeps their market multiplier fixed at 1.0x.
+     * invent per-variant values. Revision 6+ activates legitimate variants at
+     * the strict one-cent safety floor and keeps their market multiplier fixed
+     * at 1.0x.
      */
     private static final Set<Material> RUNTIME_VARIANT_MATERIALS =
             EnumSet.of(
@@ -800,10 +802,14 @@ public final class SellCatalogBootstrapService {
                             )
                     );
 
+            boolean safetyFloorState =
+                    safetyFloorActivationState(
+                            activationState
+                    );
+
             boolean marketEnabled =
                     autoSellApproved
-                            && !variantRequired
-                            && !recipeFloorApproved
+                            && !safetyFloorState
                             && config.getBoolean(
                             itemPath
                                     + ".market-enabled",
@@ -811,15 +817,71 @@ public final class SellCatalogBootstrapService {
                     );
 
             double effectiveMinimumMultiplier =
-                    variantRequired
-                            || recipeFloorApproved
+                    safetyFloorState
                             ? 1.0D
                             : minimumMultiplier;
             double effectiveMaximumMultiplier =
-                    variantRequired
-                            || recipeFloorApproved
+                    safetyFloorState
                             ? 1.0D
                             : maximumMultiplier;
+            double effectiveBuyback =
+                    safetyFloorState
+                            ? 1.0D
+                            : buyback;
+            double effectiveEnchantBuyback =
+                    safetyFloorState
+                            ? 0.0D
+                            : enchantBuyback;
+
+            long candidateBaseCents =
+                    safetyFloorState
+                            ? UNTRUSTED_FLOOR_CENTS
+                            : Math.max(
+                            1L,
+                            prices.getOrDefault(
+                                    material,
+                                    1L
+                            )
+                    );
+
+            /*
+             * A future recipe/config addition must never make an approved row
+             * round down to a zero-cent one-item payout.
+             *
+             * A generated recipe that already passed the worst-case
+             * arbitrage audit can safely be lowered to the fixed one-cent
+             * recipe floor. Other contradictory rows fail closed to review
+             * rather than making the entire catalog internally inconsistent.
+             */
+            if (autoSellApproved
+                    && minimumServerUnitCents(
+                    candidateBaseCents,
+                    marketEnabled,
+                    effectiveMinimumMultiplier,
+                    effectiveBuyback
+            ) <= 0L) {
+                if (source
+                        == PriceSource.GENERATED_RECIPE) {
+                    activationState =
+                            "READY_FLOOR_RECIPE";
+                    marketEnabled = false;
+                    candidateBaseCents =
+                            UNTRUSTED_FLOOR_CENTS;
+                    effectiveMinimumMultiplier =
+                            1.0D;
+                    effectiveMaximumMultiplier =
+                            1.0D;
+                    effectiveBuyback =
+                            1.0D;
+                    effectiveEnchantBuyback =
+                            0.0D;
+                } else {
+                    autoSellApproved = false;
+                    activationState =
+                            "REVIEW_ZERO_PAYOUT";
+                    marketEnabled = false;
+                }
+            }
 
             long target =
                     Math.max(
@@ -835,7 +897,9 @@ public final class SellCatalogBootstrapService {
                             )
                     );
 
-            if (recipeFloorApproved) {
+            if ("READY_FLOOR_RECIPE".equals(
+                    activationState
+            )) {
                 floorRecipeCount++;
             }
 
@@ -863,15 +927,7 @@ public final class SellCatalogBootstrapService {
                     new CatalogSeed(
                             material.name(),
                             category,
-                            variantRequired
-                                    ? SAFE_VARIANT_UNIT_CENTS
-                                    : Math.max(
-                                    1L,
-                                    prices.getOrDefault(
-                                            material,
-                                            1L
-                                    )
-                            ),
+                            candidateBaseCents,
                             autoSellApproved,
                             marketEnabled,
                             commodity.marketKey(),
@@ -882,8 +938,8 @@ public final class SellCatalogBootstrapService {
                             target,
                             effectiveMinimumMultiplier,
                             effectiveMaximumMultiplier,
-                            buyback,
-                            enchantBuyback,
+                            effectiveBuyback,
+                            effectiveEnchantBuyback,
                             source.name(),
                             autoSellApproved,
                             activationState,
@@ -2965,6 +3021,23 @@ public final class SellCatalogBootstrapService {
             return true;
         }
 
+        if (row.serverSellEnabled()
+                && minimumServerUnitCents(
+                row
+        ) <= 0L) {
+            return true;
+        }
+
+        if (row.serverSellEnabled()
+                && safetyFloorActivationState(
+                row.activationState()
+        )
+                && !validSafetyFloorInvariant(
+                row
+        )) {
+            return true;
+        }
+
         /*
          * Migration-owned rows have one mechanical authority bit:
          * auto_sell_approved and server_sell_enabled must agree. An
@@ -2979,7 +3052,7 @@ public final class SellCatalogBootstrapService {
         /*
          * An operator lock may lower or disable an automatically generated
          * value, but it may not silently raise an enabled payout beyond the
-         * mechanically audited revision-7 ceiling. That would bypass the
+         * mechanically audited revision-8 ceiling. That would bypass the
          * crafting-arbitrage guarantee while still allowing the catalog to
          * report READY.
          */
@@ -3004,6 +3077,76 @@ public final class SellCatalogBootstrapService {
          */
         return row.marketEnabled()
                 && !row.serverSellEnabled();
+    }
+
+    private boolean validSafetyFloorInvariant(
+            CatalogRow row
+    ) {
+        return row.basePriceCents() == UNTRUSTED_FLOOR_CENTS
+                && !row.marketEnabled()
+                && Double.compare(
+                row.minimumMultiplier(),
+                1.0D
+        ) == 0
+                && Double.compare(
+                row.maximumMultiplier(),
+                1.0D
+        ) == 0
+                && Double.compare(
+                row.buybackMultiplier(),
+                1.0D
+        ) == 0
+                && Double.compare(
+                row.enchantBuybackMultiplier(),
+                0.0D
+        ) == 0;
+    }
+
+    private long minimumServerUnitCents(
+            long baseCents,
+            boolean marketEnabled,
+            double minimumMultiplier,
+            double buybackMultiplier
+    ) {
+        double marketMultiplier =
+                marketEnabled
+                        ? minimumMultiplier
+                        : 1.0D;
+
+        try {
+            return BigDecimal
+                    .valueOf(
+                            baseCents
+                    )
+                    .multiply(
+                            BigDecimal.valueOf(
+                                    marketMultiplier
+                            )
+                    )
+                    .multiply(
+                            BigDecimal.valueOf(
+                                    buybackMultiplier
+                            )
+                    )
+                    .setScale(
+                            0,
+                            RoundingMode.HALF_UP
+                    )
+                    .longValueExact();
+        } catch (ArithmeticException exception) {
+            return 0L;
+        }
+    }
+
+    private long minimumServerUnitCents(
+            CatalogRow row
+    ) {
+        return minimumServerUnitCents(
+                row.basePriceCents(),
+                row.marketEnabled(),
+                row.minimumMultiplier(),
+                row.buybackMultiplier()
+        );
     }
 
     private boolean outsideUnitInterval(
@@ -3104,6 +3247,20 @@ public final class SellCatalogBootstrapService {
         }
     }
 
+    private boolean safetyFloorActivationState(
+            String activationState
+    ) {
+        return "READY_FLOOR".equals(
+                activationState
+        )
+                || "READY_FLOOR_RECIPE".equals(
+                activationState
+        )
+                || "READY_VARIANT".equals(
+                activationState
+        );
+    }
+
     private String activationState(
             PriceSource source,
             boolean currentTrustedSell,
@@ -3114,7 +3271,9 @@ public final class SellCatalogBootstrapService {
             boolean recipeArbitrageUnsafe
     ) {
         if (variantRequired) {
-            return "READY_VARIANT";
+            return autoSellApproved
+                    ? "READY_VARIANT"
+                    : "REVIEW_VARIANT";
         }
 
         if (recipeArbitrageUnsafe) {

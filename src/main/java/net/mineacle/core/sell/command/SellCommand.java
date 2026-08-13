@@ -1,17 +1,16 @@
 package net.mineacle.core.sell.command;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.sell.gui.SellGui;
 import net.mineacle.core.sell.gui.SellHistoryGui;
-import net.mineacle.core.sell.gui.SellMultiGui;
 import net.mineacle.core.sell.gui.WorthGui;
 import net.mineacle.core.sell.model.ItemValuation;
 import net.mineacle.core.sell.model.SaleResult;
+import net.mineacle.core.sell.service.MarketPricingService;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -23,10 +22,13 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 public final class SellCommand
         implements CommandExecutor, TabCompleter {
@@ -61,75 +63,98 @@ public final class SellCommand
 
     @Override
     public boolean onCommand(
-            CommandSender sender,
-            Command command,
-            String label,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String label,
+            @NotNull String @NotNull [] args
     ) {
-        String commandName = command.getName()
-                .toLowerCase(Locale.ROOT);
-
         if (!(sender instanceof Player player)) {
             sender.sendMessage(
-                    core.getMessage("general.players-only")
+                    core.getMessage(
+                            "general.players-only"
+                    )
             );
             return true;
         }
 
-        if (!player.hasPermission("mineaclesell.use")) {
+        if (!player.hasPermission(
+                "mineaclesell.use"
+        )) {
             error(
                     player,
-                    core.getMessage("general.no-permission")
+                    core.getMessage(
+                            "general.no-permission"
+                    )
             );
             return true;
         }
 
-        if (commandName.equals("worth")) {
-            handleWorth(player, args);
-            return true;
-        }
+        String commandName =
+                command.getName()
+                        .toLowerCase(
+                                Locale.ROOT
+                        );
 
-        if (commandName.equals("sellmulti")) {
-            SellMultiGui.open(core, player, sellService);
+        if (commandName.equals(
+                "worth"
+        )) {
+            handleWorth(
+                    player,
+                    args
+            );
             return true;
         }
 
         if (args.length == 0
-                || args[0].equalsIgnoreCase("gui")) {
-            SellGui.open(core, player, sellService);
+                || args[0].equalsIgnoreCase(
+                "gui"
+        )) {
+            SellGui.open(
+                    core,
+                    player,
+                    sellService
+            );
             return true;
         }
 
-        String subcommand = args[0]
-                .toLowerCase(Locale.ROOT);
+        String subcommand =
+                args[0].toLowerCase(
+                        Locale.ROOT
+                );
 
         switch (subcommand) {
-            case "hand" -> sellHand(player);
-            case "all", "inventory" -> sellInventory(player);
-            case "history" -> SellHistoryGui.open(
-                    core,
-                    player,
-                    sellService,
-                    0
-            );
-            case "multi", "multipliers" ->
-                    SellMultiGui.open(
+            case "hand" ->
+                    sellHand(player);
+            case "all", "inventory" ->
+                    sellInventory(player);
+            case "history" ->
+                    SellHistoryGui.open(
                             core,
                             player,
-                            sellService
+                            sellService,
+                            0
                     );
-            case "worth" -> handleWorth(
-                    player,
-                    dropFirst(args)
-            );
-            case "reload" -> reload(player, args);
+            case "worth" ->
+                    handleWorth(
+                            player,
+                            dropFirst(args)
+                    );
+            case "reload" ->
+                    reload(
+                            player,
+                            args
+                    );
             case "market", "demand" ->
-                    market(player, args);
-            default -> error(
-                    player,
-                    "&cUsage: /sell "
-                            + "<gui|hand|all|history|worth>"
-            );
+                    market(
+                            player,
+                            args
+                    );
+            default ->
+                    error(
+                            player,
+                            "&cUsage: /sell "
+                                    + "<gui|hand|all|history|worth>"
+                    );
         }
 
         return true;
@@ -150,207 +175,313 @@ public final class SellCommand
         }
 
         if (args.length == 1
-                && args[0].equalsIgnoreCase("hand")) {
-            sendHeldWorth(player);
+                && args[0].equalsIgnoreCase(
+                "hand"
+        )) {
+            sendHeldWorth(
+                    player
+            );
             return;
         }
 
-        Material material = material(
-                String.join("_", args)
-        );
+        Material material =
+                material(
+                        String.join(
+                                "_",
+                                args
+                        )
+                );
 
-        if (material == null || !material.isItem()) {
-            error(player, "&cUnknown item");
+        if (material == null
+                || !material.isItem()) {
+            error(
+                    player,
+                    "&cUnknown item"
+            );
             return;
         }
 
-        ItemStack item = new ItemStack(material);
-        ItemValuation valuation = sellService.appraise(
-                player,
-                item
-        );
+        ItemValuation valuation =
+                sellService.appraise(
+                        player,
+                        new ItemStack(
+                                material
+                        )
+                );
 
         if (!valuation.priced()) {
-            error(player, "&cThat item has no worth");
+            error(
+                    player,
+                    "&cThat item has no worth"
+            );
             return;
         }
 
-        player.sendMessage(TextColor.color(
-                "&#bbbbbbItem: &#ff88ff"
-                        + sellService.pretty(material)
-        ));
+        player.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbItem: &#D0AFFF"
+                                + sellService.pretty(
+                                material
+                        )
+                )
+        );
 
-        if (valuation.sellable()) {
-            player.sendMessage(TextColor.color(
-                    "&#bbbbbbWorth: &a"
-                            + sellService.format(
-                            valuation.serverSellCents()
-                    )
-            ));
-        } else {
-            player.sendMessage(TextColor.color(
-                    "&cPlayer Market Only"
-            ));
-            player.sendMessage(TextColor.color(
-                    "&#bbbbbbUse /ah or direct player trading"
-            ));
-        }
-
-        SoundService.economyBalance(player, core);
-    }
-
-    private void sendHeldWorth(Player player) {
-        ItemStack item = player.getInventory()
-                .getItemInMainHand();
-
-        if (item == null || item.getType().isAir()) {
-            error(player, "&cHold an item to check its worth");
-            return;
-        }
-
-        ItemValuation valuation = sellService.appraise(
+        sendWorthValue(
                 player,
-                item
+                valuation
         );
-        if (!valuation.priced()) {
-            error(player, "&cThis item has no worth");
-            return;
-        }
-
-        player.sendMessage(TextColor.color(
-                "&#bbbbbbItem: &#ff88ff"
-                        + item.getAmount()
-                        + "x "
-                        + sellService.pretty(item.getType())
-        ));
-        if (valuation.sellable()) {
-            player.sendMessage(TextColor.color(
-                    "&#bbbbbbWorth: &a"
-                            + sellService.format(
-                            valuation.serverSellCents()
-                    )
-            ));
-        } else {
-            player.sendMessage(TextColor.color(
-                    "&cPlayer Market Only"
-            ));
-            player.sendMessage(TextColor.color(
-                    "&#bbbbbbUse /ah or direct player trading"
-            ));
-        }
-
-        SoundService.economyBalance(player, core);
+        SoundService.economyBalance(
+                player,
+                core
+        );
     }
 
-    private void sellHand(Player player) {
-        ItemStack hand = player.getInventory()
-                .getItemInMainHand();
+    private void sendHeldWorth(
+            Player player
+    ) {
+        ItemStack item =
+                player.getInventory()
+                        .getItemInMainHand();
 
-        if (hand == null || hand.getType().isAir()) {
-            error(player, "&cHold an item to sell");
+        if (item.getType().isAir()) {
+            error(
+                    player,
+                    "&cHold an item to check its worth"
+            );
             return;
         }
 
-        Inventory temporary = Bukkit.createInventory(
-                null,
-                9
-        );
-        temporary.setItem(0, hand.clone());
+        ItemValuation valuation =
+                sellService.appraise(
+                        player,
+                        item
+                );
 
-        player.getInventory().setItemInMainHand(
-                new ItemStack(Material.AIR)
+        if (!valuation.priced()) {
+            error(
+                    player,
+                    "&cThis item has no worth"
+            );
+            return;
+        }
+
+        player.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbItem: &#D0AFFF"
+                                + item.getAmount()
+                                + "x "
+                                + sellService.pretty(
+                                item.getType()
+                        )
+                )
         );
+        sendWorthValue(
+                player,
+                valuation
+        );
+        SoundService.economyBalance(
+                player,
+                core
+        );
+    }
+
+    private void sendWorthValue(
+            Player player,
+            ItemValuation valuation
+    ) {
+        if (valuation.sellable()) {
+            player.sendMessage(
+                    TextColor.color(
+                            "&#bbbbbbWorth: &#11fc7b"
+                                    + sellService.format(
+                                    valuation.serverSellCents()
+                            )
+                    )
+            );
+            return;
+        }
+
+        player.sendMessage(
+                TextColor.color(
+                        "&cPlayer Market Only"
+                )
+        );
+        player.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbUse /ah or direct player trading"
+                )
+        );
+    }
+
+    private void sellHand(
+            Player player
+    ) {
+        ItemStack hand =
+                player.getInventory()
+                        .getItemInMainHand();
+
+        if (hand.getType().isAir()) {
+            error(
+                    player,
+                    "&cHold an item to sell"
+            );
+            return;
+        }
+
+        Inventory temporary =
+                Bukkit.createInventory(
+                        null,
+                        9
+                );
+        temporary.setItem(
+                0,
+                hand.clone()
+        );
+
+        player.getInventory()
+                .setItemInMainHand(
+                        new ItemStack(
+                                Material.AIR
+                        )
+                );
 
         SaleResult result;
 
         try {
-            result = sellService.sellInventory(
-                    player.getUniqueId(),
-                    temporary
-            );
+            result =
+                    sellService.sellInventory(
+                            player.getUniqueId(),
+                            temporary
+                    );
         } catch (RuntimeException exception) {
-            player.getInventory().setItemInMainHand(hand);
+            /*
+             * SellService guarantees that exceptions cannot escape after the
+             * economy credit boundary. Therefore restoring here is safe and
+             * only covers failures that occurred before money was issued.
+             */
+            player.getInventory()
+                    .setItemInMainHand(
+                            hand
+                    );
             throw exception;
         }
 
         if (!result.soldAnything()) {
-            ItemStack returned = result.returnedItems()
-                    .stream()
-                    .findFirst()
-                    .orElse(hand);
-            player.getInventory().setItemInMainHand(returned);
+            ItemStack returned =
+                    result.returnedItems()
+                            .stream()
+                            .findFirst()
+                            .orElse(hand);
+            player.getInventory()
+                    .setItemInMainHand(
+                            returned
+                    );
 
-            if (!result.failureMessage().isBlank()) {
-                error(player, result.failureMessage());
+            if (!result.failureMessage()
+                    .isBlank()) {
+                error(
+                        player,
+                        result.failureMessage()
+                );
             } else {
-                error(player, "&cThis item cannot be sold");
+                error(
+                        player,
+                        "&cThis item cannot be sold"
+                );
             }
             return;
         }
 
-        for (ItemStack returned : result.returnedItems()) {
-            player.getInventory()
-                    .addItem(returned)
-                    .values()
-                    .forEach(leftover ->
-                            player.getWorld().dropItemNaturally(
-                                    player.getLocation(),
-                                    leftover
-                            )
-                    );
+        for (ItemStack returned
+                : result.returnedItems()) {
+            returnItem(
+                    player,
+                    returned
+            );
         }
 
-        sendSaleResult(player, result);
+        sendSaleResult(
+                player,
+                result
+        );
     }
 
-    private void sellInventory(Player player) {
-        PlayerInventory inventory = player.getInventory();
-        ItemStack[] storage = inventory.getStorageContents();
-        Inventory temporary = Bukkit.createInventory(
-                null,
-                54
-        );
+    private void sellInventory(
+            Player player
+    ) {
+        PlayerInventory inventory =
+                player.getInventory();
+        ItemStack[] storage =
+                inventory.getStorageContents();
+        Inventory temporary =
+                Bukkit.createInventory(
+                        null,
+                        54
+                );
 
-        for (int index = 0; index < storage.length; index++) {
-            ItemStack item = storage[index];
+        for (int index = 0;
+             index < storage.length;
+             index++) {
+            ItemStack item =
+                    storage[index];
 
-            if (item != null && !item.getType().isAir()) {
-                temporary.setItem(index, item.clone());
+            if (item != null
+                    && !item.getType().isAir()) {
+                temporary.setItem(
+                        index,
+                        item.clone()
+                );
             }
         }
 
         inventory.setStorageContents(
-                new ItemStack[storage.length]
+                new ItemStack[
+                        storage.length
+                        ]
         );
 
         SaleResult result;
 
         try {
-            result = sellService.sellInventory(
-                    player.getUniqueId(),
-                    temporary
-            );
+            result =
+                    sellService.sellInventory(
+                            player.getUniqueId(),
+                            temporary
+                    );
         } catch (RuntimeException exception) {
-            inventory.setStorageContents(storage);
+            inventory.setStorageContents(
+                    storage
+            );
             throw exception;
         }
 
-        ItemStack[] returned = new ItemStack[storage.length];
+        ItemStack[] returned =
+                new ItemStack[
+                        storage.length
+                        ];
         int index = 0;
 
-        for (ItemStack item : result.returnedItems()) {
+        for (ItemStack item
+                : result.returnedItems()) {
             if (index >= returned.length) {
                 break;
             }
 
-            returned[index++] = item;
+            returned[index++] =
+                    item;
         }
 
-        inventory.setStorageContents(returned);
+        inventory.setStorageContents(
+                returned
+        );
 
         if (!result.soldAnything()) {
-            if (!result.failureMessage().isBlank()) {
-                error(player, result.failureMessage());
+            if (!result.failureMessage()
+                    .isBlank()) {
+                error(
+                        player,
+                        result.failureMessage()
+                );
             } else {
                 error(
                         player,
@@ -360,66 +491,117 @@ public final class SellCommand
             return;
         }
 
-        sendSaleResult(player, result);
+        sendSaleResult(
+                player,
+                result
+        );
     }
 
     private void sendSaleResult(
             Player player,
             SaleResult result
     ) {
-        String chat = sellService.message(
-                "sold-chat",
-                "&#bbbbbbSold &#ff88ff%amount%x items "
-                        + "&#bbbbbbfor &a+%money%"
-        )
-                .replace(
-                        "%amount%",
-                        String.valueOf(result.totalAmount())
+        String chat =
+                sellService.message(
+                        "sold-chat",
+                        "&#bbbbbbSold &#D0AFFF%amount%x items "
+                                + "&#bbbbbbfor &#11fc7b+%money%"
                 )
-                .replace(
-                        "%money%",
-                        sellService.format(result.totalCents())
-                );
-        String actionBar = sellService.message(
-                "sold-actionbar",
-                "&a+%money%"
-        ).replace(
-                "%money%",
-                sellService.format(result.totalCents())
-        );
+                        .replace(
+                                "%amount%",
+                                String.valueOf(
+                                        result.totalAmount()
+                                )
+                        )
+                        .replace(
+                                "%money%",
+                                sellService.format(
+                                        result.totalCents()
+                                )
+                        );
+        String actionBar =
+                sellService.message(
+                        "sold-actionbar",
+                        "&#11fc7b+%money%"
+                )
+                        .replace(
+                                "%money%",
+                                sellService.format(
+                                        result.totalCents()
+                                )
+                        );
 
-        player.sendMessage(chat);
-        player.sendActionBar(component(actionBar));
-        SoundService.economyReceive(player, core);
+        player.sendMessage(
+                chat
+        );
+        player.sendActionBar(
+                GuiText.component(
+                        actionBar
+                )
+        );
+        SoundService.economyReceive(
+                player,
+                core
+        );
     }
 
-    private void reload(Player player, String[] args) {
-        if (!player.hasPermission("mineaclesell.admin")) {
+    private void reload(
+            Player player,
+            String[] args
+    ) {
+        if (!player.hasPermission(
+                "mineaclesell.admin"
+        )) {
             error(
                     player,
-                    core.getMessage("general.no-permission")
+                    core.getMessage(
+                            "general.no-permission"
+                    )
             );
             return;
         }
 
         if (args.length != 1) {
-            error(player, "&cUsage: /sell reload");
+            error(
+                    player,
+                    "&cUsage: /sell reload"
+            );
+            return;
+        }
+
+        if (sellService.marketResetInFlight()) {
+            error(
+                    player,
+                    "&cWait for the active Sell market reset to finish"
+            );
             return;
         }
 
         sellService.reload();
         WorthGui.clearCatalogCache();
-        player.sendMessage(TextColor.color(
-                "&#bbbbbbSell system reloaded"
-        ));
-        SoundService.guiConfirm(player, core);
+        player.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbSell system reloaded"
+                )
+        );
+        SoundService.guiConfirm(
+                player,
+                core
+        );
     }
 
-    private void market(Player player, String[] args) {
-        if (!player.hasPermission("mineaclesell.admin")) {
+    private void market(
+            Player player,
+            String[] args
+    ) {
+        if (!player.hasPermission(
+                "mineaclesell.admin"
+        )) {
             error(
                     player,
-                    core.getMessage("general.no-permission")
+                    core.getMessage(
+                            "general.no-permission"
+                    )
             );
             return;
         }
@@ -433,186 +615,364 @@ public final class SellCommand
             return;
         }
 
-        String operation = args[1]
-                .toLowerCase(Locale.ROOT);
+        String operation =
+                args[1].toLowerCase(
+                        Locale.ROOT
+                );
 
         switch (operation) {
             case "reprice", "recalc" -> {
                 sellService.recalculateDemand();
                 WorthGui.clearCatalogCache();
-                player.sendMessage(TextColor.color(
-                        "&#bbbbbbSell market repriced"
-                ));
-                SoundService.guiConfirm(player, core);
+                player.sendMessage(
+                        TextColor.color(
+                                "&#bbbbbbSell market repriced"
+                        )
+                );
+                SoundService.guiConfirm(
+                        player,
+                        core
+                );
                 return;
             }
             case "rotate" -> {
                 sellService.rotateDemand();
                 WorthGui.clearCatalogCache();
-                player.sendMessage(TextColor.color(
-                        "&#bbbbbbFeatured demand rotated"
-                ));
-                SoundService.guiConfirm(player, core);
+                player.sendMessage(
+                        TextColor.color(
+                                "&#bbbbbbFeatured demand rotated"
+                        )
+                );
+                SoundService.guiConfirm(
+                        player,
+                        core
+                );
                 return;
             }
             case "reset" -> {
-                sellService.resetDemandData();
-                WorthGui.clearCatalogCache();
-                player.sendMessage(TextColor.color(
-                        "&#bbbbbbSell market data reset"
-                ));
-                SoundService.guiConfirm(player, core);
+                resetMarket(
+                        player
+                );
                 return;
             }
             case "audit" -> {
-                SellService.CatalogCoverage coverage =
-                        sellService.catalogCoverage();
-                player.sendMessage(TextColor.color(
-                        "&#bbbbbbWorth Catalog: &#ff88ff"
-                                + coverage.visibleItems()
-                ));
-                player.sendMessage(TextColor.color(
-                        "&#bbbbbbExplicit Appraisals: &#ff88ff"
-                                + coverage.explicitlyPricedItems()
-                ));
-                player.sendMessage(TextColor.color(
-                        "&#bbbbbbFallback Estimates: &#ff88ff"
-                                + coverage.fallbackAppraisals()
-                ));
-                player.sendMessage(TextColor.color(
-                        "&#bbbbbbServer Sellable: &#ff88ff"
-                                + coverage.serverSellableItems()
-                ));
-                player.sendMessage(TextColor.color(
-                        "&#bbbbbbPlayer Market Only: &#ff88ff"
-                                + coverage.playerMarketOnlyItems()
-                ));
-                SoundService.economyBalance(player, core);
+                sendCatalogAudit(
+                        player
+                );
                 return;
             }
             default -> {
             }
         }
 
-        Material material = material(
-                String.join(
-                        "_",
-                        java.util.Arrays.copyOfRange(
-                                args,
-                                1,
-                                args.length
+        sendMarketItem(
+                player,
+                args
+        );
+    }
+
+    private void resetMarket(
+            Player player
+    ) {
+        UUID playerId =
+                player.getUniqueId();
+
+        MarketPricingService.ResetStartResult start =
+                sellService.resetDemandData(
+                        completion -> {
+                            WorthGui.clearCatalogCache();
+
+                            Player current =
+                                    Bukkit.getPlayer(
+                                            playerId
+                                    );
+
+                            if (current == null
+                                    || !current.isOnline()) {
+                                return;
+                            }
+
+                            if (completion.durable()) {
+                                current.sendMessage(
+                                        TextColor.color(
+                                                "&#bbbbbbSell market data reset"
+                                        )
+                                );
+                                SoundService.guiConfirm(
+                                        current,
+                                        core
+                                );
+                                return;
+                            }
+
+                            error(
+                                    current,
+                                    "&cCould not reset Sell market data"
+                            );
+                        }
+                );
+
+        switch (start) {
+            case STARTED -> {
+                player.sendMessage(
+                        TextColor.color(
+                                "&#bbbbbbSell market reset started"
                         )
+                );
+                SoundService.guiSelect(
+                        player,
+                        core
+                );
+            }
+            case ALREADY_RUNNING ->
+                    error(
+                            player,
+                            "&cSell market reset is already running"
+                    );
+            case STORAGE_UNAVAILABLE ->
+                    error(
+                            player,
+                            "&cSell market storage is unavailable"
+                    );
+        }
+    }
+
+    private void sendCatalogAudit(
+            Player player
+    ) {
+        SellService.CatalogCoverage coverage =
+                sellService.catalogCoverage();
+
+        player.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbWorth Catalog: &#D0AFFF"
+                                + coverage.visibleItems()
                 )
         );
+        player.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbExplicit Appraisals: &#D0AFFF"
+                                + coverage.explicitlyPricedItems()
+                )
+        );
+        player.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbFallback Estimates: &#D0AFFF"
+                                + coverage.fallbackAppraisals()
+                )
+        );
+        player.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbServer Sellable: &#D0AFFF"
+                                + coverage.serverSellableItems()
+                )
+        );
+        player.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbPlayer Market Only: &#D0AFFF"
+                                + coverage.playerMarketOnlyItems()
+                )
+        );
+        SoundService.economyBalance(
+                player,
+                core
+        );
+    }
 
-        if (material == null || !material.isItem()) {
-            error(player, "&cUnknown item");
+    private void sendMarketItem(
+            Player player,
+            String[] args
+    ) {
+        Material material =
+                material(
+                        String.join(
+                                "_",
+                                Arrays.copyOfRange(
+                                        args,
+                                        1,
+                                        args.length
+                                )
+                        )
+                );
+
+        if (material == null
+                || !material.isItem()) {
+            error(
+                    player,
+                    "&cUnknown item"
+            );
             return;
         }
 
         double market =
-                sellService.demandMultiplier(material);
-        double supplyRatio =
-                sellService.marketSupplyRatio(material);
-        long sold = sellService.demandWindowAmount(material);
-        long target =
-                sellService.marketTargetUnits(material);
-
-        player.sendMessage(TextColor.color(
-                "&#bbbbbbItem: &#ff88ff"
-                        + sellService.pretty(material)
-        ));
-        player.sendMessage(TextColor.color(
-                "&#bbbbbbBase Appraisal: &a"
-                        + sellService.format(
-                        sellService.baseWorthCents(material)
-                )
-        ));
-        player.sendMessage(TextColor.color(
-                "&#bbbbbbMarket: &#ff88ff"
-                        + SellService.formatMultiplier(market)
-                        + "x"
-        ));
-        player.sendMessage(TextColor.color(
-                "&#bbbbbbCurrent Appraisal: &a"
-                        + sellService.format(
-                        sellService.unitWorthCents(
-                                player,
-                                material
-                        )
-                )
-        ));
-        player.sendMessage(TextColor.color(
-                "&#bbbbbbServer Sell: &a"
-                        + sellService.format(
-                        sellService.serverUnitSellCents(
-                                player,
-                                material
-                        )
-                )
-        ));
-        player.sendMessage(TextColor.color(
-                "&#bbbbbb24h Supply: &#ff88ff"
-                        + sold
-                        + "&#bbbbbb/"
-                        + "&#ff88ff"
-                        + target
-        ));
-        player.sendMessage(TextColor.color(
-                "&#bbbbbbSupply Ratio: &#ff88ff"
-                        + SellService.formatMultiplier(
-                        supplyRatio
-                )
-                        + "x"
-        ));
-        player.sendMessage(TextColor.color(
-                "&#bbbbbbStatus: &#ff88ff"
-                        + sellService.demandTierDisplay(
+                sellService.demandMultiplier(
                         material
+                );
+        double supplyRatio =
+                sellService.marketSupplyRatio(
+                        material
+                );
+        long sold =
+                sellService.demandWindowAmount(
+                        material
+                );
+        long target =
+                sellService.marketTargetUnits(
+                        material
+                );
+
+        player.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbItem: &#D0AFFF"
+                                + sellService.pretty(
+                                material
+                        )
                 )
-        ));
-        SoundService.economyBalance(player, core);
+        );
+        player.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbBase Appraisal: &#11fc7b"
+                                + sellService.format(
+                                sellService.baseWorthCents(
+                                        material
+                                )
+                        )
+                )
+        );
+        player.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbMarket: &#D0AFFF"
+                                + SellService.formatMultiplier(
+                                market
+                        )
+                                + "x"
+                )
+        );
+        player.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbCurrent Appraisal: &#11fc7b"
+                                + sellService.format(
+                                sellService.unitWorthCents(
+                                        player,
+                                        material
+                                )
+                        )
+                )
+        );
+        player.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbServer Sell: &#11fc7b"
+                                + sellService.format(
+                                sellService.serverUnitSellCents(
+                                        player,
+                                        material
+                                )
+                        )
+                )
+        );
+        player.sendMessage(
+                TextColor.color(
+                        "&#bbbbbb24h Supply: &#D0AFFF"
+                                + sold
+                                + "&#bbbbbb/&#D0AFFF"
+                                + target
+                )
+        );
+        player.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbSupply Ratio: &#D0AFFF"
+                                + SellService.formatMultiplier(
+                                supplyRatio
+                        )
+                                + "x"
+                )
+        );
+        player.sendMessage(
+                TextColor.color(
+                        "&#bbbbbbStatus: &#D0AFFF"
+                                + sellService.demandTierDisplay(
+                                material
+                        )
+                )
+        );
+        SoundService.economyBalance(
+                player,
+                core
+        );
     }
 
-    private long multiply(
-            long value,
-            int multiplier
+    private void returnItem(
+            Player player,
+            ItemStack item
     ) {
-        try {
-            return Math.multiplyExact(value, multiplier);
-        } catch (ArithmeticException exception) {
-            return Long.MAX_VALUE;
+        if (item == null
+                || item.getType().isAir()) {
+            return;
         }
+
+        ItemStack clean =
+                sellService.stripWorthLore(
+                        item
+                );
+
+        player.getInventory()
+                .addItem(
+                        clean
+                )
+                .values()
+                .forEach(leftover ->
+                        player.getWorld()
+                                .dropItemNaturally(
+                                        player.getLocation(),
+                                        leftover
+                                )
+                );
     }
 
-    private void error(Player player, String message) {
-        player.sendMessage(TextColor.color(message));
-        SoundService.guiError(player, core);
+    private void error(
+            Player player,
+            String message
+    ) {
+        player.sendMessage(
+                TextColor.color(
+                        message
+                )
+        );
+        SoundService.guiError(
+                player,
+                core
+        );
     }
 
-    private Component component(String message) {
-        return LegacyComponentSerializer.legacySection()
-                .deserialize(TextColor.color(message));
-    }
-
-    private Material material(String raw) {
-        if (raw == null || raw.isBlank()) {
+    private Material material(
+            String raw
+    ) {
+        if (raw == null
+                || raw.isBlank()) {
             return null;
         }
 
         return Material.matchMaterial(
                 raw.trim()
-                        .replace(' ', '_')
-                        .replace('-', '_')
+                        .replace(
+                                ' ',
+                                '_'
+                        )
+                        .replace(
+                                '-',
+                                '_'
+                        )
         );
     }
 
-    private String[] dropFirst(String[] args) {
+    private String[] dropFirst(
+            String[] args
+    ) {
         if (args.length <= 1) {
             return new String[0];
         }
 
-        return java.util.Arrays.copyOfRange(
+        return Arrays.copyOfRange(
                 args,
                 1,
                 args.length
@@ -621,44 +981,64 @@ public final class SellCommand
 
     @Override
     public List<String> onTabComplete(
-            CommandSender sender,
-            Command command,
-            String alias,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String alias,
+            @NotNull String @NotNull [] args
     ) {
         if (!(sender instanceof Player player)
-                || !player.hasPermission("mineaclesell.use")) {
+                || !player.hasPermission(
+                "mineaclesell.use"
+        )) {
             return List.of();
         }
 
-        String commandName = command.getName()
-                .toLowerCase(Locale.ROOT);
+        String commandName =
+                command.getName()
+                        .toLowerCase(
+                                Locale.ROOT
+                        );
 
-        if (commandName.equals("worth")) {
+        if (commandName.equals(
+                "worth"
+        )) {
             if (args.length == 1) {
-                List<String> options = new ArrayList<>();
-                options.add("hand");
-                options.addAll(itemCompletions(args));
+                List<String> options =
+                        new ArrayList<>();
+                options.add(
+                        "hand"
+                );
+                options.addAll(
+                        itemCompletions(
+                                args
+                        )
+                );
                 return PlayerTabComplete.options(
                         args[0],
                         options
                 );
             }
 
-            return itemCompletions(args);
-        }
-
-        if (commandName.equals("sellmulti")) {
-            return List.of();
+            return itemCompletions(
+                    args
+            );
         }
 
         if (args.length == 1) {
             List<String> options =
-                    new ArrayList<>(PLAYER_SUBCOMMANDS);
+                    new ArrayList<>(
+                            PLAYER_SUBCOMMANDS
+                    );
 
-            if (player.hasPermission("mineaclesell.admin")) {
-                options.add("market");
-                options.add("reload");
+            if (player.hasPermission(
+                    "mineaclesell.admin"
+            )) {
+                options.add(
+                        "market"
+                );
+                options.add(
+                        "reload"
+                );
             }
 
             return PlayerTabComplete.options(
@@ -668,19 +1048,35 @@ public final class SellCommand
         }
 
         if (args.length >= 2
-                && args[0].equalsIgnoreCase("worth")) {
-            return itemCompletions(dropFirst(args));
+                && args[0].equalsIgnoreCase(
+                "worth"
+        )) {
+            return itemCompletions(
+                    dropFirst(args)
+            );
         }
 
         if (args.length == 2
-                && (args[0].equalsIgnoreCase("market")
-                || args[0].equalsIgnoreCase("demand"))
-                && player.hasPermission("mineaclesell.admin")) {
+                && (args[0].equalsIgnoreCase(
+                "market"
+        )
+                || args[0].equalsIgnoreCase(
+                "demand"
+        ))
+                && player.hasPermission(
+                "mineaclesell.admin"
+        )) {
             List<String> options =
-                    new ArrayList<>(MARKET_SUBCOMMANDS);
-            options.addAll(itemCompletions(
-                    new String[]{args[1]}
-            ));
+                    new ArrayList<>(
+                            MARKET_SUBCOMMANDS
+                    );
+            options.addAll(
+                    itemCompletions(
+                            new String[]{
+                                    args[1]
+                            }
+                    )
+            );
 
             return PlayerTabComplete.options(
                     args[1],
@@ -691,27 +1087,45 @@ public final class SellCommand
         return List.of();
     }
 
-    private List<String> itemCompletions(String[] args) {
-        String partial = String.join("_", args)
-                .toLowerCase(Locale.ROOT);
-        List<String> completions = new ArrayList<>();
+    private List<String> itemCompletions(
+            String[] args
+    ) {
+        String partial =
+                String.join(
+                                "_",
+                                args
+                        )
+                        .toLowerCase(
+                                Locale.ROOT
+                        );
+        List<String> completions =
+                new ArrayList<>();
 
-        for (Material material : Material.values()) {
-            if (!material.isItem()
-                    || material == Material.AIR
-                    || material.name().endsWith("_SPAWN_EGG")) {
+        for (Material material
+                : Material.values()) {
+            if (!sellService.isWorthVisible(
+                    material
+            )) {
                 continue;
             }
 
-            String name = material.name()
-                    .toLowerCase(Locale.ROOT);
+            String name =
+                    material.name()
+                            .toLowerCase(
+                                    Locale.ROOT
+                            );
 
             if (partial.isBlank()
-                    || name.startsWith(partial)) {
-                completions.add(name);
+                    || name.startsWith(
+                    partial
+            )) {
+                completions.add(
+                        name
+                );
             }
 
-            if (completions.size() >= 80) {
+            if (completions.size()
+                    >= 80) {
                 break;
             }
         }

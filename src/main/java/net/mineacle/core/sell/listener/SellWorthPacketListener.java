@@ -1,14 +1,13 @@
 package net.mineacle.core.sell.listener;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.events.ListenerPriority;
 import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.reflect.StructureModifier;
 import net.mineacle.core.Core;
-import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.sell.gui.SellGui;
 import net.mineacle.core.sell.gui.WorthGui;
 import net.mineacle.core.sell.model.ItemValuation;
@@ -388,11 +387,9 @@ public final class SellWorthPacketListener
     private Component component(
             String text
     ) {
-        return LegacyComponentSerializer
-                .legacySection()
-                .deserialize(
-                        TextColor.color(text)
-                );
+        return GuiText.component(
+                text
+        );
     }
 
     private int setSlotRawSlot(

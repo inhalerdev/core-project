@@ -23,6 +23,18 @@ import java.util.function.Consumer;
 
 public final class MarketPricingService {
 
+    public enum ResetStartResult {
+        STARTED,
+        ALREADY_RUNNING,
+        STORAGE_UNAVAILABLE
+    }
+
+    public record ResetCompletion(
+            boolean durable,
+            boolean sqlCleared
+    ) {
+    }
+
     private static final long SQL_RETRY_MILLIS =
             5L * 60L * 1000L;
     private static final long SIX_HOURS =
@@ -71,7 +83,7 @@ public final class MarketPricingService {
     private boolean resetInFlight;
     private boolean started;
     private boolean enabled;
-    private boolean pricesChanged;
+    private long priceRevision;
     private boolean rollingDirty = true;
 
     private long bucketMillis;
@@ -175,6 +187,14 @@ public final class MarketPricingService {
         );
         ensureCommodityStates();
         markAllStatesDirty();
+
+        /*
+         * Configuration/catalog reloads can change market enablement or
+         * multiplier bounds even when no MarketState number changes. Treat
+         * that as a price-authority revision so global Worth snapshots never
+         * retain a value built against the previous rules.
+         */
+        markPricesChanged();
 
         if (started) {
             attemptSqlConnection();
@@ -584,9 +604,11 @@ public final class MarketPricingService {
         flushAsync();
     }
 
-    public synchronized void reset() {
+    public synchronized ResetStartResult reset(
+            Consumer<ResetCompletion> completion
+    ) {
         if (resetInFlight) {
-            return;
+            return ResetStartResult.ALREADY_RUNNING;
         }
 
         CommodityMarketStorage storage =
@@ -597,7 +619,7 @@ public final class MarketPricingService {
                     "Sell market reset could not start — "
                             + "commodity storage is unavailable"
             );
-            return;
+            return ResetStartResult.STORAGE_UNAVAILABLE;
         }
 
         resetInFlight = true;
@@ -651,11 +673,18 @@ public final class MarketPricingService {
                                                             storage,
                                                             resetAt,
                                                             finalResult,
-                                                            finalFailure
+                                                            finalFailure,
+                                                            completion
                                                     )
                                     );
                         }
                 );
+
+        return ResetStartResult.STARTED;
+    }
+
+    public synchronized boolean resetInFlight() {
+        return resetInFlight;
     }
 
     public synchronized void importHistory(
@@ -706,12 +735,8 @@ public final class MarketPricingService {
         return "normal";
     }
 
-    @SuppressWarnings("UnusedReturnValue")
-    public synchronized boolean consumePriceChange() {
-        boolean changed =
-                pricesChanged;
-        pricesChanged = false;
-        return changed;
+    public synchronized long priceRevision() {
+        return priceRevision;
     }
 
     public synchronized void flushIfDirty() {
@@ -1295,7 +1320,7 @@ public final class MarketPricingService {
                     state.marketMultiplier
                             - rounded
             ) >= 0.0001D) {
-                pricesChanged = true;
+                markPricesChanged();
             }
 
             state.marketMultiplier =
@@ -1409,7 +1434,7 @@ public final class MarketPricingService {
             ) >= 0.0001D
                     || state.featuredUntil
                     != until) {
-                pricesChanged = true;
+                markPricesChanged();
             }
 
             state.featuredMultiplier =
@@ -1500,7 +1525,7 @@ public final class MarketPricingService {
                 dirtyStates.add(
                         entry.getKey()
                 );
-                pricesChanged = true;
+                markPricesChanged();
             }
         }
     }
@@ -1523,7 +1548,7 @@ public final class MarketPricingService {
                 dirtyStates.add(
                         entry.getKey()
                 );
-                pricesChanged = true;
+                markPricesChanged();
             }
         }
     }
@@ -1826,7 +1851,7 @@ public final class MarketPricingService {
                     != 1.0D) {
                 state.marketMultiplier =
                         1.0D;
-                pricesChanged = true;
+                markPricesChanged();
                 dirtyStates.add(
                         commodity.key()
                 );
@@ -2036,10 +2061,28 @@ public final class MarketPricingService {
             CommodityMarketStorage storage,
             long resetAt,
             CommodityMarketStorage.ResetResult result,
-            Exception failure
+            Exception failure,
+            Consumer<ResetCompletion> completion
     ) {
         if (generation != storageGeneration
                 || storage != commodityStorage) {
+            mergeResetPendingBuckets(
+                    false
+            );
+            pendingResetAt = 0L;
+            resetInFlight = false;
+
+            core.getLogger().warning(
+                    "Sell market reset result became stale because the "
+                            + "market storage generation changed — retry reset"
+            );
+            completeReset(
+                    completion,
+                    new ResetCompletion(
+                            false,
+                            false
+                    )
+            );
             return;
         }
 
@@ -2056,6 +2099,13 @@ public final class MarketPricingService {
                     "Sell market reset failed before a durable tombstone "
                             + "could be written — existing market data was kept",
                     failure
+            );
+            completeReset(
+                    completion,
+                    new ResetCompletion(
+                            false,
+                            false
+                    )
             );
             return;
         }
@@ -2099,7 +2149,7 @@ public final class MarketPricingService {
                 true
         );
         markAllStatesDirty();
-        pricesChanged = true;
+        markPricesChanged();
         resetInFlight = false;
 
         if (!result.sqlCleared()) {
@@ -2123,6 +2173,34 @@ public final class MarketPricingService {
         core.getLogger().info(
                 "Sell commodity market reset completed durably"
         );
+        completeReset(
+                completion,
+                new ResetCompletion(
+                        true,
+                        result.sqlCleared()
+                )
+        );
+    }
+
+    private void completeReset(
+            Consumer<ResetCompletion> completion,
+            ResetCompletion result
+    ) {
+        if (completion == null) {
+            return;
+        }
+
+        try {
+            completion.accept(
+                    result
+            );
+        } catch (RuntimeException exception) {
+            core.getLogger().log(
+                    Level.WARNING,
+                    "Sell market reset completion callback failed",
+                    exception
+            );
+        }
     }
 
     private void mergeResetPendingBuckets(
@@ -2162,7 +2240,7 @@ public final class MarketPricingService {
         rollingDirty = true;
 
         if (!intoFreshMarket) {
-            pricesChanged = true;
+            markPricesChanged();
         }
     }
 
@@ -2579,12 +2657,19 @@ public final class MarketPricingService {
          * stale pre-reset data from the same hour can never merge back in.
          */
         if (resetCutoff > 0L
-                && safe > resetCutoff
+                && safe >= resetCutoff
                 && aligned <= resetCutoff) {
             return resetCutoff + 1L;
         }
 
         return aligned;
+    }
+
+    private void markPricesChanged() {
+        priceRevision =
+                priceRevision == Long.MAX_VALUE
+                        ? 1L
+                        : priceRevision + 1L;
     }
 
     private void normalizeWeights() {

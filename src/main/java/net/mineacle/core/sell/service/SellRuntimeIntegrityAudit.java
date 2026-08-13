@@ -10,6 +10,7 @@ import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.potion.PotionType;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
@@ -17,7 +18,7 @@ import java.util.List;
 
 public final class SellRuntimeIntegrityAudit {
 
-    private static final int REQUIRED_CATALOG_REVISION = 7;
+    private static final int REQUIRED_CATALOG_REVISION = 8;
     private static final int MAX_WAIT_ATTEMPTS = 120;
 
     private final Core core;
@@ -91,6 +92,9 @@ public final class SellRuntimeIntegrityAudit {
                             + result.visible()
                             + " visible items server-sellable, "
                             + "item safety gates verified, "
+                            + "legacy Sell architecture removal verified, "
+                            + "sell-enabled payout invariant verified, "
+                            + "v8 safety-floor payout invariant verified, "
                             + "iron/gold commodity normalization verified"
             );
         } else {
@@ -138,6 +142,18 @@ public final class SellRuntimeIntegrityAudit {
                 failures
         );
         verifyBlockedItemGate(
+                failures
+        );
+        verifyLegacyArchitectureRemoved(
+                failures
+        );
+        verifySellEnabledPayoutInvariant(
+                failures
+        );
+        verifySafetyFloorInvariant(
+                failures
+        );
+        verifyAcceptedVariantFloor(
                 failures
         );
         verifyCommodityGroup(
@@ -302,6 +318,237 @@ public final class SellRuntimeIntegrityAudit {
                     "blocked-item gate accepted BEDROCK"
             );
         }
+    }
+
+    private void verifyLegacyArchitectureRemoved(
+            List<String> failures
+    ) {
+        if (core.getCommand(
+                "sellmulti"
+        ) != null) {
+            failures.add(
+                    "legacy /sellmulti command is still registered"
+            );
+        }
+
+        String[] retiredClasses = {
+                "net.mineacle.core.sell.gui.SellMultiGui",
+                "net.mineacle.core.sell.listener.SellMultiGuiListener",
+                "net.mineacle.core.sell.listener.SellWorthRefreshListener",
+                "net.mineacle.core.sell.storage.SellMarketRepository",
+                "net.mineacle.core.sell.storage.SqlSellMarketRepository",
+                "net.mineacle.core.sell.storage.YamlSellMarketRepository"
+        };
+
+        ClassLoader loader =
+                SellRuntimeIntegrityAudit.class
+                        .getClassLoader();
+
+        for (String className
+                : retiredClasses) {
+            try {
+                Class.forName(
+                        className,
+                        false,
+                        loader
+                );
+                failures.add(
+                        "retired Sell architecture is still packaged: "
+                                + className
+                );
+            } catch (ClassNotFoundException ignored) {
+                // Correct: retired class is absent from the final JAR.
+            } catch (LinkageError error) {
+                failures.add(
+                        "retired Sell class has a broken residual linkage: "
+                                + className
+                );
+            }
+        }
+    }
+
+    private void verifySellEnabledPayoutInvariant(
+            List<String> failures
+    ) {
+        int checked = 0;
+
+        for (Material material
+                : sellService.worthCatalogMaterials()) {
+            if (!sellService.isServerSellableMaterial(
+                    material
+            )) {
+                continue;
+            }
+
+            checked++;
+            long unit =
+                    sellService.serverUnitSellCents(
+                            (org.bukkit.entity.Player) null,
+                            material
+                    );
+
+            if (unit <= 0L) {
+                failures.add(
+                        material
+                                + " is server-sell-enabled but has a zero-cent unit payout"
+                );
+            }
+        }
+
+        if (checked <= 0) {
+            failures.add(
+                    "no server-sell-enabled materials were available for payout audit"
+            );
+        }
+    }
+
+    private void verifySafetyFloorInvariant(
+            List<String> failures
+    ) {
+        var floors =
+                sellService
+                        .safetyFloorMaterialsSnapshot();
+
+        if (floors.isEmpty()) {
+            failures.add(
+                    "catalog v8 has no automatic safety-floor materials"
+            );
+            return;
+        }
+
+        int runtimeChecked = 0;
+
+        for (Material material : floors) {
+            int amount =
+                    Math.clamp(
+                            material.getMaxStackSize(),
+                            1,
+                            64
+                    );
+
+            if (sellService.safetyFloorPayoutCents(
+                    material,
+                    1
+            ) != 1L
+                    || sellService.safetyFloorPayoutCents(
+                    material,
+                    amount
+            ) != amount) {
+                failures.add(
+                        material
+                                + " safety-floor cash invariant is not 1 cent/item"
+                );
+                continue;
+            }
+
+            if (Math.abs(
+                    sellService.demandMultiplier(
+                            material
+                    )
+                            - 1.0D
+            ) > 0.0001D) {
+                failures.add(
+                        material
+                                + " safety-floor item has a moving market multiplier"
+                );
+            }
+
+            if (isVariantMaterial(
+                    material
+            )) {
+                continue;
+            }
+
+            ItemStack sample =
+                    new ItemStack(
+                            material,
+                            amount
+                    );
+            var valuation =
+                    sellService.appraise(
+                            (org.bukkit.entity.Player) null,
+                            sample
+                    );
+
+            runtimeChecked++;
+
+            if (!valuation.sellable()
+                    || valuation.serverSellCents()
+                    != amount) {
+                failures.add(
+                        material
+                                + " is catalog floor-approved but runtime payout is "
+                                + valuation.serverSellCents()
+                                + " cents for "
+                                + amount
+                                + " item(s)"
+                );
+            }
+        }
+
+        if (runtimeChecked <= 0) {
+            failures.add(
+                    "no non-variant safety-floor runtime sample was available"
+            );
+        }
+    }
+
+    private void verifyAcceptedVariantFloor(
+            List<String> failures
+    ) {
+        ItemStack item =
+                new ItemStack(
+                        Material.POTION
+                );
+        ItemMeta rawMeta =
+                item.getItemMeta();
+
+        if (!(rawMeta
+                instanceof PotionMeta meta)) {
+            failures.add(
+                    "could not construct accepted potion audit metadata"
+            );
+            return;
+        }
+
+        meta.setBasePotionType(
+                PotionType.WATER
+        );
+        item.setItemMeta(
+                meta
+        );
+
+        var valuation =
+                sellService.appraise(
+                        (org.bukkit.entity.Player) null,
+                        item
+                );
+
+        if (!valuation.sellable()
+                || valuation.serverSellCents()
+                != 1L) {
+            failures.add(
+                    "accepted POTION variant does not pay the v8 1-cent floor"
+            );
+        }
+    }
+
+    private boolean isVariantMaterial(
+            Material material
+    ) {
+        return switch (material) {
+            case POTION,
+                 SPLASH_POTION,
+                 LINGERING_POTION,
+                 TIPPED_ARROW,
+                 SUSPICIOUS_STEW,
+                 FIREWORK_ROCKET,
+                 FIREWORK_STAR,
+                 WRITTEN_BOOK,
+                 FILLED_MAP,
+                 GOAT_HORN -> true;
+            default -> false;
+        };
     }
 
     private void verifyCommodityGroup(

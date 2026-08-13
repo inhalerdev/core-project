@@ -50,9 +50,6 @@ public final class WorthGui {
             CenteredToolbar.nextSlot(SIZE);
 
     private static final int CONTENT_SLOTS = 45;
-    private static final long CATALOG_TTL_MILLIS =
-            5L * 60L * 1000L;
-
     private static final Map<UUID, Integer> PAGES =
             new HashMap<>();
     private static final Map<UUID, SortMode> SORTS =
@@ -64,7 +61,14 @@ public final class WorthGui {
 
     private static final List<Material> CATALOG =
             new ArrayList<>();
-    private static long catalogBuiltAt;
+    private static List<MarketEntry> MARKET_SNAPSHOT =
+            List.of();
+    private static long catalogMaterialGeneration =
+            Long.MIN_VALUE;
+    private static long snapshotCatalogGeneration =
+            Long.MIN_VALUE;
+    private static long snapshotPriceRevision =
+            Long.MIN_VALUE;
 
     private WorthGui() {
     }
@@ -324,7 +328,9 @@ public final class WorthGui {
 
     public static void clearCatalogCache() {
         CATALOG.clear();
-        catalogBuiltAt = 0L;
+        catalogMaterialGeneration =
+                Long.MIN_VALUE;
+        invalidateMarketSnapshot();
     }
 
     public static void clear(
@@ -369,12 +375,12 @@ public final class WorthGui {
     private static void ensureCatalog(
             SellService sellService
     ) {
-        long now =
-                System.currentTimeMillis();
+        long generation =
+                sellService.catalogGeneration();
 
         if (!CATALOG.isEmpty()
-                && now - catalogBuiltAt
-                < CATALOG_TTL_MILLIS) {
+                && catalogMaterialGeneration
+                == generation) {
             return;
         }
 
@@ -383,7 +389,18 @@ public final class WorthGui {
                 sellService
                         .worthCatalogMaterials()
         );
-        catalogBuiltAt = now;
+        catalogMaterialGeneration =
+                generation;
+        invalidateMarketSnapshot();
+    }
+
+    private static void invalidateMarketSnapshot() {
+        MARKET_SNAPSHOT =
+                List.of();
+        snapshotCatalogGeneration =
+                Long.MIN_VALUE;
+        snapshotPriceRevision =
+                Long.MIN_VALUE;
     }
 
     private static List<MarketEntry> filtered(
@@ -400,15 +417,12 @@ public final class WorthGui {
         List<MarketEntry> result =
                 new ArrayList<>();
 
-        for (Material material
-                : CATALOG) {
-            MarketEntry entry =
-                    snapshot(
-                            player,
-                            sellService,
-                            material
-                    );
+        ensureMarketSnapshot(
+                sellService
+        );
 
+        for (MarketEntry entry
+                : MARKET_SNAPSHOT) {
             if (!filter.matches(entry)) {
                 continue;
             }
@@ -446,19 +460,48 @@ public final class WorthGui {
                 .contains(query);
     }
 
+    private static void ensureMarketSnapshot(
+            SellService sellService
+    ) {
+        long catalogGeneration =
+                sellService.catalogGeneration();
+        long priceRevision =
+                sellService.marketPriceRevision();
+
+        if (!MARKET_SNAPSHOT.isEmpty()
+                && snapshotCatalogGeneration
+                == catalogGeneration
+                && snapshotPriceRevision
+                == priceRevision) {
+            return;
+        }
+
+        List<MarketEntry> rebuilt =
+                new ArrayList<>(
+                        CATALOG.size()
+                );
+
+        for (Material material : CATALOG) {
+            rebuilt.add(
+                    snapshot(
+                            sellService,
+                            material
+                    )
+            );
+        }
+
+        MARKET_SNAPSHOT =
+                List.copyOf(rebuilt);
+        snapshotCatalogGeneration =
+                catalogGeneration;
+        snapshotPriceRevision =
+                priceRevision;
+    }
+
     private static MarketEntry snapshot(
-            Player player,
             SellService sellService,
             Material material
     ) {
-        ItemStack raw =
-                new ItemStack(material);
-        ItemValuation valuation =
-                sellService.appraise(
-                        player,
-                        raw
-                );
-
         int stackSize =
                 Math.max(
                         1,
@@ -467,22 +510,74 @@ public final class WorthGui {
         long unitSell =
                 Math.max(
                         0L,
-                        valuation.serverSellCents()
+                        sellService.serverUnitSellCents(
+                                (Player) null,
+                                material
+                        )
                 );
-        long stackSell =
-                multiply(
-                        unitSell,
-                        stackSize
-                );
+        boolean sellable =
+                unitSell > 0L
+                        && sellService
+                        .isServerSellableMaterial(
+                                material
+                        );
+        long stackSell = 0L;
+
+        if (sellable) {
+            if (sellService.isVariantValuedMaterial(
+                    material
+            )) {
+                stackSell =
+                        safeMultiply(
+                                unitSell,
+                                stackSize
+                        );
+            } else {
+                ItemStack fullStack =
+                        new ItemStack(
+                                material,
+                                stackSize
+                        );
+                ItemValuation stackValuation =
+                        sellService.appraise(
+                                (Player) null,
+                                fullStack
+                        );
+
+                if (stackValuation.sellable()) {
+                    stackSell =
+                            Math.max(
+                                    0L,
+                                    stackValuation
+                                            .serverSellCents()
+                            );
+                }
+            }
+        }
+
         return new MarketEntry(
                 material,
                 sellService.pretty(material),
                 sellService.category(material),
-                valuation,
+                sellable,
                 unitSell,
                 stackSell,
                 stackSize
         );
+    }
+
+    private static long safeMultiply(
+            long value,
+            int multiplier
+    ) {
+        try {
+            return Math.multiplyExact(
+                    value,
+                    multiplier
+            );
+        } catch (ArithmeticException exception) {
+            return Long.MAX_VALUE;
+        }
     }
 
     private static ItemStack item(
@@ -503,8 +598,7 @@ public final class WorthGui {
         List<String> lore =
                 new ArrayList<>();
 
-        if (entry.valuation()
-                .sellable()
+        if (entry.sellable()
                 && entry.unitSellCents()
                 > 0L) {
             lore.add(
@@ -749,22 +843,6 @@ public final class WorthGui {
         return normalized;
     }
 
-    private static long multiply(
-            long value,
-            int multiplier
-    ) {
-        try {
-            return Math.multiplyExact(
-                    value,
-                    multiplier
-            );
-        } catch (
-                ArithmeticException exception
-        ) {
-            return Long.MAX_VALUE;
-        }
-    }
-
     private enum SortMode {
         HIGHEST_PRICE(
                 "Highest Price"
@@ -813,19 +891,30 @@ public final class WorthGui {
                             MarketEntry::displayName,
                             String.CASE_INSENSITIVE_ORDER
                     );
+            Comparator<MarketEntry> sellableFirst =
+                    Comparator.comparingInt(
+                            entry ->
+                                    entry.sellable()
+                                            && entry.unitSellCents() > 0L
+                                            ? 0
+                                            : 1
+                    );
 
             return switch (this) {
                 case HIGHEST_PRICE ->
-                        Comparator
-                                .comparingLong(
-                                        MarketEntry
-                                                ::unitSellCents
+                        sellableFirst
+                                .thenComparing(
+                                        Comparator
+                                                .comparingLong(
+                                                        MarketEntry
+                                                                ::unitSellCents
+                                                )
+                                                .reversed()
                                 )
-                                .reversed()
                                 .thenComparing(name);
                 case LOWEST_PRICE ->
-                        Comparator
-                                .comparingLong(
+                        sellableFirst
+                                .thenComparingLong(
                                         MarketEntry
                                                 ::unitSellCents
                                 )
@@ -950,7 +1039,7 @@ public final class WorthGui {
             Material material,
             String displayName,
             String category,
-            ItemValuation valuation,
+            boolean sellable,
             long unitSellCents,
             long stackSellCents,
             int stackSize

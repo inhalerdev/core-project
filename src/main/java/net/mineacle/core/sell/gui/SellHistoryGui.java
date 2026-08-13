@@ -1,10 +1,8 @@
 package net.mineacle.core.sell.gui;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.format.MoneyFormatter;
-import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.sell.model.SellHistoryEntry;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.Bukkit;
@@ -19,21 +17,20 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.WeakHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.WeakHashMap;
 
 public final class SellHistoryGui {
 
-    public static final String TITLE_PREFIX =
-            "Sell History (Page ";
     public static final int SIZE = 54;
     public static final int ENTRIES_PER_PAGE = 45;
-
     public static final int PREVIOUS_SLOT = 45;
     public static final int SORT_SLOT = 49;
     public static final int NEXT_SLOT = 53;
 
+    private static final String TITLE_PREFIX =
+            "Sell History (Page ";
     private static final Map<Player, SortMode> SORTS =
             new WeakHashMap<>();
 
@@ -52,30 +49,39 @@ public final class SellHistoryGui {
         }
 
         int safeRequestedPage =
-                Math.max(0, page);
-
+                Math.max(
+                        0,
+                        page
+                );
         Holder loadingHolder =
-                new Holder(safeRequestedPage);
+                new Holder(
+                        safeRequestedPage
+                );
         Inventory loading =
                 Bukkit.createInventory(
                         loadingHolder,
                         SIZE,
-                        component(
-                                title(safeRequestedPage)
+                        GuiText.title(
+                                title(
+                                        safeRequestedPage
+                                )
                         )
                 );
-        loadingHolder.inventory = loading;
+        loadingHolder.inventory =
+                loading;
         loading.setItem(
                 22,
                 item(
                         Material.CLOCK,
-                        "&dLoading Sell History",
+                        "&#B078FFLoading Sell History",
                         List.of(
                                 "&#bbbbbbFetching your Sell history"
                         )
                 )
         );
-        player.openInventory(loading);
+        player.openInventory(
+                loading
+        );
 
         sellService.loadHistoryAsync(
                 player.getUniqueId(),
@@ -109,42 +115,42 @@ public final class SellHistoryGui {
                         sellService,
                         loadedEntries
                 );
-        int totalPages =
+        int maximumPage =
                 Math.max(
-                        1,
-                        (int) Math.ceil(
-                                entries.size()
-                                        / (double)
-                                        ENTRIES_PER_PAGE
-                        )
+                        0,
+                        (entries.size() - 1)
+                                / ENTRIES_PER_PAGE
                 );
         int safePage =
                 Math.clamp(
                         requestedPage,
                         0,
-                        totalPages - 1
+                        maximumPage
                 );
 
         Holder holder =
-                new Holder(safePage);
+                new Holder(
+                        safePage
+                );
         Inventory inventory =
                 Bukkit.createInventory(
                         holder,
                         SIZE,
-                        component(
+                        GuiText.title(
                                 title(safePage)
                         )
                 );
-        holder.inventory = inventory;
+        holder.inventory =
+                inventory;
 
         if (entries.isEmpty()) {
             inventory.setItem(
                     22,
                     item(
                             Material.CHEST,
-                            "&dNo Sell History",
+                            "&#B078FFNo Sell History",
                             List.of(
-                                    "&#bbbbbbSell items with &#B078FF/sell",
+                                    "&#bbbbbbSell items with &#D0AFFF/sell",
                                     "&#bbbbbbYour sold items will appear here"
                             )
                     )
@@ -163,14 +169,11 @@ public final class SellHistoryGui {
             for (int index = start;
                  index < end;
                  index++) {
-                SellHistoryEntry entry =
-                        entries.get(index);
-
                 inventory.setItem(
                         index - start,
                         historyItem(
                                 sellService,
-                                entry
+                                entries.get(index)
                         )
                 );
             }
@@ -179,12 +182,9 @@ public final class SellHistoryGui {
         if (safePage > 0) {
             inventory.setItem(
                     PREVIOUS_SLOT,
-                    item(
-                            Material.ARROW,
-                            "&dBack",
-                            List.of(
-                                    "&#bbbbbbClick to go to the previous page"
-                            )
+                    navigationItem(
+                            true,
+                            safePage
                     )
             );
         }
@@ -196,36 +196,36 @@ public final class SellHistoryGui {
                 )
         );
 
-        if (safePage
-                < totalPages - 1) {
+        if (safePage < maximumPage) {
             inventory.setItem(
                     NEXT_SLOT,
-                    item(
-                            Material.ARROW,
-                            "&dNext",
-                            List.of(
-                                    "&#bbbbbbClick to go to the next page"
-                            )
+                    navigationItem(
+                            false,
+                            safePage + 2
                     )
             );
         }
 
-        player.openInventory(inventory);
+        player.openInventory(
+                inventory
+        );
     }
 
-    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
-    public static boolean isTitle(
-            String strippedTitle
+    public static boolean isInventory(
+            Inventory inventory
     ) {
-        return strippedTitle != null
-                && strippedTitle.startsWith(
-                TITLE_PREFIX
-        );
+        return inventory != null
+                && inventory.getHolder(false)
+                instanceof Holder;
     }
 
     public static int currentPage(
             Player player
     ) {
+        if (player == null) {
+            return 0;
+        }
+
         Inventory top =
                 player.getOpenInventory()
                         .getTopInventory();
@@ -239,15 +239,32 @@ public final class SellHistoryGui {
     }
 
     public static void cycleSort(
-            Player player
+            Player player,
+            boolean previous
     ) {
+        if (player == null) {
+            return;
+        }
+
+        SortMode current =
+                currentSort(player);
+
         SORTS.put(
                 player,
-                currentSort(player).next()
+                previous
+                        ? current.previous()
+                        : current.next()
         );
     }
 
-    public static SortMode currentSort(
+    public static boolean isDisabledNavigation(
+            ItemStack item
+    ) {
+        return item == null
+                || item.getType().isAir();
+    }
+
+    private static SortMode currentSort(
             Player player
     ) {
         return SORTS.getOrDefault(
@@ -314,7 +331,7 @@ public final class SellHistoryGui {
     ) {
         return item(
                 entry.material(),
-                "&d"
+                "&#bbbbbb"
                         + sellService.pretty(
                         entry.material()
                 ),
@@ -323,15 +340,30 @@ public final class SellHistoryGui {
                                 + sellService.format(
                                 entry.totalCents()
                         ),
-                        "&#bbbbbbTotal Amount: &#B078FF"
+                        "&#bbbbbbTotal Amount: &#D0AFFF"
                                 + MoneyFormatter.compact(
                                 entry.amount()
                         ),
-                        "&#bbbbbbCategory: &#B078FF"
-                                + sellService
-                                .categoryDisplay(
-                                        entry.material()
-                                )
+                        "&#bbbbbbCategory: &#D0AFFF"
+                                + sellService.categoryDisplay(
+                                entry.material()
+                        )
+                )
+        );
+    }
+
+    private static ItemStack navigationItem(
+            boolean previous,
+            int displayPage
+    ) {
+        return item(
+                Material.ARROW,
+                previous
+                        ? "&#B078FFPrevious Page"
+                        : "&#B078FFNext Page",
+                List.of(
+                        "&#bbbbbbPage &#D0AFFF"
+                                + displayPage
                 )
         );
     }
@@ -341,8 +373,10 @@ public final class SellHistoryGui {
     ) {
         List<String> lore =
                 new ArrayList<>();
+
         lore.add(
-                "&#bbbbbbClick to sort"
+                "&#bbbbbbCurrent: &#D0AFFF"
+                        + current.displayName
         );
         lore.add("");
 
@@ -350,15 +384,23 @@ public final class SellHistoryGui {
                 : SortMode.values()) {
             lore.add(
                     (mode == current
-                            ? "&#B078FF"
+                            ? "&#D0AFFF"
                             : "&#bbbbbb")
-                            + mode.displayName()
+                            + mode.displayName
             );
         }
 
+        lore.add("");
+        lore.add(
+                "&#bbbbbbLeft-click: Next"
+        );
+        lore.add(
+                "&#bbbbbbRight-click: Previous"
+        );
+
         return item(
                 Material.ANVIL,
-                "&dSell History",
+                "&#B078FFSort",
                 lore
         );
     }
@@ -377,15 +419,10 @@ public final class SellHistoryGui {
             return item;
         }
 
-        meta.displayName(
-                component(name)
-        );
-        meta.lore(
-                lore.stream()
-                        .map(
-                                SellHistoryGui::component
-                        )
-                        .toList()
+        GuiText.apply(
+                meta,
+                name,
+                lore
         );
         meta.addItemFlags(
                 ItemFlag.HIDE_ATTRIBUTES
@@ -400,17 +437,6 @@ public final class SellHistoryGui {
         return TITLE_PREFIX
                 + (page + 1)
                 + ")";
-    }
-
-
-    private static Component component(
-            String text
-    ) {
-        return LegacyComponentSerializer
-                .legacySection()
-                .deserialize(
-                        TextColor.color(text)
-                );
     }
 
     private static final class Holder
@@ -431,7 +457,7 @@ public final class SellHistoryGui {
         }
     }
 
-    public enum SortMode {
+    private enum SortMode {
         RECENTLY_SOLD(
                 "Recently Sold"
         ),
@@ -454,17 +480,24 @@ public final class SellHistoryGui {
                     displayName;
         }
 
-        public String displayName() {
-            return displayName;
-        }
-
-        public SortMode next() {
-            SortMode[] values =
+        private SortMode next() {
+            SortMode[] modes =
                     values();
 
-            return values[
+            return modes[
                     (ordinal() + 1)
-                            % values.length
+                            % modes.length
+                    ];
+        }
+
+        private SortMode previous() {
+            SortMode[] modes =
+                    values();
+
+            return modes[
+                    (ordinal() - 1
+                            + modes.length)
+                            % modes.length
                     ];
         }
     }

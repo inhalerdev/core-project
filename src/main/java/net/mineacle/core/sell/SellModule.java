@@ -6,9 +6,7 @@ import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.sell.command.SellCommand;
 import net.mineacle.core.sell.listener.ItemStackNormalizeListener;
 import net.mineacle.core.sell.listener.SellGuiListener;
-import net.mineacle.core.sell.listener.SellMultiGuiListener;
 import net.mineacle.core.sell.listener.SellWorthPacketListener;
-import net.mineacle.core.sell.listener.SellWorthRefreshListener;
 import net.mineacle.core.sell.listener.WorthGuiListener;
 import net.mineacle.core.sell.service.SellRuntimeIntegrityAudit;
 import net.mineacle.core.sell.service.SellService;
@@ -25,7 +23,6 @@ public final class SellModule extends Module {
 
     private SellWorthPacketListener packetListener;
     private WorthGuiListener worthGuiListener;
-    private SellCatalogBootstrapService catalogBootstrapService;
     private SellRuntimeIntegrityAudit integrityAudit;
     private BukkitTask marketTask;
 
@@ -44,14 +41,12 @@ public final class SellModule extends Module {
         sellService.start();
 
         /*
-         * v1.0.37 Phase 1A:
-         * Seed the database catalog from the currently trusted runtime
-         * definitions without changing live pricing authority yet.
-         *
-         * The bootstrap service uses INSERT IGNORE so a future/manual DB
-         * catalog edit is never overwritten by a server restart.
+         * The catalog bootstrap snapshots the server recipe registry on the
+         * main thread, performs JDBC asynchronously, and atomically promotes
+         * only a fully audited READY snapshot. Operator-locked catalog rows
+         * remain authoritative across generated catalog revisions.
          */
-        catalogBootstrapService =
+        SellCatalogBootstrapService catalogBootstrapService =
                 new SellCatalogBootstrapService(
                         core,
                         sellService
@@ -70,7 +65,6 @@ public final class SellModule extends Module {
 
         register(core, "sell", command);
         register(core, "worth", command);
-        register(core, "sellmulti", command);
 
         core.getServer().getPluginManager().registerEvents(
                 new SellGuiListener(core, sellService),
@@ -85,18 +79,10 @@ public final class SellModule extends Module {
                 core
         );
         core.getServer().getPluginManager().registerEvents(
-                new SellMultiGuiListener(),
-                core
-        );
-        core.getServer().getPluginManager().registerEvents(
                 new ItemStackNormalizeListener(
                         core,
                         sellService
                 ),
-                core
-        );
-        core.getServer().getPluginManager().registerEvents(
-                new SellWorthRefreshListener(core),
                 core
         );
 
@@ -149,8 +135,6 @@ public final class SellModule extends Module {
             worthGuiListener.shutdown();
             worthGuiListener = null;
         }
-
-        catalogBootstrapService = null;
 
         if (integrityAudit != null) {
             integrityAudit.shutdown();

@@ -1,7 +1,6 @@
 package net.mineacle.core.sell.service;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.format.MoneyFormatter;
@@ -61,7 +60,7 @@ public final class SellService {
 
     private static final int MAX_CONTAINER_DEPTH = 3;
     private static final int SELL_POLICY_VERSION = 2;
-    private static final int MINIMUM_DATABASE_CATALOG_REVISION = 7;
+    private static final int MINIMUM_DATABASE_CATALOG_REVISION = 8;
 
     private static final Set<Material>
             BUILT_IN_PLAYER_MARKET_ONLY_MATERIALS = Set.of(
@@ -94,6 +93,7 @@ public final class SellService {
     private volatile Set<Material> unsellableMaterials = Set.of();
     private volatile Set<Material> explicitlyPricedMaterials = Set.of();
     private volatile Set<Material> databaseSellEnabledMaterials = Set.of();
+    private volatile Set<Material> safetyFloorMaterials = Set.of();
     private volatile Map<String, Long> fallbackPrices = Map.of();
     private volatile Map<String, Double> categoryBuybackMultipliers = Map.of();
     private volatile Map<String, Double> categoryEnchantBuybackMultipliers =
@@ -159,12 +159,6 @@ public final class SellService {
         }
 
         marketPricingService.tick();
-
-        /*
-         * Worth display is packet/context driven now. A market reprice must
-         * never force updateInventory() across every online player.
-         */
-        marketPricingService.consumePriceChange();
     }
 
     public synchronized void shutdown() {
@@ -363,6 +357,8 @@ public final class SellService {
                 new HashSet<>();
         Set<Material> sellEnabled =
                 new HashSet<>();
+        Set<Material> safetyFloors =
+                new HashSet<>();
         Map<Material, Double> buyback =
                 new EnumMap<>(Material.class);
         Map<Material, Double> enchantBuyback =
@@ -376,10 +372,9 @@ public final class SellService {
             Material material = entry.material();
 
             /*
-             * v1.0.42:
-             * Every approved Material can use dynamic pricing because all
-             * reversible forms now resolve to one shared market_key state and
-             * contribute normalized market_units to the same supply market.
+             * Dynamic rows use the shared commodity market_key/unit model.
+             * Revision-8 automatic safety floors are deliberately fixed at
+             * 1.0x and therefore arrive with market_enabled=false.
              */
             boolean runtimeMarketEnabled =
                     entry.marketEnabled()
@@ -413,6 +408,13 @@ public final class SellService {
                 sellEnabled.add(material);
             }
 
+            if (entry.serverSellEnabled()
+                    && isSafetyFloorActivationState(
+                    entry.activationState()
+            )) {
+                safetyFloors.add(material);
+            }
+
             buyback.put(
                     material,
                     entry.buybackMultiplier()
@@ -441,6 +443,8 @@ public final class SellService {
                 Set.copyOf(explicit);
         databaseSellEnabledMaterials =
                 Set.copyOf(sellEnabled);
+        safetyFloorMaterials =
+                Set.copyOf(safetyFloors);
         itemBuybackMultipliers =
                 Map.copyOf(buyback);
         itemEnchantBuybackMultipliers =
@@ -450,6 +454,41 @@ public final class SellService {
         databaseMarketUnits =
                 Map.copyOf(marketUnits);
         databaseCatalogActive = true;
+    }
+
+    private boolean isSafetyFloorActivationState(
+            String activationState
+    ) {
+        return "READY_FLOOR".equals(
+                activationState
+        )
+                || "READY_FLOOR_RECIPE".equals(
+                activationState
+        )
+                || "READY_VARIANT".equals(
+                activationState
+        );
+    }
+
+    Set<Material> safetyFloorMaterialsSnapshot() {
+        return safetyFloorMaterials;
+    }
+
+    long safetyFloorPayoutCents(
+            Material material,
+            int amount
+    ) {
+        if (material == null
+                || !safetyFloorMaterials.contains(
+                material
+        )) {
+            return 0L;
+        }
+
+        return Math.max(
+                1,
+                amount
+        );
     }
 
     private boolean validCatalogEntry(
@@ -489,12 +528,78 @@ public final class SellService {
                 || entry.catalogRevision()
                 == snapshotRevision)
                 && (!entry.serverSellEnabled()
-                || entry.buybackMultiplier() > 0.0D)
+                || (entry.buybackMultiplier() > 0.0D
+                && minimumServerUnitCents(
+                entry
+        ) > 0L))
+                && (!entry.serverSellEnabled()
+                || !isSafetyFloorActivationState(
+                entry.activationState()
+        )
+                || validSafetyFloorInvariant(
+                entry
+        ))
                 && (entry.operatorLocked()
                 || entry.serverSellEnabled()
                 == entry.autoSellApproved())
                 && (!entry.marketEnabled()
                 || entry.serverSellEnabled());
+    }
+
+    private boolean validSafetyFloorInvariant(
+            SellCatalogEntry entry
+    ) {
+        return entry.baseCents() == 1L
+                && !entry.marketEnabled()
+                && Double.compare(
+                entry.minimumMultiplier(),
+                1.0D
+        ) == 0
+                && Double.compare(
+                entry.maximumMultiplier(),
+                1.0D
+        ) == 0
+                && Double.compare(
+                entry.buybackMultiplier(),
+                1.0D
+        ) == 0
+                && Double.compare(
+                entry.enchantBuybackMultiplier(),
+                0.0D
+        ) == 0;
+    }
+
+    private long minimumServerUnitCents(
+            SellCatalogEntry entry
+    ) {
+        double marketMultiplier =
+                entry.marketEnabled()
+                        ? entry.minimumMultiplier()
+                        : 1.0D;
+
+        try {
+            return BigDecimal
+                    .valueOf(
+                            entry.baseCents()
+                    )
+                    .multiply(
+                            BigDecimal.valueOf(
+                                    marketMultiplier
+                            )
+                    )
+                    .multiply(
+                            BigDecimal.valueOf(
+                                    entry.buybackMultiplier()
+                            )
+                    )
+                    .setScale(
+                            0,
+                            RoundingMode.HALF_UP
+                    )
+                    .longValueExact();
+        } catch (ArithmeticException exception) {
+            return 0L;
+        }
     }
 
     private boolean unitInterval(double value) {
@@ -516,9 +621,14 @@ public final class SellService {
                 : snapshot.revision();
     }
 
-    @SuppressWarnings("unused")
     public long catalogGeneration() {
         return catalogGeneration;
+    }
+
+    public long marketPriceRevision() {
+        return marketPricingService == null
+                ? 0L
+                : marketPricingService.priceRevision();
     }
 
     public String marketKey(Material material) {
@@ -814,24 +924,52 @@ public final class SellService {
             }
 
             /*
-             * Queue the audit immediately after successful credit. This is
-             * in-memory only. JDBC is performed later in async batches.
+             * NO-RESTORE BOUNDARY
+             *
+             * Money is now committed to the player's economy account. From
+             * this line forward, no RuntimeException may escape to a caller
+             * such as /sell hand or /sell all, because those callers correctly
+             * restore original items when an exception occurs before payout.
+             *
+             * Post-credit audit/telemetry failures are therefore contained and
+             * logged. The sale result remains successful and items are never
+             * restored after money has been issued.
              */
-            reservation.commit(audit);
-            auditCommitted = true;
+            try {
+                reservation.commit(audit);
+                auditCommitted = true;
+            } catch (RuntimeException exception) {
+                core.getLogger().log(
+                        Level.SEVERE,
+                        "Sell payout completed but its audit reservation "
+                                + "could not be committed — sale "
+                                + audit.saleId(),
+                        exception
+                );
+            }
 
             for (Map.Entry<Material, SoldTotals> entry
                     : soldTotals.entrySet()) {
                 SoldTotals totals =
                         entry.getValue();
 
-                marketPricingService.recordSale(
-                        playerId,
-                        entry.getKey(),
-                        totals.amount,
-                        totals.payoutCents,
-                        now
-                );
+                try {
+                    marketPricingService.recordSale(
+                            playerId,
+                            entry.getKey(),
+                            totals.amount,
+                            totals.payoutCents,
+                            now
+                    );
+                } catch (RuntimeException exception) {
+                    core.getLogger().log(
+                            Level.WARNING,
+                            "Sell payout completed but market/history telemetry "
+                                    + "could not record "
+                                    + entry.getKey(),
+                            exception
+                    );
+                }
             }
 
             return new SaleResult(
@@ -1037,9 +1175,14 @@ public final class SellService {
                 variantValuationService.evaluate(
                         item
                 );
+        boolean safetyFloor =
+                safetyFloorMaterials.contains(
+                        material
+                );
 
         double marketMultiplier =
-                !variant.variant()
+                !safetyFloor
+                        && !variant.variant()
                         && definition.marketEnabled()
                         ? marketPricingService
                         .marketMultiplier(
@@ -1047,7 +1190,8 @@ public final class SellService {
                         )
                         : 1.0D;
         double featuredMultiplier =
-                !variant.variant()
+                !safetyFloor
+                        && !variant.variant()
                         && definition.marketEnabled()
                         ? marketPricingService
                         .featuredMultiplier(
@@ -1055,7 +1199,8 @@ public final class SellService {
                         )
                         : 1.0D;
         double combinedMultiplier =
-                !variant.variant()
+                !safetyFloor
+                        && !variant.variant()
                         && definition.marketEnabled()
                         ? marketPricingService
                         .combinedMultiplier(
@@ -1064,7 +1209,9 @@ public final class SellService {
                         : 1.0D;
 
         long currentUnit =
-                variant.variant()
+                safetyFloor
+                        ? 1L
+                        : variant.variant()
                         ? Math.max(
                         0L,
                         variant.unitCents()
@@ -1075,27 +1222,40 @@ public final class SellService {
                 );
 
         DurabilityValue durability =
-                durability(item);
+                safetyFloor
+                        ? new DurabilityValue(
+                        100,
+                        1.0D,
+                        1.0D,
+                        false
+                )
+                        : durability(item);
         long fullBaseStack =
                 multiply(
                         currentUnit,
                         amount
                 );
         long appraisedBase =
-                multiply(
+                safetyFloor
+                        ? fullBaseStack
+                        : multiply(
                         fullBaseStack,
                         durability
                                 .baseMultiplier()
                 );
         long rawEnchant =
-                multiply(
+                safetyFloor
+                        ? 0L
+                        : multiply(
                         enchantWorthCents(
                                 item
                         ),
                         amount
                 );
         long appraisedEnchant =
-                multiply(
+                safetyFloor
+                        ? 0L
+                        : multiply(
                         rawEnchant,
                         durability
                                 .enchantMultiplier()
@@ -1109,12 +1269,16 @@ public final class SellService {
         String category =
                 definition.category();
         double baseBuyback =
-                buybackMultiplier(
+                safetyFloor
+                        ? 1.0D
+                        : buybackMultiplier(
                         material,
                         category
                 );
         double enchantBuyback =
-                enchantBuybackMultiplier(
+                safetyFloor
+                        ? 0.0D
+                        : enchantBuybackMultiplier(
                         material,
                         category
                 );
@@ -1351,94 +1515,11 @@ public final class SellService {
         );
     }
 
-    @SuppressWarnings("unused")
     public boolean canSell(ItemStack item) {
         return quote(
                 null,
                 item
         ).sellable();
-    }
-
-    @SuppressWarnings("unused")
-    public void applyWorthLore(
-            Player player,
-            Inventory inventory
-    ) {
-        if (player == null
-                || inventory == null) {
-            return;
-        }
-
-        UUID playerId =
-                player.getUniqueId();
-
-        for (int slot = 0;
-             slot < inventory.getSize();
-             slot++) {
-            ItemStack raw =
-                    inventory.getItem(slot);
-
-            if (raw == null
-                    || raw.getType().isAir()) {
-                continue;
-            }
-
-            ItemStack item =
-                    stripWorthLore(raw);
-            ItemValuation valuation =
-                    appraise(
-                            playerId,
-                            item,
-                            true
-                    );
-
-            if (!valuation.priced()) {
-                inventory.setItem(
-                        slot,
-                        item
-                );
-                continue;
-            }
-
-            ItemMeta meta =
-                    item.getItemMeta();
-
-            if (meta == null) {
-                continue;
-            }
-
-            List<Component> existingLore =
-                    meta.lore();
-            List<Component> lore =
-                    existingLore == null
-                            ? new ArrayList<>()
-                            : new ArrayList<>(
-                            existingLore
-                    );
-
-            lore.addFirst(
-                    component(
-                            valuation.sellable()
-                                    ? "&#bbbbbbWorth: "
-                                    + "&#11fc7b"
-                                    + format(
-                                    valuation
-                                            .serverSellCents()
-                            )
-                                    : "&cPlayer Market Only"
-                    )
-            );
-            meta.lore(lore);
-            markInjectedWorthLore(
-                    meta,
-                    1
-            );
-            item.setItemMeta(meta);
-            inventory.setItem(
-                    slot,
-                    item
-            );
-        }
     }
 
     public ItemStack stripWorthLore(
@@ -1508,7 +1589,11 @@ public final class SellService {
         return item;
     }
 
-    public boolean hasInjectedWorthLore(
+    /**
+     * Returns whether this authoritative item still carries a legacy transient
+     * Worth marker that should be removed before normal gameplay handling.
+     */
+    public boolean shouldStripWorthLore(
             ItemStack item
     ) {
         if (item == null
@@ -1784,6 +1869,13 @@ public final class SellService {
         );
     }
 
+    public boolean isVariantValuedMaterial(
+            Material material
+    ) {
+        return variantValuationService
+                .supports(material);
+    }
+
     public boolean isExplicitlyPriced(
             Material material
     ) {
@@ -1899,16 +1991,13 @@ public final class SellService {
                 fallback++;
             }
 
-            ItemValuation valuation =
-                    appraise(
-                            null,
-                            new ItemStack(
-                                    material
-                            ),
-                            true
-                    );
-
-            if (valuation.sellable()) {
+            if (serverUnitSellCents(
+                    (UUID) null,
+                    material
+            ) > 0L
+                    && isServerSellableMaterial(
+                    material
+            )) {
                 serverSellable++;
             } else {
                 playerMarketOnly++;
@@ -2154,8 +2243,17 @@ public final class SellService {
                 .forceFeaturedRotation();
     }
 
-    public void resetDemandData() {
-        marketPricingService.reset();
+    public MarketPricingService.ResetStartResult resetDemandData(
+            Consumer<MarketPricingService.ResetCompletion> completion
+    ) {
+        return marketPricingService.reset(
+                completion
+        );
+    }
+
+    public boolean marketResetInFlight() {
+        return marketPricingService
+                .resetInFlight();
     }
 
     @SuppressWarnings("unused")
@@ -2256,234 +2354,6 @@ public final class SellService {
     public void flushMarket() {
         marketPricingService
                 .flushIfDirty();
-    }
-
-    public double categoryMarketMultiplier(
-            String rawCategory
-    ) {
-        String category =
-                normalizeCategory(
-                        rawCategory
-                );
-        Set<String> seen =
-                new HashSet<>();
-        double total = 0.0D;
-        int count = 0;
-
-        for (MarketDefinition definition
-                : definitions.values()) {
-            if (!definition.category()
-                    .equals(category)
-                    || !definition
-                    .marketEnabled()
-                    || definition
-                    .baseCents() <= 0L) {
-                continue;
-            }
-
-            String key =
-                    marketKey(
-                            definition.material()
-                    );
-
-            if (!seen.add(key)) {
-                continue;
-            }
-
-            total += marketPricingService
-                    .combinedMultiplier(
-                            definition.material()
-                    );
-            count++;
-        }
-
-        return count == 0
-                ? 1.0D
-                : total / count;
-    }
-
-    public long categoryRollingAmount(
-            String rawCategory
-    ) {
-        String category =
-                normalizeCategory(
-                        rawCategory
-                );
-        Set<String> seen =
-                new HashSet<>();
-        long total = 0L;
-
-        for (MarketDefinition definition
-                : definitions.values()) {
-            if (!definition.category()
-                    .equals(category)
-                    || !definition
-                    .marketEnabled()) {
-                continue;
-            }
-
-            String key =
-                    marketKey(
-                            definition.material()
-                    );
-
-            if (!seen.add(key)) {
-                continue;
-            }
-
-            total =
-                    safeAdd(
-                            total,
-                            demandWindowAmount(
-                                    definition.material()
-                            )
-                    );
-        }
-
-        return total;
-    }
-
-    public long categoryTargetUnits(
-            String rawCategory
-    ) {
-        String category =
-                normalizeCategory(
-                        rawCategory
-                );
-        Set<String> seen =
-                new HashSet<>();
-        long total = 0L;
-
-        for (MarketDefinition definition
-                : definitions.values()) {
-            if (!definition.category()
-                    .equals(category)
-                    || !definition
-                    .marketEnabled()) {
-                continue;
-            }
-
-            String key =
-                    marketKey(
-                            definition.material()
-                    );
-
-            if (!seen.add(key)) {
-                continue;
-            }
-
-            total =
-                    safeAdd(
-                            total,
-                            marketTargetUnits(
-                                    definition.material()
-                            )
-                    );
-        }
-
-        return total;
-    }
-
-    public int categoryFeaturedItems(
-            String rawCategory
-    ) {
-        String category =
-                normalizeCategory(
-                        rawCategory
-                );
-        Set<String> seen =
-                new HashSet<>();
-        int total = 0;
-
-        for (MarketDefinition definition
-                : definitions.values()) {
-            if (!definition.category()
-                    .equals(category)) {
-                continue;
-            }
-
-            String key =
-                    marketKey(
-                            definition.material()
-                    );
-
-            if (!seen.add(key)) {
-                continue;
-            }
-
-            if (marketPricingService
-                    .isFeatured(
-                            definition.material()
-                    )) {
-                total++;
-            }
-        }
-
-        return total;
-    }
-
-    @SuppressWarnings("unused")
-    public double multiplier(
-            UUID playerId,
-            String category
-    ) {
-        return 1.0D;
-    }
-
-    public List<String> multiplierCategories() {
-        return categoryDisplayNames
-                .keySet()
-                .stream()
-                .sorted(
-                        String
-                                .CASE_INSENSITIVE_ORDER
-                )
-                .toList();
-    }
-
-    @SuppressWarnings("unused")
-    public long categorySoldAmount(
-            UUID playerId,
-            String category
-    ) {
-        return 0L;
-    }
-
-    @SuppressWarnings("unused")
-    public long categoryAmountPerLevel(
-            String category
-    ) {
-        return 0L;
-    }
-
-    @SuppressWarnings("unused")
-    public double categoryIncreasePerLevel(
-            String category
-    ) {
-        return 0.0D;
-    }
-
-    @SuppressWarnings("unused")
-    public double categoryMaxMultiplier(
-            String category
-    ) {
-        return 1.0D;
-    }
-
-    @SuppressWarnings("unused")
-    public long categoryProgressAmount(
-            UUID playerId,
-            String category
-    ) {
-        return 0L;
-    }
-
-    @SuppressWarnings("unused")
-    public long categoryRemainingAmount(
-            UUID playerId,
-            String category
-    ) {
-        return 0L;
     }
 
     private File ensureSellFile() {
@@ -3120,6 +2990,8 @@ public final class SellService {
                 Set.copyOf(explicit);
         databaseSellEnabledMaterials =
                 Set.of();
+        safetyFloorMaterials =
+                Set.of();
         databaseMarketKeys =
                 Map.of();
         databaseMarketUnits =
@@ -3130,6 +3002,7 @@ public final class SellService {
 
     private void migrateLegacySettings() {
         migrateSellPolicy();
+        migrateMessagePalette();
 
         if (sellConfig.contains(
                 "settings.deny-damaged-tools"
@@ -3539,16 +3412,6 @@ public final class SellService {
         );
     }
 
-    private Component component(
-            String text
-    ) {
-        return LegacyComponentSerializer
-                .legacySection()
-                .deserialize(
-                        TextColor.color(text)
-                );
-    }
-
     private boolean isWorthLine(
             Component line
     ) {
@@ -3885,6 +3748,40 @@ public final class SellService {
         }
     }
 
+    private void migrateMessagePalette() {
+        migrateKnownMessageDefault(
+                "messages.sold-chat",
+                "&#bbbbbbSold &#ff88ff%amount%x items &#bbbbbbfor &a+%money%",
+                "&#bbbbbbSold &#D0AFFF%amount%x items &#bbbbbbfor &#11fc7b+%money%"
+        );
+        migrateKnownMessageDefault(
+                "messages.sold-actionbar",
+                "&a+%money%",
+                "&#11fc7b+%money%"
+        );
+    }
+
+    private void migrateKnownMessageDefault(
+            String path,
+            String previousDefault,
+            String replacement
+    ) {
+        String current =
+                sellConfig.getString(
+                        path
+                );
+
+        if (current == null
+                || current.equals(
+                previousDefault
+        )) {
+            sellConfig.set(
+                    path,
+                    replacement
+            );
+        }
+    }
+
     private void ensureDefaults() {
         var bundledStream =
                 core.getResource(
@@ -3987,6 +3884,14 @@ public final class SellService {
         sellConfig.addDefault(
                 "enchant-values.package-bonus.eight-plus",
                 1.35D
+        );
+        sellConfig.addDefault(
+                "messages.sold-chat",
+                "&#bbbbbbSold &#D0AFFF%amount%x items &#bbbbbbfor &#11fc7b+%money%"
+        );
+        sellConfig.addDefault(
+                "messages.sold-actionbar",
+                "&#11fc7b+%money%"
         );
         sellConfig.addDefault(
                 "transactions.flush-seconds",

@@ -19,6 +19,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.LockSupport;
 import java.util.logging.Level;
 
 /**
@@ -50,6 +51,8 @@ public final class SellTransactionLedger {
             new AtomicInteger();
     private final AtomicBoolean flushInFlight =
             new AtomicBoolean();
+    private final AtomicInteger inFlightSales =
+            new AtomicInteger();
 
     private volatile LedgerConfig configuration =
             LedgerConfig.defaults();
@@ -243,18 +246,66 @@ public final class SellTransactionLedger {
                 System.currentTimeMillis()
                         + SHUTDOWN_FLUSH_BUDGET_MILLIS;
 
-        while (!pending.isEmpty()
-                && System.currentTimeMillis() < deadline) {
-            if (!flushBatchBlocking()) {
+        /*
+         * Queue emptiness alone is not a durability boundary. An async flush
+         * drains its batch before JDBC begins, so the queue can be empty while
+         * completed-sale audits are still physically in flight.
+         *
+         * Shutdown therefore waits for the active async batch to resolve,
+         * then drains anything requeued by that batch synchronously within the
+         * same bounded five-second budget.
+         */
+        while (System.currentTimeMillis()
+                < deadline) {
+            if (flushInFlight.get()
+                    || inFlightSales.get() > 0) {
+                LockSupport.parkNanos(
+                        5_000_000L
+                );
+                continue;
+            }
+
+            if (!pending.isEmpty()) {
+                if (!flushBatchBlocking()) {
+                    break;
+                }
+                continue;
+            }
+
+            if (reservedSlots.get() <= 0) {
                 break;
             }
+
+            /*
+             * A reservation can exist briefly between reserve() and either
+             * commit/cancel. During plugin shutdown no new reservations are
+             * accepted, so wait for that lifecycle to resolve rather than
+             * declaring the ledger durable early.
+             */
+            LockSupport.parkNanos(
+                    5_000_000L
+            );
         }
 
-        if (!pending.isEmpty()) {
+        int queued =
+                pending.size();
+        int inFlight =
+                inFlightSales.get();
+        int reserved =
+                reservedSlots.get();
+
+        if (queued > 0
+                || inFlight > 0
+                || reserved > 0
+                || flushInFlight.get()) {
             core.getLogger().severe(
-                    "Sell audit ledger shutdown with "
-                            + pending.size()
-                            + " completed sale audits still queued"
+                    "Sell audit ledger shutdown budget expired — "
+                            + queued
+                            + " queued, "
+                            + inFlight
+                            + " in-flight, "
+                            + reserved
+                            + " reserved audit slots remain"
             );
         }
     }
@@ -302,25 +353,35 @@ public final class SellTransactionLedger {
             return;
         }
 
-        if (!configuration.databaseConfigured()) {
-            requeue(batch);
-            return;
-        }
+        inFlightSales.set(
+                batch.size()
+        );
 
         try {
-            writeBatch(batch);
-            reservedSlots.addAndGet(
-                    -batch.size()
-            );
-        } catch (Exception exception) {
-            schemaReadyFor = null;
-            requeue(batch);
+            if (!configuration.databaseConfigured()) {
+                requeue(batch);
+                return;
+            }
 
-            warnFlushFailure(
-                    "Could not flush Sell transaction audit batch — "
-                            + batch.size()
-                            + " completed sales remain queued",
-                    exception
+            try {
+                writeBatch(batch);
+                reservedSlots.addAndGet(
+                        -batch.size()
+                );
+            } catch (Exception exception) {
+                schemaReadyFor = null;
+                requeue(batch);
+
+                warnFlushFailure(
+                        "Could not flush Sell transaction audit batch — "
+                                + batch.size()
+                                + " completed sales remain queued",
+                        exception
+                );
+            }
+        } finally {
+            inFlightSales.set(
+                    0
             );
         }
     }
