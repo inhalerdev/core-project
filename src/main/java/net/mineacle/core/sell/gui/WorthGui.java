@@ -1,5 +1,7 @@
 package net.mineacle.core.sell.gui;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.CenteredToolbar;
 import net.mineacle.core.common.gui.GuiSearchLore;
@@ -530,13 +532,13 @@ public final class WorthGui {
         }
 
         meta.displayName(
-                GuiText.component(
+                uiComponent(
                         "&#bbbbbb"
                                 + entry.displayName()
                 )
         );
         meta.lore(
-                GuiText.lore(lore)
+                uiLore(lore)
         );
         meta.addItemFlags(
                 ItemFlag.HIDE_ATTRIBUTES
@@ -668,10 +670,10 @@ public final class WorthGui {
         }
 
         meta.displayName(
-                GuiText.component(name)
+                uiComponent(name)
         );
         meta.lore(
-                GuiText.lore(lore)
+                uiLore(lore)
         );
         meta.addItemFlags(
                 ItemFlag.HIDE_ATTRIBUTES
@@ -679,6 +681,32 @@ public final class WorthGui {
         item.setItemMeta(meta);
 
         return item;
+    }
+
+    private static Component uiComponent(
+            String input
+    ) {
+        return GuiText.component(
+                input
+        ).decoration(
+                TextDecoration.ITALIC,
+                false
+        );
+    }
+
+    private static List<Component> uiLore(
+            List<String> lines
+    ) {
+        return GuiText.lore(
+                lines
+        ).stream()
+                .map(component ->
+                        component.decoration(
+                                TextDecoration.ITALIC,
+                                false
+                        )
+                )
+                .toList();
     }
 
     private static SortMode sort(
