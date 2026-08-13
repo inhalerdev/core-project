@@ -69,6 +69,12 @@ public final class CommodityMarketStorage {
         }
     }
 
+    public record ResetResult(
+            boolean sqlCleared,
+            Exception sqlFailure
+    ) {
+    }
+
     private final Core core;
     private final File yamlFile;
 
@@ -81,6 +87,7 @@ public final class CommodityMarketStorage {
     private final String bucketTable;
 
     private YamlConfiguration yaml;
+    private volatile long resetAt;
 
     public CommodityMarketStorage(
             Core core,
@@ -162,6 +169,18 @@ public final class CommodityMarketStorage {
                 .loadConfiguration(
                         yamlFile
                 );
+        resetAt = Math.max(
+                0L,
+                yaml.getLong(
+                        "reset-at",
+                        0L
+                )
+        );
+    }
+
+    public synchronized long resetAt() {
+        ensureYaml();
+        return resetAt;
     }
 
     public synchronized Snapshot loadYaml(
@@ -283,9 +302,9 @@ public final class CommodityMarketStorage {
             }
         }
 
-        return new Snapshot(
-                List.copyOf(states),
-                List.copyOf(buckets)
+        return filteredSnapshot(
+                states,
+                buckets
         );
     }
 
@@ -293,6 +312,10 @@ public final class CommodityMarketStorage {
             SaveBatch batch
     ) throws IOException {
         ensureYaml();
+        yaml.set(
+                "reset-at",
+                resetAt
+        );
 
         for (MarketStateData state
                 : batch.states()) {
@@ -495,9 +518,9 @@ public final class CommodityMarketStorage {
             }
         }
 
-        return new Snapshot(
-                List.copyOf(states),
-                List.copyOf(buckets)
+        return filteredSnapshot(
+                states,
+                buckets
         );
     }
 
@@ -783,6 +806,120 @@ public final class CommodityMarketStorage {
         if (yaml == null) {
             initializeYaml();
         }
+    }
+
+    public ResetResult resetPersistent(
+            long requestedResetAt
+    ) throws IOException {
+        long safeResetAt =
+                Math.max(
+                        1L,
+                        requestedResetAt
+                );
+
+        resetYaml(
+                safeResetAt
+        );
+
+        if (!sqlConfigured) {
+            return new ResetResult(
+                    true,
+                    null
+            );
+        }
+
+        try {
+            resetSql();
+            return new ResetResult(
+                    true,
+                    null
+            );
+        } catch (Exception exception) {
+            return new ResetResult(
+                    false,
+                    exception
+            );
+        }
+    }
+
+    private synchronized void resetYaml(
+            long safeResetAt
+    ) throws IOException {
+        YamlConfiguration clean =
+                new YamlConfiguration();
+        clean.set(
+                "reset-at",
+                safeResetAt
+        );
+
+        yaml = clean;
+        resetAt = safeResetAt;
+        atomicSaveYaml();
+    }
+
+    private void resetSql()
+            throws Exception {
+        loadDriver();
+
+        try (Connection connection =
+                     connection()) {
+            connection.setAutoCommit(false);
+
+            try {
+                try (Statement statement =
+                             connection.createStatement()) {
+                    statement.executeUpdate(
+                            "DELETE FROM "
+                                    + bucketTable
+                                    + " WHERE market_key IS NOT NULL"
+                    );
+                    statement.executeUpdate(
+                            "DELETE FROM "
+                                    + stateTable
+                                    + " WHERE market_key IS NOT NULL"
+                    );
+                }
+
+                connection.commit();
+            } catch (Exception exception) {
+                connection.rollback();
+                throw exception;
+            } finally {
+                connection.setAutoCommit(
+                        true
+                );
+            }
+        }
+    }
+
+    private Snapshot filteredSnapshot(
+            List<MarketStateData> states,
+            List<BucketData> buckets
+    ) {
+        long tombstone =
+                resetAt;
+
+        if (tombstone <= 0L) {
+            return new Snapshot(
+                    List.copyOf(states),
+                    List.copyOf(buckets)
+            );
+        }
+
+        return new Snapshot(
+                states.stream()
+                        .filter(state ->
+                                state.lastRepricedAt()
+                                        > tombstone
+                        )
+                        .toList(),
+                buckets.stream()
+                        .filter(bucket ->
+                                bucket.bucketStart()
+                                        > tombstone
+                        )
+                        .toList()
+        );
     }
 
     private Connection connection()

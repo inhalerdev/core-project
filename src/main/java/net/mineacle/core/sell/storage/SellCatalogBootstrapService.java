@@ -49,7 +49,9 @@ import java.util.logging.Level;
  * <p>Revision 5 adds worst-case recipe arbitrage ceilings and safely activates
  * legitimate non-recipe survival items at a one-cent floor. Revision 6 also
  * activates supported metadata-sensitive vanilla variants at a fixed one-cent
- * runtime floor, while mechanically unprovable recipe rows remain review-only.</p>
+ * runtime floor. Revision 7 resolves additional recipe outputs through a
+ * fixed-point server-buyback audit; newly proven floor outputs are fixed-price
+ * and market-disabled so they cannot create a second dynamic arbitrage path.</p>
  *
  * <p>If SQL, migration, audit, snapshot loading, or runtime activation fails,
  * SellService keeps the known-safe YAML definitions for that boot.</p>
@@ -58,7 +60,7 @@ import java.util.logging.Level;
 public final class SellCatalogBootstrapService {
 
     private static final String DEFAULT_PREFIX = "mineacle_sell";
-    private static final int CATALOG_REVISION = 6;
+    private static final int CATALOG_REVISION = 7;
     private static final long UNTRUSTED_FLOOR_CENTS = 1L;
     private static final long SAFE_VARIANT_UNIT_CENTS = 1L;
     private static final double RECIPE_HAIRCUT = 0.70D;
@@ -118,6 +120,8 @@ public final class SellCatalogBootstrapService {
                 snapshotRecipes();
         Set<Material> allRecipeOutputs =
                 snapshotRecipeOutputs();
+        Set<Material> unsupportedRecipeOutputs =
+                snapshotUnsupportedRecipeOutputs();
 
         CatalogBuild build =
                 buildCatalog(
@@ -125,7 +129,8 @@ public final class SellCatalogBootstrapService {
                         sellConfig,
                         blocked,
                         recipes,
-                        allRecipeOutputs
+                        allRecipeOutputs,
+                        unsupportedRecipeOutputs
                 );
 
         this.seeds = build.seeds();
@@ -343,6 +348,8 @@ public final class SellCatalogBootstrapService {
                             + " category-derived, "
                             + summary.variantSafe()
                             + " variant-safe, "
+                            + summary.floorRecipeSafe()
+                            + " floor-recipe-safe, "
                             + summary.arbitrageReview()
                             + " arbitrage-review, "
                             + summary.commodityGroups()
@@ -368,7 +375,8 @@ public final class SellCatalogBootstrapService {
             FileConfiguration config,
             Set<Material> blocked,
             List<RecipeSeed> recipes,
-            Set<Material> allRecipeOutputs
+            Set<Material> allRecipeOutputs,
+            Set<Material> unsupportedRecipeOutputs
     ) {
         List<Material> eligible =
                 new ArrayList<>();
@@ -575,7 +583,7 @@ public final class SellCatalogBootstrapService {
          * normal crafting conversion cannot manufacture additional server
          * buyback value merely by waiting for divergent market conditions.
          */
-        Set<Material> arbitrageUnsafe =
+        Set<Material> dynamicArbitrageUnsafe =
                 applyDynamicArbitrageCeilings(
                         sellService,
                         config,
@@ -586,6 +594,32 @@ public final class SellCatalogBootstrapService {
                         reversibleRecipes
                 );
 
+        Set<Material> recipeFloorSafe =
+                resolveRecipeFloorSafeMaterials(
+                        sellService,
+                        config,
+                        eligible,
+                        prices,
+                        sources,
+                        explicit,
+                        recipes,
+                        reversibleRecipes,
+                        allRecipeOutputs,
+                        unsupportedRecipeOutputs,
+                        dynamicArbitrageUnsafe
+                );
+
+        Set<Material> arbitrageUnsafe =
+                EnumSet.noneOf(
+                        Material.class
+                );
+        arbitrageUnsafe.addAll(
+                dynamicArbitrageUnsafe
+        );
+        arbitrageUnsafe.removeAll(
+                recipeFloorSafe
+        );
+
         List<CatalogSeed> result =
                 new ArrayList<>();
 
@@ -594,6 +628,7 @@ public final class SellCatalogBootstrapService {
         int recipeCount = 0;
         int categoryCount = 0;
         int variantCount = 0;
+        int floorRecipeCount = 0;
 
         for (Material material : eligible) {
             String category =
@@ -725,6 +760,10 @@ public final class SellCatalogBootstrapService {
                             && !allRecipeOutputs.contains(
                             material
                     );
+            boolean recipeFloorApproved =
+                    recipeFloorSafe.contains(
+                            material
+                    );
             boolean recipeArbitrageUnsafe =
                     arbitrageUnsafe.contains(
                             material
@@ -737,7 +776,8 @@ public final class SellCatalogBootstrapService {
                             && buyback > 0.0D
                             && (currentTrustedSell
                             || generatedSafe
-                            || categoryFloorSafe);
+                            || categoryFloorSafe
+                            || recipeFloorApproved);
 
             String activationState =
                     activationState(
@@ -746,6 +786,7 @@ public final class SellCatalogBootstrapService {
                             autoSellApproved,
                             variantRequired,
                             categoryFloorSafe,
+                            recipeFloorApproved,
                             recipeArbitrageUnsafe
                     );
 
@@ -762,11 +803,23 @@ public final class SellCatalogBootstrapService {
             boolean marketEnabled =
                     autoSellApproved
                             && !variantRequired
+                            && !recipeFloorApproved
                             && config.getBoolean(
                             itemPath
                                     + ".market-enabled",
                             categoryMarketEnabled
                     );
+
+            double effectiveMinimumMultiplier =
+                    variantRequired
+                            || recipeFloorApproved
+                            ? 1.0D
+                            : minimumMultiplier;
+            double effectiveMaximumMultiplier =
+                    variantRequired
+                            || recipeFloorApproved
+                            ? 1.0D
+                            : maximumMultiplier;
 
             long target =
                     Math.max(
@@ -781,6 +834,10 @@ public final class SellCatalogBootstrapService {
                                     )
                             )
                     );
+
+            if (recipeFloorApproved) {
+                floorRecipeCount++;
+            }
 
             if (variantRequired) {
                 source =
@@ -823,8 +880,8 @@ public final class SellCatalogBootstrapService {
                                     commodity.marketUnits()
                             ),
                             target,
-                            minimumMultiplier,
-                            maximumMultiplier,
+                            effectiveMinimumMultiplier,
+                            effectiveMaximumMultiplier,
                             buyback,
                             enchantBuyback,
                             source.name(),
@@ -844,6 +901,7 @@ public final class SellCatalogBootstrapService {
                         recipeCount,
                         categoryCount,
                         variantCount,
+                        floorRecipeCount,
                         arbitrageUnsafe.size(),
                         commodities.groupCount()
                 );
@@ -897,6 +955,36 @@ public final class SellCatalogBootstrapService {
 
             if (output != Material.AIR
                     && output.isItem()) {
+                outputs.add(output);
+            }
+        }
+
+        return Set.copyOf(outputs);
+    }
+
+    private Set<Material> snapshotUnsupportedRecipeOutputs() {
+        Set<Material> outputs =
+                EnumSet.noneOf(
+                        Material.class
+                );
+        Iterator<Recipe> iterator =
+                Bukkit.recipeIterator();
+
+        while (iterator.hasNext()) {
+            Recipe recipe =
+                    iterator.next();
+
+            ItemStack result =
+                    recipe.getResult();
+            Material output =
+                    result.getType();
+
+            if (output == Material.AIR
+                    || !output.isItem()) {
+                continue;
+            }
+
+            if (recipeSeed(recipe) == null) {
                 outputs.add(output);
             }
         }
@@ -1558,6 +1646,438 @@ public final class SellCatalogBootstrapService {
                 }
             }
         }
+    }
+
+    private Set<Material> resolveRecipeFloorSafeMaterials(
+            SellService sellService,
+            FileConfiguration config,
+            List<Material> eligible,
+            Map<Material, Long> prices,
+            Map<Material, PriceSource> sources,
+            Set<Material> explicit,
+            List<RecipeSeed> recipes,
+            Set<Integer> reversibleRecipes,
+            Set<Material> allRecipeOutputs,
+            Set<Material> unsupportedRecipeOutputs,
+            Set<Material> dynamicArbitrageUnsafe
+    ) {
+        Map<Material, List<RecipeSeed>> recipesByOutput =
+                new EnumMap<>(
+                        Material.class
+                );
+        Set<Material> reversibleOutputs =
+                EnumSet.noneOf(
+                        Material.class
+                );
+
+        for (int index = 0;
+             index < recipes.size();
+             index++) {
+            RecipeSeed recipe =
+                    recipes.get(index);
+
+            recipesByOutput
+                    .computeIfAbsent(
+                            recipe.output(),
+                            ignored ->
+                                    new ArrayList<>()
+                    )
+                    .add(recipe);
+
+            if (reversibleRecipes.contains(
+                    index
+            )) {
+                reversibleOutputs.add(
+                        recipe.output()
+                );
+            }
+        }
+
+        Set<Material> baseApproved =
+                EnumSet.noneOf(
+                        Material.class
+                );
+        Set<Material> candidates =
+                EnumSet.noneOf(
+                        Material.class
+                );
+
+        for (Material material : eligible) {
+            double buyback =
+                    configuredBuybackMultiplier(
+                            sellService,
+                            config,
+                            material
+                    );
+
+            if (buyback <= 0.0D) {
+                continue;
+            }
+
+            PriceSource source =
+                    sources.getOrDefault(
+                            material,
+                            PriceSource.GENERATED_CATEGORY
+                    );
+            boolean variant =
+                    RUNTIME_VARIANT_MATERIALS.contains(
+                            material
+                    );
+            boolean currentTrusted =
+                    explicit.contains(material)
+                            && sellService
+                            .isServerSellableMaterial(
+                                    material
+                            )
+                            && !dynamicArbitrageUnsafe.contains(
+                            material
+                    );
+            boolean generatedTrusted =
+                    (source
+                            == PriceSource.GENERATED_RECIPE
+                            || source
+                            == PriceSource.GENERATED_COMMODITY)
+                            && !dynamicArbitrageUnsafe.contains(
+                            material
+                    );
+            boolean naturalFloor =
+                    source
+                            == PriceSource.GENERATED_CATEGORY
+                            && !allRecipeOutputs.contains(
+                            material
+                    );
+
+            if (variant
+                    || currentTrusted
+                    || generatedTrusted
+                    || naturalFloor) {
+                baseApproved.add(
+                        material
+                );
+            }
+
+            if (source
+                    != PriceSource.GENERATED_CATEGORY
+                    || variant
+                    || !allRecipeOutputs.contains(
+                    material
+            )
+                    || unsupportedRecipeOutputs.contains(
+                    material
+            )
+                    || reversibleOutputs.contains(
+                    material
+            )
+                    || !recipesByOutput.containsKey(
+                    material
+            )) {
+                continue;
+            }
+
+            candidates.add(
+                    material
+            );
+        }
+
+        if (candidates.isEmpty()) {
+            return Set.of();
+        }
+
+        Set<Material> remaining =
+                EnumSet.copyOf(
+                        candidates
+                );
+        Set<Material> approved =
+                EnumSet.noneOf(
+                        Material.class
+                );
+        approved.addAll(
+                baseApproved
+        );
+        approved.addAll(
+                remaining
+        );
+
+        /*
+         * Start with every analyzable one-cent recipe output enabled, then
+         * repeatedly remove any output that could produce more server-buyback
+         * value than the currently approved ingredients it consumes.
+         *
+         * This is intentionally removal-only. A row that fails once stays in
+         * review for this catalog revision instead of becoming safe only
+         * because another questionable row was removed later.
+         */
+        for (int pass = 0;
+             pass < DERIVATION_PASSES;
+             pass++) {
+            Set<Material> remove =
+                    EnumSet.noneOf(
+                            Material.class
+                    );
+
+            for (Material output : remaining) {
+                if (!recipeFloorSafe(
+                        sellService,
+                        config,
+                        output,
+                        recipesByOutput.getOrDefault(
+                                output,
+                                List.of()
+                        ),
+                        prices,
+                        sources,
+                        approved,
+                        candidates
+                )) {
+                    remove.add(
+                            output
+                    );
+                }
+            }
+
+            if (remove.isEmpty()) {
+                break;
+            }
+
+            remaining.removeAll(
+                    remove
+            );
+            approved.removeAll(
+                    remove
+            );
+        }
+
+        return Set.copyOf(
+                remaining
+        );
+    }
+
+    private boolean recipeFloorSafe(
+            SellService sellService,
+            FileConfiguration config,
+            Material output,
+            List<RecipeSeed> outputRecipes,
+            Map<Material, Long> prices,
+            Map<Material, PriceSource> sources,
+            Set<Material> approved,
+            Set<Material> fixedRecipeFloors
+    ) {
+        if (outputRecipes.isEmpty()) {
+            return false;
+        }
+
+        long outputBase =
+                prices.getOrDefault(
+                        output,
+                        UNTRUSTED_FLOOR_CENTS
+                );
+        double outputBuyback =
+                configuredBuybackMultiplier(
+                        sellService,
+                        config,
+                        output
+                );
+
+        if (outputBase <= 0L
+                || outputBuyback <= 0.0D) {
+            return false;
+        }
+
+        for (RecipeSeed recipe : outputRecipes) {
+            BigDecimal outputValue =
+                    BigDecimal.valueOf(
+                            outputBase
+                    )
+                            .multiply(
+                                    BigDecimal.valueOf(
+                                            Math.max(
+                                                    1,
+                                                    recipe.outputAmount()
+                                            )
+                                    )
+                            )
+                            .multiply(
+                                    BigDecimal.valueOf(
+                                            outputBuyback
+                                    )
+                            );
+
+            BigDecimal inputBudget =
+                    BigDecimal.ZERO;
+
+            for (IngredientChoice choice
+                    : recipe.ingredients()) {
+                BigDecimal cheapest =
+                        null;
+
+                for (Material ingredient
+                        : choice.materials()) {
+                    if (!approved.contains(
+                            ingredient
+                    )) {
+                        continue;
+                    }
+
+                    BigDecimal value =
+                            minimumApprovedSellValue(
+                                    sellService,
+                                    config,
+                                    ingredient,
+                                    prices,
+                                    sources,
+                                    fixedRecipeFloors
+                            );
+
+                    if (value.signum() <= 0) {
+                        continue;
+                    }
+
+                    if (cheapest == null
+                            || value.compareTo(
+                            cheapest
+                    ) < 0) {
+                        cheapest = value;
+                    }
+                }
+
+                if (cheapest != null) {
+                    inputBudget =
+                            inputBudget.add(
+                                    cheapest
+                            );
+                }
+            }
+
+            /*
+             * No currently sellable input means there is no server-buyback
+             * conversion loop to exploit. Selling the crafted output is simply
+             * monetizing resources that otherwise have no server cash-out.
+             */
+            if (inputBudget.signum() <= 0) {
+                continue;
+            }
+
+            BigDecimal safeBudget =
+                    inputBudget.multiply(
+                            BigDecimal.valueOf(
+                                    RECIPE_HAIRCUT
+                            )
+                    );
+
+            if (outputValue.compareTo(
+                    safeBudget
+            ) > 0) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private BigDecimal minimumApprovedSellValue(
+            SellService sellService,
+            FileConfiguration config,
+            Material material,
+            Map<Material, Long> prices,
+            Map<Material, PriceSource> sources,
+            Set<Material> fixedRecipeFloors
+    ) {
+        long base =
+                prices.getOrDefault(
+                        material,
+                        0L
+                );
+
+        if (base <= 0L) {
+            return BigDecimal.ZERO;
+        }
+
+        double buyback =
+                configuredBuybackMultiplier(
+                        sellService,
+                        config,
+                        material
+                );
+
+        if (buyback <= 0.0D) {
+            return BigDecimal.ZERO;
+        }
+
+        boolean fixed =
+                fixedRecipeFloors.contains(
+                        material
+                )
+                        || RUNTIME_VARIANT_MATERIALS.contains(
+                        material
+                );
+        double marketMultiplier =
+                fixed
+                        ? 1.0D
+                        : predictedMarketEnabled(
+                        sellService,
+                        config,
+                        material,
+                        sources.getOrDefault(
+                                material,
+                                PriceSource.GENERATED_CATEGORY
+                        )
+                )
+                        ? configuredMinimumMultiplier(
+                        config,
+                        material
+                )
+                        : 1.0D;
+
+        return BigDecimal.valueOf(
+                base
+        )
+                .multiply(
+                        BigDecimal.valueOf(
+                                marketMultiplier
+                        )
+                )
+                .multiply(
+                        BigDecimal.valueOf(
+                                buyback
+                        )
+                );
+    }
+
+    private boolean predictedMarketEnabled(
+            SellService sellService,
+            FileConfiguration config,
+            Material material,
+            PriceSource source
+    ) {
+        if (RUNTIME_VARIANT_MATERIALS.contains(
+                material
+        )
+                || source == PriceSource.VARIANT_SAFE) {
+            return false;
+        }
+
+        String category =
+                normalizeCategory(
+                        sellService.category(
+                                material
+                        )
+                );
+        boolean categoryEnabled =
+                config.getBoolean(
+                        "market.categories."
+                                + category
+                                + ".enabled",
+                        defaultMarketEnabled(
+                                category
+                        )
+                );
+
+        return config.getBoolean(
+                "prices."
+                        + material.name()
+                        + ".market-enabled",
+                categoryEnabled
+        );
     }
 
     private Set<Material> applyDynamicArbitrageCeilings(
@@ -2459,7 +2979,7 @@ public final class SellCatalogBootstrapService {
         /*
          * An operator lock may lower or disable an automatically generated
          * value, but it may not silently raise an enabled payout beyond the
-         * mechanically audited revision-6 ceiling. That would bypass the
+         * mechanically audited revision-7 ceiling. That would bypass the
          * crafting-arbitrage guarantee while still allowing the catalog to
          * report READY.
          */
@@ -2471,7 +2991,9 @@ public final class SellCatalogBootstrapService {
                 || row.maximumMultiplier()
                 > seed.maximumMultiplier()
                 || row.buybackMultiplier()
-                > seed.buybackMultiplier())) {
+                > seed.buybackMultiplier()
+                || (row.marketEnabled()
+                && !seed.marketEnabled()))) {
             return true;
         }
 
@@ -2588,6 +3110,7 @@ public final class SellCatalogBootstrapService {
             boolean autoSellApproved,
             boolean variantRequired,
             boolean categoryFloorSafe,
+            boolean recipeFloorSafe,
             boolean recipeArbitrageUnsafe
     ) {
         if (variantRequired) {
@@ -2612,6 +3135,11 @@ public final class SellCatalogBootstrapService {
                 && source
                 == PriceSource.GENERATED_RECIPE) {
             return "READY_RECIPE";
+        }
+
+        if (autoSellApproved
+                && recipeFloorSafe) {
+            return "READY_FLOOR_RECIPE";
         }
 
         if (autoSellApproved
@@ -3254,6 +3782,7 @@ public final class SellCatalogBootstrapService {
             int recipeGenerated,
             int categoryGenerated,
             int variantSafe,
+            int floorRecipeSafe,
             int arbitrageReview,
             int commodityGroups
     ) {

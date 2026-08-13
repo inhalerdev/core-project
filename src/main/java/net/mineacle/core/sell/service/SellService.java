@@ -61,7 +61,7 @@ public final class SellService {
 
     private static final int MAX_CONTAINER_DEPTH = 3;
     private static final int SELL_POLICY_VERSION = 2;
-    private static final int MINIMUM_DATABASE_CATALOG_REVISION = 4;
+    private static final int MINIMUM_DATABASE_CATALOG_REVISION = 7;
 
     private static final Set<Material>
             BUILT_IN_PLAYER_MARKET_ONLY_MATERIALS = Set.of(
@@ -2215,22 +2215,6 @@ public final class SellService {
                 );
     }
 
-    public boolean isDemandExcluded(
-            Material material
-    ) {
-        MarketDefinition definition =
-                definitions.get(material);
-        return definition == null
-                || !definition.marketEnabled();
-    }
-
-    public boolean isActiveDemandItem(
-            Material material
-    ) {
-        return marketPricingService
-                .isFeatured(material);
-    }
-
     public String demandTier(
             Material material
     ) {
@@ -4112,6 +4096,48 @@ public final class SellService {
                 "market.recovery-snapshot-minutes",
                 30L
         );
+
+        /*
+         * Launch calibration for high-output farms that previously inherited
+         * broad category values. addDefault() preserves any operator-tuned
+         * value already present in sell.yml.
+         */
+        addLaunchFarmDefault(
+                Material.CACTUS,
+                "0.10",
+                45_000L,
+                0.25D,
+                1.90D
+        );
+        addLaunchFarmDefault(
+                Material.BAMBOO,
+                "0.03",
+                80_000L,
+                0.20D,
+                2.00D
+        );
+        addLaunchFarmDefault(
+                Material.KELP,
+                "0.05",
+                70_000L,
+                0.20D,
+                1.90D
+        );
+        addLaunchFarmDefault(
+                Material.BEETROOT,
+                "0.20",
+                25_000L,
+                0.30D,
+                1.80D
+        );
+        addLaunchFarmDefault(
+                Material.NETHER_WART,
+                "0.30",
+                20_000L,
+                0.30D,
+                1.80D
+        );
+
         sellConfig.addDefault(
                 "history.cache-players",
                 128
@@ -4134,6 +4160,43 @@ public final class SellService {
         );
         sellConfig.options()
                 .copyDefaults(true);
+    }
+
+    private void addLaunchFarmDefault(
+            Material material,
+            String basePrice,
+            long targetUnitsPerDay,
+            double minimumMultiplier,
+            double maximumMultiplier
+    ) {
+        String path =
+                "prices."
+                        + material.name();
+
+        sellConfig.addDefault(
+                path + ".base-price",
+                basePrice
+        );
+        sellConfig.addDefault(
+                path + ".category",
+                "farming"
+        );
+        sellConfig.addDefault(
+                path + ".market-enabled",
+                true
+        );
+        sellConfig.addDefault(
+                path + ".target-units-per-day",
+                targetUnitsPerDay
+        );
+        sellConfig.addDefault(
+                path + ".minimum-multiplier",
+                minimumMultiplier
+        );
+        sellConfig.addDefault(
+                path + ".maximum-multiplier",
+                maximumMultiplier
+        );
     }
 
     private void atomicSave(

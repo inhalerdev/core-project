@@ -43,6 +43,8 @@ public final class MarketPricingService {
             new HashMap<>();
     private final Map<BucketKey, BucketTotals> buckets =
             new HashMap<>();
+    private final Map<BucketKey, BucketTotals> resetPendingBuckets =
+            new HashMap<>();
     private final Set<String> dirtyStates =
             new HashSet<>();
     private final Set<BucketKey> dirtyBuckets =
@@ -66,6 +68,7 @@ public final class MarketPricingService {
     private boolean sqlReady;
     private boolean sqlConnecting;
     private boolean flushInFlight;
+    private boolean resetInFlight;
     private boolean started;
     private boolean enabled;
     private boolean pricesChanged;
@@ -82,6 +85,8 @@ public final class MarketPricingService {
     private long lastFeaturedRotationAt;
     private long minimumObservationMillis;
     private long storageGeneration;
+    private long marketResetAt;
+    private long pendingResetAt;
     private long rollingBuiltAt;
     private long yamlSnapshotMillis;
     private long lastYamlSnapshotAt;
@@ -181,7 +186,8 @@ public final class MarketPricingService {
                 System.currentTimeMillis();
 
         synchronized (this) {
-            if (!enabled) {
+            if (!enabled
+                    || resetInFlight) {
                 return;
             }
 
@@ -479,11 +485,48 @@ public final class MarketPricingService {
             return;
         }
 
+        playerHistoryStore.recordSale(
+                playerId,
+                material,
+                amount,
+                payoutCents,
+                soldAt
+        );
+
+        long resetCutoff =
+                resetInFlight
+                        ? pendingResetAt
+                        : marketResetAt;
         BucketKey bucketKey =
                 new BucketKey(
                         key,
-                        bucketStart(soldAt)
+                        bucketStart(
+                                soldAt,
+                                resetCutoff
+                        )
                 );
+
+        if (resetInFlight) {
+            BucketTotals pending =
+                    resetPendingBuckets.computeIfAbsent(
+                            bucketKey,
+                            ignored ->
+                                    new BucketTotals()
+                    );
+
+            pending.unitsSold =
+                    safeAdd(
+                            pending.unitsSold,
+                            normalizedUnits
+                    );
+            pending.payoutCents =
+                    safeAdd(
+                            pending.payoutCents,
+                            payoutCents
+                    );
+            return;
+        }
+
         BucketTotals bucket =
                 buckets.computeIfAbsent(
                         bucketKey,
@@ -505,15 +548,7 @@ public final class MarketPricingService {
                 bucketKey
         );
         rollingDirty = true;
-
-        playerHistoryStore.recordSale(
-                playerId,
-                material,
-                amount,
-                payoutCents,
-                soldAt
-        );
-}
+    }
 
     public synchronized List<SellHistoryEntry> history(
             UUID playerId
@@ -550,18 +585,77 @@ public final class MarketPricingService {
     }
 
     public synchronized void reset() {
-        states.clear();
-        buckets.clear();
-        dirtyBuckets.clear();
-        rollingCache = Map.of();
-        rollingDirty = true;
+        if (resetInFlight) {
+            return;
+        }
 
-        ensureCommodityStates();
-        markAllStatesDirty();
-        lastRepriceAt = 0L;
-        lastFeaturedRotationAt = 0L;
-        forceReprice();
-        forceFeaturedRotation();
+        CommodityMarketStorage storage =
+                commodityStorage;
+
+        if (storage == null) {
+            core.getLogger().warning(
+                    "Sell market reset could not start — "
+                            + "commodity storage is unavailable"
+            );
+            return;
+        }
+
+        resetInFlight = true;
+        resetPendingBuckets.clear();
+
+        /*
+         * Invalidate any already-running flush callback. The old async write
+         * may still physically complete, but the durable reset tombstone makes
+         * every pre-reset state/bucket ineligible for a future load.
+         */
+        storageGeneration++;
+        long generation =
+                storageGeneration;
+        long resetAt =
+                System.currentTimeMillis();
+        pendingResetAt =
+                resetAt;
+
+        core.getServer()
+                .getScheduler()
+                .runTaskAsynchronously(
+                        core,
+                        () -> {
+                            CommodityMarketStorage.ResetResult result =
+                                    null;
+                            Exception failure =
+                                    null;
+
+                            try {
+                                result =
+                                        storage.resetPersistent(
+                                                resetAt
+                                        );
+                            } catch (Exception exception) {
+                                failure =
+                                        exception;
+                            }
+
+                            CommodityMarketStorage.ResetResult finalResult =
+                                    result;
+                            Exception finalFailure =
+                                    failure;
+
+                            core.getServer()
+                                    .getScheduler()
+                                    .runTask(
+                                            core,
+                                            () ->
+                                                    finishPersistentReset(
+                                                            generation,
+                                                            storage,
+                                                            resetAt,
+                                                            finalResult,
+                                                            finalFailure
+                                                    )
+                                    );
+                        }
+                );
     }
 
     public synchronized void importHistory(
@@ -919,6 +1013,8 @@ public final class MarketPricingService {
                         core,
                         config
                 );
+        marketResetAt =
+                commodityStorage.resetAt();
 
         sqlConfigured =
                 commodityStorage.sqlConfigured();
@@ -1935,8 +2031,144 @@ public final class MarketPricingService {
 
 
 
+    private synchronized void finishPersistentReset(
+            long generation,
+            CommodityMarketStorage storage,
+            long resetAt,
+            CommodityMarketStorage.ResetResult result,
+            Exception failure
+    ) {
+        if (generation != storageGeneration
+                || storage != commodityStorage) {
+            return;
+        }
+
+        if (failure != null
+                || result == null) {
+            mergeResetPendingBuckets(
+                    false
+            );
+            pendingResetAt = 0L;
+            resetInFlight = false;
+
+            core.getLogger().log(
+                    Level.SEVERE,
+                    "Sell market reset failed before a durable tombstone "
+                            + "could be written — existing market data was kept",
+                    failure
+            );
+            return;
+        }
+
+        marketResetAt =
+                resetAt;
+        pendingResetAt = 0L;
+
+        states.clear();
+        buckets.clear();
+        dirtyStates.clear();
+        dirtyBuckets.clear();
+        rollingCache = Map.of();
+        rollingBuiltAt = 0L;
+        rollingDirty = true;
+        lastYamlSnapshotAt = 0L;
+        lastRepriceAt = 0L;
+        lastFeaturedRotationAt = 0L;
+
+        ensureCommodityStates();
+        mergeResetPendingBuckets(
+                true
+        );
+
+        /*
+         * Reprice only after post-request sales have been replayed so the new
+         * baseline cannot pretend those legitimate sales never happened.
+         */
+        repriceNow(
+                Math.max(
+                        resetAt + 1L,
+                        System.currentTimeMillis()
+                ),
+                true
+        );
+        rotateFeaturedNow(
+                Math.max(
+                        resetAt + 1L,
+                        System.currentTimeMillis()
+                ),
+                true
+        );
+        markAllStatesDirty();
+        pricesChanged = true;
+        resetInFlight = false;
+
+        if (!result.sqlCleared()) {
+            sqlReady = false;
+            nextSqlRetryAt =
+                    System.currentTimeMillis()
+                            + SQL_RETRY_MILLIS;
+
+            core.getLogger().log(
+                    Level.WARNING,
+                    "Sell market reset is durable through the recovery "
+                            + "tombstone, but stale SQL rows could not be "
+                            + "deleted yet — they will be ignored and SQL "
+                            + "will retry",
+                    result.sqlFailure()
+            );
+        }
+
+        flushAsync();
+
+        core.getLogger().info(
+                "Sell commodity market reset completed durably"
+        );
+    }
+
+    private void mergeResetPendingBuckets(
+            boolean intoFreshMarket
+    ) {
+        if (resetPendingBuckets.isEmpty()) {
+            return;
+        }
+
+        for (Map.Entry<BucketKey, BucketTotals> entry
+                : resetPendingBuckets.entrySet()) {
+            BucketTotals target =
+                    buckets.computeIfAbsent(
+                            entry.getKey(),
+                            ignored ->
+                                    new BucketTotals()
+                    );
+            BucketTotals pending =
+                    entry.getValue();
+
+            target.unitsSold =
+                    safeAdd(
+                            target.unitsSold,
+                            pending.unitsSold
+                    );
+            target.payoutCents =
+                    safeAdd(
+                            target.payoutCents,
+                            pending.payoutCents
+                    );
+            dirtyBuckets.add(
+                    entry.getKey()
+            );
+        }
+
+        resetPendingBuckets.clear();
+        rollingDirty = true;
+
+        if (!intoFreshMarket) {
+            pricesChanged = true;
+        }
+    }
+
     private void flushAsync() {
-        if (flushInFlight) {
+        if (flushInFlight
+                || resetInFlight) {
             return;
         }
 
@@ -2329,16 +2561,30 @@ public final class MarketPricingService {
     }
 
     private long bucketStart(
-            long timestamp
+            long timestamp,
+            long resetCutoff
     ) {
         long safe =
                 Math.max(
                         0L,
                         timestamp
                 );
+        long aligned =
+                safe
+                        - (safe % bucketMillis);
 
-        return safe
-                - (safe % bucketMillis);
+        /*
+         * A reset can occur in the middle of an hourly bucket. Post-reset
+         * sales receive a one-off bucket beginning just after the tombstone so
+         * stale pre-reset data from the same hour can never merge back in.
+         */
+        if (resetCutoff > 0L
+                && safe > resetCutoff
+                && aligned <= resetCutoff) {
+            return resetCutoff + 1L;
+        }
+
+        return aligned;
     }
 
     private void normalizeWeights() {

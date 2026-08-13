@@ -10,6 +10,7 @@ import net.mineacle.core.sell.listener.SellMultiGuiListener;
 import net.mineacle.core.sell.listener.SellWorthPacketListener;
 import net.mineacle.core.sell.listener.SellWorthRefreshListener;
 import net.mineacle.core.sell.listener.WorthGuiListener;
+import net.mineacle.core.sell.service.SellRuntimeIntegrityAudit;
 import net.mineacle.core.sell.service.SellService;
 import net.mineacle.core.sell.storage.SellCatalogBootstrapService;
 import org.bukkit.command.CommandExecutor;
@@ -25,6 +26,7 @@ public final class SellModule extends Module {
     private SellWorthPacketListener packetListener;
     private WorthGuiListener worthGuiListener;
     private SellCatalogBootstrapService catalogBootstrapService;
+    private SellRuntimeIntegrityAudit integrityAudit;
     private BukkitTask marketTask;
 
     public static SellService sellService() {
@@ -55,6 +57,13 @@ public final class SellModule extends Module {
                         sellService
                 );
         catalogBootstrapService.start();
+
+        integrityAudit =
+                new SellRuntimeIntegrityAudit(
+                        core,
+                        sellService
+                );
+        integrityAudit.start();
 
         SellCommand command =
                 new SellCommand(core, sellService);
@@ -142,6 +151,11 @@ public final class SellModule extends Module {
         }
 
         catalogBootstrapService = null;
+
+        if (integrityAudit != null) {
+            integrityAudit.shutdown();
+            integrityAudit = null;
+        }
 
         if (sellService != null) {
             sellService.shutdown();
