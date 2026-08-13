@@ -131,31 +131,6 @@ public final class CenteredToolbar {
         return slots;
     }
 
-    /**
-     * Returns whether the supplied slots mirror perfectly around the last-row
-     * center. Useful for focused validation and future GUI regression tests.
-     */
-    public static boolean isCentered(
-            int inventorySize,
-            int... slots
-    ) {
-        if (slots == null || slots.length == 0) {
-            return true;
-        }
-
-        int centerTwice = centerSlot(inventorySize) * 2;
-
-        for (int index = 0; index < slots.length; index++) {
-            int mirrorIndex = slots.length - 1 - index;
-
-            if (slots[index] + slots[mirrorIndex] != centerTwice) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     private static int lastRowStart(int inventorySize) {
         if (inventorySize < 9
                 || inventorySize > 54

@@ -1,7 +1,8 @@
 package net.mineacle.core.common.sound;
 
+import net.kyori.adventure.text.Component;
 import net.mineacle.core.Core;
-import org.bukkit.ChatColor;
+import net.mineacle.core.common.gui.GuiText;
 import org.bukkit.Material;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.DoubleChest;
@@ -73,13 +74,13 @@ public final class GuiSoundListener
      * the inventory is shown. Keeping this at the common GUI boundary means a
      * future Core menu cannot silently regress to paper or another icon.
      */
+    @SuppressWarnings("unused")
     @EventHandler(
             priority = EventPriority.MONITOR,
             ignoreCancelled = true
     )
     public void onOpen(InventoryOpenEvent event) {
-        if (!(event.getPlayer()
-                instanceof Player)) {
+        if (!(event.getPlayer() instanceof Player)) {
             return;
         }
 
@@ -91,9 +92,7 @@ public final class GuiSoundListener
 
         Inventory top = view.getTopInventory();
 
-        for (int slot = 0;
-             slot < top.getSize();
-             slot++) {
+        for (int slot = 0; slot < top.getSize(); slot++) {
             ItemStack item = top.getItem(slot);
 
             if (item == null
@@ -103,26 +102,25 @@ public final class GuiSoundListener
                 continue;
             }
 
-            ItemStack standardized = item.clone();
-            standardized.setType(Material.EMERALD);
-            top.setItem(slot, standardized);
+            top.setItem(
+                    slot,
+                    item.withType(Material.EMERALD)
+            );
         }
     }
 
     /**
      * This listener supplies a semantic fallback sound for Mineacle GUI
      * interactions that did not already request a more specific sound.
-     *
+     * <p>
      * SoundService coalesces every request from the same click and keeps only
      * the highest-priority result, so existing system-specific sounds always
      * win over this fallback.
      */
-    @EventHandler(
-            priority = EventPriority.MONITOR
-    )
+    @SuppressWarnings("unused")
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onClick(InventoryClickEvent event) {
-        if (!(event.getWhoClicked()
-                instanceof Player player)) {
+        if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
 
@@ -146,10 +144,7 @@ public final class GuiSoundListener
         String text = itemText(item);
 
         if (text.isBlank()
-                || !actionCue(
-                text,
-                item.getType()
-        )
+                || !actionCue(text, item.getType())
                 && !blocked(text)) {
             return;
         }
@@ -176,17 +171,10 @@ public final class GuiSoundListener
         if (blocked(text)) {
             if (text.contains("mineacle+")
                     || text.contains("upgrade")) {
-                SoundService.mineaclePlus(
-                        player,
-                        core
-                );
+                SoundService.mineaclePlus(player, core);
             } else {
-                SoundService.guiError(
-                        player,
-                        core
-                );
+                SoundService.guiError(player, core);
             }
-
             return;
         }
 
@@ -273,7 +261,9 @@ public final class GuiSoundListener
     private boolean mineacleMenu(InventoryView view) {
         Inventory top = view.getTopInventory();
         InventoryHolder holder = top.getHolder(false);
-        String title = normalize(view.getTitle());
+        String title = normalize(
+                GuiText.plain(view.title())
+        );
 
         return !silentTitle(title)
                 && !silentHolder(holder)
@@ -283,7 +273,9 @@ public final class GuiSoundListener
     private boolean mineacleOwnedMenu(InventoryView view) {
         Inventory top = view.getTopInventory();
         InventoryHolder holder = top.getHolder(false);
-        String title = normalize(view.getTitle());
+        String title = normalize(
+                GuiText.plain(view.title())
+        );
 
         if (holder != null
                 && holder.getClass()
@@ -343,8 +335,7 @@ public final class GuiSoundListener
     private boolean knownTitle(String title) {
         List<String> configured =
                 core.getConfig().getStringList(
-                        "sounds.gui-router."
-                                + "known-title-contains"
+                        "sounds.gui-router.known-title-contains"
                 );
         Iterable<String> values = configured.isEmpty()
                 ? DEFAULT_KNOWN_TITLES
@@ -365,8 +356,7 @@ public final class GuiSoundListener
     private boolean silentTitle(String title) {
         List<String> configured =
                 core.getConfig().getStringList(
-                        "sounds.gui-router."
-                                + "silent-title-contains"
+                        "sounds.gui-router.silent-title-contains"
                 );
         Iterable<String> values = configured.isEmpty()
                 ? DEFAULT_SILENT_TITLES
@@ -384,9 +374,7 @@ public final class GuiSoundListener
         return false;
     }
 
-    private boolean silentHolder(
-            InventoryHolder holder
-    ) {
+    private boolean silentHolder(InventoryHolder holder) {
         if (holder == null) {
             return false;
         }
@@ -397,9 +385,7 @@ public final class GuiSoundListener
 
         return simpleName.contains("statistics")
                 || simpleName.contains("stats")
-                || simpleName.contains(
-                "shulkerpreview"
-        );
+                || simpleName.contains("shulkerpreview");
     }
 
     private boolean realStorage(Inventory inventory) {
@@ -413,8 +399,7 @@ public final class GuiSoundListener
             return true;
         }
 
-        InventoryHolder holder =
-                inventory.getHolder(false);
+        InventoryHolder holder = inventory.getHolder(false);
 
         return holder instanceof BlockInventoryHolder
                 || holder instanceof BlockState
@@ -434,10 +419,7 @@ public final class GuiSoundListener
         return text.isBlank()
                 || text.equals(" ")
                 || text.equals("-")
-                || !actionCue(
-                text,
-                item.getType()
-        );
+                || !actionCue(text, item.getType());
     }
 
     private boolean actionCue(
@@ -529,7 +511,8 @@ public final class GuiSoundListener
                         || material == Material.BARRIER
                         || material == Material.TNT
                         || material == Material.LAVA_BUCKET;
-        boolean action = text.contains("click to delete")
+
+        return text.contains("click to delete")
                 || text.contains("confirm delete")
                 || text.contains("delete team")
                 || text.contains("delete home")
@@ -543,8 +526,6 @@ public final class GuiSoundListener
                 || text.contains("remove")
                 || text.contains("kick")
                 || text.contains("disband"));
-
-        return action;
     }
 
     private boolean cancel(
@@ -634,11 +615,19 @@ public final class GuiSoundListener
     private boolean refreshOrReload(ItemStack item) {
         ItemMeta meta = item.getItemMeta();
 
-        if (meta == null || !meta.hasDisplayName()) {
+        if (meta == null || !meta.hasCustomName()) {
             return false;
         }
 
-        String name = normalize(meta.getDisplayName());
+        Component customName = meta.customName();
+
+        if (customName == null) {
+            return false;
+        }
+
+        String name = normalize(
+                GuiText.plain(customName)
+        );
         return name.contains("refresh")
                 || name.contains("reload");
     }
@@ -647,20 +636,22 @@ public final class GuiSoundListener
         ItemMeta meta = item.getItemMeta();
 
         if (meta == null) {
-            return normalize(
-                    item.getType().name()
-            );
+            return normalize(item.getType().name());
         }
 
         List<String> parts = new ArrayList<>();
+        Component customName = meta.customName();
 
-        if (meta.hasDisplayName()) {
-            parts.add(meta.getDisplayName());
+        if (customName != null) {
+            parts.add(GuiText.plain(customName));
         }
 
-        if (meta.hasLore()
-                && meta.getLore() != null) {
-            parts.addAll(meta.getLore());
+        List<Component> lore = meta.lore();
+
+        if (lore != null) {
+            for (Component line : lore) {
+                parts.add(GuiText.plain(line));
+            }
         }
 
         if (parts.isEmpty()) {
@@ -671,17 +662,11 @@ public final class GuiSoundListener
     }
 
     private String normalize(String input) {
-        if (input == null) {
+        if (input == null || input.isBlank()) {
             return "";
         }
 
-        String stripped = ChatColor.stripColor(input);
-
-        if (stripped == null) {
-            stripped = input;
-        }
-
-        return stripped.toLowerCase(Locale.ROOT)
+        return input.toLowerCase(Locale.ROOT)
                 .replace('_', ' ')
                 .replaceAll("\\s+", " ")
                 .trim();
