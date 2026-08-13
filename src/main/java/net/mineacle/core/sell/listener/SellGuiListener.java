@@ -20,9 +20,12 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.logging.Level;
 
 @SuppressWarnings("unused")
 public final class SellGuiListener
@@ -69,19 +72,62 @@ public final class SellGuiListener
             return;
         }
 
-        try {
-            Inventory inventory =
-                    event.getInventory();
-            inventory.setItem(
-                    SellGui.SUMMARY_SLOT,
-                    null
-            );
+        Inventory inventory =
+                event.getInventory();
+        inventory.setItem(
+                SellGui.SUMMARY_SLOT,
+                null
+        );
 
-            SaleResult result =
-                    sellService.sellInventory(
-                            playerId,
-                            inventory
+        /*
+         * sellInventory() guarantees that exceptions are contained after the
+         * economy-credit boundary. Therefore any RuntimeException that still
+         * escapes here is necessarily pre-credit and the deposited items are
+         * safe to restore from this immutable snapshot.
+         */
+        List<ItemStack> recoverySnapshot =
+                snapshotDeposits(
+                        inventory
+                );
+
+        try {
+            SaleResult result;
+
+            try {
+                result =
+                        sellService.sellInventory(
+                                playerId,
+                                inventory
+                        );
+            } catch (RuntimeException exception) {
+                inventory.clear();
+
+                for (ItemStack item
+                        : recoverySnapshot) {
+                    returnItem(
+                            player,
+                            item
                     );
+                }
+
+                core.getLogger().log(
+                        Level.SEVERE,
+                        "Sell GUI transaction failed before payout for "
+                                + playerId
+                                + " — deposited items were restored",
+                        exception
+                );
+                player.sendMessage(
+                        TextColor.color(
+                                "&cCould not process this sale — your items were returned"
+                        )
+                );
+                SoundService.guiError(
+                        player,
+                        core
+                );
+                return;
+            }
 
             for (ItemStack returned
                     : result.returnedItems()) {
@@ -358,6 +404,35 @@ public final class SellGuiListener
                             );
                         }
                 );
+    }
+
+    private List<ItemStack> snapshotDeposits(
+            Inventory inventory
+    ) {
+        List<ItemStack> snapshot =
+                new ArrayList<>();
+
+        for (ItemStack raw
+                : inventory.getContents()) {
+            if (raw == null
+                    || raw.getType().isAir()) {
+                continue;
+            }
+
+            ItemStack clean =
+                    sellService.stripWorthLore(
+                            raw
+                    );
+
+            if (clean != null
+                    && !clean.getType().isAir()) {
+                snapshot.add(
+                        clean.clone()
+                );
+            }
+        }
+
+        return List.copyOf(snapshot);
     }
 
     private void returnItem(

@@ -205,10 +205,6 @@ commands:
     description: Open the Sell menu
     usage: /sell
     permission: mineaclesell.use
-  sellmulti:
-    description: Open the Multi Sell menu
-    usage: /sellmulti
-    permission: mineaclesell.use
   worth:
     description: Open Item Prices
     usage: /worth [item]

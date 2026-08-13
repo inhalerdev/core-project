@@ -12,7 +12,6 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
-import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -20,9 +19,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.logging.Level;
@@ -43,12 +44,16 @@ public final class SellPlayerHistoryStore {
             10L * 60L * 1000L;
     private static final int DEFAULT_CACHE_PLAYERS = 128;
     private static final int DEFAULT_MAX_PENDING_ENTRIES = 50_000;
+    private static final int DEFAULT_MAX_PENDING_LOADS = 128;
+    private static final int HISTORY_READ_THREADS = 2;
     private static final long DEFAULT_FLUSH_MILLIS = 5_000L;
     private static final long WARNING_INTERVAL_NANOS =
             30_000_000_000L;
 
     private final Core core;
+    /* Writes remain serialized; reads have a separate bounded pool. */
     private final ScheduledThreadPoolExecutor executor;
+    private final ThreadPoolExecutor readExecutor;
 
     private final LinkedHashMap<UUID, CacheEntry> cache =
             new LinkedHashMap<>(
@@ -61,7 +66,8 @@ public final class SellPlayerHistoryStore {
     private final Map<HistoryKey, LegacyAbsolute> legacyPending =
             new HashMap<>();
 
-    private final Map<UUID, List<Consumer<List<SellHistoryEntry>>>>
+    /* One in-flight load per player; only the newest GUI callback matters. */
+    private final Map<UUID, Consumer<List<SellHistoryEntry>>>
             pendingLoads =
             new HashMap<>();
 
@@ -103,6 +109,27 @@ public final class SellPlayerHistoryStore {
         executor.setContinueExistingPeriodicTasksAfterShutdownPolicy(
                 false
         );
+
+        readExecutor =
+                new ThreadPoolExecutor(
+                        HISTORY_READ_THREADS,
+                        HISTORY_READ_THREADS,
+                        0L,
+                        TimeUnit.MILLISECONDS,
+                        new ArrayBlockingQueue<>(
+                                config.maxPendingLoads()
+                        ),
+                        runnable -> {
+                            Thread thread =
+                                    new Thread(
+                                            runnable,
+                                            "Mineacle-SellHistoryRead"
+                                    );
+                            thread.setDaemon(true);
+                            return thread;
+                        },
+                        new ThreadPoolExecutor.AbortPolicy()
+                );
     }
 
     public synchronized void start() {
@@ -313,7 +340,7 @@ public final class SellPlayerHistoryStore {
         }
 
         List<SellHistoryEntry> cached;
-        boolean startLoad = false;
+        boolean startLoad;
 
         synchronized (this) {
             purgeExpiredCache();
@@ -327,22 +354,23 @@ public final class SellPlayerHistoryStore {
                                 entry.entries()
                                         .values()
                         );
+                startLoad = false;
             } else {
                 cached = null;
-                List<Consumer<List<SellHistoryEntry>>> callbacks =
-                        pendingLoads.get(playerId);
+                startLoad =
+                        !pendingLoads.containsKey(
+                                playerId
+                        );
 
-                if (callbacks == null) {
-                    callbacks =
-                            new ArrayList<>();
-                    pendingLoads.put(
-                            playerId,
-                            callbacks
-                    );
-                    startLoad = true;
-                }
-
-                callbacks.add(callback);
+                /*
+                 * Reopening Sell History replaces the stale callback instead
+                 * of growing an unbounded callback list while one DB read is
+                 * already in flight.
+                 */
+                pendingLoads.put(
+                        playerId,
+                        callback
+                );
             }
         }
 
@@ -359,34 +387,26 @@ public final class SellPlayerHistoryStore {
         }
 
         try {
-            executor.execute(
+            readExecutor.execute(
                     () -> loadPlayer(
                             playerId
                     )
             );
-        } catch (
-                RejectedExecutionException ignored
-        ) {
-            List<Consumer<List<SellHistoryEntry>>> callbacks;
+        } catch (RejectedExecutionException ignored) {
+            Consumer<List<SellHistoryEntry>> queued;
 
             synchronized (this) {
-                callbacks =
+                queued =
                         pendingLoads.remove(
                                 playerId
                         );
             }
 
-            List<SellHistoryEntry> fallback =
-                    cached(playerId);
-
-            if (callbacks != null) {
-                for (Consumer<List<SellHistoryEntry>> queued
-                        : callbacks) {
-                    dispatch(
-                            queued,
-                            fallback
-                    );
-                }
+            if (queued != null) {
+                dispatch(
+                        queued,
+                        cached(playerId)
+                );
             }
         }
     }
@@ -419,6 +439,8 @@ public final class SellPlayerHistoryStore {
             }
         }
 
+        readExecutor.shutdownNow();
+
         try {
             executor.execute(
                     this::flushNow
@@ -443,6 +465,11 @@ public final class SellPlayerHistoryStore {
             Thread.currentThread()
                     .interrupt();
             executor.shutdownNow();
+        }
+
+        synchronized (this) {
+            pendingLoads.clear();
+            cache.clear();
         }
     }
 
@@ -484,6 +511,8 @@ public final class SellPlayerHistoryStore {
                 new EnumMap<>(
                         Material.class
                 );
+        boolean loadSucceeded =
+                !snapshot.sqlConfigured();
 
         if (snapshot.sqlConfigured()) {
             try {
@@ -553,6 +582,8 @@ public final class SellPlayerHistoryStore {
                         }
                     }
                 }
+
+                loadSucceeded = true;
             } catch (Exception exception) {
                 warnRateLimited(
                         "Could not load Sell history for a player",
@@ -561,44 +592,50 @@ public final class SellPlayerHistoryStore {
             }
         }
 
-        List<Consumer<List<SellHistoryEntry>>> callbacks;
+        Consumer<List<SellHistoryEntry>> callback;
 
         synchronized (this) {
+            if (closed) {
+                pendingLoads.remove(playerId);
+                return;
+            }
+
             mergePendingInto(
                     playerId,
                     loaded
             );
-            cache.put(
-                    playerId,
-                    new CacheEntry(
-                            loaded,
-                            System.currentTimeMillis()
-                    )
-            );
-            trimCache();
-            callbacks =
+
+            /*
+             * Never cache a transient SQL failure as an empty history for the
+             * full cache TTL. A later open should be allowed to retry the DB.
+             */
+            if (loadSucceeded) {
+                cache.put(
+                        playerId,
+                        new CacheEntry(
+                                loaded,
+                                System.currentTimeMillis()
+                        )
+                );
+                trimCache();
+            }
+
+            callback =
                     pendingLoads.remove(
                             playerId
                     );
         }
 
-        if (callbacks == null
-                || callbacks.isEmpty()) {
+        if (callback == null) {
             return;
         }
 
-        List<SellHistoryEntry> result =
+        dispatch(
+                callback,
                 List.copyOf(
                         loaded.values()
-                );
-
-        for (Consumer<List<SellHistoryEntry>> callback
-                : callbacks) {
-            dispatch(
-                    callback,
-                    result
-            );
-        }
+                )
+        );
     }
 
     private void scheduleFlushLocked(
@@ -1098,14 +1135,24 @@ public final class SellPlayerHistoryStore {
             Consumer<List<SellHistoryEntry>> callback,
             List<SellHistoryEntry> entries
     ) {
-        core.getServer()
-                .getScheduler()
-                .runTask(
-                        core,
-                        () -> callback.accept(
-                                entries
-                        )
-                );
+        if (callback == null
+                || closed
+                || !core.isEnabled()) {
+            return;
+        }
+
+        try {
+            core.getServer()
+                    .getScheduler()
+                    .runTask(
+                            core,
+                            () -> callback.accept(
+                                    entries
+                            )
+                    );
+        } catch (RuntimeException ignored) {
+            /* Plugin shutdown owns lifecycle cleanup. */
+        }
     }
 
     private StoreConfig loadConfig(
@@ -1198,6 +1245,14 @@ public final class SellPlayerHistoryStore {
                                 "history.max-pending-entries",
                                 DEFAULT_MAX_PENDING_ENTRIES
                         )
+                ),
+                Math.clamp(
+                        sellConfig.getInt(
+                                "history.max-pending-loads",
+                                DEFAULT_MAX_PENDING_LOADS
+                        ),
+                        16,
+                        512
                 ),
                 Math.max(
                         250L,
@@ -1333,6 +1388,7 @@ public final class SellPlayerHistoryStore {
             int cachePlayers,
             long cacheTtlMillis,
             int maxPendingEntries,
+            int maxPendingLoads,
             long flushMillis,
             int queryTimeoutSeconds
     ) {

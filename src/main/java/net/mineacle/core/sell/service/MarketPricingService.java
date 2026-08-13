@@ -18,6 +18,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.function.Consumer;
 
@@ -45,8 +48,11 @@ public final class MarketPricingService {
             7L * ONE_DAY;
     private static final long ROLLING_CACHE_MAX_AGE =
             30_000L;
+    private static final long SHUTDOWN_FLUSH_BUDGET_MILLIS =
+            5_000L;
 
     private final Core core;
+    private final ScheduledThreadPoolExecutor persistenceExecutor;
     private final SellPlayerHistoryStore playerHistoryStore;
     private final long runtimeStartedAt =
             System.currentTimeMillis();
@@ -125,6 +131,22 @@ public final class MarketPricingService {
             Map<Material, Long> marketUnits
     ) {
         this.core = core;
+        this.persistenceExecutor =
+                new ScheduledThreadPoolExecutor(
+                        1,
+                        runnable -> {
+                            Thread thread =
+                                    new Thread(
+                                            runnable,
+                                            "Mineacle-SellMarket"
+                                    );
+                            thread.setDaemon(true);
+                            return thread;
+                        }
+                );
+        persistenceExecutor.setRemoveOnCancelPolicy(true);
+        persistenceExecutor.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
+        persistenceExecutor.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
 
         reloadSettings(
                 sellConfig,
@@ -174,7 +196,14 @@ public final class MarketPricingService {
             Map<Material, String> newMarketKeys,
             Map<Material, Long> newMarketUnits
     ) {
-        flushBlocking();
+        /*
+         * Queue the previous storage generation before swapping configuration.
+         * All physical Sell-market I/O is serialized by persistenceExecutor,
+         * so reload never blocks the server thread and writes cannot overtake
+         * one another. The new generation is marked dirty below and becomes
+         * authoritative on its next flush.
+         */
+        flushAsync();
 
         reloadSettings(
                 sellConfig,
@@ -485,16 +514,32 @@ public final class MarketPricingService {
             return;
         }
 
-        String key =
-                marketKey(material);
-        long unitsPerItem =
-                marketUnits(material);
+        /*
+         * Player history is independent from dynamic commodity pricing. Fixed
+         * and safety-floor sales still belong in the player's aggregate and in
+         * the authoritative transaction ledger, but they do not need rolling
+         * 6h/24h/7d commodity buckets that can never influence their price.
+         */
+        playerHistoryStore.recordSale(
+                playerId,
+                material,
+                amount,
+                payoutCents,
+                soldAt
+        );
 
-        if (key == null
-                || unitsPerItem <= 0L) {
+        CommodityDefinition commodity =
+                commodity(material);
+
+        if (commodity == null
+                || !commodity.enabled()) {
             return;
         }
 
+        String key =
+                commodity.key();
+        long unitsPerItem =
+                marketUnits(material);
         long normalizedUnits =
                 safeMultiply(
                         amount,
@@ -504,14 +549,6 @@ public final class MarketPricingService {
         if (normalizedUnits <= 0L) {
             return;
         }
-
-        playerHistoryStore.recordSale(
-                playerId,
-                material,
-                amount,
-                payoutCents,
-                soldAt
-        );
 
         long resetCutoff =
                 resetInFlight
@@ -564,9 +601,7 @@ public final class MarketPricingService {
                         bucket.payoutCents,
                         payoutCents
                 );
-        dirtyBuckets.add(
-                bucketKey
-        );
+        dirtyBuckets.add(bucketKey);
         rollingDirty = true;
     }
 
@@ -614,7 +649,8 @@ public final class MarketPricingService {
         CommodityMarketStorage storage =
                 commodityStorage;
 
-        if (storage == null) {
+        if (storage == null
+                || persistenceExecutor.isShutdown()) {
             core.getLogger().warning(
                     "Sell market reset could not start — "
                             + "commodity storage is unavailable"
@@ -626,9 +662,9 @@ public final class MarketPricingService {
         resetPendingBuckets.clear();
 
         /*
-         * Invalidate any already-running flush callback. The old async write
-         * may still physically complete, but the durable reset tombstone makes
-         * every pre-reset state/bucket ineligible for a future load.
+         * The reset is submitted to the same single persistence executor used
+         * by every market flush. Any older write therefore completes before
+         * the durable tombstone and no later stale write can overtake it.
          */
         storageGeneration++;
         long generation =
@@ -638,47 +674,45 @@ public final class MarketPricingService {
         pendingResetAt =
                 resetAt;
 
-        core.getServer()
-                .getScheduler()
-                .runTaskAsynchronously(
-                        core,
-                        () -> {
-                            CommodityMarketStorage.ResetResult result =
-                                    null;
-                            Exception failure =
-                                    null;
+        try {
+            persistenceExecutor.execute(
+                    () -> {
+                        CommodityMarketStorage.ResetResult result =
+                                null;
+                        Exception failure =
+                                null;
 
-                            try {
-                                result =
-                                        storage.resetPersistent(
-                                                resetAt
-                                        );
-                            } catch (Exception exception) {
-                                failure =
-                                        exception;
-                            }
-
-                            CommodityMarketStorage.ResetResult finalResult =
-                                    result;
-                            Exception finalFailure =
-                                    failure;
-
-                            core.getServer()
-                                    .getScheduler()
-                                    .runTask(
-                                            core,
-                                            () ->
-                                                    finishPersistentReset(
-                                                            generation,
-                                                            storage,
-                                                            resetAt,
-                                                            finalResult,
-                                                            finalFailure,
-                                                            completion
-                                                    )
+                        try {
+                            result =
+                                    storage.resetPersistent(
+                                            resetAt
                                     );
+                        } catch (Exception exception) {
+                            failure = exception;
                         }
-                );
+
+                        CommodityMarketStorage.ResetResult finalResult =
+                                result;
+                        Exception finalFailure =
+                                failure;
+
+                        dispatchMain(
+                                () -> finishPersistentReset(
+                                        generation,
+                                        storage,
+                                        resetAt,
+                                        finalResult,
+                                        finalFailure,
+                                        completion
+                                )
+                        );
+                    }
+            );
+        } catch (RejectedExecutionException exception) {
+            resetInFlight = false;
+            pendingResetAt = 0L;
+            return ResetStartResult.STORAGE_UNAVAILABLE;
+        }
 
         return ResetStartResult.STARTED;
     }
@@ -744,13 +778,78 @@ public final class MarketPricingService {
         flushAsync();
     }
 
-    public synchronized void shutdown() {
-        started = false;
-        flushBlocking();
+    public void shutdown() {
+        CommodityMarketStorage storage;
+        CommodityMarketStorage.SaveBatch finalBatch;
+        boolean attemptSql;
+
+        synchronized (this) {
+            if (!started
+                    && persistenceExecutor.isShutdown()) {
+                return;
+            }
+
+            started = false;
+            storage = commodityStorage;
+            attemptSql =
+                    sqlReady
+                            && storage != null
+                            && storage.sqlConfigured();
+
+            /*
+             * If reset I/O is already queued, its durable tombstone executes
+             * before this final task. Persist only post-reset sale buckets in
+             * that case; writing the pre-reset full state again is unnecessary.
+             */
+            finalBatch =
+                    resetInFlight
+                            ? createResetPendingBatch()
+                            : createFullCommodityBatch();
+        }
+
+        if (storage != null
+                && !finalBatch.empty()) {
+            try {
+                persistenceExecutor.execute(
+                        () -> persistFinalBatch(
+                                storage,
+                                finalBatch,
+                                attemptSql
+                        )
+                );
+            } catch (RejectedExecutionException exception) {
+                core.getLogger().log(
+                        Level.SEVERE,
+                        "Sell market final persistence task was rejected",
+                        exception
+                );
+            }
+        }
+
+        persistenceExecutor.shutdown();
+
+        try {
+            if (!persistenceExecutor.awaitTermination(
+                    SHUTDOWN_FLUSH_BUDGET_MILLIS,
+                    TimeUnit.MILLISECONDS
+            )) {
+                persistenceExecutor.shutdownNow();
+                core.getLogger().severe(
+                        "Sell market persistence shutdown budget expired"
+                );
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            persistenceExecutor.shutdownNow();
+        }
+
         playerHistoryStore.shutdown();
 
-        sqlReady = false;
-        sqlConnecting = false;
+        synchronized (this) {
+            sqlReady = false;
+            sqlConnecting = false;
+            flushInFlight = false;
+        }
     }
 
     private void reloadSettings(
@@ -1108,7 +1207,8 @@ public final class MarketPricingService {
                 || !sqlConfigured
                 || sqlReady
                 || sqlConnecting
-                || commodityStorage == null) {
+                || commodityStorage == null
+                || persistenceExecutor.isShutdown()) {
             return;
         }
 
@@ -1122,43 +1222,40 @@ public final class MarketPricingService {
         CommodityMarketStorage commodity =
                 commodityStorage;
 
-        core.getServer()
-                .getScheduler()
-                .runTaskAsynchronously(
-                        core,
-                        () -> {
-                            CommodityMarketStorage.Snapshot snapshot =
-                                    null;
-                            Exception failure = null;
+        try {
+            persistenceExecutor.execute(
+                    () -> {
+                        CommodityMarketStorage.Snapshot snapshot =
+                                null;
+                        Exception failure = null;
 
-                            try {
-                                commodity.initializeSql();
-                                snapshot =
-                                        commodity.loadSql(
-                                                bucketsSince
-                                        );
-                            } catch (Exception exception) {
-                                failure = exception;
-                            }
-
-                            CommodityMarketStorage.Snapshot loaded =
-                                    snapshot;
-                            Exception error = failure;
-
-                            core.getServer()
-                                    .getScheduler()
-                                    .runTask(
-                                            core,
-                                            () ->
-                                                    finishSqlConnection(
-                                                            generation,
-                                                            commodity,
-                                                            loaded,
-                                                            error
-                                                    )
+                        try {
+                            commodity.initializeSql();
+                            snapshot =
+                                    commodity.loadSql(
+                                            bucketsSince
                                     );
+                        } catch (Exception exception) {
+                            failure = exception;
                         }
-                );
+
+                        CommodityMarketStorage.Snapshot loaded =
+                                snapshot;
+                        Exception error = failure;
+
+                        dispatchMain(
+                                () -> finishSqlConnection(
+                                        generation,
+                                        commodity,
+                                        loaded,
+                                        error
+                                )
+                        );
+                    }
+            );
+        } catch (RejectedExecutionException exception) {
+            sqlConnecting = false;
+        }
     }
 
     private synchronized void finishSqlConnection(
@@ -2246,7 +2343,8 @@ public final class MarketPricingService {
 
     private void flushAsync() {
         if (flushInFlight
-                || resetInFlight) {
+                || resetInFlight
+                || persistenceExecutor.isShutdown()) {
             return;
         }
 
@@ -2275,60 +2373,74 @@ public final class MarketPricingService {
                 sqlReady
                         && storage.sqlConfigured();
 
-        core.getServer()
-                .getScheduler()
-                .runTaskAsynchronously(
-                        core,
-                        () -> {
-                            Exception sqlFailure = null;
-                            Exception yamlFailure = null;
-                            boolean sqlSaved = false;
-                            boolean yamlSaved = false;
+        try {
+            persistenceExecutor.execute(
+                    () -> {
+                        PersistenceResult result =
+                                persistBatch(
+                                        storage,
+                                        batch,
+                                        attemptSql,
+                                        snapshotDue
+                                );
 
-                            if (attemptSql) {
-                                try {
-                                    storage.saveSql(batch);
-                                    sqlSaved = true;
-                                } catch (Exception exception) {
-                                    sqlFailure = exception;
-                                }
-                            }
-
-                            if (!sqlSaved
-                                    || snapshotDue) {
-                                try {
-                                    storage.saveYaml(batch);
-                                    yamlSaved = true;
-                                } catch (Exception exception) {
-                                    yamlFailure = exception;
-                                }
-                            }
-
-                            boolean finalSqlSaved = sqlSaved;
-                            boolean finalYamlSaved = yamlSaved;
-                            Exception finalSqlFailure = sqlFailure;
-                            Exception finalYamlFailure = yamlFailure;
-
-                            core.getServer()
-                                    .getScheduler()
-                                    .runTask(
-                                            core,
-                                            () ->
-                                                    finishFlush(
-                                                            generation,
-                                                            storage,
-                                                            batch,
-                                                            finalSqlSaved,
-                                                            finalYamlSaved,
-                                                            snapshotDue,
-                                                            finalSqlFailure,
-                                                            finalYamlFailure
-                                                    )
-                                    );
-                        }
-                );
+                        dispatchMain(
+                                () -> finishFlush(
+                                        generation,
+                                        storage,
+                                        batch,
+                                        result.sqlSaved(),
+                                        result.yamlSaved(),
+                                        snapshotDue,
+                                        result.sqlFailure(),
+                                        result.yamlFailure()
+                                )
+                        );
+                    }
+            );
+        } catch (RejectedExecutionException exception) {
+            flushInFlight = false;
+        }
 
         playerHistoryStore.flushIfDirty();
+    }
+
+    private PersistenceResult persistBatch(
+            CommodityMarketStorage storage,
+            CommodityMarketStorage.SaveBatch batch,
+            boolean attemptSql,
+            boolean snapshotDue
+    ) {
+        Exception sqlFailure = null;
+        Exception yamlFailure = null;
+        boolean sqlSaved = false;
+        boolean yamlSaved = false;
+
+        if (attemptSql) {
+            try {
+                storage.saveSql(batch);
+                sqlSaved = true;
+            } catch (Exception exception) {
+                sqlFailure = exception;
+            }
+        }
+
+        if (!sqlSaved
+                || snapshotDue) {
+            try {
+                storage.saveYaml(batch);
+                yamlSaved = true;
+            } catch (Exception exception) {
+                yamlFailure = exception;
+            }
+        }
+
+        return new PersistenceResult(
+                sqlSaved,
+                yamlSaved,
+                sqlFailure,
+                yamlFailure
+        );
     }
 
     private synchronized void finishFlush(
@@ -2382,51 +2494,94 @@ public final class MarketPricingService {
         }
     }
 
-    private void flushBlocking() {
-        CommodityMarketStorage.SaveBatch batch =
-                createCommodityBatch();
-
-        if (batch.empty()) {
-            playerHistoryStore.flushIfDirty();
-            return;
-        }
-
+    private void persistFinalBatch(
+            CommodityMarketStorage storage,
+            CommodityMarketStorage.SaveBatch batch,
+            boolean attemptSql
+    ) {
         boolean persisted = false;
 
-        if (sqlReady
-                && commodityStorage.sqlConfigured()) {
+        if (attemptSql) {
             try {
-                commodityStorage.saveSql(batch);
+                storage.saveSql(batch);
                 persisted = true;
             } catch (Exception exception) {
                 core.getLogger().log(
                         Level.WARNING,
-                        "Could not save Sell commodity market database "
-                                + "during shutdown",
+                        "Could not save Sell commodity market database during shutdown",
                         exception
                 );
             }
         }
 
         try {
-            commodityStorage.saveYaml(batch);
+            storage.saveYaml(batch);
             persisted = true;
-            lastYamlSnapshotAt =
-                    System.currentTimeMillis();
         } catch (Exception exception) {
             core.getLogger().log(
                     Level.SEVERE,
-                    "Could not save Sell commodity recovery snapshot "
-                            + "during shutdown",
+                    "Could not save Sell commodity recovery snapshot during shutdown",
                     exception
             );
         }
 
-        if (persisted) {
-            clearCommodityDirty(batch);
+        if (!persisted) {
+            core.getLogger().severe(
+                    "Sell market final snapshot was not persisted"
+            );
+        }
+    }
+
+    private void dispatchMain(
+            Runnable task
+    ) {
+        if (task == null
+                || !core.isEnabled()) {
+            return;
         }
 
-        playerHistoryStore.flushIfDirty();
+        try {
+            core.getServer()
+                    .getScheduler()
+                    .runTask(
+                            core,
+                            task
+                    );
+        } catch (RuntimeException ignored) {
+            /* Plugin shutdown owns the final persistence boundary directly. */
+        }
+    }
+
+    private CommodityMarketStorage.SaveBatch
+    createResetPendingBatch() {
+        List<CommodityMarketStorage.BucketData> bucketData =
+                new ArrayList<>(
+                        resetPendingBuckets.size()
+                );
+
+        for (Map.Entry<BucketKey, BucketTotals> entry
+                : resetPendingBuckets.entrySet()) {
+            BucketKey key =
+                    entry.getKey();
+            BucketTotals bucket =
+                    entry.getValue();
+
+            bucketData.add(
+                    new CommodityMarketStorage.BucketData(
+                            key.marketKey(),
+                            key.bucketStart(),
+                            bucket.unitsSold,
+                            bucket.payoutCents
+                    )
+            );
+        }
+
+        return new CommodityMarketStorage.SaveBatch(
+                List.of(),
+                List.copyOf(bucketData),
+                System.currentTimeMillis()
+                        - retentionMillis
+        );
     }
 
     private CommodityMarketStorage.SaveBatch
@@ -2976,6 +3131,14 @@ public final class MarketPricingService {
                         0L,
                         0L
                 );
+    }
+
+    private record PersistenceResult(
+            boolean sqlSaved,
+            boolean yamlSaved,
+            Exception sqlFailure,
+            Exception yamlFailure
+    ) {
     }
 
     private record BucketKey(

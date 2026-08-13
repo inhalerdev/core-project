@@ -1,6 +1,8 @@
 package net.mineacle.core.common.sound;
 
 import net.mineacle.core.Core;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
@@ -11,7 +13,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-@SuppressWarnings({"deprecation", "removal"})
 public final class SoundService {
 
     private static final Map<String, Sound> SOUND_CACHE =
@@ -28,7 +29,7 @@ public final class SoundService {
 
     /**
      * Queues one player sound for the next tick.
-     *
+     * <p>
      * Multiple sound requests produced by one GUI action are coalesced and
      * only the highest-priority semantic sound is played. This prevents a
      * generic button click from stacking with confirm, error, payment,
@@ -39,11 +40,12 @@ public final class SoundService {
             Core core,
             String path
     ) {
-        if (!validRequest(player, core, path)) {
+        if (invalidRequest(player, core, path)) {
             return;
         }
 
-        String basePath = "sounds." + settingsPath(path);
+        String settingsPath = settingsPath(path);
+        String basePath = "sounds." + settingsPath;
 
         if (!core.getConfig().getBoolean(
                 basePath + ".enabled",
@@ -57,15 +59,15 @@ public final class SoundService {
                 ""
         );
 
-        if (configured == null || configured.isBlank()) {
+        if (configured.isBlank()) {
             return;
         }
 
         queue(
                 player,
                 core,
-                path,
-                priority(path)
+                settingsPath,
+                priority(settingsPath)
         );
     }
 
@@ -79,7 +81,8 @@ public final class SoundService {
 
         PendingPlayback pending = PENDING.remove(playerId);
 
-        if (pending != null && pending.task() != null) {
+        if (pending != null
+                && pending.task() != null) {
             pending.task().cancel();
         }
     }
@@ -98,18 +101,18 @@ public final class SoundService {
         PENDING.clear();
     }
 
-    private static boolean validRequest(
+    private static boolean invalidRequest(
             Player player,
             Core core,
             String path
     ) {
-        return player != null
-                && core != null
-                && path != null
-                && !path.isBlank()
-                && player.isOnline()
-                && core.isEnabled()
-                && core.getConfig().getBoolean(
+        return player == null
+                || core == null
+                || path == null
+                || path.isBlank()
+                || !player.isOnline()
+                || !core.isEnabled()
+                || !core.getConfig().getBoolean(
                 "sounds.enabled",
                 true
         );
@@ -164,7 +167,7 @@ public final class SoundService {
                 PENDING.remove(playerId);
 
         if (pending == null
-                || !validRequest(
+                || invalidRequest(
                 player,
                 core,
                 pending.path()
@@ -205,14 +208,19 @@ public final class SoundService {
                 ""
         );
 
-        if (configured == null || configured.isBlank()) {
+        if (configured.isBlank()) {
             return;
         }
 
-        float volume = nonNegative(
+        double globalVolume =
                 core.getConfig().getDouble(
                         "sounds.volume",
                         0.8D
+                );
+        float volume = nonNegative(
+                core.getConfig().getDouble(
+                        basePath + ".volume",
+                        globalVolume
                 )
         );
         float pitch = nonNegative(
@@ -222,7 +230,7 @@ public final class SoundService {
                 )
         );
         String soundName = configured.trim();
-        Sound sound = resolveEnumSound(soundName);
+        Sound sound = resolveRegisteredSound(soundName);
 
         try {
             if (sound != null) {
@@ -306,9 +314,7 @@ public final class SoundService {
     }
 
     private static int priority(String path) {
-        String normalized = path.toLowerCase(
-                Locale.ROOT
-        );
+        String normalized = path.toLowerCase(Locale.ROOT);
 
         if (normalized.equals("gui.error")
                 || normalized.endsWith(".error")
@@ -347,23 +353,19 @@ public final class SoundService {
             return 80;
         }
 
-        if (normalized.equals("gui.refresh")) {
-            return 45;
-        }
+        int guiPriority = switch (normalized) {
+            case "gui.refresh" -> 45;
+            case "gui.search",
+                 "gui.sort",
+                 "gui.filter" -> 40;
+            case "gui.page",
+                 "gui.back" -> 35;
+            case "gui.select" -> 30;
+            default -> -1;
+        };
 
-        if (normalized.equals("gui.search")
-                || normalized.equals("gui.sort")
-                || normalized.equals("gui.filter")) {
-            return 40;
-        }
-
-        if (normalized.equals("gui.page")
-                || normalized.equals("gui.back")) {
-            return 35;
-        }
-
-        if (normalized.equals("gui.select")) {
-            return 30;
+        if (guiPriority >= 0) {
+            return guiPriority;
         }
 
         if (normalized.startsWith("gui.")) {
@@ -371,56 +373,51 @@ public final class SoundService {
         }
 
         if (normalized.contains("countdown")) {
-            /*
-             * A teleport countdown tick is the selection feedback for flows
-             * such as TPA where the first number is announced immediately.
-             * Let it replace a same-tick GUI selection sound so the player
-             * hears one clean sound instead of two overlapping sounds.
-             */
             return 70;
         }
 
         return 60;
     }
 
+    /**
+     * Every semantic action keeps its own settings path. The old router
+     * collapsed page/sort/filter/search/delete and Homes delete onto
+     * gui.select, silently discarding their configured sound identity.
+     */
     private static String settingsPath(String path) {
-        String normalized = path.toLowerCase(Locale.ROOT);
-
-        if (normalized.equals("gui.click")
-                || normalized.equals("gui.back")
-                || normalized.equals("gui.page")
-                || normalized.equals("gui.sort")
-                || normalized.equals("gui.filter")
-                || normalized.equals("gui.search")
-                || normalized.equals("gui.refresh")
-                || normalized.equals("gui.select")
-                || normalized.equals("gui.delete")
-                || normalized.equals("homes.delete")) {
-            return "gui.select";
-        }
-
-        return path;
+        return path == null
+                ? ""
+                : path.trim()
+                .toLowerCase(Locale.ROOT);
     }
 
-    private static Sound resolveEnumSound(String input) {
-        String cacheKey = input
+    private static Sound resolveRegisteredSound(String input) {
+        String normalized = input
                 .trim()
-                .toUpperCase(Locale.ROOT)
-                .replace(':', '_')
-                .replace('.', '_');
+                .toLowerCase(Locale.ROOT)
+                .replace('_', '.');
+        NamespacedKey key =
+                NamespacedKey.fromString(normalized);
+
+        if (key == null) {
+            return null;
+        }
+
+        String cacheKey = key.asString();
         Sound cached = SOUND_CACHE.get(cacheKey);
 
         if (cached != null) {
             return cached;
         }
 
-        try {
-            Sound sound = Sound.valueOf(cacheKey);
+        Sound sound =
+                Registry.SOUND_EVENT.get(key);
+
+        if (sound != null) {
             SOUND_CACHE.put(cacheKey, sound);
-            return sound;
-        } catch (IllegalArgumentException ignored) {
-            return null;
         }
+
+        return sound;
     }
 
     private static boolean isKeyStyle(String soundName) {
@@ -454,269 +451,131 @@ public final class SoundService {
         return (float) value;
     }
 
-    public static void guiClick(
-            Player player,
-            Core core
-    ) {
+    public static void guiClick(Player player, Core core) {
         play(player, core, "gui.click");
     }
 
-    public static void guiBack(
-            Player player,
-            Core core
-    ) {
+    public static void guiBack(Player player, Core core) {
         play(player, core, "gui.back");
     }
 
-    public static void guiPage(
-            Player player,
-            Core core
-    ) {
+    public static void guiPage(Player player, Core core) {
         play(player, core, "gui.page");
     }
 
-    public static void guiSort(
-            Player player,
-            Core core
-    ) {
+    public static void guiSort(Player player, Core core) {
         play(player, core, "gui.sort");
     }
 
-    public static void guiFilter(
-            Player player,
-            Core core
-    ) {
+    public static void guiFilter(Player player, Core core) {
         play(player, core, "gui.filter");
     }
 
-    public static void guiSearch(
-            Player player,
-            Core core
-    ) {
+    public static void guiSearch(Player player, Core core) {
         play(player, core, "gui.search");
     }
 
-    public static void guiRefresh(
-            Player player,
-            Core core
-    ) {
+    public static void guiRefresh(Player player, Core core) {
         play(player, core, "gui.refresh");
     }
 
-    public static void guiSelect(
-            Player player,
-            Core core
-    ) {
+    public static void guiSelect(Player player, Core core) {
         play(player, core, "gui.select");
     }
 
-    public static void guiConfirm(
-            Player player,
-            Core core
-    ) {
+    public static void guiConfirm(Player player, Core core) {
         play(player, core, "gui.confirm");
     }
 
-    public static void guiCancel(
-            Player player,
-            Core core
-    ) {
+    public static void guiCancel(Player player, Core core) {
         play(player, core, "gui.cancel");
     }
 
-    public static void guiDelete(
-            Player player,
-            Core core
-    ) {
+    public static void guiDelete(Player player, Core core) {
         play(player, core, "gui.delete");
     }
 
-    public static void guiError(
-            Player player,
-            Core core
-    ) {
+    public static void guiError(Player player, Core core) {
         play(player, core, "gui.error");
     }
 
-    public static void guiUsage(
-            Player player,
-            Core core
-    ) {
-        play(player, core, "gui.usage");
-    }
-
-    public static void mineaclePlus(
-            Player player,
-            Core core
-    ) {
+    public static void mineaclePlus(Player player, Core core) {
         play(player, core, "mineacle-plus.blocked");
     }
 
-    public static void teleportStart(
-            Player player,
-            Core core
-    ) {
+    public static void teleportStart(Player player, Core core) {
         play(player, core, "teleport.start");
     }
 
-    public static void teleportCountdown(
-            Player player,
-            Core core
-    ) {
+    public static void teleportCountdown(Player player, Core core) {
         play(player, core, "teleport.countdown");
     }
 
-    public static void teleportTick(
-            Player player,
-            Core core
-    ) {
-        teleportCountdown(player, core);
-    }
-
-    public static void teleportCancelled(
-            Player player,
-            Core core
-    ) {
+    public static void teleportCancelled(Player player, Core core) {
         play(player, core, "teleport.cancelled");
     }
 
-    public static void teleportCancel(
-            Player player,
-            Core core
-    ) {
-        teleportCancelled(player, core);
-    }
-
-    public static void teleportComplete(
-            Player player,
-            Core core
-    ) {
+    public static void teleportComplete(Player player, Core core) {
         play(player, core, "teleport.complete");
     }
 
-    public static void teleportRequest(
-            Player player,
-            Core core
-    ) {
+    public static void teleportRequest(Player player, Core core) {
         play(player, core, "teleport.request");
     }
 
-    public static void teleportReceived(
-            Player player,
-            Core core
-    ) {
+    public static void teleportReceived(Player player, Core core) {
         play(player, core, "teleport.received");
     }
 
-    public static void portalFreeze(
-            Player player,
-            Core core
-    ) {
-        play(player, core, "portal.freeze");
-    }
-
-    public static void spawnOpen(
-            Player player,
-            Core core
-    ) {
-        play(player, core, "spawn.open");
-    }
-
-    public static void spawnArrive(
-            Player player,
-            Core core
-    ) {
-        play(player, core, "spawn.arrive");
-    }
-
-    public static void homeSet(
-            Player player,
-            Core core
-    ) {
+    public static void homeSet(Player player, Core core) {
         play(player, core, "homes.set");
     }
 
-    public static void homeDelete(
-            Player player,
-            Core core
-    ) {
+    public static void homeDelete(Player player, Core core) {
         play(player, core, "homes.delete");
     }
 
-    public static void teamInvite(
-            Player player,
-            Core core
-    ) {
+    public static void teamInvite(Player player, Core core) {
         play(player, core, "teams.invite");
     }
 
-    public static void teamCreate(
-            Player player,
-            Core core
-    ) {
+    public static void teamCreate(Player player, Core core) {
         play(player, core, "teams.create");
     }
 
-    public static void teamDisband(
-            Player player,
-            Core core
-    ) {
+    public static void teamDisband(Player player, Core core) {
         play(player, core, "teams.disband");
     }
 
-    public static void economyPay(
-            Player player,
-            Core core
-    ) {
+    public static void economyPay(Player player, Core core) {
         play(player, core, "economy.pay");
     }
 
-    public static void economyReceive(
-            Player player,
-            Core core
-    ) {
+    public static void economyReceive(Player player, Core core) {
         play(player, core, "economy.receive");
     }
 
-    public static void economyBalance(
-            Player player,
-            Core core
-    ) {
+    public static void economyBalance(Player player, Core core) {
         play(player, core, "economy.balance");
     }
 
-    public static void chatMessage(
-            Player player,
-            Core core
-    ) {
+    public static void chatMessage(Player player, Core core) {
         play(player, core, "chat.message");
     }
 
-    public static void doubleJump(
-            Player player,
-            Core core
-    ) {
+    public static void doubleJump(Player player, Core core) {
         play(player, core, "double-jump.jump");
     }
 
-    public static void doubleJumpCooldown(
-            Player player,
-            Core core
-    ) {
+    public static void doubleJumpCooldown(Player player, Core core) {
         play(player, core, "double-jump.cooldown");
     }
 
-    public static void featureEnable(
-            Player player,
-            Core core
-    ) {
+    public static void featureEnable(Player player, Core core) {
         play(player, core, "feature.enable");
     }
 
-    public static void featureDisable(
-            Player player,
-            Core core
-    ) {
+    public static void featureDisable(Player player, Core core) {
         play(player, core, "feature.disable");
     }
 

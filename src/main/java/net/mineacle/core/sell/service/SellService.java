@@ -1590,8 +1590,8 @@ public final class SellService {
     }
 
     /**
-     * Returns whether this authoritative item still carries a legacy transient
-     * Worth marker that should be removed before normal gameplay handling.
+     * Returns whether an authoritative item still carries Mineacle's legacy
+     * transient Worth marker and should be normalized before gameplay use.
      */
     public boolean shouldStripWorthLore(
             ItemStack item
@@ -4058,6 +4058,10 @@ public final class SellService {
         sellConfig.addDefault(
                 "history.max-pending-entries",
                 50_000
+        );
+        sellConfig.addDefault(
+                "history.max-pending-loads",
+                128
         );
         sellConfig.addDefault(
                 "history.query-timeout-seconds",

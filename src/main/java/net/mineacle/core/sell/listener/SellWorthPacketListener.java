@@ -1,11 +1,11 @@
 package net.mineacle.core.sell.listener;
 
-import net.kyori.adventure.text.Component;
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.events.ListenerPriority;
 import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.reflect.StructureModifier;
+import net.kyori.adventure.text.Component;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.sell.gui.SellGui;
@@ -31,12 +31,6 @@ import java.util.List;
 public final class SellWorthPacketListener
         extends PacketAdapter {
 
-    /**
-     * /worth item entries occupy slots 0-44.
-     * Toolbar/navigation controls occupy slots 45-53.
-     */
-    private static final int WORTH_CONTENT_SLOTS = 45;
-
     private final SellService sellService;
 
     public SellWorthPacketListener(
@@ -60,21 +54,41 @@ public final class SellWorthPacketListener
             return;
         }
 
+        DisplayContext context = displayContext(player);
+
+        /*
+         * Default-deny before touching packet items. External/plugin GUIs and
+         * Mineacle workflow menus should cost essentially nothing here.
+         */
+        if (context == DisplayContext.DENIED
+                || context == DisplayContext.WORTH) {
+            return;
+        }
+
         if (event.getPacketType()
                 == PacketType.Play.Server.SET_SLOT) {
-            handleSetSlot(event, player);
+            handleSetSlot(
+                    event,
+                    player,
+                    context
+            );
             return;
         }
 
         if (event.getPacketType()
                 == PacketType.Play.Server.WINDOW_ITEMS) {
-            handleWindowItems(event, player);
+            handleWindowItems(
+                    event,
+                    player,
+                    context
+            );
         }
     }
 
     private void handleSetSlot(
             PacketEvent event,
-            Player player
+            Player player,
+            DisplayContext context
     ) {
         StructureModifier<ItemStack> modifier =
                 event.getPacket().getItemModifier();
@@ -83,28 +97,35 @@ public final class SellWorthPacketListener
         for (int index = 0;
              index < modifier.size();
              index++) {
-            ItemStack item =
+            ItemStack original =
                     modifier.readSafely(index);
 
-            if (item == null
-                    || item.getType().isAir()) {
+            if (original == null
+                    || original.getType().isAir()) {
                 continue;
             }
 
-            modifier.writeSafely(
-                    index,
+            ItemStack displayed =
                     displayItem(
                             player,
-                            item,
-                            rawSlot
-                    )
-            );
+                            original,
+                            rawSlot,
+                            context
+                    );
+
+            if (displayed != original) {
+                modifier.writeSafely(
+                        index,
+                        displayed
+                );
+            }
         }
     }
 
     private void handleWindowItems(
             PacketEvent event,
-            Player player
+            Player player,
+            DisplayContext context
     ) {
         StructureModifier<List<ItemStack>> listModifier =
                 event.getPacket()
@@ -121,33 +142,48 @@ public final class SellWorthPacketListener
                 continue;
             }
 
-            List<ItemStack> updated =
-                    new ArrayList<>(
-                            original.size()
-                    );
+            List<ItemStack> updated = null;
 
             for (int rawSlot = 0;
                  rawSlot < original.size();
                  rawSlot++) {
-                ItemStack item =
+                ItemStack source =
                         original.get(rawSlot);
 
-                updated.add(
-                        item == null
-                                || item.getType().isAir()
-                                ? item
-                                : displayItem(
-                                        player,
-                                        item,
-                                        rawSlot
-                                )
+                if (source == null
+                        || source.getType().isAir()) {
+                    continue;
+                }
+
+                ItemStack displayed =
+                        displayItem(
+                                player,
+                                source,
+                                rawSlot,
+                                context
+                        );
+
+                if (displayed == source) {
+                    continue;
+                }
+
+                if (updated == null) {
+                    updated =
+                            new ArrayList<>(original);
+                }
+
+                updated.set(
+                        rawSlot,
+                        displayed
                 );
             }
 
-            listModifier.writeSafely(
-                    index,
-                    updated
-            );
+            if (updated != null) {
+                listModifier.writeSafely(
+                        index,
+                        updated
+                );
+            }
         }
 
         StructureModifier<ItemStack[]> arrayModifier =
@@ -165,66 +201,80 @@ public final class SellWorthPacketListener
                 continue;
             }
 
-            ItemStack[] updated =
-                    new ItemStack[
-                            original.length
-                    ];
+            ItemStack[] updated = null;
 
             for (int rawSlot = 0;
                  rawSlot < original.length;
                  rawSlot++) {
-                ItemStack item =
+                ItemStack source =
                         original[rawSlot];
 
-                updated[rawSlot] =
-                        item == null
-                                || item.getType().isAir()
-                                ? item
-                                : displayItem(
-                                        player,
-                                        item,
-                                        rawSlot
-                                );
+                if (source == null
+                        || source.getType().isAir()) {
+                    continue;
+                }
+
+                ItemStack displayed =
+                        displayItem(
+                                player,
+                                source,
+                                rawSlot,
+                                context
+                        );
+
+                if (displayed == source) {
+                    continue;
+                }
+
+                if (updated == null) {
+                    updated = original.clone();
+                }
+
+                updated[rawSlot] = displayed;
             }
 
-            arrayModifier.writeSafely(
-                    index,
-                    updated
-            );
+            if (updated != null) {
+                arrayModifier.writeSafely(
+                        index,
+                        updated
+                );
+            }
         }
     }
 
     private ItemStack displayItem(
             Player player,
             ItemStack original,
-            int rawSlot
+            int rawSlot,
+            DisplayContext context
     ) {
-        /*
-         * /worth authors its own catalog lore. Never rebuild those entries
-         * through the generic packet overlay.
-         */
-        if (isWorthCatalogSlot(
-                player,
+        if (!contextAllowsWorth(
+                context,
                 rawSlot
         )) {
-            return original.clone();
+            return original;
         }
 
-        /*
-         * Always strip a stale Mineacle packet-copy marker first. The server
-         * inventory remains authoritative; this operates on display copies.
-         */
-        ItemStack clean =
-                sellService.stripWorthLore(
-                        original
-                );
+        ItemStack clean = original;
+        boolean stripped = false;
 
-        if (!shouldShowWorth(
-                player,
-                clean,
-                rawSlot
+        if (sellService.shouldStripWorthLore(
+                original
         )) {
-            return clean;
+            clean =
+                    sellService.stripWorthLore(
+                            original
+                    );
+            stripped = clean != original;
+        }
+
+        if (clean == null
+                || clean.getType().isAir()
+                || clean.getType()
+                == Material.BLACK_STAINED_GLASS_PANE) {
+            return clean == null
+                    ? original
+                    : clean;
         }
 
         ItemValuation valuation =
@@ -234,14 +284,21 @@ public final class SellWorthPacketListener
                 );
 
         if (!valuation.priced()) {
-            return clean;
+            return stripped
+                    ? clean
+                    : original;
         }
 
-        ItemStack item = clean.clone();
+        ItemStack item =
+                stripped
+                        ? clean
+                        : original.clone();
         ItemMeta meta = item.getItemMeta();
 
         if (meta == null) {
-            return item;
+            return stripped
+                    ? clean
+                    : original;
         }
 
         List<Component> existingLore =
@@ -249,9 +306,7 @@ public final class SellWorthPacketListener
         List<Component> lore =
                 existingLore == null
                         ? new ArrayList<>()
-                        : new ArrayList<>(
-                                existingLore
-                        );
+                        : new ArrayList<>(existingLore);
 
         lore.addFirst(
                 component(
@@ -259,8 +314,7 @@ public final class SellWorthPacketListener
                                 ? "&#bbbbbbWorth: "
                                 + "&#11fc7b"
                                 + sellService.format(
-                                        valuation
-                                                .serverSellCents()
+                                        valuation.serverSellCents()
                                 )
                                 : "&cPlayer Market Only"
                 )
@@ -275,86 +329,46 @@ public final class SellWorthPacketListener
         return item;
     }
 
-    private boolean isWorthCatalogSlot(
-            Player player,
-            int rawSlot
+    private DisplayContext displayContext(
+            Player player
     ) {
         InventoryView view =
                 player.getOpenInventory();
-
         Inventory top =
                 view.getTopInventory();
 
-        return WorthGui.isInventory(top)
-                && rawSlot >= 0
-                && rawSlot < WORTH_CONTENT_SLOTS;
-    }
-
-    /**
-     * Display policy is intentionally allowlist-based.
-     *
-     * <p>Allowed:</p>
-     * <ul>
-     *     <li>/worth catalog content</li>
-     *     <li>the player's normal inventory screen</li>
-     *     <li>real vanilla storage inventories</li>
-     * </ul>
-     *
-     * <p>Everything else is denied, including every Mineacle workflow GUI
-     * and every external-plugin GUI. We do not guess safety from a title or
-     * another plugin's holder class.</p>
-     */
-    private boolean shouldShowWorth(
-            Player player,
-            ItemStack item,
-            int rawSlot
-    ) {
-        if (item == null
-                || item.getType().isAir()
-                || item.getType()
-                == Material.BLACK_STAINED_GLASS_PANE) {
-            return false;
-        }
-
-        InventoryView view =
-                player.getOpenInventory();
-
-        Inventory top =
-                view.getTopInventory();
-
+        /*
+         * /worth authors its own catalog content. Do not clone or rebuild any
+         * packet items while that menu is open.
+         */
         if (WorthGui.isInventory(top)) {
-            return rawSlot >= 0
-                    && rawSlot
-                    < WORTH_CONTENT_SLOTS;
+            return DisplayContext.WORTH;
         }
 
-        /*
-         * Deposited Sell items remain visually clean. The Sell GUI summary
-         * is the only pending-payout display.
-         */
         if (SellGui.isInventory(top)) {
-            return false;
+            return DisplayContext.DENIED;
         }
 
-        /*
-         * Player inventory screen. Packet-only display is allowed here.
-         */
         if (top.getType()
                 == InventoryType.CRAFTING) {
-            return true;
+            return DisplayContext.PLAYER_INVENTORY;
         }
 
-        /*
-         * Real physical vanilla storage is explicitly allowed. This also
-         * permits the player's bottom inventory while that storage is open.
-         */
-        /*
-         * Default deny:
-         * anvils, enchanting, smithing, merchant/trading, furnaces,
-         * Mineacle menus, PhoenixCrates, and every other plugin GUI receive
-         * no automatic Worth line.
-         */
-        return isRealStorageTop(top);
+        return isRealStorageTop(top)
+                ? DisplayContext.REAL_STORAGE
+                : DisplayContext.DENIED;
+    }
+
+    private boolean contextAllowsWorth(
+            DisplayContext context,
+            int rawSlot
+    ) {
+        if (rawSlot < 0) {
+            return false;
+        }
+
+        return context == DisplayContext.PLAYER_INVENTORY
+                || context == DisplayContext.REAL_STORAGE;
     }
 
     private boolean isRealStorageTop(
@@ -387,9 +401,7 @@ public final class SellWorthPacketListener
     private Component component(
             String text
     ) {
-        return GuiText.component(
-                text
-        );
+        return GuiText.component(text);
     }
 
     private int setSlotRawSlot(
@@ -419,5 +431,12 @@ public final class SellWorthPacketListener
                 == GameMode.CREATIVE
                 || player.getGameMode()
                 == GameMode.SPECTATOR;
+    }
+
+    private enum DisplayContext {
+        WORTH,
+        PLAYER_INVENTORY,
+        REAL_STORAGE,
+        DENIED
     }
 }

@@ -40,9 +40,7 @@ public final class DisplayNames {
                 : name;
     }
 
-    /**
-     * Public Mineacle identity: nickname when set, otherwise username.
-     */
+    /** Public Mineacle identity: nickname when set, otherwise username. */
     public static String displayName(
             OfflinePlayer player
     ) {
@@ -107,9 +105,7 @@ public final class DisplayNames {
             OfflinePlayer player
     ) {
         return luckPermsPrefix(player)
-                + coloredDisplayName(
-                        player
-                );
+                + coloredDisplayName(player);
     }
 
     public static String commandDisplayName(
@@ -134,8 +130,7 @@ public final class DisplayNames {
             return exactUsername;
         }
 
-        String normalized =
-                normalize(raw);
+        String normalized = normalize(raw);
         NicknameService service =
                 ChatModule.nicknameService();
 
@@ -149,9 +144,7 @@ public final class DisplayNames {
 
             if (service != null
                     && normalize(
-                    service.nickname(
-                            online
-                    )
+                    service.nickname(online)
             ).equals(normalized)) {
                 return online;
             }
@@ -163,8 +156,7 @@ public final class DisplayNames {
     public static OfflinePlayer resolveOffline(
             String input
     ) {
-        Player online =
-                resolveOnline(input);
+        Player online = resolveOnline(input);
 
         if (online != null) {
             return online;
@@ -180,9 +172,7 @@ public final class DisplayNames {
 
         if (service != null) {
             OfflinePlayer byNickname =
-                    service.findByNickname(
-                            input
-                    );
+                    service.findByNickname(input);
 
             if (byNickname != null) {
                 return byNickname;
@@ -194,6 +184,11 @@ public final class DisplayNames {
         );
     }
 
+    /**
+     * Public completion/search predicate. A nickname replaces the username as
+     * the player's public identity, so a hidden username must never influence
+     * whether that player's nickname appears in tab completion.
+     */
     public static boolean startsWithDisplay(
             Player player,
             String partial
@@ -202,39 +197,31 @@ public final class DisplayNames {
             return false;
         }
 
-        String normalized =
-                normalize(partial);
+        String normalized = normalize(partial);
 
-        if (normalized.isEmpty()
+        return normalized.isEmpty()
                 || normalize(
-                username(player)
-        ).startsWith(normalized)) {
-            return true;
-        }
-
-        NicknameService service =
-                ChatModule.nicknameService();
-
-        return service != null
-                && normalize(
-                service.nickname(player)
+                commandDisplayName(player)
         ).startsWith(normalized);
     }
 
-    /**
-     * Effective prefix from LuckPerms' current context/prefix stack.
-     */
+    /** Effective prefix from LuckPerms' current context/prefix stack. */
     public static String luckPermsPrefix(
             OfflinePlayer player
     ) {
         String prefix =
-                RankDisplayResolver.prefix(
-                        player
-                ).stripTrailing();
+                RankDisplayResolver.prefix(player)
+                        .stripTrailing();
 
         return prefix.isBlank()
                 ? ""
                 : prefix + " ";
+    }
+
+    static String normalizePublicName(
+            String input
+    ) {
+        return normalize(input);
     }
 
     private static String normalize(
@@ -268,12 +255,9 @@ public final class DisplayNames {
                 );
             }
         } else if (cleaned.startsWith(".")) {
-            cleaned =
-                    cleaned.substring(1);
+            cleaned = cleaned.substring(1);
         }
 
-        return cleaned.toLowerCase(
-                Locale.ROOT
-        );
+        return cleaned.toLowerCase(Locale.ROOT);
     }
 }

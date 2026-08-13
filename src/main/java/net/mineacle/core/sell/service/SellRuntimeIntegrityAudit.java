@@ -68,8 +68,8 @@ public final class SellRuntimeIntegrityAudit {
             attempts++;
 
             if (attempts >= MAX_WAIT_ATTEMPTS) {
-                core.getLogger().warning(
-                        "Sell launch integrity audit skipped — "
+                core.getLogger().severe(
+                        "Sell launch integrity audit FAIL — "
                                 + "catalog revision "
                                 + REQUIRED_CATALOG_REVISION
                                 + " did not activate within the audit window"

@@ -930,8 +930,8 @@ prices:
     market-enabled: false
     target-units-per-day: 2000
 messages:
-  sold-chat: '&#bbbbbbSold &#ff88ff%amount%x items &#bbbbbbfor &a+%money%'
-  sold-actionbar: '&a+%money%'
+  sold-chat: '&#bbbbbbSold &#D0AFFF%amount%x items &#bbbbbbfor &#11fc7b+%money%'
+  sold-actionbar: '&#11fc7b+%money%'
 valuation:
   category-buyback:
     blocks:
