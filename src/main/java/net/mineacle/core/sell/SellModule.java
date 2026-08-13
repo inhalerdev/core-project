@@ -11,6 +11,7 @@ import net.mineacle.core.sell.listener.SellWorthPacketListener;
 import net.mineacle.core.sell.listener.SellWorthRefreshListener;
 import net.mineacle.core.sell.listener.WorthGuiListener;
 import net.mineacle.core.sell.service.SellService;
+import net.mineacle.core.sell.storage.SellCatalogBootstrapService;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.TabCompleter;
@@ -23,6 +24,7 @@ public final class SellModule extends Module {
 
     private SellWorthPacketListener packetListener;
     private WorthGuiListener worthGuiListener;
+    private SellCatalogBootstrapService catalogBootstrapService;
     private BukkitTask marketTask;
 
     public static SellService sellService() {
@@ -38,6 +40,21 @@ public final class SellModule extends Module {
     public void enable(Core core) {
         sellService = new SellService(core);
         sellService.start();
+
+        /*
+         * v1.0.37 Phase 1A:
+         * Seed the database catalog from the currently trusted runtime
+         * definitions without changing live pricing authority yet.
+         *
+         * The bootstrap service uses INSERT IGNORE so a future/manual DB
+         * catalog edit is never overwritten by a server restart.
+         */
+        catalogBootstrapService =
+                new SellCatalogBootstrapService(
+                        core,
+                        sellService
+                );
+        catalogBootstrapService.start();
 
         SellCommand command =
                 new SellCommand(core, sellService);
@@ -95,13 +112,13 @@ public final class SellModule extends Module {
             ProtocolLibrary.getProtocolManager()
                     .addPacketListener(packetListener);
             core.getLogger().info(
-                    "Sell worth hover lore enabled for "
-                            + "player inventory and real storage"
+                    "Sell worth hover display enabled for "
+                            + "explicitly allowed inventory contexts"
             );
         } else {
             core.getLogger().warning(
                     "ProtocolLib not found — packet-only "
-                            + "Worth lore is disabled"
+                            + "Worth display is disabled"
             );
         }
     }
@@ -123,6 +140,8 @@ public final class SellModule extends Module {
             worthGuiListener.shutdown();
             worthGuiListener = null;
         }
+
+        catalogBootstrapService = null;
 
         if (sellService != null) {
             sellService.shutdown();

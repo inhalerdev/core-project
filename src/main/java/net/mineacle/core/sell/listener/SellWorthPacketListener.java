@@ -1,5 +1,7 @@
 package net.mineacle.core.sell.listener;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.events.ListenerPriority;
 import com.comphenix.protocol.events.PacketAdapter;
@@ -11,7 +13,6 @@ import net.mineacle.core.sell.gui.SellGui;
 import net.mineacle.core.sell.gui.WorthGui;
 import net.mineacle.core.sell.model.ItemValuation;
 import net.mineacle.core.sell.service.SellService;
-import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.block.DoubleChest;
@@ -27,17 +28,13 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
-@SuppressWarnings({"rawtypes", "unchecked"})
 public final class SellWorthPacketListener
         extends PacketAdapter {
 
     /**
      * /worth item entries occupy slots 0-44.
-     *
-     * Toolbar and navigation controls occupy slots 45-53 and must never
-     * receive Worth, Value, Unit Price, or Stack Price lore.
+     * Toolbar/navigation controls occupy slots 45-53.
      */
     private static final int WORTH_CONTENT_SLOTS = 45;
 
@@ -87,9 +84,11 @@ public final class SellWorthPacketListener
         for (int index = 0;
              index < modifier.size();
              index++) {
-            ItemStack item = modifier.readSafely(index);
+            ItemStack item =
+                    modifier.readSafely(index);
 
-            if (item == null || item.getType().isAir()) {
+            if (item == null
+                    || item.getType().isAir()) {
                 continue;
             }
 
@@ -109,7 +108,8 @@ public final class SellWorthPacketListener
             Player player
     ) {
         StructureModifier<List<ItemStack>> listModifier =
-                event.getPacket().getItemListModifier();
+                event.getPacket()
+                        .getItemListModifier();
 
         for (int index = 0;
              index < listModifier.size();
@@ -117,34 +117,43 @@ public final class SellWorthPacketListener
             List<ItemStack> original =
                     listModifier.readSafely(index);
 
-            if (original == null || original.isEmpty()) {
+            if (original == null
+                    || original.isEmpty()) {
                 continue;
             }
 
             List<ItemStack> updated =
-                    new ArrayList<>(original.size());
+                    new ArrayList<>(
+                            original.size()
+                    );
 
             for (int rawSlot = 0;
                  rawSlot < original.size();
                  rawSlot++) {
-                ItemStack item = original.get(rawSlot);
+                ItemStack item =
+                        original.get(rawSlot);
 
                 updated.add(
-                        item == null || item.getType().isAir()
+                        item == null
+                                || item.getType().isAir()
                                 ? item
                                 : displayItem(
-                                player,
-                                item,
-                                rawSlot
-                        )
+                                        player,
+                                        item,
+                                        rawSlot
+                                )
                 );
             }
 
-            listModifier.writeSafely(index, updated);
+            listModifier.writeSafely(
+                    index,
+                    updated
+            );
         }
 
         StructureModifier<ItemStack[]> arrayModifier =
-                event.getPacket().getItemArrayModifier();
+                event.getPacket()
+                        .getItemArrayModifier();
 
         for (int index = 0;
              index < arrayModifier.size();
@@ -152,29 +161,37 @@ public final class SellWorthPacketListener
             ItemStack[] original =
                     arrayModifier.readSafely(index);
 
-            if (original == null || original.length == 0) {
+            if (original == null
+                    || original.length == 0) {
                 continue;
             }
 
             ItemStack[] updated =
-                    new ItemStack[original.length];
+                    new ItemStack[
+                            original.length
+                    ];
 
             for (int rawSlot = 0;
                  rawSlot < original.length;
                  rawSlot++) {
-                ItemStack item = original[rawSlot];
+                ItemStack item =
+                        original[rawSlot];
 
                 updated[rawSlot] =
-                        item == null || item.getType().isAir()
+                        item == null
+                                || item.getType().isAir()
                                 ? item
                                 : displayItem(
-                                player,
-                                item,
-                                rawSlot
-                        );
+                                        player,
+                                        item,
+                                        rawSlot
+                                );
             }
 
-            arrayModifier.writeSafely(index, updated);
+            arrayModifier.writeSafely(
+                    index,
+                    updated
+            );
         }
     }
 
@@ -184,30 +201,38 @@ public final class SellWorthPacketListener
             int rawSlot
     ) {
         /*
-         * Worth catalog entries already contain the final server sell value.
-         * Preserve that GUI-authored lore exactly instead of rebuilding it as
-         * generic storage hover lore.
+         * /worth authors its own catalog lore. Never rebuild those entries
+         * through the generic packet overlay.
          */
-        if (isWorthCatalogSlot(player, rawSlot)) {
+        if (isWorthCatalogSlot(
+                player,
+                rawSlot
+        )) {
             return original.clone();
         }
 
         /*
-         * Always strip stale Mineacle price lore first. This ensures toolbar
-         * controls remain clean even if the client previously received a
-         * priced copy of the same material.
+         * Always strip a stale Mineacle packet-copy marker first. The server
+         * inventory remains authoritative; this operates on display copies.
          */
         ItemStack clean =
-                sellService.stripWorthLore(original);
+                sellService.stripWorthLore(
+                        original
+                );
 
-        if (!shouldShowWorth(player, clean, rawSlot)) {
+        if (!shouldShowWorth(
+                player,
+                clean,
+                rawSlot
+        )) {
             return clean;
         }
 
-        ItemValuation valuation = sellService.appraise(
-                player,
-                clean
-        );
+        ItemValuation valuation =
+                sellService.appraise(
+                        player,
+                        clean
+                );
 
         if (!valuation.priced()) {
             return clean;
@@ -220,23 +245,29 @@ public final class SellWorthPacketListener
             return item;
         }
 
-        List<String> lore = meta.hasLore()
-                && meta.getLore() != null
-                ? new ArrayList<>(meta.getLore())
-                : new ArrayList<>();
-        lore.add(
-                0,
-                TextColor.color(
+        List<Component> existingLore =
+                meta.lore();
+        List<Component> lore =
+                existingLore == null
+                        ? new ArrayList<>()
+                        : new ArrayList<>(
+                                existingLore
+                        );
+
+        lore.addFirst(
+                component(
                         valuation.sellable()
-                                ? "&#bbbbbbWorth: &a"
+                                ? "&#bbbbbbWorth: "
+                                + "&#11fc7b"
                                 + sellService.format(
-                                valuation.serverSellCents()
-                        )
+                                        valuation
+                                                .serverSellCents()
+                                )
                                 : "&cPlayer Market Only"
                 )
         );
 
-        meta.setLore(lore);
+        meta.lore(lore);
         sellService.markInjectedWorthLore(
                 meta,
                 1
@@ -249,19 +280,31 @@ public final class SellWorthPacketListener
             Player player,
             int rawSlot
     ) {
-        InventoryView view = player.getOpenInventory();
+        InventoryView view =
+                player.getOpenInventory();
 
-        if (view == null) {
-            return false;
-        }
+        Inventory top =
+                view.getTopInventory();
 
-        Inventory top = view.getTopInventory();
-        return top != null
-                && WorthGui.isInventory(top)
+        return WorthGui.isInventory(top)
                 && rawSlot >= 0
                 && rawSlot < WORTH_CONTENT_SLOTS;
     }
 
+    /**
+     * Display policy is intentionally allowlist-based.
+     *
+     * <p>Allowed:</p>
+     * <ul>
+     *     <li>/worth catalog content</li>
+     *     <li>the player's normal inventory screen</li>
+     *     <li>real vanilla storage inventories</li>
+     * </ul>
+     *
+     * <p>Everything else is denied, including every Mineacle workflow GUI
+     * and every external-plugin GUI. We do not guess safety from a title or
+     * another plugin's holder class.</p>
+     */
     private boolean shouldShowWorth(
             Player player,
             ItemStack item,
@@ -274,135 +317,52 @@ public final class SellWorthPacketListener
             return false;
         }
 
-        InventoryView view = player.getOpenInventory();
+        InventoryView view =
+                player.getOpenInventory();
 
-        if (view == null) {
-            return true;
-        }
+        Inventory top =
+                view.getTopInventory();
 
-        Inventory top = view.getTopInventory();
-
-        if (top == null) {
-            return true;
-        }
-
-        boolean topSlot = rawSlot >= 0
-                && rawSlot < top.getSize();
-
-        /*
-         * Player-inventory slots may still display their normal item worth.
-         * The restrictions below apply only to the open GUI's top inventory.
-         */
-        if (!topSlot) {
-            return true;
-        }
-
-        /*
-         * /worth is the only Mineacle GUI allowed to show price lore, and
-         * only its actual catalog entries in slots 0-44 may show it.
-         *
-         * Slots 45-53 are toolbar/navigation controls and are always clean.
-         */
         if (WorthGui.isInventory(top)) {
-            return rawSlot < WORTH_CONTENT_SLOTS;
+            return rawSlot >= 0
+                    && rawSlot
+                    < WORTH_CONTENT_SLOTS;
         }
 
         /*
-         * The Sell GUI keeps deposited items visually clean. Its summary
-         * control is the single source of the pending payout total.
+         * Deposited Sell items remain visually clean. The Sell GUI summary
+         * is the only pending-payout display.
          */
         if (SellGui.isInventory(top)) {
             return false;
         }
 
         /*
-         * Every other MineacleCore GUI is a control/workflow interface.
-         * No top-inventory item in those menus may receive automatic value
-         * lore, regardless of its material.
+         * Player inventory screen. Packet-only display is allowed here.
          */
-        if (isMineacleCoreGui(top)) {
-            return false;
-        }
-
-        /*
-         * PhoenixCrates reward entries intentionally retain unit value
-         * display. Stack-price duplication remains disabled there.
-         */
-        if (isPhoenixCrateRewardsMenu(view)) {
+        if (top.getType()
+                == InventoryType.CRAFTING) {
             return true;
         }
 
         /*
-         * Outside Mineacle GUI menus, automatic worth lore is limited to
-         * real storage inventories such as chests, barrels and shulkers.
+         * Real physical vanilla storage is explicitly allowed. This also
+         * permits the player's bottom inventory while that storage is open.
+         */
+        /*
+         * Default deny:
+         * anvils, enchanting, smithing, merchant/trading, furnaces,
+         * Mineacle menus, PhoenixCrates, and every other plugin GUI receive
+         * no automatic Worth line.
          */
         return isRealStorageTop(top);
-    }
-
-    private boolean isMineacleCoreGui(Inventory inventory) {
-        if (inventory == null) {
-            return false;
-        }
-
-        InventoryHolder holder =
-                inventory.getHolder(false);
-
-        if (holder == null) {
-            /*
-             * Legacy Mineacle menus with null holders already fall through
-             * to false because they are not real storage inventories.
-             */
-            return false;
-        }
-
-        Package holderPackage =
-                holder.getClass().getPackage();
-        String packageName = holderPackage == null
-                ? holder.getClass().getName()
-                : holderPackage.getName();
-
-        return packageName.equals("net.mineacle.core")
-                || packageName.startsWith(
-                "net.mineacle.core."
-        );
-    }
-
-    private boolean isPhoenixCrateRewardsMenu(
-            InventoryView view
-    ) {
-        Inventory top = view.getTopInventory();
-
-        if (top == null || isRealStorageTop(top)) {
-            return false;
-        }
-
-        String title = ChatColor.stripColor(
-                view.getTitle()
-        );
-        String lowerTitle = title == null
-                ? ""
-                : title.toLowerCase(Locale.ROOT);
-        InventoryHolder holder =
-                top.getHolder(false);
-        String holderName = holder == null
-                ? ""
-                : holder.getClass()
-                .getName()
-                .toLowerCase(Locale.ROOT);
-
-        return holderName.contains("phoenix")
-                || holderName.contains("pcrates")
-                || holderName.contains("crate")
-                || lowerTitle.contains("crate reward")
-                || lowerTitle.contains("crate preview")
-                || lowerTitle.contains("rewards")
-                || lowerTitle.contains("preview");
     }
 
     private boolean isRealStorageTop(
             Inventory inventory
     ) {
-        InventoryType type = inventory.getType();
+        InventoryType type =
+                inventory.getType();
 
         if (type == InventoryType.ENDER_CHEST) {
             return true;
@@ -419,21 +379,35 @@ public final class SellWorthPacketListener
                     || type == InventoryType.SHULKER_BOX
                     || type == InventoryType.HOPPER
                     || type == InventoryType.DROPPER
-                    || type == InventoryType.DISPENSER
-                    || type == InventoryType.ENDER_CHEST;
+                    || type == InventoryType.DISPENSER;
         }
 
         return false;
     }
 
-    private int setSlotRawSlot(PacketEvent event) {
-        StructureModifier<Integer> integers =
-                event.getPacket().getIntegers();
+    private Component component(
+            String text
+    ) {
+        return LegacyComponentSerializer
+                .legacySection()
+                .deserialize(
+                        TextColor.color(text)
+                );
+    }
 
-        for (int index = integers.size() - 1;
+    private int setSlotRawSlot(
+            PacketEvent event
+    ) {
+        StructureModifier<Integer> integers =
+                event.getPacket()
+                        .getIntegers();
+
+        for (int index =
+             integers.size() - 1;
              index >= 0;
              index--) {
-            Integer value = integers.readSafely(index);
+            Integer value =
+                    integers.readSafely(index);
 
             if (value != null) {
                 return value;
@@ -444,7 +418,8 @@ public final class SellWorthPacketListener
     }
 
     private boolean unsafeMode(Player player) {
-        return player.getGameMode() == GameMode.CREATIVE
+        return player.getGameMode()
+                == GameMode.CREATIVE
                 || player.getGameMode()
                 == GameMode.SPECTATOR;
     }
