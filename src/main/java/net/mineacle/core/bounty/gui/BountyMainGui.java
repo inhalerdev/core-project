@@ -33,9 +33,10 @@ public final class BountyMainGui {
 
     private static final int[] TOOLBAR =
             CenteredToolbar
-                    .interiorSlots(
+                    .interiorSlotsCenteredOn(
                             SIZE,
-                            4
+                            4,
+                            1
                     );
 
     public static final int PREVIOUS_SLOT =
@@ -167,7 +168,7 @@ public final class BountyMainGui {
         inventory.setItem(
                 REFRESH_SLOT,
                 item(
-                        Material.PAPER,
+                        Material.EMERALD,
                         "&#B078FFRefresh",
                         "&#bbbbbbReload current bounties"
                 )

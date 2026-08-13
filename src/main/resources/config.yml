@@ -553,7 +553,7 @@ orders:
         material: HOPPER
         name: '&dFilter'
       refresh:
-        material: PAPER
+        material: EMERALD
         name: '&dRefresh'
         lore:
         - '&#bbbbbbClick to refresh orders'

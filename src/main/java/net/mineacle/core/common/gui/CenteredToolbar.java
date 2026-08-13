@@ -4,9 +4,8 @@ package net.mineacle.core.common.gui;
  * Shared slot geometry for Mineacle inventory control rows.
  *
  * <p>A Minecraft inventory row contains nine slots. Paginated Mineacle menus
- * reserve the outer slots for Previous and Next, then mirror all utility
- * controls around the row's center. Even control counts leave the exact center
- * empty so the visual weight remains balanced.</p>
+ * reserve the outer slots for Previous and Next, then place utility controls
+ * inside the seven interior slots.</p>
  */
 public final class CenteredToolbar {
 
@@ -26,8 +25,8 @@ public final class CenteredToolbar {
     }
 
     /**
-     * Returns one through seven centered interior slots in left-to-right order.
-     * The two outer navigation slots are never returned.
+     * Returns one through seven visually centered interior slots in
+     * left-to-right order. Even control counts leave the exact center empty.
      */
     public static int[] interiorSlots(
             int inventorySize,
@@ -73,6 +72,63 @@ public final class CenteredToolbar {
                     "controlCount must be between 1 and 7"
             );
         };
+    }
+
+    /**
+     * Returns consecutive interior slots while forcing one designated control
+     * to occupy the exact center slot. This is the Mineacle standard for rows
+     * containing Refresh/Reload: Refresh owns the center and the surrounding
+     * controls retain their natural left-to-right order.
+     *
+     * @param inventorySize inventory size, 9 through 54 in rows of nine
+     * @param controlCount number of controls, 1 through 7
+     * @param centeredControlIndex zero-based index of the control that must own
+     *                             the exact center slot
+     * @return consecutive interior slots in left-to-right order
+     */
+    public static int[] interiorSlotsCenteredOn(
+            int inventorySize,
+            int controlCount,
+            int centeredControlIndex
+    ) {
+        if (controlCount < 1 || controlCount > 7) {
+            throw new IllegalArgumentException(
+                    "controlCount must be between 1 and 7"
+            );
+        }
+
+        if (centeredControlIndex < 0
+                || centeredControlIndex >= controlCount) {
+            throw new IllegalArgumentException(
+                    "centeredControlIndex must reference an existing control"
+            );
+        }
+
+        int rowStart = lastRowStart(inventorySize);
+        int firstInterior = rowStart + 1;
+        int lastInterior = rowStart + 7;
+        int firstSlot =
+                centerSlot(inventorySize)
+                        - centeredControlIndex;
+        int finalSlot =
+                firstSlot + controlCount - 1;
+
+        if (firstSlot < firstInterior
+                || finalSlot > lastInterior) {
+            throw new IllegalArgumentException(
+                    "controls cannot fit while keeping the selected control centered"
+            );
+        }
+
+        int[] slots = new int[controlCount];
+
+        for (int index = 0;
+             index < controlCount;
+             index++) {
+            slots[index] = firstSlot + index;
+        }
+
+        return slots;
     }
 
     /**

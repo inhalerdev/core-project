@@ -12,6 +12,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.BlockInventoryHolder;
@@ -68,6 +69,47 @@ public final class GuiSoundListener
     }
 
     /**
+     * Enforces the shared player-facing Refresh/Reload visual standard before
+     * the inventory is shown. Keeping this at the common GUI boundary means a
+     * future Core menu cannot silently regress to paper or another icon.
+     */
+    @EventHandler(
+            priority = EventPriority.MONITOR,
+            ignoreCancelled = true
+    )
+    public void onOpen(InventoryOpenEvent event) {
+        if (!(event.getPlayer()
+                instanceof Player)) {
+            return;
+        }
+
+        InventoryView view = event.getView();
+
+        if (!mineacleOwnedMenu(view)) {
+            return;
+        }
+
+        Inventory top = view.getTopInventory();
+
+        for (int slot = 0;
+             slot < top.getSize();
+             slot++) {
+            ItemStack item = top.getItem(slot);
+
+            if (item == null
+                    || item.getType().isAir()
+                    || item.getType() == Material.EMERALD
+                    || !refreshOrReload(item)) {
+                continue;
+            }
+
+            ItemStack standardized = item.clone();
+            standardized.setType(Material.EMERALD);
+            top.setItem(slot, standardized);
+        }
+    }
+
+    /**
      * This listener supplies a semantic fallback sound for Mineacle GUI
      * interactions that did not already request a more specific sound.
      *
@@ -76,8 +118,7 @@ public final class GuiSoundListener
      * win over this fallback.
      */
     @EventHandler(
-            priority = EventPriority.MONITOR,
-            ignoreCancelled = false
+            priority = EventPriority.MONITOR
     )
     public void onClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked()
@@ -234,10 +275,15 @@ public final class GuiSoundListener
         InventoryHolder holder = top.getHolder(false);
         String title = normalize(view.getTitle());
 
-        if (silentTitle(title)
-                || silentHolder(holder)) {
-            return false;
-        }
+        return !silentTitle(title)
+                && !silentHolder(holder)
+                && mineacleOwnedMenu(view);
+    }
+
+    private boolean mineacleOwnedMenu(InventoryView view) {
+        Inventory top = view.getTopInventory();
+        InventoryHolder holder = top.getHolder(false);
+        String title = normalize(view.getTitle());
 
         if (holder != null
                 && holder.getClass()
@@ -252,7 +298,7 @@ public final class GuiSoundListener
 
         /*
          * A non-Mineacle custom InventoryHolder belongs to another plugin.
-         * Never route those clicks through MineacleCore's sound system.
+         * Never style or route those inventories through MineacleCore.
          */
         if (holder != null) {
             return false;
@@ -267,7 +313,8 @@ public final class GuiSoundListener
         /*
          * Legacy Mineacle menus sometimes use a null InventoryHolder.
          * Require multiple action-style items before treating an unknown title
-         * as a Mineacle workflow, preventing normal named chests from sounding.
+         * as a Mineacle workflow, preventing normal named chests from being
+         * styled or sounded.
          */
         return actionItems >= 2;
     }
@@ -414,6 +461,7 @@ public final class GuiSoundListener
                 || text.contains("sort")
                 || text.contains("filter")
                 || text.contains("refresh")
+                || text.contains("reload")
                 || text.contains("toggle")
                 || text.contains("enable")
                 || text.contains("disable")
@@ -581,6 +629,18 @@ public final class GuiSoundListener
                 || text.contains("click to sell")
                 || text.contains("click to claim")
                 || text.contains("click to collect");
+    }
+
+    private boolean refreshOrReload(ItemStack item) {
+        ItemMeta meta = item.getItemMeta();
+
+        if (meta == null || !meta.hasDisplayName()) {
+            return false;
+        }
+
+        String name = normalize(meta.getDisplayName());
+        return name.contains("refresh")
+                || name.contains("reload");
     }
 
     private String itemText(ItemStack item) {

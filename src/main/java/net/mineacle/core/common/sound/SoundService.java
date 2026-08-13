@@ -17,6 +17,7 @@ public final class SoundService {
 
     private static final Map<String, Sound> SOUND_CACHE =
             new ConcurrentHashMap<>();
+    private static volatile boolean registryAliasesLoaded;
     private static final Set<String> INVALID_SOUNDS =
             ConcurrentHashMap.newKeySet();
     private static final Map<UUID, Map<String, Long>> LAST_PLAYED =
@@ -89,6 +90,7 @@ public final class SoundService {
 
     public static void clearCache() {
         SOUND_CACHE.clear();
+        registryAliasesLoaded = false;
         INVALID_SOUNDS.clear();
         LAST_PLAYED.clear();
 
@@ -391,33 +393,124 @@ public final class SoundService {
                 .toLowerCase(Locale.ROOT);
     }
 
+    /**
+     * Resolves both modern registry keys and the Bukkit-style names used by
+     * Mineacle's existing configuration without guessing where underscores
+     * belong in Mojang sound keys.
+     *
+     * <p>For example, {@code ENTITY_EXPERIENCE_ORB_PICKUP} maps to the real
+     * registry key {@code minecraft:entity.experience_orb.pickup}. A blind
+     * underscore-to-dot conversion would incorrectly produce
+     * {@code entity.experience.orb.pickup} and silently break the sound.</p>
+     */
     private static Sound resolveRegisteredSound(String input) {
-        String normalized = input
-                .trim()
-                .toLowerCase(Locale.ROOT)
-                .replace('_', '.');
-        NamespacedKey key =
-                NamespacedKey.fromString(normalized);
-
-        if (key == null) {
+        if (input.isBlank()) {
             return null;
         }
 
-        String cacheKey = key.asString();
-        Sound cached = SOUND_CACHE.get(cacheKey);
+        String trimmed = input.trim();
+        String normalized =
+                trimmed.toLowerCase(Locale.ROOT);
+
+        Sound cached = SOUND_CACHE.get(normalized);
 
         if (cached != null) {
             return cached;
         }
 
-        Sound sound =
-                Registry.SOUND_EVENT.get(key);
+        NamespacedKey directKey = directSoundKey(normalized);
 
-        if (sound != null) {
-            SOUND_CACHE.put(cacheKey, sound);
+        if (directKey != null) {
+            Sound direct = Registry.SOUND_EVENT.get(directKey);
+
+            if (direct != null) {
+                cacheSoundAliases(directKey, direct);
+                SOUND_CACHE.putIfAbsent(normalized, direct);
+                return direct;
+            }
         }
 
-        return sound;
+        ensureRegistryAliases();
+
+        Sound alias = SOUND_CACHE.get(
+                trimmed.toUpperCase(Locale.ROOT)
+        );
+
+        if (alias != null) {
+            SOUND_CACHE.putIfAbsent(normalized, alias);
+        }
+
+        return alias;
+    }
+
+    private static NamespacedKey directSoundKey(
+            String normalized
+    ) {
+        if (normalized.isBlank()) {
+            return null;
+        }
+
+        if (normalized.indexOf(':') >= 0) {
+            return NamespacedKey.fromString(normalized);
+        }
+
+        if (normalized.indexOf('.') >= 0) {
+            return NamespacedKey.minecraft(normalized);
+        }
+
+        return null;
+    }
+
+    /**
+     * Builds aliases from the server's real sound registry once. This keeps
+     * Mineacle compatible with Paper's registry API and future sound keys while
+     * retaining the human-friendly Bukkit-style names already used in config.
+     */
+    private static void ensureRegistryAliases() {
+        if (registryAliasesLoaded) {
+            return;
+        }
+
+        synchronized (SoundService.class) {
+            if (registryAliasesLoaded) {
+                return;
+            }
+
+            Registry.SOUND_EVENT.keyStream()
+                    .forEach(key -> {
+                        Sound sound =
+                                Registry.SOUND_EVENT.get(key);
+
+                        if (sound != null) {
+                            cacheSoundAliases(
+                                    key,
+                                    sound
+                            );
+                        }
+                    });
+
+            registryAliasesLoaded = true;
+        }
+    }
+
+    private static void cacheSoundAliases(
+            NamespacedKey key,
+            Sound sound
+    ) {
+        String fullKey =
+                key.asString()
+                        .toLowerCase(Locale.ROOT);
+        String path =
+                key.getKey()
+                        .toLowerCase(Locale.ROOT);
+        String bukkitStyle =
+                path.toUpperCase(Locale.ROOT)
+                        .replace('.', '_')
+                        .replace('/', '_');
+
+        SOUND_CACHE.putIfAbsent(fullKey, sound);
+        SOUND_CACHE.putIfAbsent(path, sound);
+        SOUND_CACHE.putIfAbsent(bukkitStyle, sound);
     }
 
     private static boolean isKeyStyle(String soundName) {

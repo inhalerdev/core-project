@@ -31,9 +31,10 @@ public final class WorthGui {
     public static final int SIZE = 54;
 
     private static final int[] TOOLBAR =
-            CenteredToolbar.interiorSlots(
+            CenteredToolbar.interiorSlotsCenteredOn(
                     SIZE,
-                    4
+                    4,
+                    2
             );
 
     public static final int PREVIOUS_SLOT =
@@ -184,7 +185,7 @@ public final class WorthGui {
         inventory.setItem(
                 REFRESH_SLOT,
                 toolbar(
-                        Material.PAPER,
+                        Material.EMERALD,
                         "&#B078FFRefresh",
                         List.of(
                                 "&#bbbbbbReload current prices"
