@@ -7,35 +7,33 @@ public final class GuiSearchLore {
     private GuiSearchLore() {
     }
 
-    public static List<String> inactive(String subject) {
-        String target = normalizeSubject(subject);
-
+    public static List<String> inactive(
+            @SuppressWarnings("unused")
+            String subject
+    ) {
         return List.of(
-                "&#bbbbbbSearch " + target,
-                "",
-                "&#ff88ffClick to search"
+                "&#bbbbbbClick to search"
         );
     }
 
-    public static List<String> active(String query) {
-        String display = query == null || query.isBlank()
-                ? "None"
-                : query.replace('_', ' ');
+    public static List<String> active(
+            String query
+    ) {
+        String display =
+                query == null
+                        || query.isBlank()
+                        ? "None"
+                        : query.replace(
+                        '_',
+                        ' '
+                );
 
         return List.of(
-                "&#bbbbbbCurrent Search",
-                "&#ff88ff" + display,
+                "&#bbbbbbCurrent: &#D0AFFF"
+                        + display,
                 "",
                 "&#bbbbbbLeft-click to search again",
                 "&#bbbbbbRight-click to clear"
         );
-    }
-
-    private static String normalizeSubject(String subject) {
-        if (subject == null || subject.isBlank()) {
-            return "entries";
-        }
-
-        return subject.trim();
     }
 }

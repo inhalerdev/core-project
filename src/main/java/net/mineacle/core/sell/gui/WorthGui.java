@@ -1,11 +1,9 @@
 package net.mineacle.core.sell.gui;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
-import net.mineacle.core.common.format.MoneyFormatter;
 import net.mineacle.core.common.gui.CenteredToolbar;
-import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.common.gui.GuiSearchLore;
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.sell.model.ItemValuation;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.Bukkit;
@@ -33,7 +31,7 @@ public final class WorthGui {
     private static final int[] TOOLBAR =
             CenteredToolbar.interiorSlots(
                     SIZE,
-                    3
+                    4
             );
 
     public static final int PREVIOUS_SLOT =
@@ -44,6 +42,8 @@ public final class WorthGui {
             TOOLBAR[1];
     public static final int REFRESH_SLOT =
             TOOLBAR[2];
+    public static final int SEARCH_SLOT =
+            TOOLBAR[3];
     public static final int NEXT_SLOT =
             CenteredToolbar.nextSlot(SIZE);
 
@@ -56,6 +56,8 @@ public final class WorthGui {
     private static final Map<UUID, SortMode> SORTS =
             new HashMap<>();
     private static final Map<UUID, FilterMode> FILTERS =
+            new HashMap<>();
+    private static final Map<UUID, String> QUERIES =
             new HashMap<>();
 
     private static final List<Material> CATALOG =
@@ -104,7 +106,7 @@ public final class WorthGui {
                 Bukkit.createInventory(
                         holder,
                         SIZE,
-                        component(
+                        GuiText.title(
                                 title(safePage)
                         )
                 );
@@ -129,6 +131,24 @@ public final class WorthGui {
                     item(
                             sellService,
                             entries.get(index)
+                    )
+            );
+        }
+
+        if (entries.isEmpty()) {
+            inventory.setItem(
+                    22,
+                    toolbar(
+                            Material.GRAY_DYE,
+                            "&#bbbbbbNo Results",
+                            query(player).isBlank()
+                                    ? List.of(
+                                    "&#bbbbbbNo items match this category"
+                            )
+                                    : List.of(
+                                    "&#bbbbbbNo results for &#D0AFFF"
+                                            + query(player)
+                            )
                     )
             );
         }
@@ -159,10 +179,16 @@ public final class WorthGui {
                 REFRESH_SLOT,
                 toolbar(
                         Material.PAPER,
-                        "&dRefresh",
+                        "&#B078FFRefresh",
                         List.of(
-                                "&#bbbbbbRefresh current market prices"
+                                "&#bbbbbbReload current prices"
                         )
+                )
+        );
+        inventory.setItem(
+                SEARCH_SLOT,
+                searchToolbar(
+                        query(player)
                 )
         );
 
@@ -211,19 +237,87 @@ public final class WorthGui {
     public static void cycleSort(
             Player player
     ) {
+        cycleSort(
+                player,
+                false
+        );
+    }
+
+    public static void cycleSort(
+            Player player,
+            boolean previous
+    ) {
+        SortMode current =
+                sort(player);
+
         SORTS.put(
                 player.getUniqueId(),
-                sort(player).next()
+                previous
+                        ? current.previous()
+                        : current.next()
         );
     }
 
     public static void cycleFilter(
-            Player player
+            Player player,
+            boolean previous
     ) {
+        FilterMode current =
+                filter(player);
+
         FILTERS.put(
                 player.getUniqueId(),
-                filter(player).next()
+                previous
+                        ? current.previous()
+                        : current.next()
         );
+    }
+
+    public static String query(
+            Player player
+    ) {
+        if (player == null) {
+            return "";
+        }
+
+        return QUERIES.getOrDefault(
+                player.getUniqueId(),
+                ""
+        );
+    }
+
+    public static void setQuery(
+            Player player,
+            String query
+    ) {
+        if (player == null) {
+            return;
+        }
+
+        String normalized =
+                normalizeQuery(query);
+
+        if (normalized.isBlank()) {
+            QUERIES.remove(
+                    player.getUniqueId()
+            );
+            return;
+        }
+
+        QUERIES.put(
+                player.getUniqueId(),
+                normalized
+        );
+    }
+
+    public static void clearQuery(
+            Player player
+    ) {
+        if (player != null) {
+            QUERIES.remove(
+                    player.getUniqueId()
+            );
+        }
     }
 
     public static void clearCatalogCache() {
@@ -244,12 +338,14 @@ public final class WorthGui {
         PAGES.remove(playerId);
         SORTS.remove(playerId);
         FILTERS.remove(playerId);
+        QUERIES.remove(playerId);
     }
 
     public static void clearAllState() {
         PAGES.clear();
         SORTS.clear();
         FILTERS.clear();
+        QUERIES.clear();
         clearCatalogCache();
     }
 
@@ -294,6 +390,11 @@ public final class WorthGui {
     ) {
         FilterMode filter =
                 filter(player);
+        String query =
+                query(player)
+                        .toLowerCase(
+                                Locale.ROOT
+                        );
         List<MarketEntry> result =
                 new ArrayList<>();
 
@@ -306,9 +407,19 @@ public final class WorthGui {
                             material
                     );
 
-            if (filter.matches(entry)) {
-                result.add(entry);
+            if (!filter.matches(entry)) {
+                continue;
             }
+
+            if (!query.isBlank()
+                    && !searchMatches(
+                    entry,
+                    query
+            )) {
+                continue;
+            }
+
+            result.add(entry);
         }
 
         result.sort(
@@ -317,6 +428,20 @@ public final class WorthGui {
         );
 
         return result;
+    }
+
+    private static boolean searchMatches(
+            MarketEntry entry,
+            String query
+    ) {
+        return entry.displayName()
+                .toLowerCase(Locale.ROOT)
+                .contains(query)
+                || entry.material()
+                .name()
+                .toLowerCase(Locale.ROOT)
+                .replace('_', ' ')
+                .contains(query);
     }
 
     private static MarketEntry snapshot(
@@ -337,7 +462,6 @@ public final class WorthGui {
                         1,
                         material.getMaxStackSize()
                 );
-
         long unitSell =
                 Math.max(
                         0L,
@@ -348,54 +472,6 @@ public final class WorthGui {
                         unitSell,
                         stackSize
                 );
-
-        boolean marketEnabled =
-                !sellService
-                        .isDemandExcluded(
-                                material
-                        );
-        double multiplier =
-                marketEnabled
-                        ? sellService
-                        .demandMultiplier(
-                                material
-                        )
-                        : 1.0D;
-        long supply24h =
-                marketEnabled
-                        ? sellService
-                        .demandWindowAmount(
-                                material
-                        )
-                        : 0L;
-        long target =
-                marketEnabled
-                        ? sellService
-                        .marketTargetUnits(
-                                material
-                        )
-                        : 0L;
-        double ratio =
-                marketEnabled
-                        ? sellService
-                        .marketSupplyRatio(
-                                material
-                        )
-                        : 1.0D;
-        boolean featured =
-                marketEnabled
-                        && sellService
-                        .isActiveDemandItem(
-                                material
-                        );
-        String tier =
-                marketEnabled
-                        ? sellService
-                        .demandTier(
-                                material
-                        )
-                        : "fixed";
-
         return new MarketEntry(
                 material,
                 sellService.pretty(material),
@@ -403,14 +479,7 @@ public final class WorthGui {
                 valuation,
                 unitSell,
                 stackSell,
-                stackSize,
-                marketEnabled,
-                multiplier,
-                supply24h,
-                target,
-                ratio,
-                featured,
-                tier
+                stackSize
         );
     }
 
@@ -437,7 +506,7 @@ public final class WorthGui {
                 && entry.unitSellCents()
                 > 0L) {
             lore.add(
-                    "&#bbbbbbPrice: &#11fc7b"
+                    "&#bbbbbbSell Price: &#11fc7b"
                             + sellService.format(
                             entry.unitSellCents()
                     )
@@ -460,67 +529,14 @@ public final class WorthGui {
             );
         }
 
-        lore.add("");
-
-        if (entry.marketEnabled()) {
-            lore.add(
-                    "&#bbbbbbMarket: "
-                            + tierColor(
-                            entry.tier()
-                    )
-                            + tierDisplay(
-                            entry.tier()
-                    )
-            );
-            lore.add(
-                    "&#bbbbbbMultiplier: &#B078FF"
-                            + SellService
-                            .formatMultiplier(
-                                    entry.multiplier()
-                            )
-                            + "x"
-            );
-            lore.add(
-                    "&#bbbbbb24h Supply: &#B078FF"
-                            + compact(
-                            entry.supply24h()
-                    )
-                            + " &#bbbbbb/ &#B078FF"
-                            + compact(
-                            entry.target()
-                    )
-            );
-            lore.add(
-                    "&#bbbbbbTarget Filled: &#B078FF"
-                            + percent(
-                            entry.ratio()
-                    )
-            );
-
-            if (entry.featured()) {
-                lore.add(
-                        "&#B078FFFeatured Demand"
-                );
-            }
-        } else if (entry.valuation()
-                .sellable()) {
-            lore.add(
-                    "&#bbbbbbMarket: &#bbbbbbFixed Price"
-            );
-        }
-
         meta.displayName(
-                component(
+                GuiText.component(
                         "&#bbbbbb"
                                 + entry.displayName()
                 )
         );
         meta.lore(
-                lore.stream()
-                        .map(
-                                WorthGui::component
-                        )
-                        .toList()
+                GuiText.lore(lore)
         );
         meta.addItemFlags(
                 ItemFlag.HIDE_ATTRIBUTES
@@ -530,88 +546,6 @@ public final class WorthGui {
         return item;
     }
 
-    private static String tierColor(
-            String tier
-    ) {
-        if (tier == null) {
-            return "&#bbbbbb";
-        }
-
-        return switch (
-                tier.toLowerCase(
-                        Locale.ROOT
-                )
-        ) {
-            case "featured" ->
-                    "&#B078FF";
-            case "shortage",
-                 "high_demand" ->
-                    "&#11fc7b";
-            case "oversupplied",
-                 "saturated" ->
-                    "&c";
-            default ->
-                    "&#bbbbbb";
-        };
-    }
-
-    private static String tierDisplay(
-            String tier
-    ) {
-        if (tier == null
-                || tier.isBlank()) {
-            return "Normal";
-        }
-
-        return switch (
-                tier.toLowerCase(
-                        Locale.ROOT
-                )
-        ) {
-            case "featured" ->
-                    "Featured";
-            case "shortage" ->
-                    "High Demand";
-            case "high_demand" ->
-                    "High Demand";
-            case "oversupplied" ->
-                    "Oversupplied";
-            case "saturated" ->
-                    "Saturated";
-            case "fixed" ->
-                    "Fixed Price";
-            default ->
-                    "Normal";
-        };
-    }
-
-    private static String percent(
-            double ratio
-    ) {
-        if (!Double.isFinite(ratio)
-                || ratio < 0.0D) {
-            return "0%";
-        }
-
-        long rounded =
-                Math.round(
-                        ratio * 100.0D
-                );
-
-        return rounded + "%";
-    }
-
-    private static String compact(
-            long value
-    ) {
-        return MoneyFormatter.compact(
-                Math.max(
-                        0L,
-                        value
-                )
-        );
-    }
-
     private static ItemStack navigationItem(
             boolean previous,
             int targetPage
@@ -619,10 +553,10 @@ public final class WorthGui {
         return toolbar(
                 Material.ARROW,
                 previous
-                        ? "&dPrevious Page"
-                        : "&dNext Page",
+                        ? "&#B078FFPrevious Page"
+                        : "&#B078FFNext Page",
                 List.of(
-                        "&#bbbbbbPage &#B078FF"
+                        "&#bbbbbbPage &#D0AFFF"
                                 + targetPage
                 )
         );
@@ -635,7 +569,7 @@ public final class WorthGui {
                 new ArrayList<>();
 
         lore.add(
-                "&#bbbbbbCurrent: &#B078FF"
+                "&#bbbbbbCurrent: &#D0AFFF"
                         + current.display
         );
         lore.add("");
@@ -644,7 +578,7 @@ public final class WorthGui {
                 : SortMode.values()) {
             lore.add(
                     (mode == current
-                            ? "&#B078FF"
+                            ? "&#D0AFFF"
                             : "&#bbbbbb")
                             + mode.display
             );
@@ -652,12 +586,15 @@ public final class WorthGui {
 
         lore.add("");
         lore.add(
-                "&#bbbbbbClick to change sort"
+                "&#bbbbbbLeft-click: Next"
+        );
+        lore.add(
+                "&#bbbbbbRight-click: Previous"
         );
 
         return toolbar(
                 Material.ANVIL,
-                "&dSort",
+                "&#B078FFSort",
                 lore
         );
     }
@@ -669,7 +606,7 @@ public final class WorthGui {
                 new ArrayList<>();
 
         lore.add(
-                "&#bbbbbbCurrent: &#B078FF"
+                "&#bbbbbbCurrent: &#D0AFFF"
                         + current.display
         );
         lore.add("");
@@ -678,7 +615,7 @@ public final class WorthGui {
                 : FilterMode.values()) {
             lore.add(
                     (mode == current
-                            ? "&#B078FF"
+                            ? "&#D0AFFF"
                             : "&#bbbbbb")
                             + mode.display
             );
@@ -686,13 +623,33 @@ public final class WorthGui {
 
         lore.add("");
         lore.add(
-                "&#bbbbbbClick to change filter"
+                "&#bbbbbbLeft-click: Next"
+        );
+        lore.add(
+                "&#bbbbbbRight-click: Previous"
         );
 
         return toolbar(
                 Material.HOPPER,
-                "&dFilter",
+                "&#B078FFFilter",
                 lore
+        );
+    }
+
+    private static ItemStack searchToolbar(
+            String query
+    ) {
+        return toolbar(
+                Material.OAK_SIGN,
+                "&#B078FFSearch",
+                query == null
+                        || query.isBlank()
+                        ? GuiSearchLore.inactive(
+                        "items"
+                )
+                        : GuiSearchLore.active(
+                        query
+                )
         );
     }
 
@@ -711,14 +668,10 @@ public final class WorthGui {
         }
 
         meta.displayName(
-                component(name)
+                GuiText.component(name)
         );
         meta.lore(
-                lore.stream()
-                        .map(
-                                WorthGui::component
-                        )
-                        .toList()
+                GuiText.lore(lore)
         );
         meta.addItemFlags(
                 ItemFlag.HIDE_ATTRIBUTES
@@ -746,6 +699,28 @@ public final class WorthGui {
         );
     }
 
+    private static String normalizeQuery(
+            String query
+    ) {
+        if (query == null) {
+            return "";
+        }
+
+        String normalized =
+                query.trim()
+                        .replace('_', ' ');
+
+        if (normalized.length() > 32) {
+            normalized =
+                    normalized.substring(
+                            0,
+                            32
+                    );
+        }
+
+        return normalized;
+    }
+
     private static long multiply(
             long value,
             int multiplier
@@ -769,15 +744,6 @@ public final class WorthGui {
         LOWEST_PRICE(
                 "Lowest Price"
         ),
-        HIGHEST_DEMAND(
-                "Highest Demand"
-        ),
-        MOST_OVERSUPPLIED(
-                "Most Oversupplied"
-        ),
-        FEATURED(
-                "Featured"
-        ),
         BY_NAME(
                 "By Name"
         );
@@ -797,6 +763,17 @@ public final class WorthGui {
 
             return modes[
                     (ordinal() + 1)
+                            % modes.length
+                    ];
+        }
+
+        private SortMode previous() {
+            SortMode[] modes =
+                    values();
+
+            return modes[
+                    (ordinal() - 1
+                            + modes.length)
                             % modes.length
                     ];
         }
@@ -825,57 +802,6 @@ public final class WorthGui {
                                                 ::unitSellCents
                                 )
                                 .thenComparing(name);
-                case HIGHEST_DEMAND ->
-                        Comparator
-                                .comparing(
-                                        MarketEntry
-                                                ::marketEnabled
-                                )
-                                .reversed()
-                                .thenComparing(
-                                        Comparator
-                                                .comparingDouble(
-                                                        MarketEntry
-                                                                ::multiplier
-                                                )
-                                                .reversed()
-                                )
-                                .thenComparingDouble(
-                                        MarketEntry::ratio
-                                )
-                                .thenComparing(name);
-                case MOST_OVERSUPPLIED ->
-                        Comparator
-                                .comparing(
-                                        MarketEntry
-                                                ::marketEnabled
-                                )
-                                .reversed()
-                                .thenComparing(
-                                        Comparator
-                                                .comparingDouble(
-                                                        MarketEntry
-                                                                ::ratio
-                                                )
-                                                .reversed()
-                                )
-                                .thenComparing(name);
-                case FEATURED ->
-                        Comparator
-                                .comparing(
-                                        MarketEntry
-                                                ::featured
-                                )
-                                .reversed()
-                                .thenComparing(
-                                        Comparator
-                                                .comparingDouble(
-                                                        MarketEntry
-                                                                ::multiplier
-                                                )
-                                                .reversed()
-                                )
-                                .thenComparing(name);
                 case BY_NAME ->
                         name;
             };
@@ -886,50 +812,20 @@ public final class WorthGui {
         ALL(
                 "All"
         ),
-        FEATURED(
-                "Featured"
+        BLOCKS(
+                "Blocks"
         ),
-        HIGH_DEMAND(
-                "High Demand"
-        ),
-        OVERSUPPLIED(
-                "Oversupplied"
+        RESOURCES(
+                "Resources"
         ),
         FARMING(
                 "Farming"
         ),
-        ORES(
-                "Ores"
-        ),
-        WOOD(
-                "Wood"
-        ),
         MOB_DROPS(
                 "Mob Drops"
         ),
-        NETHER(
-                "Nether"
-        ),
-        END(
-                "End"
-        ),
-        EQUIPMENT(
-                "Equipment"
-        ),
-        CONSUMABLES(
-                "Consumables"
-        ),
-        UTILITY(
-                "Utility"
-        ),
-        RARE(
-                "Rare"
-        ),
-        BLOCKS(
-                "Blocks"
-        ),
-        MISC(
-                "Misc"
+        GEAR(
+                "Gear"
         );
 
         private final String display;
@@ -951,46 +847,73 @@ public final class WorthGui {
                     ];
         }
 
+        private FilterMode previous() {
+            FilterMode[] modes =
+                    values();
+
+            return modes[
+                    (ordinal() - 1
+                            + modes.length)
+                            % modes.length
+                    ];
+        }
+
         private boolean matches(
                 MarketEntry entry
         ) {
+            String category =
+                    entry.category()
+                            .toLowerCase(
+                                    Locale.ROOT
+                            );
+
             return switch (this) {
                 case ALL ->
                         true;
-                case FEATURED ->
-                        entry.featured();
-                case HIGH_DEMAND ->
-                        entry.marketEnabled()
-                                && (entry.tier()
-                                .equalsIgnoreCase(
-                                        "shortage"
-                                )
-                                || entry.tier()
-                                .equalsIgnoreCase(
-                                        "high_demand"
-                                )
-                                || entry.tier()
-                                .equalsIgnoreCase(
-                                        "featured"
-                                ));
-                case OVERSUPPLIED ->
-                        entry.marketEnabled()
-                                && (entry.tier()
-                                .equalsIgnoreCase(
-                                        "oversupplied"
-                                )
-                                || entry.tier()
-                                .equalsIgnoreCase(
-                                        "saturated"
-                                ));
-                default ->
-                        entry.category()
-                                .equals(
-                                        name()
-                                                .toLowerCase(
-                                                        Locale.ROOT
-                                                )
-                                );
+                case BLOCKS ->
+                        category.equals(
+                                "blocks"
+                        );
+                case RESOURCES ->
+                        category.equals(
+                                "ores"
+                        )
+                                || category.equals(
+                                "wood"
+                        )
+                                || category.equals(
+                                "nether"
+                        )
+                                || category.equals(
+                                "end"
+                        );
+                case FARMING ->
+                        category.equals(
+                                "farming"
+                        );
+                case MOB_DROPS ->
+                        category.equals(
+                                "mob_drops"
+                        );
+                case GEAR ->
+                        category.equals(
+                                "equipment"
+                        )
+                                || category.equals(
+                                "consumables"
+                        )
+                                || category.equals(
+                                "utility"
+                        )
+                                || category.equals(
+                                "combat"
+                        )
+                                || category.equals(
+                                "rare"
+                        )
+                                || category.equals(
+                                "misc"
+                        );
             };
         }
     }
@@ -1002,25 +925,8 @@ public final class WorthGui {
             ItemValuation valuation,
             long unitSellCents,
             long stackSellCents,
-            int stackSize,
-            boolean marketEnabled,
-            double multiplier,
-            long supply24h,
-            long target,
-            double ratio,
-            boolean featured,
-            String tier
+            int stackSize
     ) {
-    }
-
-    private static Component component(
-            String text
-    ) {
-        return LegacyComponentSerializer
-                .legacySection()
-                .deserialize(
-                        TextColor.color(text)
-                );
     }
 
     private static final class Holder
