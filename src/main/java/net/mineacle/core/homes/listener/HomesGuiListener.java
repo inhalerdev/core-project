@@ -327,21 +327,21 @@ public final class HomesGuiListener implements Listener {
                 return;
             }
 
-            if (homeService.teamHomeSetBlocked(player)) {
-                sendBlockedTeamHomeWorld(player);
+            if (homeService.canSetTeamHomeHere(player)) {
+                teamHomeService.setTeamHome(
+                        team.teamId(),
+                        player.getLocation()
+                );
+                sendPopup(
+                        player,
+                        "&#bbbbbbTeam Home set to your current location"
+                );
+                SoundService.homeSet(player, core);
+                reopenHomes(player);
                 return;
             }
 
-            teamHomeService.setTeamHome(
-                    team.teamId(),
-                    player.getLocation()
-            );
-            sendPopup(
-                    player,
-                    "&#bbbbbbTeam Home set to your current location"
-            );
-            SoundService.homeSet(player, core);
-            reopenHomes(player);
+            sendBlockedTeamHomeWorld(player);
             return;
         }
 

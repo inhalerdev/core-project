@@ -82,9 +82,13 @@ public final class HomeService {
                 || personalHomeWorldBlocked(player.getWorld());
     }
 
-    public boolean teamHomeSetBlocked(Player player) {
-        return player == null
-                || teamHomeWorldBlocked(player.getWorld());
+    /**
+     * Shared cross-module Team Home placement capability.
+     * Homes consumes this positively while Teams also uses it directly.
+     */
+    public boolean canSetTeamHomeHere(Player player) {
+        return player != null
+                && !teamHomeWorldBlocked(player.getWorld());
     }
 
     public boolean personalHomeWorldBlocked(World world) {
