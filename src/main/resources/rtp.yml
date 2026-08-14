@@ -1,8 +1,10 @@
 enabled: true
+
 menus:
   main:
     title: 'Random Teleport'
     size: 27
+
     items:
       overworld:
         enabled: true
@@ -11,11 +13,12 @@ menus:
         destination: overworld
         name: '&#8436FEOverworld'
         lore:
-        - '&#bbbbbbUses the current Overworld border'
-        - '&#bbbbbbAt least 1,000 blocks from world spawn'
-        - '&#bbbbbbOnline: &#B078FF%online%'
-        - ''
-        - '&#D0AFFFClick to random teleport'
+          - '&#bbbbbbUses the current Overworld border'
+          - '&#bbbbbbExplores at least %minimum_distance% blocks from spawn'
+          - '&#bbbbbbOnline: &#B078FF%online%'
+          - ''
+          - '&#D0AFFFClick to random teleport'
+
       nether:
         enabled: true
         slot: 13
@@ -23,11 +26,13 @@ menus:
         destination: nether
         name: '&#8436FENether'
         lore:
-        - '&#bbbbbbUses the current Nether border'
-        - '&#bbbbbbExplores at least %minimum_distance% blocks from spawn'
-        - '&#bbbbbbOnline: &#B078FF%online%'
-        - ''
-        - '&#D0AFFFClick to random teleport'
+          - '&#bbbbbbUses the full current Nether border'
+          - '&#bbbbbbSafe caves, terrain and structure blocks'
+          - '&#bbbbbbAvoids lava and unsafe landing blocks'
+          - '&#bbbbbbOnline: &#B078FF%online%'
+          - ''
+          - '&#D0AFFFClick to random teleport'
+
       end:
         enabled: true
         slot: 15
@@ -35,8 +40,9 @@ menus:
         destination: end
         name: '&#8436FEThe End'
         lore:
-        - '&#bbbbbbUses the current End border'
-        - '&#bbbbbbExplores at least %minimum_distance% blocks from spawn'
-        - '&#bbbbbbOnline: &#B078FF%online%'
-        - ''
-        - '&#D0AFFFClick to random teleport'
+          - '&#bbbbbbUses the full current End border'
+          - '&#bbbbbbSearches outer islands safely'
+          - '&#bbbbbbAvoids the void and chorus growth'
+          - '&#bbbbbbOnline: &#B078FF%online%'
+          - ''
+          - '&#D0AFFFClick to random teleport'

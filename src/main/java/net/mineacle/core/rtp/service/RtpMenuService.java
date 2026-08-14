@@ -22,6 +22,7 @@ public final class RtpMenuService {
 
     public static final String MAIN_MENU = "main";
 
+    private static final String PRIMARY = "&#8436FE";
     private static final String SECONDARY = "&#B078FF";
     private static final String ACCENT = "&#D0AFFF";
     private static final String BODY = "&#bbbbbb";
@@ -54,21 +55,19 @@ public final class RtpMenuService {
                 );
 
         if (menuSection != null) {
-            for (String menuKey
-                    : menuSection.getKeys(false)) {
+            for (String menuKey :
+                    menuSection.getKeys(false)) {
                 MenuDefinition definition = loadMenu(
                         configuration,
                         menuKey
                 );
 
-                if (definition != null) {
-                    loaded.put(
-                            menuKey.toLowerCase(
-                                    Locale.ROOT
-                            ),
-                            definition
-                    );
-                }
+                loaded.put(
+                        menuKey.toLowerCase(
+                                Locale.ROOT
+                        ),
+                        definition
+                );
             }
         }
 
@@ -110,7 +109,8 @@ public final class RtpMenuService {
                         player,
                         parsed
                 );
-            } catch (Throwable ignored) {
+            } catch (RuntimeException ignored) {
+                // Placeholder failure must never break a Mineacle menu.
             }
         }
 
@@ -140,11 +140,7 @@ public final class RtpMenuService {
         for (String line : item.lore()) {
             String resolved = line;
 
-            /*
-             * Compatibility for an existing server-side rtp.yml from before
-             * the large-border profile. The live effective minimum is always
-             * displayed instead of leaving a stale hardcoded 1,000 value.
-             */
+            /* Compatibility with an older live rtp.yml. */
             if (resolved.contains(
                     "At least 1,000 blocks from world spawn"
             )) {
@@ -276,7 +272,7 @@ public final class RtpMenuService {
                                 ),
                                 configuration.getString(
                                         itemBase + ".name",
-                                        SECONDARY + key
+                                        PRIMARY + key
                                 ),
                                 List.copyOf(
                                         configuration.getStringList(
@@ -308,7 +304,7 @@ public final class RtpMenuService {
                                 "overworld",
                                 11,
                                 Material.GRASS_BLOCK,
-                                SECONDARY + "Overworld",
+                                PRIMARY + "Overworld",
                                 List.of(
                                         ACCENT
                                                 + "Click to random teleport"
@@ -320,7 +316,7 @@ public final class RtpMenuService {
                                 "nether",
                                 13,
                                 Material.NETHERRACK,
-                                SECONDARY + "Nether",
+                                PRIMARY + "Nether",
                                 List.of(
                                         ACCENT
                                                 + "Click to random teleport"
@@ -332,7 +328,7 @@ public final class RtpMenuService {
                                 "end",
                                 15,
                                 Material.END_STONE,
-                                SECONDARY + "The End",
+                                PRIMARY + "The End",
                                 List.of(
                                         ACCENT
                                                 + "Click to random teleport"
@@ -349,19 +345,18 @@ public final class RtpMenuService {
         }
 
         return value
-                .replace("&#8436FE", SECONDARY)
-                .replace("&#8436fe", SECONDARY)
-                .replace("&#ff55ff", SECONDARY)
-                .replace("&#FF55FF", SECONDARY)
+                .replace("&#ff55ff", PRIMARY)
+                .replace("&#FF55FF", PRIMARY)
                 .replace("&#ff88ff", SECONDARY)
                 .replace("&#FF88FF", SECONDARY)
-                .replace("&d", SECONDARY);
+                .replace("&d", PRIMARY);
     }
 
     private int normalizeSize(int size) {
-        int clamped = Math.max(
+        int clamped = Math.clamp(
+                size,
                 9,
-                Math.min(54, size)
+                54
         );
 
         return clamped % 9 == 0
@@ -395,7 +390,7 @@ public final class RtpMenuService {
 
         if (!folder.exists()
                 && !folder.mkdirs()
-                && !folder.exists()) {
+                && !folder.isDirectory()) {
             throw new IllegalStateException(
                     "Could not create MineacleCore data folder"
             );

@@ -9,36 +9,124 @@ import org.bukkit.World;
 import org.bukkit.WorldBorder;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.Waterlogged;
+import org.bukkit.plugin.IllegalPluginAccessException;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BooleanSupplier;
 
 public final class OriginRtpLocationService {
 
-    private static final int WORLD_SAFE_LIMIT =
-            29_999_000;
+    private static final int WORLD_SAFE_LIMIT = 29_999_000;
+    private static final int HARD_MAX_CHUNK_LOAD_JOBS = 8;
 
     private final Core core;
+
     private final Map<String, ArrayDeque<Coordinates>>
             recentDestinations = new HashMap<>();
 
+    /*
+     * Every RTP search shares this one terrain-generation lane. Searches feed
+     * one candidate at a time, which gives natural round-robin fairness when
+     * several players are searching difficult terrain at once.
+     */
+    private final ArrayDeque<ChunkLoadJob> chunkLoadQueue =
+            new ArrayDeque<>();
+
+    /* Reference-counted because two countdowns can reserve the same chunk. */
+    private final Map<ChunkTicketKey, Integer> chunkTicketRefs =
+            new HashMap<>();
+    private final Set<ChunkTicketKey> ownedChunkTickets =
+            new HashSet<>();
+
+    private boolean shuttingDown;
+    private boolean drainingChunkLoads;
+    private int activeChunkLoadJobs;
+    private long lifecycleGeneration;
+    private int maximumChunkLoadJobs = 2;
+
     public OriginRtpLocationService(Core core) {
         this.core = core;
+        reload();
+    }
+
+    public void start() {
+        lifecycleGeneration++;
+        shuttingDown = false;
+        activeChunkLoadJobs = 0;
+        reload();
+    }
+
+    public void reload() {
+        String path =
+                "origin-rtp.search.max-candidate-load-jobs-at-once";
+        int configured = core.getConfig().contains(path)
+                ? core.getConfig().getInt(path, 2)
+                : core.getConfig().getInt(
+                "origin-rtp.search.max-chunk-load-jobs-at-once",
+                2
+        );
+
+        maximumChunkLoadJobs = Math.clamp(
+                configured,
+                1,
+                HARD_MAX_CHUNK_LOAD_JOBS
+        );
+
+        if (!shuttingDown) {
+            drainChunkLoads();
+        }
+    }
+
+    public void shutdown() {
+        shuttingDown = true;
+        lifecycleGeneration++;
+        activeChunkLoadJobs = 0;
+
+        while (!chunkLoadQueue.isEmpty()) {
+            ChunkLoadJob job = chunkLoadQueue.pollFirst();
+
+            if (job != null) {
+                job.completion().cancel(false);
+            }
+        }
+
+        releaseAllChunkTickets();
+        recentDestinations.clear();
+    }
+
+    public boolean destinationAvailable(String destination) {
+        if (shuttingDown) {
+            return false;
+        }
+
+        OriginRtpSearchSettings settings =
+                OriginRtpSearchSettings.fromConfig(
+                        core,
+                        destination
+                );
+        World world = Bukkit.getWorld(settings.worldName());
+
+        return world != null
+                && SearchArea.capture(
+                world,
+                settings
+        ).valid();
     }
 
     /**
-     * Finds a uniformly random safe block inside the world's current border.
-     *
-     * The border and world spawn are read again for every candidate batch, so
-     * border expansions and spawn changes take effect without a reload.
+     * Finds a uniformly random safe destination inside the current live world
+     * border. Candidate chunks load/generate asynchronously through a globally
+     * bounded lane. Live block safety validation remains on the server thread.
      */
     public CompletableFuture<Location> findSafeLocation(
             String destination
@@ -46,52 +134,164 @@ public final class OriginRtpLocationService {
         CompletableFuture<Location> result =
                 new CompletableFuture<>();
 
-        Runnable begin = () -> {
-            OriginRtpSearchSettings settings =
-                    OriginRtpSearchSettings.fromConfig(
-                            core,
-                            destination
-                    );
-            World world = Bukkit.getWorld(
-                    settings.worldName()
-            );
+        runOnMain(
+                () -> {
+                    if (shuttingDown || result.isDone()) {
+                        result.complete(null);
+                        return;
+                    }
 
-            if (world == null) {
-                result.complete(null);
-                return;
-            }
+                    try {
+                        OriginRtpSearchSettings settings =
+                                OriginRtpSearchSettings.fromConfig(
+                                        core,
+                                        destination
+                                );
+                        World world = Bukkit.getWorld(
+                                settings.worldName()
+                        );
 
-            launchBatch(
-                    world,
-                    settings,
-                    0,
-                    result
-            );
-        };
+                        if (world == null) {
+                            result.complete(null);
+                            return;
+                        }
 
-        if (Bukkit.isPrimaryThread()) {
-            begin.run();
-        } else {
-            Bukkit.getScheduler().runTask(
-                    core,
-                    begin
-            );
-        }
+                        SearchRun run = new SearchRun(
+                                world,
+                                settings,
+                                result
+                        );
+                        launchBatch(run);
+                    } catch (RuntimeException exception) {
+                        result.completeExceptionally(exception);
+                    }
+                }
+        );
 
         return result;
     }
 
     /**
-     * Rechecks a reserved destination immediately before teleporting.
-     * This protects against a border shrink, a changed world spawn, or blocks
-     * being altered while the countdown was running.
+     * Pins every chunk touched by final validation for the short RTP countdown.
+     * Revalidation therefore never needs to synchronously reload terrain.
      */
-    public Location revalidateReservedLocation(
+    public ChunkReservation retainReservation(
             Location reserved,
             String destination
     ) {
-        if (reserved == null
+        if (shuttingDown
+                || reserved == null
                 || reserved.getWorld() == null) {
+            return null;
+        }
+
+        OriginRtpSearchSettings settings =
+                OriginRtpSearchSettings.fromConfig(
+                        core,
+                        destination
+                );
+        World world = Bukkit.getWorld(
+                settings.worldName()
+        );
+
+        if (world == null
+                || world != reserved.getWorld()) {
+            return null;
+        }
+
+        SearchArea area = SearchArea.capture(
+                world,
+                settings
+        );
+        int x = reserved.getBlockX();
+        int z = reserved.getBlockZ();
+
+        if (!area.valid() || !area.allows(x, z)) {
+            return null;
+        }
+
+        int radius = validationRadius(settings);
+        List<ChunkTicketKey> keys = requiredChunkKeys(
+                world,
+                x,
+                z,
+                radius
+        );
+
+        /* Refuse to turn retention into a synchronous chunk load. */
+        for (ChunkTicketKey key : keys) {
+            if (!world.isChunkLoaded(
+                    key.chunkX(),
+                    key.chunkZ()
+            )) {
+                return null;
+            }
+        }
+
+        List<ChunkTicketKey> acquired =
+                new ArrayList<>(keys.size());
+
+        try {
+            for (ChunkTicketKey key : keys) {
+                int references = chunkTicketRefs.getOrDefault(
+                        key,
+                        0
+                );
+
+                if (references == 0) {
+                    boolean added = world.addPluginChunkTicket(
+                            key.chunkX(),
+                            key.chunkZ(),
+                            core
+                    );
+
+                    if (added) {
+                        ownedChunkTickets.add(key);
+                    }
+                }
+
+                chunkTicketRefs.put(
+                        key,
+                        references + 1
+                );
+                acquired.add(key);
+            }
+
+            return new ChunkReservation(
+                    List.copyOf(keys)
+            );
+        } catch (RuntimeException exception) {
+            releaseKeys(acquired);
+            return null;
+        }
+    }
+
+    public void releaseReservation(
+            ChunkReservation reservation
+    ) {
+        if (reservation == null
+                || reservation.released()) {
+            return;
+        }
+
+        reservation.markReleased();
+        releaseKeys(reservation.keys());
+    }
+
+    /**
+     * Rechecks a reserved destination immediately before teleport execution.
+     * The chunk reservation must still be alive and every validation chunk must
+     * already be loaded.
+     */
+    public Location revalidateReservedLocation(
+            Location reserved,
+            String destination,
+            ChunkReservation reservation
+    ) {
+        if (reserved == null
+                || reserved.getWorld() == null
+                || reservation == null
+                || reservation.released()) {
             return null;
         }
 
@@ -116,7 +316,14 @@ public final class OriginRtpLocationService {
         int x = reserved.getBlockX();
         int z = reserved.getBlockZ();
 
-        if (!area.valid() || !area.allows(x, z)) {
+        if (!area.valid()
+                || !area.allows(x, z)
+                || !requiredChunksLoaded(
+                expected,
+                x,
+                z,
+                validationRadius(settings)
+        )) {
             return null;
         }
 
@@ -124,7 +331,7 @@ public final class OriginRtpLocationService {
         int minimumY = settings.clampedMinimumY(expected);
         int maximumY = settings.clampedMaximumY(expected);
 
-        if (!safeLandingAt(
+        if (safeLandingAt(
                 expected,
                 x,
                 groundY,
@@ -133,188 +340,380 @@ public final class OriginRtpLocationService {
                 minimumY,
                 maximumY
         )) {
-            return null;
+            return new Location(
+                    expected,
+                    x + 0.5D,
+                    groundY + 1.0D,
+                    z + 0.5D,
+                    reserved.getYaw(),
+                    reserved.getPitch()
+            );
         }
 
-        return new Location(
-                expected,
-                x + 0.5D,
-                groundY + 1.0D,
-                z + 0.5D,
-                reserved.getYaw(),
-                reserved.getPitch()
-        );
+        return null;
     }
 
-    private void launchBatch(
-            World world,
-            OriginRtpSearchSettings settings,
-            int attemptsUsed,
-            CompletableFuture<Location> result
-    ) {
-        if (result.isDone()) {
+    private void launchBatch(SearchRun run) {
+        if (shuttingDown || run.result().isDone()) {
             return;
         }
 
-        if (attemptsUsed >= settings.maximumAttempts()) {
-            result.complete(null);
+        if (run.attemptsUsed()
+                >= run.settings().maximumAttempts()) {
+            run.result().complete(null);
             return;
         }
 
-        /*
-         * Capture the live border and live world spawn for every batch.
-         * Expanding the border while the server is running automatically
-         * expands the next candidate pool.
-         */
+        /* Live border/spawn are captured again for every candidate batch. */
         SearchArea area = SearchArea.capture(
-                world,
-                settings
+                run.world(),
+                run.settings()
         );
 
         if (!area.valid()) {
-            result.complete(null);
+            run.result().complete(null);
             return;
         }
 
         int batchSize = Math.min(
-                settings.candidatesPerBatch(),
-                settings.maximumAttempts() - attemptsUsed
+                run.settings().candidatesPerBatch(),
+                run.settings().maximumAttempts()
+                        - run.attemptsUsed()
         );
-        int poolSize = Math.min(
-                64,
-                Math.max(
+        int poolSize = Math.clamp(
+                Math.multiplyExact(
                         batchSize,
-                        batchSize
-                                * settings
+                        run.settings()
                                 .candidatePoolMultiplier()
-                )
+                ),
+                batchSize,
+                64
         );
+
         List<Coordinates> candidates =
                 prioritizeCandidates(
-                        world,
+                        area,
                         area.randomCandidates(poolSize),
                         batchSize,
-                        settings
+                        run.settings()
                 );
 
         if (candidates.isEmpty()) {
-            result.complete(null);
+            run.result().complete(null);
             return;
         }
 
-        AtomicInteger remaining =
-                new AtomicInteger(candidates.size());
-
-        for (Coordinates candidate : candidates) {
-            loadRequiredChunks(
-                    world,
-                    candidate,
-                    Math.max(
-                            settings.safePlatformRadius(),
-                            settings.hazardCheckRadius()
-                    )
-            ).whenComplete(
-                    (ignored, throwable) ->
-                            Bukkit.getScheduler().runTask(
-                                    core,
-                                    () -> {
-                                        if (result.isDone()) {
-                                            return;
-                                        }
-
-                                        if (throwable == null) {
-                                            /*
-                                             * The border may have changed while
-                                             * the chunks were loading, so check
-                                             * the current area once more.
-                                             */
-                                            SearchArea current =
-                                                    SearchArea.capture(
-                                                            world,
-                                                            settings
-                                                    );
-
-                                            if (current.valid()
-                                                    && current.allows(
-                                                    candidate.x(),
-                                                    candidate.z()
-                                            )) {
-                                                Location safe =
-                                                        safeLocationAt(
-                                                                world,
-                                                                candidate.x(),
-                                                                candidate.z(),
-                                                                settings
-                                                        );
-
-                                                if (safe != null) {
-                                                    rememberDestination(
-                                                            settings,
-                                                            candidate
-                                                    );
-                                                    result.complete(safe);
-                                                    return;
-                                                }
-                                            }
-                                        }
-
-                                        if (remaining.decrementAndGet()
-                                                == 0) {
-                                            launchBatch(
-                                                    world,
-                                                    settings,
-                                                    attemptsUsed
-                                                            + candidates.size(),
-                                                    result
-                                            );
-                                        }
-                                    }
-                            )
-            );
-        }
-    }
-
-    private CompletableFuture<Void> loadRequiredChunks(
-            World world,
-            Coordinates candidate,
-            int radius
-    ) {
-        int minimumChunkX =
-                (candidate.x() - radius) >> 4;
-        int maximumChunkX =
-                (candidate.x() + radius) >> 4;
-        int minimumChunkZ =
-                (candidate.z() - radius) >> 4;
-        int maximumChunkZ =
-                (candidate.z() + radius) >> 4;
-        List<CompletableFuture<Chunk>> futures =
-                new ArrayList<>();
-
-        for (int chunkX = minimumChunkX;
-             chunkX <= maximumChunkX;
-             chunkX++) {
-            for (int chunkZ = minimumChunkZ;
-                 chunkZ <= maximumChunkZ;
-                 chunkZ++) {
-                futures.add(
-                        world.getChunkAtAsync(
-                                chunkX,
-                                chunkZ,
-                                true
-                        )
-                );
-            }
-        }
-
-        return CompletableFuture.allOf(
-                futures.toArray(
-                        CompletableFuture[]::new
-                )
+        evaluateCandidate(
+                run,
+                candidates,
+                0
         );
     }
 
-    private List<Coordinates> prioritizeCandidates(
+    private void evaluateCandidate(
+            SearchRun run,
+            List<Coordinates> candidates,
+            int index
+    ) {
+        if (shuttingDown || run.result().isDone()) {
+            return;
+        }
+
+        if (run.attemptsUsed()
+                >= run.settings().maximumAttempts()) {
+            run.result().complete(null);
+            return;
+        }
+
+        if (index >= candidates.size()) {
+            launchBatch(run);
+            return;
+        }
+
+        Coordinates candidate = candidates.get(index);
+        run.incrementAttempts();
+
+        SearchArea beforeLoad = SearchArea.capture(
+                run.world(),
+                run.settings()
+        );
+
+        if (!beforeLoad.valid()
+                || !beforeLoad.allows(
+                candidate.x(),
+                candidate.z()
+        )) {
+            evaluateCandidate(
+                    run,
+                    candidates,
+                    index + 1
+            );
+            return;
+        }
+
+        loadRequiredChunksBounded(
+                run.world(),
+                candidate,
+                validationRadius(run.settings()),
+                run.result(),
+                () -> {
+                    SearchArea current = SearchArea.capture(
+                            run.world(),
+                            run.settings()
+                    );
+
+                    return current.valid()
+                            && current.allows(
+                            candidate.x(),
+                            candidate.z()
+                    );
+                }
+        ).whenComplete(
+                (ignored, throwable) ->
+                        runSearchOnMain(
+                                run,
+                                () -> validateCandidate(
+                                        run,
+                                        candidates,
+                                        index,
+                                        candidate,
+                                        throwable
+                                )
+                        )
+        );
+    }
+
+    private void validateCandidate(
+            SearchRun run,
+            List<Coordinates> candidates,
+            int index,
+            Coordinates candidate,
+            Throwable throwable
+    ) {
+        if (shuttingDown || run.result().isDone()) {
+            return;
+        }
+
+        if (throwable == null) {
+            SearchArea current = SearchArea.capture(
+                    run.world(),
+                    run.settings()
+            );
+
+            if (current.valid()
+                    && current.allows(
+                    candidate.x(),
+                    candidate.z()
+            )
+                    && requiredChunksLoaded(
+                    run.world(),
+                    candidate.x(),
+                    candidate.z(),
+                    validationRadius(run.settings())
+            )) {
+                Location safe = safeLocationAt(
+                        run.world(),
+                        candidate.x(),
+                        candidate.z(),
+                        run.settings()
+                );
+
+                int recentDistance =
+                        current.effectiveRecentDistance(
+                                run.settings()
+                                        .minimumRecentDestinationDistance()
+                        );
+
+                /*
+                 * Recheck after async work so two concurrent successes cannot
+                 * reserve nearby regions based on the same older history view.
+                 */
+                if (safe != null
+                        && farFromRecent(
+                        candidate,
+                        recentSnapshot(run.settings()),
+                        recentDistance
+                )) {
+                    rememberDestination(
+                            run.settings(),
+                            candidate
+                    );
+                    run.result().complete(safe);
+                    return;
+                }
+            }
+        }
+
+        evaluateCandidate(
+                run,
+                candidates,
+                index + 1
+        );
+    }
+
+    private CompletableFuture<Void> loadRequiredChunksBounded(
             World world,
+            Coordinates candidate,
+            int radius,
+            CompletableFuture<Location> owner,
+            BooleanSupplier preflight
+    ) {
+        CompletableFuture<Void> completion =
+                new CompletableFuture<>();
+
+        if (shuttingDown || owner.isDone()) {
+            completion.cancel(false);
+            return completion;
+        }
+
+        chunkLoadQueue.addLast(
+                new ChunkLoadJob(
+                        lifecycleGeneration,
+                        world,
+                        candidate,
+                        radius,
+                        owner,
+                        preflight,
+                        completion
+                )
+        );
+        drainChunkLoads();
+        return completion;
+    }
+
+    private void drainChunkLoads() {
+        if (shuttingDown || drainingChunkLoads) {
+            return;
+        }
+
+        drainingChunkLoads = true;
+
+        try {
+            while (!shuttingDown
+                    && activeChunkLoadJobs
+                    < maximumChunkLoadJobs
+                    && !chunkLoadQueue.isEmpty()) {
+                ChunkLoadJob job =
+                        chunkLoadQueue.pollFirst();
+
+                if (job == null) {
+                    continue;
+                }
+
+                if (job.lifecycleGeneration() != lifecycleGeneration
+                        || job.owner().isDone()) {
+                    job.completion().cancel(false);
+                    continue;
+                }
+
+                boolean valid;
+
+                try {
+                    valid = job.preflight().getAsBoolean();
+                } catch (RuntimeException exception) {
+                    valid = false;
+                }
+
+                if (!valid) {
+                    job.completion().cancel(false);
+                    continue;
+                }
+
+                activeChunkLoadJobs++;
+                startChunkLoad(job);
+            }
+        } finally {
+            drainingChunkLoads = false;
+        }
+    }
+
+    private void startChunkLoad(ChunkLoadJob job) {
+        int minimumChunkX =
+                (job.candidate().x() - job.radius()) >> 4;
+        int maximumChunkX =
+                (job.candidate().x() + job.radius()) >> 4;
+        int minimumChunkZ =
+                (job.candidate().z() - job.radius()) >> 4;
+        int maximumChunkZ =
+                (job.candidate().z() + job.radius()) >> 4;
+
+        List<CompletableFuture<Chunk>> futures =
+                new ArrayList<>(4);
+
+        try {
+            for (int chunkX = minimumChunkX;
+                 chunkX <= maximumChunkX;
+                 chunkX++) {
+                for (int chunkZ = minimumChunkZ;
+                     chunkZ <= maximumChunkZ;
+                     chunkZ++) {
+                    futures.add(
+                            job.world().getChunkAtAsync(
+                                    chunkX,
+                                    chunkZ,
+                                    true
+                            )
+                    );
+                }
+            }
+        } catch (RuntimeException exception) {
+            finishChunkLoad(job, exception);
+            return;
+        }
+
+        CompletableFuture.allOf(
+                futures.toArray(
+                        CompletableFuture[]::new
+                )
+        ).whenComplete(
+                (ignored, throwable) -> {
+                    if (shuttingDown
+                            || job.lifecycleGeneration()
+                            != lifecycleGeneration
+                            || !core.isEnabled()) {
+                        job.completion().cancel(false);
+                        return;
+                    }
+
+                    runOnMain(
+                            () -> finishChunkLoad(
+                                    job,
+                                    throwable
+                            )
+                    );
+                }
+        );
+    }
+
+    private void finishChunkLoad(
+            ChunkLoadJob job,
+            Throwable throwable
+    ) {
+        if (job.lifecycleGeneration() != lifecycleGeneration) {
+            job.completion().cancel(false);
+            return;
+        }
+
+        activeChunkLoadJobs = Math.max(
+                0,
+                activeChunkLoadJobs - 1
+        );
+
+        if (shuttingDown || job.owner().isDone()) {
+            job.completion().cancel(false);
+        } else if (throwable != null) {
+            job.completion().completeExceptionally(
+                    throwable
+            );
+        } else {
+            job.completion().complete(null);
+        }
+
+        drainChunkLoads();
+    }
+
+    private List<Coordinates> prioritizeCandidates(
+            SearchArea area,
             List<Coordinates> pool,
             int requested,
             OriginRtpSearchSettings settings
@@ -325,110 +724,58 @@ public final class OriginRtpLocationService {
 
         List<Coordinates> selected =
                 new ArrayList<>(requested);
-        Set<Long> used = new HashSet<>();
         List<Coordinates> recent =
-                recentSnapshot(settings.destination());
+                recentSnapshot(settings);
+        int recentDistance =
+                area.effectiveRecentDistance(
+                        settings.minimumRecentDestinationDistance()
+                );
 
-        if (settings.preferUnexploredChunks()) {
-            addCandidates(
-                    world,
-                    pool,
-                    selected,
-                    used,
-                    requested,
+        /*
+         * Do not call World#isChunkGenerated here. Paper's implementation can
+         * synchronously wait for chunk I/O on the main thread. Uniform full-
+         * border sampling plus recent-region spacing gives Mineacle the same
+         * exploration behavior without a tick-thread disk probe.
+         */
+        for (Coordinates candidate : pool) {
+            if (selected.size() >= requested) {
+                break;
+            }
+
+            if (farFromRecent(
+                    candidate,
                     recent,
-                    settings.minimumRecentDestinationDistance(),
-                    true,
-                    true
-            );
+                    recentDistance
+            )) {
+                selected.add(candidate);
+            }
         }
 
-        addCandidates(
-                world,
-                pool,
-                selected,
-                used,
-                requested,
-                recent,
-                settings.minimumRecentDestinationDistance(),
-                false,
-                true
-        );
-
-        if (settings.preferUnexploredChunks()) {
-            addCandidates(
-                    world,
-                    pool,
-                    selected,
-                    used,
-                    requested,
-                    recent,
-                    0,
-                    true,
-                    false
-            );
+        if (selected.size() >= requested) {
+            return List.copyOf(selected);
         }
 
-        addCandidates(
-                world,
-                pool,
-                selected,
-                used,
-                requested,
-                recent,
-                0,
-                false,
-                false
-        );
+        Set<Long> used = new HashSet<>();
+
+        for (Coordinates coordinate : selected) {
+            used.add(coordinate.packed());
+        }
+
+        for (Coordinates candidate : pool) {
+            if (selected.size() >= requested) {
+                break;
+            }
+
+            if (used.add(candidate.packed())) {
+                selected.add(candidate);
+            }
+        }
 
         return List.copyOf(selected);
     }
 
-    private void addCandidates(
-            World world,
-            List<Coordinates> pool,
-            List<Coordinates> selected,
-            Set<Long> used,
-            int requested,
-            List<Coordinates> recent,
-            int minimumRecentDistance,
-            boolean requireUnexplored,
-            boolean requireFarFromRecent
-    ) {
-        for (Coordinates candidate : pool) {
-            if (selected.size() >= requested) {
-                return;
-            }
-
-            long packed = candidate.packed();
-
-            if (used.contains(packed)) {
-                continue;
-            }
-
-            if (requireUnexplored
-                    && world.isChunkGenerated(
-                    candidate.x() >> 4,
-                    candidate.z() >> 4
-            )) {
-                continue;
-            }
-
-            if (requireFarFromRecent
-                    && !farFromRecent(
-                    candidate,
-                    recent,
-                    minimumRecentDistance
-            )) {
-                continue;
-            }
-
-            used.add(packed);
-            selected.add(candidate);
-        }
-    }
-
     private boolean farFromRecent(
+
             Coordinates candidate,
             List<Coordinates> recent,
             int minimumDistance
@@ -438,15 +785,19 @@ public final class OriginRtpLocationService {
         }
 
         long minimumSquared =
-                (long) minimumDistance * minimumDistance;
+                (long) minimumDistance
+                        * minimumDistance;
 
         for (Coordinates previous : recent) {
             long deltaX =
-                    (long) candidate.x() - previous.x();
+                    (long) candidate.x()
+                            - previous.x();
             long deltaZ =
-                    (long) candidate.z() - previous.z();
+                    (long) candidate.z()
+                            - previous.z();
 
-            if (deltaX * deltaX + deltaZ * deltaZ
+            if (deltaX * deltaX
+                    + deltaZ * deltaZ
                     < minimumSquared) {
                 return false;
             }
@@ -456,10 +807,12 @@ public final class OriginRtpLocationService {
     }
 
     private List<Coordinates> recentSnapshot(
-            String destination
+            OriginRtpSearchSettings settings
     ) {
         ArrayDeque<Coordinates> history =
-                recentDestinations.get(destination);
+                recentDestinations.get(
+                        historyKey(settings)
+                );
 
         return history == null || history.isEmpty()
                 ? List.of()
@@ -470,7 +823,8 @@ public final class OriginRtpLocationService {
             OriginRtpSearchSettings settings,
             Coordinates coordinates
     ) {
-        int maximum = settings.recentDestinationHistory();
+        int maximum =
+                settings.recentDestinationHistory();
 
         if (maximum <= 0) {
             return;
@@ -478,7 +832,7 @@ public final class OriginRtpLocationService {
 
         ArrayDeque<Coordinates> history =
                 recentDestinations.computeIfAbsent(
-                        settings.destination(),
+                        historyKey(settings),
                         ignored -> new ArrayDeque<>()
                 );
         history.addFirst(coordinates);
@@ -488,14 +842,25 @@ public final class OriginRtpLocationService {
         }
     }
 
+    private String historyKey(
+            OriginRtpSearchSettings settings
+    ) {
+        return settings.destination()
+                + "|"
+                + settings.worldName()
+                .toLowerCase(Locale.ROOT);
+    }
+
     private Location safeLocationAt(
             World world,
             int x,
             int z,
             OriginRtpSearchSettings settings
     ) {
-        int minimumY = settings.clampedMinimumY(world);
-        int maximumY = settings.clampedMaximumY(world);
+        int minimumY =
+                settings.clampedMinimumY(world);
+        int maximumY =
+                settings.clampedMaximumY(world);
 
         if (maximumY <= minimumY) {
             return null;
@@ -514,7 +879,7 @@ public final class OriginRtpLocationService {
             return null;
         }
 
-        if (!safeLandingAt(
+        if (safeLandingAt(
                 world,
                 x,
                 centerGroundY,
@@ -523,18 +888,18 @@ public final class OriginRtpLocationService {
                 minimumY,
                 maximumY
         )) {
-            return null;
+            return new Location(
+                    world,
+                    x + 0.5D,
+                    centerGroundY + 1.0D,
+                    z + 0.5D,
+                    ThreadLocalRandom.current()
+                            .nextFloat() * 360.0F,
+                    0.0F
+            );
         }
 
-        return new Location(
-                world,
-                x + 0.5D,
-                centerGroundY + 1.0D,
-                z + 0.5D,
-                ThreadLocalRandom.current()
-                        .nextFloat() * 360.0F,
-                0.0F
-        );
+        return null;
     }
 
     private int findCenterGroundY(
@@ -569,18 +934,25 @@ public final class OriginRtpLocationService {
         }
 
         int height = maximumY - minimumY + 1;
-        int startY = settings.randomizedVerticalSearch()
-                ? ThreadLocalRandom.current().nextInt(
-                minimumY,
-                maximumY + 1
-        )
-                : maximumY;
+        int startY =
+                settings.randomizedVerticalSearch()
+                        ? ThreadLocalRandom.current()
+                        .nextInt(
+                                minimumY,
+                                maximumY + 1
+                        )
+                        : maximumY;
 
-        for (int offset = 0; offset < height; offset++) {
-            int groundY = minimumY + Math.floorMod(
-                    startY - minimumY - offset,
-                    height
-            );
+        for (int offset = 0;
+             offset < height;
+             offset++) {
+            int groundY =
+                    minimumY + Math.floorMod(
+                            startY
+                                    - minimumY
+                                    - offset,
+                            height
+                    );
 
             if (safeColumn(
                     world,
@@ -642,6 +1014,11 @@ public final class OriginRtpLocationService {
             int maximumY
     ) {
         int radius = settings.safePlatformRadius();
+
+        if (radius <= 0) {
+            return true;
+        }
+
         int maximumDifference =
                 settings.maximumGroundHeightDifference();
 
@@ -651,18 +1028,20 @@ public final class OriginRtpLocationService {
             for (int z = centerZ - radius;
                  z <= centerZ + radius;
                  z++) {
-                int nearbyGroundY = findNearbyGroundY(
-                        world,
-                        x,
-                        z,
-                        centerGroundY,
-                        maximumDifference,
-                        settings,
-                        minimumY,
-                        maximumY
-                );
+                int nearbyGroundY =
+                        findNearbyGroundY(
+                                world,
+                                x,
+                                z,
+                                centerGroundY,
+                                maximumDifference,
+                                settings,
+                                minimumY,
+                                maximumY
+                        );
 
-                if (nearbyGroundY == Integer.MIN_VALUE) {
+                if (nearbyGroundY
+                        == Integer.MIN_VALUE) {
                     return false;
                 }
             }
@@ -741,6 +1120,14 @@ public final class OriginRtpLocationService {
             OriginRtpSearchSettings settings
     ) {
         int radius = settings.hazardCheckRadius();
+        int minimumY = Math.max(
+                world.getMinHeight(),
+                groundY - 1
+        );
+        int maximumY = Math.min(
+                world.getMaxHeight() - 1,
+                groundY + 3
+        );
 
         for (int x = centerX - radius;
              x <= centerX + radius;
@@ -748,12 +1135,13 @@ public final class OriginRtpLocationService {
             for (int z = centerZ - radius;
                  z <= centerZ + radius;
                  z++) {
-                for (int y = groundY;
-                     y <= groundY + 3;
+                for (int y = minimumY;
+                     y <= maximumY;
                      y++) {
-                    Block block = world.getBlockAt(x, y, z);
-
-                    if (unsafeMaterial(block, settings)) {
+                    if (unsafeMaterial(
+                            world.getBlockAt(x, y, z),
+                            settings
+                    )) {
                         return true;
                     }
                 }
@@ -767,10 +1155,6 @@ public final class OriginRtpLocationService {
             Block block,
             OriginRtpSearchSettings settings
     ) {
-        if (block == null) {
-            return false;
-        }
-
         Material material = block.getType();
 
         if (!material.isSolid()
@@ -801,10 +1185,6 @@ public final class OriginRtpLocationService {
             Block block,
             OriginRtpSearchSettings settings
     ) {
-        if (block == null) {
-            return false;
-        }
-
         Material material = block.getType();
 
         if (unsafeMaterial(block, settings)) {
@@ -819,19 +1199,298 @@ public final class OriginRtpLocationService {
             Block block,
             OriginRtpSearchSettings settings
     ) {
-        return block == null
-                || block.isLiquid()
+        return block.isLiquid()
                 || isWaterlogged(block)
-                || settings.unsafeBlocks().contains(
-                block.getType()
-        );
+                || settings.unsafeBlocks()
+                .contains(block.getType());
     }
 
     private boolean isWaterlogged(Block block) {
-        return block != null
-                && block.getBlockData()
+        return block.getBlockData()
                 instanceof Waterlogged waterlogged
                 && waterlogged.isWaterlogged();
+    }
+
+    private int validationRadius(
+            OriginRtpSearchSettings settings
+    ) {
+        return Math.max(
+                settings.safePlatformRadius(),
+                settings.hazardCheckRadius()
+        );
+    }
+
+    private boolean requiredChunksLoaded(
+            World world,
+            int x,
+            int z,
+            int radius
+    ) {
+        int minimumChunkX = (x - radius) >> 4;
+        int maximumChunkX = (x + radius) >> 4;
+        int minimumChunkZ = (z - radius) >> 4;
+        int maximumChunkZ = (z + radius) >> 4;
+
+        for (int chunkX = minimumChunkX;
+             chunkX <= maximumChunkX;
+             chunkX++) {
+            for (int chunkZ = minimumChunkZ;
+                 chunkZ <= maximumChunkZ;
+                 chunkZ++) {
+                if (!world.isChunkLoaded(
+                        chunkX,
+                        chunkZ
+                )) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private List<ChunkTicketKey> requiredChunkKeys(
+            World world,
+            int x,
+            int z,
+            int radius
+    ) {
+        int minimumChunkX = (x - radius) >> 4;
+        int maximumChunkX = (x + radius) >> 4;
+        int minimumChunkZ = (z - radius) >> 4;
+        int maximumChunkZ = (z + radius) >> 4;
+        List<ChunkTicketKey> keys =
+                new ArrayList<>(4);
+
+        for (int chunkX = minimumChunkX;
+             chunkX <= maximumChunkX;
+             chunkX++) {
+            for (int chunkZ = minimumChunkZ;
+                 chunkZ <= maximumChunkZ;
+                 chunkZ++) {
+                keys.add(
+                        new ChunkTicketKey(
+                                world.getUID(),
+                                chunkX,
+                                chunkZ
+                        )
+                );
+            }
+        }
+
+        return List.copyOf(keys);
+    }
+
+    private void releaseKeys(
+            List<ChunkTicketKey> keys
+    ) {
+        for (ChunkTicketKey key : keys) {
+            Integer references = chunkTicketRefs.get(key);
+
+            if (references == null) {
+                continue;
+            }
+
+            if (references > 1) {
+                chunkTicketRefs.put(
+                        key,
+                        references - 1
+                );
+                continue;
+            }
+
+            chunkTicketRefs.remove(key);
+
+            /*
+             * A plugin ticket is unique per plugin/chunk. If another future
+             * MineacleCore subsystem already owned the ticket when RTP arrived,
+             * RTP must not remove that subsystem's retention on release.
+             */
+            if (!ownedChunkTickets.remove(key)) {
+                continue;
+            }
+
+            World world = Bukkit.getWorld(
+                    key.worldId()
+            );
+
+            if (world == null
+                    || !world.isChunkLoaded(
+                    key.chunkX(),
+                    key.chunkZ()
+            )) {
+                continue;
+            }
+
+            try {
+                world.removePluginChunkTicket(
+                        key.chunkX(),
+                        key.chunkZ(),
+                        core
+                );
+            } catch (RuntimeException ignored) {
+                // World/plugin shutdown can race the final ticket release.
+            }
+        }
+    }
+
+    private void releaseAllChunkTickets() {
+        List<ChunkTicketKey> keys =
+                List.copyOf(ownedChunkTickets);
+        chunkTicketRefs.clear();
+        ownedChunkTickets.clear();
+
+        for (ChunkTicketKey key : keys) {
+            World world = Bukkit.getWorld(
+                    key.worldId()
+            );
+
+            if (world == null
+                    || !world.isChunkLoaded(
+                    key.chunkX(),
+                    key.chunkZ()
+            )) {
+                continue;
+            }
+
+            try {
+                world.removePluginChunkTicket(
+                        key.chunkX(),
+                        key.chunkZ(),
+                        core
+                );
+            } catch (RuntimeException ignored) {
+                // Plugin is shutting down.
+            }
+        }
+    }
+
+    private void runSearchOnMain(
+            SearchRun run,
+            Runnable action
+    ) {
+        runOnMain(
+                () -> {
+                    if (run.result().isDone()) {
+                        return;
+                    }
+
+                    try {
+                        action.run();
+                    } catch (RuntimeException exception) {
+                        run.result().completeExceptionally(exception);
+                    }
+                }
+        );
+    }
+
+    private void runOnMain(Runnable action) {
+        if (shuttingDown) {
+            return;
+        }
+
+        if (Bukkit.isPrimaryThread()) {
+            action.run();
+            return;
+        }
+
+        if (!core.isEnabled()) {
+            return;
+        }
+
+        try {
+            Bukkit.getScheduler().runTask(
+                    core,
+                    () -> {
+                        if (!shuttingDown
+                                && core.isEnabled()) {
+                            action.run();
+                        }
+                    }
+            );
+        } catch (IllegalPluginAccessException ignored) {
+            // Plugin is shutting down.
+        }
+    }
+
+    public static final class ChunkReservation {
+
+        private final List<ChunkTicketKey> keys;
+        private boolean released;
+
+        private ChunkReservation(
+                List<ChunkTicketKey> keys
+        ) {
+            this.keys = keys;
+        }
+
+        private List<ChunkTicketKey> keys() {
+            return keys;
+        }
+
+        private boolean released() {
+            return released;
+        }
+
+        private void markReleased() {
+            released = true;
+        }
+    }
+
+    private static final class SearchRun {
+
+        private final World world;
+        private final OriginRtpSearchSettings settings;
+        private final CompletableFuture<Location> result;
+        private int attemptsUsed;
+
+        private SearchRun(
+                World world,
+                OriginRtpSearchSettings settings,
+                CompletableFuture<Location> result
+        ) {
+            this.world = world;
+            this.settings = settings;
+            this.result = result;
+        }
+
+        private World world() {
+            return world;
+        }
+
+        private OriginRtpSearchSettings settings() {
+            return settings;
+        }
+
+        private CompletableFuture<Location> result() {
+            return result;
+        }
+
+        private int attemptsUsed() {
+            return attemptsUsed;
+        }
+
+        private void incrementAttempts() {
+            attemptsUsed++;
+        }
+    }
+
+    private record ChunkLoadJob(
+            long lifecycleGeneration,
+            World world,
+            Coordinates candidate,
+            int radius,
+            CompletableFuture<Location> owner,
+            BooleanSupplier preflight,
+            CompletableFuture<Void> completion
+    ) {
+    }
+
+    private record ChunkTicketKey(
+            UUID worldId,
+            int chunkX,
+            int chunkZ
+    ) {
     }
 
     private record Coordinates(int x, int z) {
@@ -867,8 +1526,8 @@ public final class OriginRtpLocationService {
                 WorldBorder border =
                         world.getWorldBorder();
                 Location center = border.getCenter();
-                double halfSize = border.getSize()
-                        / 2.0D;
+                double halfSize =
+                        border.getSize() / 2.0D;
                 double padding =
                         settings.worldBorderPadding();
 
@@ -897,14 +1556,18 @@ public final class OriginRtpLocationService {
             } else {
                 int radius =
                         settings.fallbackMaximumRadius();
-                minimumX = (long) settings.fallbackCenterX()
-                        - radius;
-                maximumX = (long) settings.fallbackCenterX()
-                        + radius;
-                minimumZ = (long) settings.fallbackCenterZ()
-                        - radius;
-                maximumZ = (long) settings.fallbackCenterZ()
-                        + radius;
+                minimumX =
+                        (long) settings.fallbackCenterX()
+                                - radius;
+                maximumX =
+                        (long) settings.fallbackCenterX()
+                                + radius;
+                minimumZ =
+                        (long) settings.fallbackCenterZ()
+                                - radius;
+                maximumZ =
+                        (long) settings.fallbackCenterZ()
+                                + radius;
             }
 
             minimumX = Math.max(
@@ -966,7 +1629,8 @@ public final class OriginRtpLocationService {
 
             for (int draw = 0;
                  draw < maximumDraws
-                         && candidates.size() < requested;
+                         && candidates.size()
+                         < requested;
                  draw++) {
                 int x = (int) random.nextLong(
                         minimumX,
@@ -985,9 +1649,7 @@ public final class OriginRtpLocationService {
                         new Coordinates(x, z);
 
                 if (unique.add(candidate.packed())) {
-                    candidates.add(
-                            candidate
-                    );
+                    candidates.add(candidate);
                 }
             }
 
@@ -1003,8 +1665,10 @@ public final class OriginRtpLocationService {
                 return false;
             }
 
-            double deltaX = x + 0.5D - spawnX;
-            double deltaZ = z + 0.5D - spawnZ;
+            double deltaX =
+                    x + 0.5D - spawnX;
+            double deltaZ =
+                    z + 0.5D - spawnZ;
             double distanceSquared =
                     deltaX * deltaX
                             + deltaZ * deltaZ;
@@ -1017,6 +1681,39 @@ public final class OriginRtpLocationService {
             return maximumSpawnDistanceSquared <= 0L
                     || distanceSquared
                     <= maximumSpawnDistanceSquared;
+        }
+
+        private int effectiveRecentDistance(
+                int configured
+        ) {
+            if (configured <= 0 || !valid) {
+                return 0;
+            }
+
+            long width = maximumX - minimumX + 1L;
+            long depth = maximumZ - minimumZ + 1L;
+            long shortest = Math.min(width, depth);
+
+            if (shortest <= 0L) {
+                return 0;
+            }
+
+            /*
+             * Avoid making small custom borders mathematically impractical.
+             * Mineacle's large worlds are unchanged by this cap.
+             */
+            long sensibleCap = Math.max(
+                    256L,
+                    shortest / 6L
+            );
+
+            return (int) Math.min(
+                    configured,
+                    Math.min(
+                            sensibleCap,
+                            Integer.MAX_VALUE
+                    )
+            );
         }
 
         private static long ceilToLong(double value) {

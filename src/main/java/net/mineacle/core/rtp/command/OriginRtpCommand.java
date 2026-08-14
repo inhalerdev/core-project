@@ -3,6 +3,7 @@ package net.mineacle.core.rtp.command;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.DisplayNames;
+import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.rtp.gui.RtpMenuGui;
@@ -15,6 +16,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -24,6 +26,12 @@ import java.util.Set;
 
 public final class OriginRtpCommand
         implements CommandExecutor, TabCompleter {
+
+    private static final String PRIMARY = "&#8436FE";
+    private static final String SECONDARY = "&#B078FF";
+    private static final String BODY = "&#bbbbbb";
+
+    private static final int MAX_PLAYER_SUGGESTIONS = 100;
 
     private static final List<String> DESTINATIONS =
             List.of(
@@ -48,19 +56,17 @@ public final class OriginRtpCommand
 
     @Override
     public boolean onCommand(
-            CommandSender sender,
-            Command command,
-            String label,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String label,
+            @NotNull String @NotNull [] args
     ) {
         boolean canonicalAdminRoot =
                 label.equalsIgnoreCase("originrtp");
 
         if (!(sender instanceof Player player)) {
-            return handleConsole(
-                    sender,
-                    args
-            );
+            handleConsole(sender, args);
+            return true;
         }
 
         if (!player.hasPermission("mineaclertp.use")) {
@@ -72,9 +78,7 @@ public final class OriginRtpCommand
         }
 
         if (canonicalAdminRoot
-                && player.hasPermission(
-                "mineaclertp.admin"
-        )
+                && player.hasPermission("mineaclertp.admin")
                 && args.length == 1
                 && args[0].equalsIgnoreCase("reload")) {
             reload(player);
@@ -82,15 +86,11 @@ public final class OriginRtpCommand
         }
 
         if (canonicalAdminRoot
-                && player.hasPermission(
-                "mineaclertp.admin"
-        )
+                && player.hasPermission("mineaclertp.admin")
                 && args.length >= 1
-                && !knownDestination(args[0])) {
-            return handleTarget(
-                    player,
-                    args
-            );
+                && unknownDestination(args[0])) {
+            handleTarget(player, args);
+            return true;
         }
 
         if (args.length == 0) {
@@ -106,7 +106,7 @@ public final class OriginRtpCommand
         }
 
         if (args.length != 1
-                || !knownDestination(args[0])) {
+                || unknownDestination(args[0])) {
             usage(player);
             return true;
         }
@@ -118,31 +118,34 @@ public final class OriginRtpCommand
         return true;
     }
 
-    private boolean handleConsole(
+    private void handleConsole(
             CommandSender sender,
             String[] args
     ) {
         if (args.length == 1
                 && args[0].equalsIgnoreCase("reload")) {
             core.reloadConfig();
+            queueService.reload();
             menuService.reload();
             sender.sendMessage(
                     TextColor.color(
-                            "&#bbbbbbRTP reloaded"
+                            BODY + "RTP reloaded"
                     )
             );
-            return true;
+            return;
         }
 
         if (args.length < 1 || args.length > 2) {
             sender.sendMessage(
                     TextColor.color(
-                            "&#bbbbbbUsage: &d/originrtp "
-                                    + "<player> "
+                            BODY
+                                    + "Usage: "
+                                    + PRIMARY
+                                    + "/originrtp <player> "
                                     + "[overworld|nether|end]"
                     )
             );
-            return true;
+            return;
         }
 
         Player target = DisplayNames.resolveOnline(
@@ -155,43 +158,55 @@ public final class OriginRtpCommand
                             "&cThat player is not online"
                     )
             );
-            return true;
+            return;
         }
 
         String destination = args.length == 2
                 ? canonicalDestination(args[1])
                 : "overworld";
 
-        if (!knownDestination(destination)) {
+        if (unknownDestination(destination)) {
             sender.sendMessage(
                     TextColor.color(
                             "&cUnknown RTP destination"
                     )
             );
-            return true;
+            return;
         }
 
-        queueService.request(target, destination);
+        if (!queueService.request(target, destination)) {
+            sender.sendMessage(
+                    TextColor.color(
+                            "&cCould not queue random teleport for "
+                                    + DisplayNames.displayName(target)
+                    )
+            );
+            return;
+        }
+
         sender.sendMessage(
                 TextColor.color(
-                        "&#bbbbbbQueued &#ff88ff"
+                        BODY
+                                + "Queued "
+                                + SECONDARY
                                 + DisplayNames.displayName(target)
-                                + " &#bbbbbbfor "
-                                + "&#ff88ff"
+                                + BODY
+                                + " for "
+                                + PRIMARY
                                 + displayName(destination)
+                                + BODY
                                 + " RTP"
                 )
         );
-        return true;
     }
 
-    private boolean handleTarget(
+    private void handleTarget(
             Player sender,
             String[] args
     ) {
         if (args.length > 2) {
             adminUsage(sender);
-            return true;
+            return;
         }
 
         Player target = DisplayNames.resolveOnline(
@@ -203,43 +218,55 @@ public final class OriginRtpCommand
                     sender,
                     "&cThat player is not online"
             );
-            return true;
+            return;
         }
 
         String destination = args.length == 2
                 ? canonicalDestination(args[1])
                 : "overworld";
 
-        if (!knownDestination(destination)) {
+        if (unknownDestination(destination)) {
             error(
                     sender,
                     "&cUnknown RTP destination"
             );
-            return true;
+            return;
         }
 
-        queueService.request(target, destination);
+        if (!queueService.request(target, destination)) {
+            error(
+                    sender,
+                    "&cCould not queue random teleport for "
+                            + DisplayNames.displayName(target)
+            );
+            return;
+        }
+
         sender.sendMessage(
                 TextColor.color(
-                        "&#bbbbbbQueued &#ff88ff"
+                        BODY
+                                + "Queued "
+                                + SECONDARY
                                 + DisplayNames.displayName(target)
-                                + " &#bbbbbbfor "
-                                + "&#ff88ff"
+                                + BODY
+                                + " for "
+                                + PRIMARY
                                 + displayName(destination)
+                                + BODY
                                 + " RTP"
                 )
         );
         SoundService.guiConfirm(sender, core);
-        return true;
     }
 
     private void reload(Player player) {
         core.reloadConfig();
+        queueService.reload();
         menuService.reload();
 
         player.sendMessage(
                 TextColor.color(
-                        "&#bbbbbbRTP reloaded"
+                        BODY + "RTP reloaded"
                 )
         );
         SoundService.guiConfirm(player, core);
@@ -248,8 +275,10 @@ public final class OriginRtpCommand
     private void usage(Player player) {
         player.sendMessage(
                 TextColor.color(
-                        "&#bbbbbbUsage: &d/rtp "
-                                + "[overworld|nether|end]"
+                        BODY
+                                + "Usage: "
+                                + PRIMARY
+                                + "/rtp [overworld|nether|end]"
                 )
         );
         SoundService.guiError(player, core);
@@ -258,8 +287,10 @@ public final class OriginRtpCommand
     private void adminUsage(Player player) {
         player.sendMessage(
                 TextColor.color(
-                        "&#bbbbbbUsage: &d/originrtp "
-                                + "<player> "
+                        BODY
+                                + "Usage: "
+                                + PRIMARY
+                                + "/originrtp <player> "
                                 + "[overworld|nether|end]"
                 )
         );
@@ -274,52 +305,53 @@ public final class OriginRtpCommand
         SoundService.guiError(player, core);
     }
 
-    private boolean knownDestination(String input) {
-        return DESTINATIONS.contains(
+    private boolean unknownDestination(String input) {
+        return !DESTINATIONS.contains(
                 canonicalDestination(input)
         );
     }
 
-    private String canonicalDestination(
-            String input
-    ) {
+    private String canonicalDestination(String input) {
         return OriginRtpSearchSettings
                 .canonicalDestination(input);
     }
 
     private String displayName(String destination) {
-        return core.getConfig().getString(
+        String configured = core.getConfig().getString(
                 "origin-rtp.destinations."
                         + destination
-                        + ".display-name",
-                switch (destination) {
-                    case "nether" -> "Nether";
-                    case "end" -> "The End";
-                    default -> "Overworld";
-                }
+                        + ".display-name"
         );
+
+        if (configured != null && !configured.isBlank()) {
+            return configured;
+        }
+
+        return switch (destination) {
+            case "nether" -> "Nether";
+            case "end" -> "The End";
+            default -> "Overworld";
+        };
     }
 
     @Override
     public List<String> onTabComplete(
-            CommandSender sender,
-            Command command,
-            String alias,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String alias,
+            @NotNull String @NotNull [] args
     ) {
         boolean canonicalAdminRoot =
                 alias.equalsIgnoreCase("originrtp");
         boolean admin = !(sender instanceof Player)
-                || sender.hasPermission(
-                "mineaclertp.admin"
-        );
+                || sender.hasPermission("mineaclertp.admin");
 
         if (args.length == 1) {
             String partial = normalize(args[0]);
 
             /*
              * /rtp and /wild intentionally expose destinations only.
-             * Player names are never suggested from player-facing roots.
+             * Player names never leak from player-facing roots.
              */
             if (!canonicalAdminRoot || !admin) {
                 return matching(
@@ -332,13 +364,25 @@ public final class OriginRtpCommand
                     new LinkedHashSet<>(DESTINATIONS);
             options.add("reload");
 
-            for (Player online
-                    : Bukkit.getOnlinePlayers()) {
-                options.add(
-                        DisplayNames.commandDisplayName(
-                                online
+            if (sender instanceof Player player) {
+                PlayerTabComplete.onlinePlayers(
+                                player,
+                                args[0],
+                                true
                         )
-                );
+                        .stream()
+                        .limit(MAX_PLAYER_SUGGESTIONS)
+                        .forEach(options::add);
+            } else {
+                Bukkit.getOnlinePlayers()
+                        .stream()
+                        .map(DisplayNames::commandDisplayName)
+                        .filter(
+                                value -> normalize(value)
+                                        .startsWith(partial)
+                        )
+                        .limit(MAX_PLAYER_SUGGESTIONS)
+                        .forEach(options::add);
             }
 
             return matching(
@@ -350,9 +394,7 @@ public final class OriginRtpCommand
         if (args.length == 2
                 && canonicalAdminRoot
                 && admin
-                && !args[0].equalsIgnoreCase(
-                "reload"
-        )) {
+                && !args[0].equalsIgnoreCase("reload")) {
             return matching(
                     DESTINATIONS,
                     normalize(args[1])
@@ -369,15 +411,12 @@ public final class OriginRtpCommand
         List<String> matches = new ArrayList<>();
 
         for (String option : options) {
-            if (normalize(option)
-                    .startsWith(partial)) {
+            if (normalize(option).startsWith(partial)) {
                 matches.add(option);
             }
         }
 
-        matches.sort(
-                String.CASE_INSENSITIVE_ORDER
-        );
+        matches.sort(String.CASE_INSENSITIVE_ORDER);
         return List.copyOf(matches);
     }
 

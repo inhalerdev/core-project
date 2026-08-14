@@ -5,52 +5,96 @@ import org.bukkit.Location;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 
-/** RTP queue/search lifecycle; common TeleportService owns final countdown. */
-@SuppressWarnings("unused")
-public final class OriginRtpMoveListener implements Listener {
+public final class OriginRtpMoveListener
+        implements Listener {
 
     private final OriginRtpQueueService queueService;
 
-    public OriginRtpMoveListener(OriginRtpQueueService queueService) {
+    public OriginRtpMoveListener(
+            OriginRtpQueueService queueService
+    ) {
         this.queueService = queueService;
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @SuppressWarnings("unused")
+    @EventHandler(
+            priority = EventPriority.MONITOR,
+            ignoreCancelled = true
+    )
     public void onMove(PlayerMoveEvent event) {
-        if (!queueService.active(event.getPlayer())) {
-            return;
-        }
+        if (queueService.trackingMovement(
+                event.getPlayer()
+        )) {
+            Location to = event.getTo();
 
-        Location to = event.getTo();
-        if (samePosition(event.getFrom(), to)) {
-            return;
+            if (!samePosition(
+                    event.getFrom(),
+                    to
+            )) {
+                queueService.handleMove(
+                        event.getPlayer(),
+                        to
+                );
+            }
         }
-
-        queueService.handleMove(event.getPlayer(), to);
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @SuppressWarnings("unused")
+    @EventHandler(
+            priority = EventPriority.MONITOR,
+            ignoreCancelled = true
+    )
     public void onTeleport(PlayerTeleportEvent event) {
-        if (!queueService.active(event.getPlayer())) {
-            return;
+        if (queueService.trackingMovement(
+                event.getPlayer()
+        )) {
+            queueService.handleTeleport(
+                    event.getPlayer(),
+                    event.getTo()
+            );
         }
-
-        queueService.handleTeleport(event.getPlayer(), event.getTo());
     }
 
+    @SuppressWarnings("unused")
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
         queueService.handleQuit(event.getPlayer());
     }
 
-    private boolean samePosition(Location from, Location to) {
+    @SuppressWarnings("unused")
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onDeath(PlayerDeathEvent event) {
+        queueService.handleDeath(event.getEntity());
+    }
+
+    @SuppressWarnings("unused")
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onRespawn(PlayerRespawnEvent event) {
+        queueService.handleRespawn(event.getPlayer());
+    }
+
+    private boolean samePosition(
+            Location from,
+            Location to
+    ) {
         return from.getWorld() == to.getWorld()
-                && Double.compare(from.getX(), to.getX()) == 0
-                && Double.compare(from.getY(), to.getY()) == 0
-                && Double.compare(from.getZ(), to.getZ()) == 0;
+                && Double.compare(
+                from.getX(),
+                to.getX()
+        ) == 0
+                && Double.compare(
+                from.getY(),
+                to.getY()
+        ) == 0
+                && Double.compare(
+                from.getZ(),
+                to.getZ()
+        ) == 0;
     }
 }

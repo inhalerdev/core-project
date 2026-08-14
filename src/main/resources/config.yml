@@ -222,15 +222,27 @@ placeholders:
 # Random Teleport
 # -----------------------------------------------------------------------------
 #
-# RTP destination discovery remains specialized, but the shared TeleportService
-# owns the final countdown and teleport execution.
+# RTP specializes in destination discovery only. The shared TeleportService
+# owns final countdown, movement cancellation and Paper teleport execution.
 #
 # Post-search countdown:
 #   Default:   4 -> 3 -> 2 -> 1
 #   Mineacle+: 3 -> 2 -> 1
 #
-# Wide live world borders may automatically strengthen several search values
-# such as edge padding, attempt counts, destination history and spacing.
+# Scale / safety:
+# - waiting requests are bounded instead of creating an unlimited backlog
+# - only a small bounded number of terrain searches run at once
+# - every active search submits one candidate at a time into one global async
+#   candidate-loading lane, preventing one difficult search from monopolizing
+#   world generation
+# - chosen validation chunks are ticketed only for the short countdown so final
+#   safety validation never needs a synchronous chunk load
+# - candidate sampling uses the full live world border without structure lookup
+# - generated-state probing is intentionally avoided because Paper's
+#   isChunkGenerated implementation may synchronously wait for chunk I/O
+#
+# Nether fortresses/quartz and End Cities/ships can therefore be encountered
+# naturally by luck, but RTP never locates or targets those structures.
 # -----------------------------------------------------------------------------
 
 origin-rtp:
@@ -246,8 +258,19 @@ origin-rtp:
 
   queue:
     process-every-ticks: 10
+
+    # Active destination searches. Hard code cap: 8
     max-searches-at-once: 2
+
+    # Backpressure protects the server from a mass RTP burst
+    max-queued-requests: 256
+    max-wait-seconds: 120
+
+    # Serve up to this many Plus requests before one Default request
     plus-priority-burst: 3
+
+    # Low-frequency safety sweep; quit/death/respawn are event-driven
+    maintenance-every-seconds: 10
 
   teleport:
     cancel-on-move: true
@@ -264,8 +287,13 @@ origin-rtp:
     center-z: 0
     fallback-maximum-radius: 5000
 
+    # Candidate jobs, not raw chunks. A candidate can touch up to four chunks
+    # when its safety radius crosses chunk edges. Hard code job cap: 8
+    max-candidate-load-jobs-at-once: 2
+
     candidates-per-batch: 4
     max-attempts: 160
+    max-passes: 2
     timeout-seconds: 60
 
     safe-platform-radius: 1
@@ -284,12 +312,23 @@ origin-rtp:
     - CACTUS
     - MAGMA_BLOCK
     - POWDER_SNOW
+    - FROSTED_ICE
     - BEDROCK
     - SWEET_BERRY_BUSH
     - WITHER_ROSE
     - CAMPFIRE
     - SOUL_CAMPFIRE
     - POINTED_DRIPSTONE
+    - COBWEB
+    - SCAFFOLDING
+    - BUBBLE_COLUMN
+    - SEAGRASS
+    - TALL_SEAGRASS
+    - KELP
+    - KELP_PLANT
+    - WATER_CAULDRON
+    - LAVA_CAULDRON
+    - POWDER_SNOW_CAULDRON
     - CHORUS_PLANT
     - CHORUS_FLOWER
     - END_GATEWAY
@@ -312,6 +351,7 @@ origin-rtp:
         min-y: 60
         max-y: 319
         surface-only: true
+        max-attempts: 192
 
     nether:
       enabled: true
@@ -323,16 +363,20 @@ origin-rtp:
         max-y: 118
         surface-only: false
 
+        # Full live-border exploration. The fallback remains close to the
+        # practical Minecraft coordinate limit when border sampling is disabled
         minimum-exploration-distance-from-world-spawn: 5000
         fallback-maximum-radius: 29000000
 
-        prefer-unexplored-chunks: true
-        candidate-pool-multiplier: 8
-        recent-destination-history: 16
-        minimum-recent-destination-distance: 4096
-
+        # Nether caves and fortress floors do not need a 3x3 flat platform
+        safe-platform-radius: 0
+        hazard-check-radius: 1
         randomized-vertical-search: true
-        hazard-check-radius: 2
+
+        max-attempts: 240
+        candidate-pool-multiplier: 12
+        recent-destination-history: 32
+        minimum-recent-destination-distance: 4096
 
     end:
       enabled: true
@@ -344,19 +388,25 @@ origin-rtp:
         max-y: 255
         surface-only: true
 
+        # Keeps RTP out of the central island/gateway area while the live
+        # border supplies the outer exploration range
         minimum-exploration-distance-from-world-spawn: 5000
         fallback-maximum-radius: 29000000
 
-        prefer-unexplored-chunks: true
-        candidate-pool-multiplier: 8
-        recent-destination-history: 16
-        minimum-recent-destination-distance: 4096
-
-        randomized-vertical-search: false
+        safe-platform-radius: 1
         hazard-check-radius: 2
+        randomized-vertical-search: false
+
+        max-attempts: 320
+        candidate-pool-multiplier: 12
+        recent-destination-history: 32
+        minimum-recent-destination-distance: 4096
 
   messages:
     disabled: '&cRandom teleport is unavailable for %world%'
+    world-unavailable: '&c%world% is unavailable right now'
+    busy: '&cRandom teleport is busy — try again in a moment'
+    queue-timeout: '&cRandom teleport queue timed out — try again'
     already-active: '&cYou already have an active random teleport'
     queued: '&#bbbbbbRandom teleport queued'
     countdown: '&#bbbbbbTeleporting to &#B078FF%world% &#bbbbbbin &#D0AFFF%seconds%s'
