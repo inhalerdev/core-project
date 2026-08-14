@@ -2,16 +2,15 @@
 # MineacleCore — Command Security
 # =============================================================================
 #
-# Security controls root command visibility and a small set of hard blocks.
-# LuckPerms and each command-owning plugin remain the authority for whether a
-# player is actually allowed to use a command.
+# Security is a visibility + hard-block layer.
+# LuckPerms and each command-owning plugin remain the authority for access.
 #
 # CRITICAL REGRESSION RULE:
 # Security never filters tab completion after the first space.
 # /warp <space>, /team <space>, /sell <space>, etc. remain command-owned.
 # =============================================================================
 
-schema-version: 2
+schema-version: 3
 
 enabled: true
 
@@ -26,16 +25,29 @@ groups-message: '&#bbbbbbActive command groups: &#B078FF%groups%'
 
 
 # -----------------------------------------------------------------------------
+# Performance
+# -----------------------------------------------------------------------------
+#
+# Permission changes can cause Paper to rebuild a player's command tree.
+# MineacleCore coalesces duplicate refreshes and drains them through one shared
+# queue so mass LuckPerms changes do not rebuild thousands of command trees in
+# one tick.
+# -----------------------------------------------------------------------------
+
+performance:
+  command-tree-refreshes-per-tick: 100
+
+
+# -----------------------------------------------------------------------------
 # Hard Security Rules
 # -----------------------------------------------------------------------------
 
-# Namespaced roots are blocked for players so plugin namespaces cannot be used
-# to route around the normal command path, e.g. bukkit:plugins or paper:version.
+# Namespaced roots are blocked for players so plugin namespaces cannot route
+# around the normal command path, e.g. bukkit:plugins or paper:version.
 block-namespaced-commands: true
 
-# These roots are intentionally unavailable to players regardless of normal
-# command visibility. External plugin administration commands are NOT listed
-# here; their own LuckPerms permissions control access.
+# These roots remain hidden/blocked even for permission-aware staff unless the
+# emergency bypass permission is explicitly assigned.
 blocked-commands:
   - '?'
   - about
@@ -48,8 +60,8 @@ blocked-commands:
   - ver
   - version
 
-# These commands remain console-only even if a player receives a broad
-# administrative permission elsewhere.
+# These remain console-only even if a player receives broad permissions or the
+# Mineacle Security bypass node.
 console-only-commands:
   - ban-ip
   - deop
@@ -64,20 +76,61 @@ console-only-commands:
   - stop
   - whitelist
 
+# Valid commands/aliases that may still be typed when the owning permission
+# allows them, but are intentionally removed from the root command suggestions
+# for every player group to keep the client command tree clean.
+always-hidden-commands:
+  - auction
+  - auctionhouse
+  - bal
+  - balancetop
+  - delhome
+  - duels
+  - ecsee
+  - enderchest
+  - flyspeed
+  - h
+  - help
+  - homes
+  - lobby
+  - m
+  - mineacle
+  - money
+  - nametags
+  - orders
+  - originrtp
+  - r
+  - renamehome
+  - reply
+  - teams
+  - tell
+  - tpadeny
+  - tpamenu
+  - tphere
+  - tpno
+  - tpyes
+  - w
+  - walkspeed
+  - warps
+  - webprofiles
+  - wild
+  - wm
+  - worldmaintenance
+
 
 # -----------------------------------------------------------------------------
 # Root Visibility Capability Groups
 # -----------------------------------------------------------------------------
 #
-# These are NOT LuckPerms ranks.
-# They are small command-visibility capability bundles.
+# These are not LuckPerms ranks.
+# They are small capability bundles used only for root command presentation.
 #
 # Normal players use the curated Default/Plus roots below.
 #
-# Players with mineaclesecurity.permission-aware-roots (Builder/Admin/Developer)
-# keep the command roots that Paper and the owning plugin already expose based
-# on the player's real permissions. This avoids duplicating every WorldEdit,
-# WorldGuard, LiteBans, Multiverse, TAB, etc. command here.
+# Builder/Admin/Developer receive mineaclesecurity.permission-aware-roots.
+# For those players, Security respects the command tree Paper and the owning
+# plugin already expose from their real LuckPerms permissions, while the hard
+# rules and always-hidden aliases above are still enforced.
 # -----------------------------------------------------------------------------
 
 groups:
@@ -120,39 +173,6 @@ groups:
       - worth
       - x
 
-    # Valid aliases/technical roots that remain usable when explicitly typed,
-    # but are intentionally omitted from root command suggestions.
-    hidden-commands:
-      - auction
-      - auctionhouse
-      - bal
-      - balancetop
-      - delhome
-      - duels
-      - h
-      - help
-      - homes
-      - lobby
-      - m
-      - mineacle
-      - money
-      - orders
-      - originrtp
-      - r
-      - renamehome
-      - reply
-      - teams
-      - tell
-      - tpadeny
-      - tpamenu
-      - tphere
-      - tpno
-      - tpyes
-      - w
-      - warps
-      - webprofiles
-      - wild
-
   plus:
     permission: mineacle.plus
     priority: 10
@@ -163,22 +183,6 @@ groups:
       - fly
       - nick
 
-  # Staff/build-tool users are permission-aware at the root level, but noisy
-  # aliases remain hidden so the client command list stays clean.
-  permission-aware-tools:
-    permission: mineaclesecurity.permission-aware-roots
-    priority: 50
-    inherits: []
-
-    hidden-commands:
-      - ecsee
-      - enderchest
-      - flyspeed
-      - nametags
-      - walkspeed
-
-  # Admin Inspect visibility follows its actual capability nodes rather than
-  # a rank name.
   inspect-inventory:
     permission: mineacleadmin.invsee
     priority: 80
@@ -194,7 +198,3 @@ groups:
 
     visible-commands:
       - echest
-
-    hidden-commands:
-      - ecsee
-      - enderchest

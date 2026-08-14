@@ -8,22 +8,27 @@ import net.mineacle.core.common.text.TextColor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Particle;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerToggleFlightEvent;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -32,13 +37,16 @@ import java.util.UUID;
 
 public final class DoubleJumpListener implements Listener {
 
+    private static final long ACTIVE_FLY_GUARD_TICKS = 20L;
+
     private final Core core;
 
     private final Map<UUID, Long> lastJumpNanos = new HashMap<>();
     private final Set<UUID> doubleJumpFlightOwned = new HashSet<>();
     private final Set<UUID> flyEnabled = new HashSet<>();
-    private final Map<UUID, FlightSnapshot> flySnapshots =
-            new HashMap<>();
+    private final Map<UUID, FlightSnapshot> flySnapshots = new HashMap<>();
+
+    private final BukkitTask activeFlyGuardTask;
 
     private Set<String> doubleJumpWorlds = Set.of();
     private Set<String> flyWorlds = Set.of();
@@ -50,12 +58,23 @@ public final class DoubleJumpListener implements Listener {
     private boolean cooldownActionBar;
     private boolean doubleJumpEnabled;
     private boolean flyFeatureEnabled;
+    private String flyPermission = "mineacle.plus";
 
     public DoubleJumpListener(Core core) {
         this.core = core;
         reloadSettings();
+
+        activeFlyGuardTask = core.getServer()
+                .getScheduler()
+                .runTaskTimer(
+                        core,
+                        this::validateActiveFlyers,
+                        ACTIVE_FLY_GUARD_TICKS,
+                        ACTIVE_FLY_GUARD_TICKS
+                );
     }
 
+    @SuppressWarnings("unused")
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
@@ -67,6 +86,7 @@ public final class DoubleJumpListener implements Listener {
         );
     }
 
+    @SuppressWarnings("unused")
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
@@ -81,6 +101,29 @@ public final class DoubleJumpListener implements Listener {
         doubleJumpFlightOwned.remove(playerId);
     }
 
+    @SuppressWarnings("unused")
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onDeath(PlayerDeathEvent event) {
+        Player player = event.getEntity();
+
+        disableCoreFly(player, false);
+        releaseDoubleJumpFlight(player);
+        lastJumpNanos.remove(player.getUniqueId());
+    }
+
+    @SuppressWarnings("unused")
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onRespawn(PlayerRespawnEvent event) {
+        Player player = event.getPlayer();
+
+        core.getServer().getScheduler().runTaskLater(
+                core,
+                () -> refresh(player),
+                2L
+        );
+    }
+
+    @SuppressWarnings("unused")
     @EventHandler(priority = EventPriority.MONITOR)
     public void onChangedWorld(PlayerChangedWorldEvent event) {
         Player player = event.getPlayer();
@@ -93,6 +136,7 @@ public final class DoubleJumpListener implements Listener {
         refresh(player);
     }
 
+    @SuppressWarnings("unused")
     @EventHandler(
             priority = EventPriority.MONITOR,
             ignoreCancelled = true
@@ -103,8 +147,11 @@ public final class DoubleJumpListener implements Listener {
         core.getServer().getScheduler().runTaskLater(
                 core,
                 () -> {
-                    if (isFlyEnabled(player)
-                            && !canUseFly(player)) {
+                    if (!player.isOnline()) {
+                        return;
+                    }
+
+                    if (isFlyEnabled(player) && !canUseFly(player)) {
                         disableCoreFly(player, true);
                     }
 
@@ -114,20 +161,22 @@ public final class DoubleJumpListener implements Listener {
         );
     }
 
+    @SuppressWarnings("unused")
     @EventHandler(
             priority = EventPriority.MONITOR,
             ignoreCancelled = true
     )
-    public void onGameModeChange(
-            PlayerGameModeChangeEvent event
-    ) {
+    public void onGameModeChange(PlayerGameModeChangeEvent event) {
         Player player = event.getPlayer();
 
         core.getServer().getScheduler().runTaskLater(
                 core,
                 () -> {
-                    if (isFlyEnabled(player)
-                            && !canUseFly(player)) {
+                    if (!player.isOnline()) {
+                        return;
+                    }
+
+                    if (isFlyEnabled(player) && !canUseFly(player)) {
                         disableCoreFly(player, false);
                     }
 
@@ -137,28 +186,50 @@ public final class DoubleJumpListener implements Listener {
         );
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @SuppressWarnings("unused")
+    @EventHandler(
+            priority = EventPriority.MONITOR,
+            ignoreCancelled = true
+    )
     public void onMove(PlayerMoveEvent event) {
-        if (!positionChanged(event)) {
+        Location to = event.getTo();
+
+        /*
+         * Rotation and horizontal movement make up the overwhelming majority
+         * of movement events. Exit before even touching per-player state when
+         * Y did not change.
+         */
+        if (Double.compare(
+                event.getFrom().getY(),
+                to.getY()
+        ) == 0) {
             return;
         }
 
         Player player = event.getPlayer();
 
+        /*
+         * Core flight has one shared one-second permission/world guard. Do not
+         * repeat permission/config checks on movement packets.
+         */
         if (isFlyEnabled(player)) {
-            if (!canUseFly(player)) {
-                disableCoreFly(player, true);
-            }
-
             return;
         }
 
-        refreshDoubleJump(player);
+        if (!isDoubleJumpEligible(player)) {
+            releaseDoubleJumpFlight(player);
+            return;
+        }
+
+        if (isSupported(player)) {
+            armDoubleJump(player);
+        }
     }
 
+    @SuppressWarnings("unused")
     @EventHandler(
             priority = EventPriority.HIGHEST,
-            ignoreCancelled = false
+            ignoreCancelled = true
     )
     public void onToggleFlight(PlayerToggleFlightEvent event) {
         Player player = event.getPlayer();
@@ -197,9 +268,7 @@ public final class DoubleJumpListener implements Listener {
 
             if (cooldownActionBar) {
                 player.sendActionBar(
-                        actionBar(
-                                "&cDouble jump is cooling down"
-                        )
+                        cooldownActionBar()
                 );
             }
 
@@ -229,14 +298,18 @@ public final class DoubleJumpListener implements Listener {
         }
 
         UUID playerId = player.getUniqueId();
-        boolean ownedDoubleJump =
-                doubleJumpFlightOwned.remove(playerId);
+        boolean ownedDoubleJump = doubleJumpFlightOwned.remove(playerId);
         boolean externalAllowFlight =
                 player.getAllowFlight() && !ownedDoubleJump;
+        boolean externalFlying =
+                externalAllowFlight && player.isFlying();
 
         flySnapshots.put(
                 playerId,
-                new FlightSnapshot(externalAllowFlight)
+                new FlightSnapshot(
+                        externalAllowFlight,
+                        externalFlying
+                )
         );
         flyEnabled.add(playerId);
 
@@ -245,7 +318,7 @@ public final class DoubleJumpListener implements Listener {
     }
 
     public void dropOutOfFly(Player player) {
-        if (player == null || !isFlyEnabled(player)) {
+        if (!isFlyEnabled(player)) {
             return;
         }
 
@@ -269,20 +342,11 @@ public final class DoubleJumpListener implements Listener {
             return false;
         }
 
-        String permission = core.getConfig().getString(
-                "fly.permission",
-                "mineacle.plus"
-        );
+        boolean permitted = player.hasPermission(flyPermission)
+                || player.hasPermission("mineaclefly.admin");
 
-        boolean permitted = player.hasPermission(
-                permission == null || permission.isBlank()
-                        ? "mineacle.plus"
-                        : permission
-        ) || player.hasPermission("mineaclefly.admin");
-
-        return permitted && isFlyWorld(
-                player.getWorld().getName()
-        );
+        return permitted
+                && isFlyWorld(player.getWorld().getName());
     }
 
     public void reloadSettingsAndRefresh() {
@@ -292,8 +356,7 @@ public final class DoubleJumpListener implements Listener {
     }
 
     public void refreshAll() {
-        for (Player player
-                : core.getServer().getOnlinePlayers()) {
+        for (Player player : core.getServer().getOnlinePlayers()) {
             if (isFlyEnabled(player) && !canUseFly(player)) {
                 disableCoreFly(player, true);
             }
@@ -303,8 +366,9 @@ public final class DoubleJumpListener implements Listener {
     }
 
     public void disableAll() {
-        for (Player player
-                : new ArrayList<>(
+        activeFlyGuardTask.cancel();
+
+        for (Player player : new ArrayList<>(
                 core.getServer().getOnlinePlayers()
         )) {
             disableCoreFly(player, false);
@@ -315,6 +379,42 @@ public final class DoubleJumpListener implements Listener {
         doubleJumpFlightOwned.clear();
         flyEnabled.clear();
         flySnapshots.clear();
+    }
+
+    private void validateActiveFlyers() {
+        if (flyEnabled.isEmpty()) {
+            return;
+        }
+
+        List<Player> invalidPlayers = null;
+        Iterator<UUID> iterator = flyEnabled.iterator();
+
+        while (iterator.hasNext()) {
+            UUID playerId = iterator.next();
+            Player player = core.getServer().getPlayer(playerId);
+
+            if (player == null || !player.isOnline()) {
+                iterator.remove();
+                flySnapshots.remove(playerId);
+                continue;
+            }
+
+            if (!canUseFly(player)) {
+                if (invalidPlayers == null) {
+                    invalidPlayers = new ArrayList<>();
+                }
+
+                invalidPlayers.add(player);
+            }
+        }
+
+        if (invalidPlayers == null) {
+            return;
+        }
+
+        for (Player player : invalidPlayers) {
+            disableCoreFly(player, true);
+        }
     }
 
     private void reloadSettings() {
@@ -336,12 +436,19 @@ public final class DoubleJumpListener implements Listener {
                 core.getConfig().getStringList("fly.worlds")
         );
 
+        String configuredFlyPermission = core.getConfig().getString(
+                "fly.permission"
+        );
+        flyPermission = configuredFlyPermission == null
+                || configuredFlyPermission.isBlank()
+                ? "mineacle.plus"
+                : configuredFlyPermission.trim();
+
         double cooldownSeconds = finiteClamped(
                 core.getConfig().getDouble(
                         "double-jump.cooldown-seconds",
                         0.75D
                 ),
-                0.0D,
                 60.0D,
                 0.75D
         );
@@ -354,7 +461,6 @@ public final class DoubleJumpListener implements Listener {
                         "double-jump.upward-velocity",
                         0.75D
                 ),
-                0.0D,
                 4.0D,
                 0.75D
         );
@@ -363,7 +469,6 @@ public final class DoubleJumpListener implements Listener {
                         "double-jump.forward-velocity",
                         1.50D
                 ),
-                0.0D,
                 4.0D,
                 1.50D
         );
@@ -401,7 +506,7 @@ public final class DoubleJumpListener implements Listener {
             return;
         }
 
-        if (!player.isOnGround()) {
+        if (!isSupported(player)) {
             return;
         }
 
@@ -473,27 +578,37 @@ public final class DoubleJumpListener implements Listener {
             return;
         }
 
-        player.setFlying(false);
-
-        boolean restoreExternal = snapshot != null
+        boolean restoreExternalAllowFlight = snapshot != null
                 && snapshot.externalAllowFlight();
+        boolean restoreExternalFlying = restoreExternalAllowFlight
+                && snapshot.externalFlying();
 
-        player.setAllowFlight(restoreExternal);
+        player.setFlying(false);
+        player.setAllowFlight(restoreExternalAllowFlight);
 
-        if (drop
-                && !player.isOnGround()
-                && !restoreExternal) {
-            Vector velocity = player.getVelocity();
-
-            player.setVelocity(new Vector(
-                    velocity.getX(),
-                    Math.min(velocity.getY(), -0.35D),
-                    velocity.getZ()
-            ));
+        if (restoreExternalFlying) {
+            player.setFlying(true);
         }
 
-        if (!restoreExternal
-                && player.isOnGround()
+        if (drop
+                && !isSupported(player)
+                && !restoreExternalAllowFlight) {
+            Vector velocity = player.getVelocity();
+
+            player.setVelocity(
+                    new Vector(
+                            velocity.getX(),
+                            Math.min(
+                                    velocity.getY(),
+                                    -0.35D
+                            ),
+                            velocity.getZ()
+                    )
+            );
+        }
+
+        if (!restoreExternalAllowFlight
+                && isSupported(player)
                 && isDoubleJumpEligible(player)) {
             armDoubleJump(player);
         }
@@ -528,9 +643,7 @@ public final class DoubleJumpListener implements Listener {
             return false;
         }
 
-        Long lastJump = lastJumpNanos.get(
-                player.getUniqueId()
-        );
+        Long lastJump = lastJumpNanos.get(player.getUniqueId());
 
         return lastJump != null
                 && System.nanoTime() - lastJump < cooldownNanos;
@@ -581,21 +694,8 @@ public final class DoubleJumpListener implements Listener {
         );
     }
 
-    private boolean positionChanged(PlayerMoveEvent event) {
-        Location from = event.getFrom();
-        Location to = event.getTo();
-
-        return to != null
-                && (from.getX() != to.getX()
-                || from.getY() != to.getY()
-                || from.getZ() != to.getZ());
-    }
-
-    private Set<String> normalizedWorlds(
-            List<String> configuredWorlds
-    ) {
-        if (configuredWorlds == null
-                || configuredWorlds.isEmpty()) {
+    private Set<String> normalizedWorlds(List<String> configuredWorlds) {
+        if (configuredWorlds == null || configuredWorlds.isEmpty()) {
             return Set.of();
         }
 
@@ -616,7 +716,6 @@ public final class DoubleJumpListener implements Listener {
 
     private double finiteClamped(
             double value,
-            double minimum,
             double maximum,
             double fallback
     ) {
@@ -624,16 +723,30 @@ public final class DoubleJumpListener implements Listener {
             return fallback;
         }
 
-        return Math.max(minimum, Math.min(maximum, value));
+        return Math.clamp(
+                value,
+                0.0D,
+                maximum
+        );
     }
 
-    private Component actionBar(String message) {
-        return LegacyComponentSerializer.legacySection()
-                .deserialize(TextColor.color(message));
+    private boolean isSupported(Player player) {
+        return ((Entity) player).isOnGround();
+    }
+
+    private Component cooldownActionBar() {
+        return LegacyComponentSerializer
+                .legacySection()
+                .deserialize(
+                        TextColor.color(
+                                "&cDouble jump is cooling down"
+                        )
+                );
     }
 
     private record FlightSnapshot(
-            boolean externalAllowFlight
+            boolean externalAllowFlight,
+            boolean externalFlying
     ) {
     }
 }

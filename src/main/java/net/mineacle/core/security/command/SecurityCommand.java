@@ -14,9 +14,7 @@ public final class SecurityCommand
 
     private final SecurityService service;
 
-    public SecurityCommand(
-            SecurityService service
-    ) {
+    public SecurityCommand(SecurityService service) {
         this.service = service;
     }
 
@@ -29,40 +27,27 @@ public final class SecurityCommand
     ) {
         if (service.canManage(sender)) {
             if (args.length != 1) {
-                sender.sendMessage(
-                        service.usageMessage()
-                );
+                sender.sendMessage(service.usageMessage());
                 return true;
             }
 
-            if (args[0].equalsIgnoreCase(
-                    "reload"
-            )) {
+            if (args[0].equalsIgnoreCase("reload")) {
                 service.reload();
-                sender.sendMessage(
-                        service.reloadMessage()
-                );
+                service.refreshAllCommandTrees();
+                sender.sendMessage(service.reloadMessage());
                 return true;
             }
 
-            if (args[0].equalsIgnoreCase(
-                    "groups"
-            )) {
-                sender.sendMessage(
-                        service.groupsMessage(sender)
-                );
+            if (args[0].equalsIgnoreCase("groups")) {
+                sender.sendMessage(service.groupsMessage(sender));
                 return true;
             }
 
-            sender.sendMessage(
-                    service.usageMessage()
-            );
+            sender.sendMessage(service.usageMessage());
             return true;
         }
 
-        sender.sendMessage(
-                service.unknownMessage()
-        );
+        sender.sendMessage(service.unknownMessage());
         return true;
     }
 
@@ -77,9 +62,6 @@ public final class SecurityCommand
             return List.of();
         }
 
-        return service.commandTabs(
-                sender,
-                args[0]
-        );
+        return service.commandTabs(sender, args[0]);
     }
 }

@@ -15,8 +15,6 @@ softdepend:
   - Votifier
 
 loadbefore:
-  - ajLeaderboards
-  - DeluxeMenus
   - TAB
 
 

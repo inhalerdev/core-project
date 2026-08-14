@@ -10,6 +10,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
@@ -29,14 +30,12 @@ public final class DoubleJumpCommand
 
     @Override
     public boolean onCommand(
-            CommandSender sender,
-            Command command,
-            String label,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String label,
+            @NotNull String @NotNull [] args
     ) {
-        if (!sender.hasPermission(
-                "mineacledoublejump.admin"
-        )) {
+        if (!sender.hasPermission("mineacledoublejump.admin")) {
             sender.sendMessage(
                     core.getMessage("general.no-permission")
             );
@@ -49,9 +48,11 @@ public final class DoubleJumpCommand
             core.reloadConfig();
             listener.reloadSettingsAndRefresh();
 
-            sender.sendMessage(TextColor.color(
-                    "&#bbbbbbDouble Jump reloaded"
-            ));
+            sender.sendMessage(
+                    TextColor.color(
+                            "&#bbbbbbDouble Jump reloaded"
+                    )
+            );
 
             if (sender instanceof Player player) {
                 SoundService.guiConfirm(player, core);
@@ -60,23 +61,24 @@ public final class DoubleJumpCommand
             return true;
         }
 
-        sender.sendMessage(TextColor.color(
-                "&cUsage: /doublejump reload"
-        ));
+        sender.sendMessage(
+                TextColor.color(
+                        "&cUsage: /doublejump reload"
+                )
+        );
         errorSound(sender);
         return true;
     }
 
     @Override
     public List<String> onTabComplete(
-            CommandSender sender,
-            Command command,
-            String alias,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String alias,
+            @NotNull String @NotNull [] args
     ) {
-        if (!sender.hasPermission(
-                "mineacledoublejump.admin"
-        ) || args.length != 1) {
+        if (!sender.hasPermission("mineacledoublejump.admin")
+                || args.length != 1) {
             return List.of();
         }
 
