@@ -22,7 +22,7 @@ public final class HomesMainGui {
 
     private static final int FIRST_BED_SLOT = 12;
     private static final int FIRST_DYE_SLOT = 21;
-    private static final int HOME_SLOT_COUNT = 3;
+    private static final int HOME_SLOT_COUNT = 5;
 
     private static final String ACCENT = "&#D0AFFF";
     private static final String SECONDARY = "&#B078FF";
@@ -55,11 +55,17 @@ public final class HomesMainGui {
             if (homeService.slotLocked(player, id)) {
                 inventory.setItem(
                         bedSlot,
-                        lockedItem(Material.LIGHT_GRAY_BED)
+                        lockedItem(
+                                Material.LIGHT_GRAY_BED,
+                                id
+                        )
                 );
                 inventory.setItem(
                         dyeSlot,
-                        lockedItem(Material.GRAY_DYE)
+                        lockedItem(
+                                Material.LIGHT_GRAY_DYE,
+                                id
+                        )
                 );
                 continue;
             }
@@ -97,7 +103,7 @@ public final class HomesMainGui {
             inventory.setItem(
                     bedSlot,
                     item(
-                            Material.PURPLE_BED,
+                            Material.WHITE_BED,
                             SECONDARY + displayName,
                             List.of(
                                     BODY + "Click to save this location"
@@ -107,7 +113,7 @@ public final class HomesMainGui {
             inventory.setItem(
                     dyeSlot,
                     item(
-                            Material.GRAY_DYE,
+                            Material.LIGHT_GRAY_DYE,
                             SECONDARY + displayName,
                             List.of(
                                     BODY + "Click to save this location"
@@ -120,14 +126,28 @@ public final class HomesMainGui {
         player.openInventory(inventory);
     }
 
-    private static ItemStack lockedItem(Material material) {
+    private static ItemStack lockedItem(
+            Material material,
+            int homeId
+    ) {
+        String displayName = "Home " + homeId;
+
+        if (homeId == 3) {
+            return item(
+                    material,
+                    SECONDARY + displayName,
+                    List.of(
+                            BODY + "This home slot is locked",
+                            BODY + "Requires " + SECONDARY + "Mineacle+"
+                    )
+            );
+        }
+
         return item(
                 material,
-                "&cHome Locked",
+                SECONDARY + displayName,
                 List.of(
-                        BODY + "Unlock a third personal home with "
-                                + SECONDARY + "Mineacle+",
-                        BODY + "Requires " + SECONDARY + "Mineacle+"
+                        BODY + "This home slot is locked"
                 )
         );
     }

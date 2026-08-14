@@ -132,7 +132,7 @@ public final class HomesGuiListener implements Listener {
 
     private void handleHomeBedClick(Player player, int id) {
         if (homeService.slotLocked(player, id)) {
-            sendUpgradeMessage(player);
+            handleLockedHomeSlot(player, id);
             return;
         }
 
@@ -206,7 +206,7 @@ public final class HomesGuiListener implements Listener {
 
     private void handleHomeDyeClick(Player player, int id) {
         if (homeService.slotLocked(player, id)) {
-            sendUpgradeMessage(player);
+            handleLockedHomeSlot(player, id);
             return;
         }
 
@@ -686,6 +686,22 @@ public final class HomesGuiListener implements Listener {
         sendPopup(
                 player,
                 core.getMessage("homes.blocked-team-home-world")
+        );
+        SoundService.guiError(player, core);
+    }
+
+    private void handleLockedHomeSlot(
+            Player player,
+            int homeId
+    ) {
+        if (homeId == 3) {
+            sendUpgradeMessage(player);
+            return;
+        }
+
+        sendPopup(
+                player,
+                "&cThis home slot is currently locked"
         );
         SoundService.guiError(player, core);
     }
