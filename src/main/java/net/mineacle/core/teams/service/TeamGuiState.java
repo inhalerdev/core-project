@@ -12,92 +12,108 @@ import java.util.UUID;
 @SuppressWarnings("unused")
 public final class TeamGuiState implements Listener {
 
-    private final Map<UUID, Session> sessions = new HashMap<>();
+    private final Map<UUID, Confirmation> confirmations =
+            new HashMap<>();
 
-    public Session session(Player player) {
-        return sessions.get(player.getUniqueId());
-    }
-
-    public void selectTarget(Player player, UUID targetId) {
-        Session current = sessions.getOrDefault(
-                player.getUniqueId(),
-                Session.EMPTY
-        );
-        sessions.put(
-                player.getUniqueId(),
-                current.withTarget(targetId)
-        );
-    }
-
-    public void beginAction(Player player, String action) {
-        beginAction(player, action, null);
-    }
-
-    public void beginAction(Player player, String action, UUID targetId) {
-        sessions.put(
-                player.getUniqueId(),
-                new Session(action, targetId, null, 0L)
-        );
-    }
-
-    public String action(Player player) {
-        Session session = session(player);
-        return session == null ? null : session.action();
-    }
-
-    public UUID target(Player player) {
-        Session session = session(player);
-        return session == null ? null : session.targetId();
-    }
-
-    public boolean isConfirmReady(Player player, String action) {
-        Session session = session(player);
-        return session != null
-                && action != null
-                && action.equals(session.confirmAction())
-                && session.confirmExpiresAtMillis() > System.currentTimeMillis();
-    }
-
-    public long armConfirmation(
+    public boolean ready(
             Player player,
-            String action,
+            String token
+    ) {
+        if (player == null
+                || token == null
+                || token.isBlank()) {
+            return false;
+        }
+
+        Confirmation confirmation =
+                confirmations.get(
+                        player.getUniqueId()
+                );
+
+        if (confirmation == null) {
+            return false;
+        }
+
+        if (confirmation.expiresAtMillis()
+                <= System.currentTimeMillis()) {
+            confirmations.remove(
+                    player.getUniqueId()
+            );
+            return false;
+        }
+
+        return token.equals(
+                confirmation.token()
+        );
+    }
+
+    public long arm(
+            Player player,
+            String token,
             int timeoutSeconds
     ) {
-        long expiresAt = System.currentTimeMillis()
-                + Math.max(1, timeoutSeconds) * 1_000L;
-        Session current = sessions.getOrDefault(
+        if (player == null
+                || token == null
+                || token.isBlank()) {
+            return 0L;
+        }
+
+        long expiresAt =
+                System.currentTimeMillis()
+                        + Math.max(
+                        1,
+                        timeoutSeconds
+                ) * 1000L;
+
+        confirmations.put(
                 player.getUniqueId(),
-                Session.EMPTY
-        );
-        sessions.put(
-                player.getUniqueId(),
-                current.withConfirmation(action, expiresAt)
+                new Confirmation(
+                        token,
+                        expiresAt
+                )
         );
         return expiresAt;
     }
 
-    public boolean confirmationMatches(
+    public boolean matches(
             Player player,
-            String action,
+            String token,
             long expiresAtMillis
     ) {
-        Session session = session(player);
-        return session != null
-                && action != null
-                && action.equals(session.confirmAction())
-                && session.confirmExpiresAtMillis() == expiresAtMillis;
-    }
-
-    public void clearConfirmation(Player player) {
-        Session current = sessions.get(player.getUniqueId());
-        if (current == null) {
-            return;
+        if (player == null) {
+            return false;
         }
-        sessions.put(player.getUniqueId(), current.withoutConfirmation());
+
+        Confirmation confirmation =
+                confirmations.get(
+                        player.getUniqueId()
+                );
+
+        return confirmation != null
+                && token != null
+                && token.equals(
+                confirmation.token()
+        )
+                && confirmation.expiresAtMillis()
+                == expiresAtMillis;
     }
 
     public void clear(Player player) {
-        sessions.remove(player.getUniqueId());
+        if (player != null) {
+            confirmations.remove(
+                    player.getUniqueId()
+            );
+        }
+    }
+
+    public void clear(UUID playerId) {
+        if (playerId != null) {
+            confirmations.remove(playerId);
+        }
+    }
+
+    public void clearAll() {
+        confirmations.clear();
     }
 
     @EventHandler
@@ -105,38 +121,9 @@ public final class TeamGuiState implements Listener {
         clear(event.getPlayer());
     }
 
-    public record Session(
-            String action,
-            UUID targetId,
-            String confirmAction,
-            long confirmExpiresAtMillis
+    private record Confirmation(
+            String token,
+            long expiresAtMillis
     ) {
-        private static final Session EMPTY =
-                new Session(null, null, null, 0L);
-
-        private Session withTarget(UUID targetId) {
-            return new Session(
-                    action,
-                    targetId,
-                    confirmAction,
-                    confirmExpiresAtMillis
-            );
-        }
-
-        private Session withConfirmation(
-                String action,
-                long expiresAtMillis
-        ) {
-            return new Session(
-                    this.action,
-                    targetId,
-                    action,
-                    expiresAtMillis
-            );
-        }
-
-        private Session withoutConfirmation() {
-            return new Session(action, targetId, null, 0L);
-        }
     }
 }

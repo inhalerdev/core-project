@@ -6,9 +6,11 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
@@ -20,9 +22,14 @@ public final class TeamStartGui {
     public static final int INVITES_SLOT = 13;
     public static final int INFO_SLOT = 15;
 
-    private static final String ACCENT = "&#D0AFFF";
-    private static final String SECONDARY = "&#B078FF";
-    private static final String BODY = "&#bbbbbb";
+    private static final String PRIMARY =
+            "&#8436FE";
+    private static final String SECONDARY =
+            "&#B078FF";
+    private static final String ACCENT =
+            "&#D0AFFF";
+    private static final String BODY =
+            "&#bbbbbb";
 
     private TeamStartGui() {
     }
@@ -31,21 +38,34 @@ public final class TeamStartGui {
             Player player,
             TeamInviteService inviteService
     ) {
-        Inventory inventory = Bukkit.createInventory(
-                null,
-                27,
-                GuiText.title(TITLE)
-        );
-        boolean hasInvite = inviteService.hasInvite(player.getUniqueId());
+        StartHolder holder =
+                new StartHolder();
+        Inventory inventory =
+                Bukkit.createInventory(
+                        holder,
+                        27,
+                        GuiText.title(TITLE)
+                );
+        holder.inventory = inventory;
+
+        boolean hasInvite =
+                inviteService.hasInvite(
+                        player.getUniqueId()
+                );
 
         inventory.setItem(
                 CREATE_SLOT,
                 item(
                         Material.PURPLE_BANNER,
-                        SECONDARY + "Create Team",
+                        PRIMARY
+                                + "Create Team",
                         List.of(
-                                BODY + "Create your own team",
-                                BODY + "Click to autofill " + ACCENT + "/team create"
+                                BODY
+                                        + "Start a team",
+                                BODY
+                                        + "Click to autofill "
+                                        + ACCENT
+                                        + "/team create"
                         )
                 )
         );
@@ -54,16 +74,20 @@ public final class TeamStartGui {
                 INVITES_SLOT,
                 item(
                         hasInvite
-                                ? Material.LIME_STAINED_GLASS_PANE
-                                : Material.GRAY_STAINED_GLASS_PANE,
+                                ? Material
+                                .LIME_STAINED_GLASS_PANE
+                                : Material
+                                .GRAY_STAINED_GLASS_PANE,
                         hasInvite
-                                ? SECONDARY + "Team Invites"
-                                : BODY + "No Team Invites",
+                                ? "&aPending Invite"
+                                : BODY
+                                + "No Team Invites",
                         List.of(
                                 hasInvite
-                                        ? BODY + "You have a pending team invite"
-                                        : BODY + "You do not have any team invites",
-                                BODY + "Click to view invites"
+                                        ? BODY
+                                        + "Click to review"
+                                        : BODY
+                                        + "No invite waiting"
                         )
                 )
         );
@@ -71,17 +95,20 @@ public final class TeamStartGui {
         inventory.setItem(
                 INFO_SLOT,
                 item(
-                        Material.BOOK,
+                        Material.NETHER_STAR,
                         SECONDARY + "Teams",
                         List.of(
-                                BODY + "Create a team and invite friends",
-                                BODY + "Set Team Home and manage Team PvP",
-                                BODY + "Use Team Chat with your members"
+                                BODY
+                                        + "Team Home • Team Chat • Team PvP",
+                                BODY
+                                        + "Fast roster and role management"
                         )
                 )
         );
 
-        player.openInventory(inventory);
+        player.openInventory(
+                inventory
+        );
     }
 
     private static ItemStack item(
@@ -89,16 +116,38 @@ public final class TeamStartGui {
             String name,
             List<String> lore
     ) {
-        ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
+        ItemStack item =
+                new ItemStack(material);
+        ItemMeta meta =
+                item.getItemMeta();
 
         if (meta == null) {
             return item;
         }
 
-        GuiText.apply(meta, name, lore);
-        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        GuiText.apply(
+                meta,
+                name,
+                lore
+        );
+        meta.addItemFlags(
+                ItemFlag.HIDE_ATTRIBUTES
+        );
         item.setItemMeta(meta);
         return item;
+    }
+
+    public static final class StartHolder
+            implements InventoryHolder {
+
+        private Inventory inventory;
+
+        private StartHolder() {
+        }
+
+        @Override
+        public @NotNull Inventory getInventory() {
+            return inventory;
+        }
     }
 }

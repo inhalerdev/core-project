@@ -24,9 +24,14 @@ public final class HomesMainGui {
     private static final int FIRST_DYE_SLOT = 21;
     private static final int HOME_SLOT_COUNT = 5;
 
-    private static final String ACCENT = "&#D0AFFF";
-    private static final String SECONDARY = "&#B078FF";
-    private static final String BODY = "&#bbbbbb";
+    private static final String PRIMARY =
+            "&#8436FE";
+    private static final String SECONDARY =
+            "&#B078FF";
+    private static final String ACCENT =
+            "&#D0AFFF";
+    private static final String BODY =
+            "&#bbbbbb";
 
     private HomesMainGui() {
     }
@@ -36,23 +41,27 @@ public final class HomesMainGui {
             Player player,
             HomeService homeService
     ) {
-        Inventory inventory = Bukkit.createInventory(
-                null,
-                9 * 4,
-                title(core)
-        );
-        UUID playerId = player.getUniqueId();
+        Inventory inventory =
+                Bukkit.createInventory(
+                        null,
+                        36,
+                        title(core)
+                );
+        UUID playerId =
+                player.getUniqueId();
 
-        for (int id = 1; id <= HOME_SLOT_COUNT; id++) {
-            int bedSlot = bedSlot(id);
-            int dyeSlot = dyeSlot(id);
+        for (int id = 1;
+             id <= HOME_SLOT_COUNT;
+             id++) {
+            int bedSlot =
+                    bedSlot(id);
+            int dyeSlot =
+                    dyeSlot(id);
 
-            /*
-             * Entitlement is checked before stored-data existence. A player
-             * who temporarily loses Mineacle+ keeps Home 3 on disk, but the
-             * slot remains locked and cannot leak the saved home through GUI.
-             */
-            if (homeService.slotLocked(player, id)) {
+            if (homeService.slotLocked(
+                    player,
+                    id
+            )) {
                 inventory.setItem(
                         bedSlot,
                         lockedItem(
@@ -70,19 +79,25 @@ public final class HomesMainGui {
                 continue;
             }
 
-            String displayName = homeService.getDisplayName(
+            String displayName =
+                    homeService.getDisplayName(
+                            playerId,
+                            id
+                    );
+
+            if (homeService.exists(
                     playerId,
                     id
-            );
-
-            if (homeService.exists(playerId, id)) {
+            )) {
                 inventory.setItem(
                         bedSlot,
                         item(
                                 Material.PURPLE_BED,
-                                SECONDARY + displayName,
+                                SECONDARY
+                                        + displayName,
                                 List.of(
-                                        BODY + "Click to teleport to this home"
+                                        BODY
+                                                + "Click to teleport"
                                 )
                         )
                 );
@@ -90,10 +105,12 @@ public final class HomesMainGui {
                         dyeSlot,
                         item(
                                 Material.PURPLE_DYE,
-                                SECONDARY + displayName,
+                                SECONDARY
+                                        + displayName,
                                 List.of(
-                                        BODY + "Click to &cdelete "
-                                                + BODY + "this home"
+                                        BODY
+                                                + "Click to "
+                                                + "&cdelete"
                                 )
                         )
                 );
@@ -104,9 +121,10 @@ public final class HomesMainGui {
                     bedSlot,
                     item(
                             Material.WHITE_BED,
-                            SECONDARY + displayName,
+                            BODY + displayName,
                             List.of(
-                                    BODY + "Click to save this location"
+                                    BODY
+                                            + "Click to set here"
                             )
                     )
             );
@@ -114,30 +132,41 @@ public final class HomesMainGui {
                     dyeSlot,
                     item(
                             Material.LIGHT_GRAY_DYE,
-                            SECONDARY + displayName,
+                            BODY + displayName,
                             List.of(
-                                    BODY + "Click to save this location"
+                                    BODY
+                                            + "Click to set here"
                             )
                     )
             );
         }
 
-        setupTeamHome(core, player, inventory);
-        player.openInventory(inventory);
+        setupTeamHome(
+                core,
+                player,
+                inventory
+        );
+        player.openInventory(
+                inventory
+        );
     }
 
     private static ItemStack lockedItem(
             Material material,
             int homeId
     ) {
-        String displayName = "Home " + homeId;
-
         return item(
                 material,
-                "&c" + displayName,
+                BODY
+                        + "Home "
+                        + homeId,
                 List.of(
-                        BODY + "This home slot is locked",
-                        BODY + "Requires " + SECONDARY + "Mineacle+"
+                        BODY
+                                + "Locked",
+                        BODY
+                                + "Requires "
+                                + PRIMARY
+                                + "Mineacle+"
                 )
         );
     }
@@ -147,129 +176,176 @@ public final class HomesMainGui {
             Player player,
             Inventory inventory
     ) {
-        int bannerSlot = core.getConfig().getInt(
-                "homes.team-home.banner-slot",
-                10
-        );
-        int dyeSlot = core.getConfig().getInt(
-                "homes.team-home.dye-slot",
-                19
-        );
+        int bannerSlot =
+                core.getConfig()
+                        .getInt(
+                                "homes.team-home.banner-slot",
+                                10
+                        );
+        int dyeSlot =
+                core.getConfig()
+                        .getInt(
+                                "homes.team-home.dye-slot",
+                                19
+                        );
 
-        if (!core.getConfig().getBoolean(
-                "homes.team-home.enabled",
-                true
-        )) {
+        if (!core.getConfig()
+                .getBoolean(
+                        "homes.team-home.enabled",
+                        true
+                )) {
             return;
         }
 
-        TeamService teamService = TeamsModule.teamService();
+        TeamService teamService =
+                TeamsModule.teamService();
 
         if (teamService == null) {
+            List<String> unavailable =
+                    List.of(
+                            "&cTeams are temporarily unavailable"
+                    );
+
             inventory.setItem(
                     bannerSlot,
                     item(
                             Material.LIGHT_GRAY_BANNER,
-                            "&cTeam Home Unavailable",
-                            List.of(
-                                    BODY + "Teams are temporarily unavailable"
-                            )
+                            BODY
+                                    + "Team Home",
+                            unavailable
                     )
             );
             inventory.setItem(
                     dyeSlot,
                     item(
                             Material.GRAY_DYE,
-                            "&cTeam Home Unavailable",
-                            List.of(
-                                    BODY + "Teams are temporarily unavailable"
-                            )
+                            BODY
+                                    + "Team Home",
+                            unavailable
                     )
             );
             return;
         }
 
-        TeamHomeService teamHomeService = new TeamHomeService(core);
-        TeamRecord team = teamService.getTeamByPlayer(
-                player.getUniqueId()
-        );
+        TeamRecord team =
+                teamService.getTeamByPlayer(
+                        player.getUniqueId()
+                );
 
         if (team == null) {
-            List<String> lore = List.of(
-                    BODY + "You are not in a team",
-                    BODY + "Type " + ACCENT + "/team create",
-                    BODY + "to create a team"
-            );
+            List<String> noTeam =
+                    List.of(
+                            BODY
+                                    + "No team",
+                            BODY
+                                    + "Click to autofill "
+                                    + ACCENT
+                                    + "/team create"
+                    );
+
             inventory.setItem(
                     bannerSlot,
                     item(
                             Material.LIGHT_GRAY_BANNER,
-                            SECONDARY + "No Team",
-                            lore
+                            BODY
+                                    + "Team Home",
+                            noTeam
                     )
             );
             inventory.setItem(
                     dyeSlot,
                     item(
                             Material.GRAY_DYE,
-                            SECONDARY + "No Team",
-                            lore
+                            BODY
+                                    + "No Team",
+                            noTeam
                     )
             );
             return;
         }
 
-        boolean hasHome = teamHomeService.hasTeamHome(team.teamId());
-        boolean isAdmin = teamService.isAdmin(player.getUniqueId());
-        boolean isFounder = teamService.isFounder(player.getUniqueId());
-        String teamDisplay = SECONDARY + team.name();
+        TeamHomeService teamHomeService =
+                new TeamHomeService(core);
+        boolean hasHome =
+                teamHomeService.hasTeamHome(
+                        team.teamId()
+                );
+        boolean founder =
+                teamService.canManageTeamHome(
+                        player.getUniqueId()
+                );
 
         if (!hasHome) {
-            if (isAdmin) {
-                List<String> lore = List.of(
-                        BODY + "Team: " + teamDisplay,
-                        BODY + "Click to set Team Home",
-                        BODY + "to your current location"
-                );
+            if (founder) {
+                List<String> setLore =
+                        List.of(
+                                BODY
+                                        + "Team: "
+                                        + SECONDARY
+                                        + team.name(),
+                                BODY
+                                        + "Status: "
+                                        + BODY
+                                        + "Not Set",
+                                "",
+                                BODY
+                                        + "Click to set here"
+                        );
+
                 inventory.setItem(
                         bannerSlot,
                         item(
                                 Material.WHITE_BANNER,
-                                SECONDARY + "Team Home",
-                                lore
+                                SECONDARY
+                                        + "Team Home",
+                                setLore
                         )
                 );
                 inventory.setItem(
                         dyeSlot,
                         item(
                                 Material.LIGHT_GRAY_DYE,
-                                SECONDARY + "Team Home",
-                                lore
+                                SECONDARY
+                                        + "Team Home",
+                                setLore
                         )
                 );
-            } else {
-                List<String> lore = List.of(
-                        BODY + "Team: " + teamDisplay,
-                        BODY + "Your team does not have a home yet",
-                        BODY + "Ask a team admin to set Team Home"
-                );
-                inventory.setItem(
-                        bannerSlot,
-                        item(
-                                Material.LIGHT_GRAY_BANNER,
-                                SECONDARY + "Team Home",
-                                lore
-                        )
-                );
-                inventory.setItem(
-                        dyeSlot,
-                        item(
-                                Material.GRAY_DYE,
-                                SECONDARY + "Team Home",
-                                lore
-                        )
-                );
+                return;
             }
+
+            List<String> waitingLore =
+                    List.of(
+                            BODY
+                                    + "Team: "
+                                    + SECONDARY
+                                    + team.name(),
+                            BODY
+                                    + "Status: "
+                                    + BODY
+                                    + "Not Set",
+                            "",
+                            BODY
+                                    + "Founder can set Team Home"
+                    );
+
+            inventory.setItem(
+                    bannerSlot,
+                    item(
+                            Material.LIGHT_GRAY_BANNER,
+                            BODY
+                                    + "Team Home",
+                            waitingLore
+                    )
+            );
+            inventory.setItem(
+                    dyeSlot,
+                    item(
+                            Material.GRAY_DYE,
+                            BODY
+                                    + "Team Home",
+                            waitingLore
+                    )
+            );
             return;
         }
 
@@ -277,72 +353,119 @@ public final class HomesMainGui {
                 bannerSlot,
                 item(
                         Material.PURPLE_BANNER,
-                        SECONDARY + "Team Home",
+                        SECONDARY
+                                + "Team Home",
                         List.of(
-                                BODY + "Team: " + teamDisplay,
-                                BODY + "Click to teleport to Team Home"
+                                BODY
+                                        + "Team: "
+                                        + SECONDARY
+                                        + team.name(),
+                                BODY
+                                        + "Status: "
+                                        + "&aSet",
+                                "",
+                                BODY
+                                        + "Click to teleport"
                         )
                 )
         );
 
-        if (isFounder) {
+        if (founder) {
             inventory.setItem(
                     dyeSlot,
                     item(
-                            Material.PURPLE_DYE,
+                            Material.RED_DYE,
                             "&cDelete Team Home",
                             List.of(
-                                    BODY + "Team: " + teamDisplay,
-                                    BODY + "Click to &cdelete "
-                                            + BODY + "Team Home"
+                                    BODY
+                                            + "Team: "
+                                            + SECONDARY
+                                            + team.name(),
+                                    BODY
+                                            + "Requires confirmation"
                             )
                     )
             );
-        } else {
-            inventory.setItem(
-                    dyeSlot,
-                    item(
-                            Material.GRAY_DYE,
-                            SECONDARY + "Team Home",
-                            List.of(
-                                    BODY + "Your team home is set",
-                                    BODY + "Only the founder can delete it"
-                            )
-                    )
-            );
+            return;
         }
+
+        inventory.setItem(
+                dyeSlot,
+                item(
+                        Material.GRAY_DYE,
+                        BODY
+                                + "Team Home",
+                        List.of(
+                                BODY
+                                        + "Team: "
+                                        + SECONDARY
+                                        + team.name(),
+                                BODY
+                                        + "Founder manages this home"
+                        )
+                )
+        );
     }
 
-    public static int homeIdForBedSlot(int slot) {
-        return homeIdForSlot(slot, FIRST_BED_SLOT);
+    public static int homeIdForBedSlot(
+            int slot
+    ) {
+        return homeIdForSlot(
+                slot,
+                FIRST_BED_SLOT
+        );
     }
 
-    public static int homeIdForDyeSlot(int slot) {
-        return homeIdForSlot(slot, FIRST_DYE_SLOT);
+    public static int homeIdForDyeSlot(
+            int slot
+    ) {
+        return homeIdForSlot(
+                slot,
+                FIRST_DYE_SLOT
+        );
     }
 
-    private static int homeIdForSlot(int slot, int firstSlot) {
-        int homeId = slot - firstSlot + 1;
-        return homeId >= 1 && homeId <= HOME_SLOT_COUNT
+    private static int homeIdForSlot(
+            int slot,
+            int firstSlot
+    ) {
+        int homeId =
+                slot - firstSlot + 1;
+
+        return homeId >= 1
+                && homeId
+                <= HOME_SLOT_COUNT
                 ? homeId
                 : 0;
     }
 
-    private static int bedSlot(int homeId) {
-        return FIRST_BED_SLOT + homeId - 1;
+    private static int bedSlot(
+            int homeId
+    ) {
+        return FIRST_BED_SLOT
+                + homeId - 1;
     }
 
-    private static int dyeSlot(int homeId) {
-        return FIRST_DYE_SLOT + homeId - 1;
+    private static int dyeSlot(
+            int homeId
+    ) {
+        return FIRST_DYE_SLOT
+                + homeId - 1;
     }
 
-    private static Component title(Core core) {
-        String plain = GuiText.plain(
-                core.getMessage("homes.gui.title")
-        );
+    private static Component title(
+            Core core
+    ) {
+        String plain =
+                GuiText.plain(
+                        core.getMessage(
+                                "homes.gui.title"
+                        )
+                );
+
         return GuiText.title(
                 plain.isBlank()
-                        ? "Homes"
+                        ? "Player Homes"
                         : plain
         );
     }
@@ -352,14 +475,20 @@ public final class HomesMainGui {
             String name,
             List<String> lore
     ) {
-        ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
+        ItemStack item =
+                new ItemStack(material);
+        ItemMeta meta =
+                item.getItemMeta();
 
         if (meta == null) {
             return item;
         }
 
-        GuiText.apply(meta, name, lore);
+        GuiText.apply(
+                meta,
+                name,
+                lore
+        );
         item.setItemMeta(meta);
         return item;
     }

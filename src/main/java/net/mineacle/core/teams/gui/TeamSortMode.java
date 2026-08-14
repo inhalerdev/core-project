@@ -1,12 +1,9 @@
 package net.mineacle.core.teams.gui;
 
 public enum TeamSortMode {
-
-    JOIN_DATE("Join Date"),
-    PERMISSIONS("Permissions"),
-    ALPHABETICALLY("Alphabetically"),
-    ONLINE_MEMBERS("Online Members"),
-    MONEY("Money");
+    RANK("Rank"),
+    ONLINE("Online"),
+    NAME("Name");
 
     private final String displayName;
 
@@ -19,7 +16,17 @@ public enum TeamSortMode {
     }
 
     public TeamSortMode next() {
-        TeamSortMode[] modes = values();
-        return modes[(ordinal() + 1) % modes.length];
+        TeamSortMode[] values = values();
+        return values[(ordinal() + 1) % values.length];
+    }
+
+    public TeamSortMode previous() {
+        TeamSortMode[] values = values();
+        return values[
+                Math.floorMod(
+                        ordinal() - 1,
+                        values.length
+                )
+        ];
     }
 }

@@ -7,6 +7,7 @@ import net.mineacle.core.homes.HomesModule;
 import net.mineacle.core.homes.service.HomeService;
 import net.mineacle.core.stats.PlayerStatisticsGui;
 import net.mineacle.core.teams.command.TeamCommand;
+import net.mineacle.core.teams.gui.TeamsMainGui;
 import net.mineacle.core.teams.listener.TeamChatListener;
 import net.mineacle.core.teams.listener.TeamCombatListener;
 import net.mineacle.core.teams.listener.TeamDeathListener;
@@ -18,7 +19,8 @@ import net.mineacle.core.teams.service.TeamInviteService;
 import net.mineacle.core.teams.service.TeamService;
 import org.bukkit.command.PluginCommand;
 
-public final class TeamsModule extends Module {
+public final class TeamsModule
+        extends Module {
 
     private static TeamService activeTeamService;
 
@@ -44,79 +46,137 @@ public final class TeamsModule extends Module {
     public void enable(Core core) {
         this.core = core;
 
-        HomesModule homesModule = requireHomesModule(core);
-        this.homeService = homesModule.homeService();
-        this.teleportService = core.teleports();
-        this.teamService = new TeamService(core);
-        activeTeamService = this.teamService;
-        this.inviteService = new TeamInviteService(core, teamService);
-        this.guiState = new TeamGuiState();
-        this.teamHomeService = new TeamHomeService(core);
-        this.playerStatisticsGui = new PlayerStatisticsGui();
+        HomesModule homesModule =
+                requireHomesModule(core);
 
-        if (homeService == null || teleportService == null) {
-            throw new IllegalStateException("Required core services are not initialized");
+        this.homeService =
+                homesModule.homeService();
+        this.teleportService =
+                core.teleports();
+        this.teamService =
+                new TeamService(core);
+        activeTeamService =
+                this.teamService;
+        this.inviteService =
+                new TeamInviteService(
+                        core,
+                        teamService
+                );
+        this.guiState =
+                new TeamGuiState();
+        this.teamHomeService =
+                new TeamHomeService(core);
+        this.playerStatisticsGui =
+                new PlayerStatisticsGui();
+
+        if (homeService == null
+                || teleportService == null) {
+            throw new IllegalStateException(
+                    "Required core services are not initialized"
+            );
         }
 
-        TeamCommand command = new TeamCommand(
-                core,
-                teamService,
-                inviteService,
-                teamHomeService,
-                teleportService,
-                homeService,
-                guiState
-        );
+        TeamCommand command =
+                new TeamCommand(
+                        core,
+                        teamService,
+                        inviteService,
+                        teamHomeService,
+                        teleportService,
+                        homeService,
+                        guiState
+                );
 
-        PluginCommand team = core.getCommand("team");
+        PluginCommand team =
+                core.getCommand("team");
 
         if (team == null) {
-            throw new IllegalStateException("Missing command in plugin.yml: team");
+            throw new IllegalStateException(
+                    "Missing command in plugin.yml: team"
+            );
         }
 
         team.setExecutor(command);
         team.setTabCompleter(command);
 
-        core.getServer().getPluginManager().registerEvents(
-                new TeamsGuiListener(
-                        core,
-                        teamService,
-                        inviteService,
-                        teamHomeService,
-                        homeService,
-                        teleportService,
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new TeamsGuiListener(
+                                core,
+                                teamService,
+                                inviteService,
+                                teamHomeService,
+                                homeService,
+                                teleportService,
+                                playerStatisticsGui,
+                                guiState
+                        ),
+                        core
+                );
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        guiState,
+                        core
+                );
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new TeamCombatListener(
+                                teamService
+                        ),
+                        core
+                );
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new TeamChatListener(
+                                core,
+                                teamService
+                        ),
+                        core
+                );
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new TeamDeathListener(
+                                core,
+                                teamService
+                        ),
+                        core
+                );
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new TeamJoinListener(
+                                core,
+                                teamService
+                        ),
+                        core
+                );
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
                         playerStatisticsGui,
-                        guiState
-                ),
-                core
-        );
-        core.getServer().getPluginManager().registerEvents(guiState, core);
-        core.getServer().getPluginManager().registerEvents(
-                new TeamCombatListener(teamService),
-                core
-        );
-        core.getServer().getPluginManager().registerEvents(
-                new TeamChatListener(core, teamService),
-                core
-        );
-        core.getServer().getPluginManager().registerEvents(
-                new TeamDeathListener(core, teamService),
-                core
-        );
-        core.getServer().getPluginManager().registerEvents(
-                new TeamJoinListener(core, teamService),
-                core
-        );
-        core.getServer().getPluginManager().registerEvents(
-                playerStatisticsGui,
-                core
-        );
+                        core
+                );
     }
 
     @Override
     public void disable() {
         if (core != null) {
             core.saveTeamsFile();
+        }
+
+        TeamsMainGui.clearAllState();
+
+        if (guiState != null) {
+            guiState.clearAll();
+        }
+
+        if (inviteService != null) {
+            inviteService.clearAll();
         }
 
         activeTeamService = null;
@@ -130,13 +190,19 @@ public final class TeamsModule extends Module {
         core = null;
     }
 
-    private HomesModule requireHomesModule(Core core) {
-        for (Module module : core.modules()) {
-            if (module instanceof HomesModule homesModule) {
+    private HomesModule requireHomesModule(
+            Core core
+    ) {
+        for (Module module :
+                core.modules()) {
+            if (module
+                    instanceof HomesModule homesModule) {
                 return homesModule;
             }
         }
 
-        throw new IllegalStateException("Teams requires the Homes module");
+        throw new IllegalStateException(
+                "Teams requires the Homes module"
+        );
     }
 }
