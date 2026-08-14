@@ -35,7 +35,8 @@ public final class TeamChatListener
         this.teamService = teamService;
     }
 
-    @EventHandler
+    @SuppressWarnings("unused")
+    @EventHandler(ignoreCancelled = true)
     public void onAsyncChat(
             AsyncChatEvent event
     ) {

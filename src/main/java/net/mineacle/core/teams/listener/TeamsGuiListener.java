@@ -79,6 +79,7 @@ public final class TeamsGuiListener
         this.guiState = guiState;
     }
 
+    @SuppressWarnings("unused")
     @EventHandler
     public void onInventoryClick(
             InventoryClickEvent event
@@ -151,6 +152,7 @@ public final class TeamsGuiListener
         }
     }
 
+    @SuppressWarnings("unused")
     @EventHandler
     public void onInventoryDrag(
             InventoryDragEvent event
@@ -166,6 +168,7 @@ public final class TeamsGuiListener
         }
     }
 
+    @SuppressWarnings("unused")
     @EventHandler(
             priority = EventPriority.MONITOR
     )
@@ -731,6 +734,18 @@ public final class TeamsGuiListener
         }
 
         if (slot == TeamMemberGui.STATS_SLOT) {
+            if (!player.hasPermission(
+                    "mineaclestats.use"
+            )) {
+                sendError(
+                        player,
+                        core.getMessage(
+                                "general.no-permission"
+                        )
+                );
+                return;
+            }
+
             SoundService.guiSelect(
                     player,
                     core

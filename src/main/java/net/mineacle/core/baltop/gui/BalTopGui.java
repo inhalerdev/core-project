@@ -1,11 +1,10 @@
 package net.mineacle.core.baltop.gui;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.baltop.service.BalTopLeaderboardCache;
 import net.mineacle.core.common.gui.CenteredToolbar;
 import net.mineacle.core.common.gui.GuiSearchLore;
-import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.economy.service.EconomyService;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -86,7 +85,7 @@ public final class BalTopGui {
                 Bukkit.createInventory(
                         holder,
                         SIZE,
-                        Component.text(
+                        GuiText.title(
                                 "Balance Top (Page "
                                         + (page + 1)
                                         + ")"
@@ -482,11 +481,7 @@ public final class BalTopGui {
     private static Component component(
             String input
     ) {
-        return LegacyComponentSerializer
-                .legacySection()
-                .deserialize(
-                        TextColor.color(input)
-                );
+        return GuiText.component(input);
     }
 
     private record SearchState(

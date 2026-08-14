@@ -18,6 +18,8 @@ public final class BalTopLeaderboardCache {
 
     private static final long CACHE_TTL_NANOS =
             TimeUnit.SECONDS.toNanos(5L);
+    private static final long FORCE_REFRESH_MIN_INTERVAL_NANOS =
+            TimeUnit.SECONDS.toNanos(1L);
 
     private final EconomyService economyService;
     private Snapshot snapshot = Snapshot.empty();
@@ -40,7 +42,15 @@ public final class BalTopLeaderboardCache {
     }
 
     public synchronized Snapshot refresh() {
-        snapshot = rebuild(System.nanoTime());
+        long now = System.nanoTime();
+
+        if (snapshot.builtAtNanos != Long.MIN_VALUE
+                && now - snapshot.builtAtNanos
+                < FORCE_REFRESH_MIN_INTERVAL_NANOS) {
+            return snapshot;
+        }
+
+        snapshot = rebuild(now);
         return snapshot;
     }
 
