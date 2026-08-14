@@ -2,55 +2,88 @@ package net.mineacle.core.baltop.command;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.baltop.gui.BalTopGui;
+import net.mineacle.core.baltop.service.BalTopLeaderboardCache;
 import net.mineacle.core.common.gui.MenuHistory;
-import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.economy.service.EconomyService;
-import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
-public final class BalTopCommand implements CommandExecutor, TabCompleter {
+public final class BalTopCommand
+        implements CommandExecutor, TabCompleter {
+
+    private static final String SECONDARY = "&#B078FF";
+    private static final String BODY = "&#bbbbbb";
+    private static final String MONEY = "&#11fc7b";
 
     private final Core core;
     private final EconomyService economyService;
+    private final BalTopLeaderboardCache leaderboardCache;
 
-    public BalTopCommand(Core core, EconomyService economyService) {
+    public BalTopCommand(
+            Core core,
+            EconomyService economyService,
+            BalTopLeaderboardCache leaderboardCache
+    ) {
         this.core = core;
         this.economyService = economyService;
+        this.leaderboardCache = leaderboardCache;
     }
 
     @Override
     public boolean onCommand(
-            CommandSender sender,
-            Command command,
-            String label,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String label,
+            @NotNull String @NotNull [] args
     ) {
-        if (!sender.hasPermission("mineaclebaltop.use")) {
-            sender.sendMessage(core.getMessage("general.no-permission"));
+        if (!sender.hasPermission(
+                "mineaclebaltop.use"
+        )) {
+            sender.sendMessage(
+                    core.getMessage(
+                            "general.no-permission"
+                    )
+            );
 
             if (sender instanceof Player player) {
-                SoundService.guiError(player, core);
+                SoundService.guiError(
+                        player,
+                        core
+                );
             }
 
             return true;
         }
 
+        if (!economyService.enabled()) {
+            sender.sendMessage(
+                    TextColor.color(
+                            "&cEconomy is currently disabled"
+                    )
+            );
+            return true;
+        }
+
         if (args.length > 0) {
-            sender.sendMessage(TextColor.color("&cUsage: /baltop"));
+            sender.sendMessage(
+                    TextColor.color(
+                            "&cUsage: /baltop"
+                    )
+            );
 
             if (sender instanceof Player player) {
-                SoundService.guiError(player, core);
+                SoundService.guiError(
+                        player,
+                        core
+                );
             }
 
             return true;
@@ -60,30 +93,61 @@ public final class BalTopCommand implements CommandExecutor, TabCompleter {
             MenuHistory.openRoot(
                     core,
                     player,
-                    () -> BalTopGui.open(core, player, economyService, 0)
+                    () -> BalTopGui.open(
+                            player,
+                            economyService,
+                            leaderboardCache,
+                            0
+                    )
             );
             return true;
         }
 
-        sender.sendMessage(core.getMessage("baltop.header"));
+        List<BalTopLeaderboardCache.Entry> entries =
+                leaderboardCache.current()
+                        .entries();
 
-        List<Map.Entry<UUID, Long>> top = economyService.topBalances(10);
+        sender.sendMessage(
+                TextColor.color(
+                        SECONDARY + "Balance Top"
+                )
+        );
 
-        if (top.isEmpty()) {
-            sender.sendMessage(core.getMessage("baltop.empty"));
+        if (entries.isEmpty()) {
+            sender.sendMessage(
+                    TextColor.color(
+                            BODY + "No balances recorded"
+                    )
+            );
             return true;
         }
 
-        for (int index = 0; index < top.size(); index++) {
-            Map.Entry<UUID, Long> entry = top.get(index);
-            OfflinePlayer target = Bukkit.getOfflinePlayer(entry.getKey());
-            String displayName = DisplayNames.displayName(target);
+        int limit = Math.min(
+                10,
+                entries.size()
+        );
 
-            sender.sendMessage(TextColor.color(
-                    "&#ff88ff#" + (index + 1)
-                            + " &#bbbbbb" + displayName
-                            + " &#bbbbbb- &a" + economyService.format(entry.getValue())
-            ));
+        for (int index = 0;
+             index < limit;
+             index++) {
+            BalTopLeaderboardCache.Entry entry =
+                    entries.get(index);
+
+            sender.sendMessage(
+                    TextColor.color(
+                            SECONDARY
+                                    + "#"
+                                    + entry.placement()
+                                    + " "
+                                    + BODY
+                                    + entry.displayName()
+                                    + " "
+                                    + MONEY
+                                    + economyService.format(
+                                    entry.balanceCents()
+                            )
+                    )
+            );
         }
 
         return true;
@@ -91,10 +155,10 @@ public final class BalTopCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(
-            CommandSender sender,
-            Command command,
-            String alias,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String alias,
+            @NotNull String @NotNull [] args
     ) {
         return List.of();
     }
