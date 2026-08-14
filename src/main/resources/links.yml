@@ -12,7 +12,7 @@ links:
     hover: "&#bbbbbbClick to open &#ff88ffmineacle.net"
 
   store:
-    url: "https://store.mineacle.net"
+    url: "https://store.mineacle.net/"
     title: "&dMineacle Store"
     lines:
       - "&#bbbbbbSupport the server and unlock &#ff88ffMineacle+"

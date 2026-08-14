@@ -30,6 +30,9 @@ public final class SecurityService {
     private static final String DEFAULT_PERMISSION_AWARE_ROOT_PERMISSION =
             "mineaclesecurity.permission-aware-roots";
 
+    private static final Set<String> FALLBACK_PERMISSION_AWARE_NAMESPACES =
+            Set.of("worldedit");
+
     private static final Set<String> FALLBACK_BLOCKED_COMMANDS = Set.of(
             "?",
             "about",
@@ -140,8 +143,22 @@ public final class SecurityService {
             return false;
         }
 
-        if (isNamespacedCommand(current, command)
-                || current.consoleOnlyCommands().contains(command)) {
+        boolean permissionAware = hasPermission(
+                player,
+                current.permissionAwareRootPermission()
+        );
+
+        if (isBlockedNamespace(
+                current,
+                command,
+                permissionAware
+        )) {
+            return true;
+        }
+
+        String effectiveCommand = unqualifiedCommand(command);
+
+        if (current.consoleOnlyCommands().contains(effectiveCommand)) {
             return true;
         }
 
@@ -152,16 +169,16 @@ public final class SecurityService {
             return false;
         }
 
-        if (current.blockedCommands().contains(command)) {
+        if (current.blockedCommands().contains(effectiveCommand)) {
             return true;
         }
 
         if (!parsed.subCommand().isBlank()
-                && current.subcommandRuleCommands().contains(command)) {
+                && current.subcommandRuleCommands().contains(effectiveCommand)) {
             return !allowedSubCommands(
                     player,
                     current,
-                    command
+                    effectiveCommand
             ).contains(parsed.subCommand());
         }
 
@@ -206,6 +223,7 @@ public final class SecurityService {
                 current.blockNamespacedCommands(),
                 bypass,
                 permissionAware,
+                current.permissionAwareNamespaces(),
                 current.blockedCommands(),
                 current.consoleOnlyCommands(),
                 Set.copyOf(visible),
@@ -470,6 +488,11 @@ public final class SecurityService {
         Set<String> alwaysHiddenCommands = normalizeList(
                 config.getStringList("always-hidden-commands")
         );
+        Set<String> permissionAwareNamespaces = normalizedListOrFallback(
+                config,
+                "permission-aware-namespaces",
+                FALLBACK_PERMISSION_AWARE_NAMESPACES
+        );
 
         return new SecuritySnapshot(
                 config.getBoolean("enabled", true),
@@ -486,6 +509,7 @@ public final class SecurityService {
                         config.getString("permission-aware-root-permission"),
                         DEFAULT_PERMISSION_AWARE_ROOT_PERMISSION
                 ),
+                permissionAwareNamespaces,
                 Math.clamp(
                         config.getInt(
                                 "performance.command-tree-refreshes-per-tick",
@@ -739,12 +763,51 @@ public final class SecurityService {
         return Set.copyOf(values);
     }
 
-    private static boolean isNamespacedCommand(
+    private static boolean isBlockedNamespace(
             SecuritySnapshot current,
-            String command
+            String command,
+            boolean permissionAware
     ) {
-        return current.blockNamespacedCommands()
-                && command.indexOf(':') >= 0;
+        if (!current.blockNamespacedCommands()) {
+            return false;
+        }
+
+        String namespace = namespace(command);
+
+        if (namespace.isBlank()) {
+            return false;
+        }
+
+        return !permissionAware
+                || !current.permissionAwareNamespaces().contains(namespace);
+    }
+
+    private static String namespace(String command) {
+        if (command == null) {
+            return "";
+        }
+
+        int separator = command.indexOf(':');
+
+        if (separator <= 0) {
+            return "";
+        }
+
+        return normalize(command.substring(0, separator));
+    }
+
+    private static String unqualifiedCommand(String command) {
+        if (command == null) {
+            return "";
+        }
+
+        int separator = command.indexOf(':');
+
+        if (separator < 0 || separator + 1 >= command.length()) {
+            return normalize(command);
+        }
+
+        return normalize(command.substring(separator + 1));
     }
 
     private static boolean hasPermission(
@@ -826,6 +889,7 @@ public final class SecurityService {
                 Set.of(),
                 Set.of(),
                 Set.of(),
+                Set.of(),
                 Set.of()
         );
 
@@ -833,6 +897,7 @@ public final class SecurityService {
         private final boolean blockNamespacedCommands;
         private final boolean bypass;
         private final boolean permissionAware;
+        private final Set<String> permissionAwareNamespaces;
         private final Set<String> blockedCommands;
         private final Set<String> consoleOnlyCommands;
         private final Set<String> visibleCommands;
@@ -843,6 +908,7 @@ public final class SecurityService {
                 boolean blockNamespacedCommands,
                 boolean bypass,
                 boolean permissionAware,
+                Set<String> permissionAwareNamespaces,
                 Set<String> blockedCommands,
                 Set<String> consoleOnlyCommands,
                 Set<String> visibleCommands,
@@ -852,6 +918,7 @@ public final class SecurityService {
             this.blockNamespacedCommands = blockNamespacedCommands;
             this.bypass = bypass;
             this.permissionAware = permissionAware;
+            this.permissionAwareNamespaces = permissionAwareNamespaces;
             this.blockedCommands = blockedCommands;
             this.consoleOnlyCommands = consoleOnlyCommands;
             this.visibleCommands = visibleCommands;
@@ -873,8 +940,18 @@ public final class SecurityService {
                 return false;
             }
 
-            if ((blockNamespacedCommands && command.indexOf(':') >= 0)
-                    || consoleOnlyCommands.contains(command)) {
+            if (blockNamespacedCommands
+                    && !namespace(command).isBlank()
+                    && (!permissionAware
+                    || !permissionAwareNamespaces.contains(
+                    namespace(command)
+            ))) {
+                return true;
+            }
+
+            String effectiveCommand = unqualifiedCommand(command);
+
+            if (consoleOnlyCommands.contains(effectiveCommand)) {
                 return true;
             }
 
@@ -882,13 +959,13 @@ public final class SecurityService {
                 return false;
             }
 
-            if (blockedCommands.contains(command)
-                    || hiddenCommands.contains(command)) {
+            if (blockedCommands.contains(effectiveCommand)
+                    || hiddenCommands.contains(effectiveCommand)) {
                 return true;
             }
 
             return !permissionAware
-                    && !visibleCommands.contains(command);
+                    && !visibleCommands.contains(effectiveCommand);
         }
     }
 
@@ -898,6 +975,7 @@ public final class SecurityService {
             String managePermission,
             String bypassPermission,
             String permissionAwareRootPermission,
+            Set<String> permissionAwareNamespaces,
             int commandTreeRefreshesPerTick,
             Set<String> blockedCommands,
             Set<String> consoleOnlyCommands,

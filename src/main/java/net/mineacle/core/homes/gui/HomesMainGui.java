@@ -132,22 +132,12 @@ public final class HomesMainGui {
     ) {
         String displayName = "Home " + homeId;
 
-        if (homeId == 3) {
-            return item(
-                    material,
-                    SECONDARY + displayName,
-                    List.of(
-                            BODY + "This home slot is locked",
-                            BODY + "Requires " + SECONDARY + "Mineacle+"
-                    )
-            );
-        }
-
         return item(
                 material,
-                SECONDARY + displayName,
+                "&c" + displayName,
                 List.of(
-                        BODY + "This home slot is locked"
+                        BODY + "This home slot is locked",
+                        BODY + "Requires " + SECONDARY + "Mineacle+"
                 )
         );
     }

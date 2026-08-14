@@ -694,16 +694,7 @@ public final class HomesGuiListener implements Listener {
             Player player,
             int homeId
     ) {
-        if (homeId == 3) {
-            sendUpgradeMessage(player);
-            return;
-        }
-
-        sendPopup(
-                player,
-                "&cThis home slot is currently locked"
-        );
-        SoundService.guiError(player, core);
+        sendUpgradeMessage(player);
     }
 
     private void sendUpgradeMessage(Player player) {

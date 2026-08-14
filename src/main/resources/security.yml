@@ -10,13 +10,20 @@
 # /warp <space>, /team <space>, /sell <space>, etc. remain command-owned.
 # =============================================================================
 
-schema-version: 3
+schema-version: 4
 
 enabled: true
 
 manage-permission: mineaclesecurity.admin
 bypass-permission: mineaclesecurity.bypass
 permission-aware-root-permission: mineaclesecurity.permission-aware-roots
+
+# Some plugins expose legitimate command-tree nodes through their namespace.
+# These namespaces are allowed only for permission-aware staff. The command
+# inside the namespace is still checked against Mineacle hard blocks and the
+# owning plugin remains responsible for its own permission.
+permission-aware-namespaces:
+  - worldedit
 
 unknown-command-message: '&cThis command does not exist'
 reload-message: '&#bbbbbbSecurity reloaded'
@@ -27,12 +34,6 @@ groups-message: '&#bbbbbbActive command groups: &#B078FF%groups%'
 # -----------------------------------------------------------------------------
 # Performance
 # -----------------------------------------------------------------------------
-#
-# Permission changes can cause Paper to rebuild a player's command tree.
-# MineacleCore coalesces duplicate refreshes and drains them through one shared
-# queue so mass LuckPerms changes do not rebuild thousands of command trees in
-# one tick.
-# -----------------------------------------------------------------------------
 
 performance:
   command-tree-refreshes-per-tick: 100
@@ -42,12 +43,10 @@ performance:
 # Hard Security Rules
 # -----------------------------------------------------------------------------
 
-# Namespaced roots are blocked for players so plugin namespaces cannot route
-# around the normal command path, e.g. bukkit:plugins or paper:version.
+# Namespaced roots remain blocked by default. Only namespaces explicitly listed
+# above may pass for players with mineaclesecurity.permission-aware-roots.
 block-namespaced-commands: true
 
-# These roots remain hidden/blocked even for permission-aware staff unless the
-# emergency bypass permission is explicitly assigned.
 blocked-commands:
   - '?'
   - about
@@ -60,8 +59,6 @@ blocked-commands:
   - ver
   - version
 
-# These remain console-only even if a player receives broad permissions or the
-# Mineacle Security bypass node.
 console-only-commands:
   - ban-ip
   - deop
@@ -76,9 +73,6 @@ console-only-commands:
   - stop
   - whitelist
 
-# Valid commands/aliases that may still be typed when the owning permission
-# allows them, but are intentionally removed from the root command suggestions
-# for every player group to keep the client command tree clean.
 always-hidden-commands:
   - auction
   - auctionhouse
@@ -120,17 +114,6 @@ always-hidden-commands:
 
 # -----------------------------------------------------------------------------
 # Root Visibility Capability Groups
-# -----------------------------------------------------------------------------
-#
-# These are not LuckPerms ranks.
-# They are small capability bundles used only for root command presentation.
-#
-# Normal players use the curated Default/Plus roots below.
-#
-# Builder/Admin/Developer receive mineaclesecurity.permission-aware-roots.
-# For those players, Security respects the command tree Paper and the owning
-# plugin already expose from their real LuckPerms permissions, while the hard
-# rules and always-hidden aliases above are still enforced.
 # -----------------------------------------------------------------------------
 
 groups:
