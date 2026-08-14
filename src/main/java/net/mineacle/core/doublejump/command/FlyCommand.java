@@ -14,6 +14,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.Locale;
@@ -58,10 +59,10 @@ public final class FlyCommand
 
     @Override
     public boolean onCommand(
-            CommandSender sender,
-            Command command,
-            String label,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String label,
+            @NotNull String @NotNull [] args
     ) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage(
@@ -93,8 +94,7 @@ public final class FlyCommand
                 "fly.permission",
                 "mineacle.plus"
         );
-        String permission = configuredPermission == null
-                || configuredPermission.isBlank()
+        String permission = configuredPermission.isBlank()
                 ? "mineacle.plus"
                 : configuredPermission;
 
@@ -231,7 +231,7 @@ public final class FlyCommand
                     player,
                     speedMessage(
                             "set-self",
-                            "&#bbbbbbFly speed set to &#ff88ff%speed%"
+                            "&#bbbbbbFly speed set to &#B078FF%speed%"
                     ).replace("%speed%", speed.label())
             );
         } else {
@@ -241,9 +241,9 @@ public final class FlyCommand
                     player,
                     speedMessage(
                             "set-other",
-                            "&#bbbbbbSet &#bbbbbb%player%"
+                            "&#bbbbbbSet &#B078FF%player%"
                                     + "&#bbbbbb's fly speed to "
-                                    + "&#ff88ff%speed%"
+                                    + "&#B078FF%speed%"
                     )
                             .replace("%player%", targetName)
                             .replace("%speed%", speed.label())
@@ -254,7 +254,7 @@ public final class FlyCommand
                     speedMessage(
                             "set-by-other",
                             "&#bbbbbbFly speed set to "
-                                    + "&#ff88ff%speed%"
+                                    + "&#B078FF%speed%"
                     ).replace("%speed%", speed.label())
             );
         }
@@ -324,18 +324,12 @@ public final class FlyCommand
     private boolean hasSpeedPermission(Player player) {
         return player.hasPermission("mineaclespeed.use")
                 || player.hasPermission("mineaclespeed.admin")
-                || player.hasPermission(
-                "mineaclespeed.developer"
-        )
                 || player.hasPermission("mineaclefly.admin");
     }
 
     private boolean hasSpeedOthersPermission(Player player) {
         return player.hasPermission("mineaclespeed.others")
                 || player.hasPermission("mineaclespeed.admin")
-                || player.hasPermission(
-                "mineaclespeed.developer"
-        )
                 || player.hasPermission("mineaclefly.admin");
     }
 
@@ -352,11 +346,11 @@ public final class FlyCommand
     private void sendUpgrade(Player player) {
         String lineOne = core.getConfig().getString(
                 "fly.messages.upgrade-line-1",
-                "&#bbbbbbUnlock flight in spawn with &dMineacle+"
+                "&#bbbbbbThis feature requires &#8436FEMineacle+"
         );
         String lineTwo = core.getConfig().getString(
                 "fly.messages.upgrade-line-2",
-                "&d♦ &#bbbbbbhttps://store.mineacle.net"
+                "&#D0AFFFhttps://store.mineacle.net"
         );
 
         player.sendMessage(Component.empty());
@@ -441,10 +435,10 @@ public final class FlyCommand
 
     @Override
     public List<String> onTabComplete(
-            CommandSender sender,
-            Command command,
-            String alias,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String alias,
+            @NotNull String @NotNull [] args
     ) {
         if (!(sender instanceof Player player)) {
             return List.of();

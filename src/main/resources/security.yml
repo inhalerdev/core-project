@@ -1,270 +1,200 @@
-# MineacleCore command security
-# Root visibility only — argument completion remains command-owned
+# =============================================================================
+# MineacleCore — Command Security
+# =============================================================================
+#
+# Security controls root command visibility and a small set of hard blocks.
+# LuckPerms and each command-owning plugin remain the authority for whether a
+# player is actually allowed to use a command.
+#
+# CRITICAL REGRESSION RULE:
+# Security never filters tab completion after the first space.
+# /warp <space>, /team <space>, /sell <space>, etc. remain command-owned.
+# =============================================================================
+
+schema-version: 2
 
 enabled: true
+
+manage-permission: mineaclesecurity.admin
 bypass-permission: mineaclesecurity.bypass
+permission-aware-root-permission: mineaclesecurity.permission-aware-roots
+
 unknown-command-message: '&cThis command does not exist'
 reload-message: '&#bbbbbbSecurity reloaded'
-usage-message: '&#bbbbbbUsage: &d/mineaclesecurity reload'
-groups-message: '&#bbbbbbActive command groups: &d%groups%'
-block-unlisted-player-commands: false
+usage-message: '&#bbbbbbUsage: &#8436FE/mineaclesecurity reload'
+groups-message: '&#bbbbbbActive command groups: &#B078FF%groups%'
+
+
+# -----------------------------------------------------------------------------
+# Hard Security Rules
+# -----------------------------------------------------------------------------
+
+# Namespaced roots are blocked for players so plugin namespaces cannot be used
+# to route around the normal command path, e.g. bukkit:plugins or paper:version.
 block-namespaced-commands: true
-blocked-prefixes:
-- 'bukkit:'
-- 'spigot:'
-- 'paper:'
-- 'minecraft:'
-- 'luckperms:'
-- 'placeholderapi:'
-- 'worldedit:'
-- 'worldguard:'
-- 'multiverse-core:'
-- 'multiverse-inventories:'
-- 'deluxemenus:'
-- 'phoenixcrateslite:'
-- 'simpleportals:'
-- 'litebans:'
-- 'tab:'
-- 'skript:'
-- 'vault:'
-- 'protocol:'
-- 'protocollib:'
+
+# These roots are intentionally unavailable to players regardless of normal
+# command visibility. External plugin administration commands are NOT listed
+# here; their own LuckPerms permissions control access.
 blocked-commands:
-- '?'
-- about
-- bukkit:?
-- bukkit:about
-- bukkit:help
-- bukkit:pl
-- bukkit:plugin
-- bukkit:plugins
-- bukkit:reload
-- bukkit:rl
-- bukkit:ver
-- bukkit:version
-- icanhasbukkit
-- minecraft:help
-- minecraft:me
-- minecraft:tell
-- minecraft:team
-- minecraft:trigger
-- paper
-- paper:paper
-- paper:ver
-- paper:version
-- pl
-- plugin
-- pluginlist
-- plugins
-- spigot:about
-- spigot:ver
-- spigot:version
-- ver
-- version
-- ajl
-- ajlb
-- ajleaderboard
-- ajleaderboards
-- decentholograms
-- deluxemenu
-- deluxemenus
-- dh
-- dm
-- fawe
-- holo
-- holograms
-- iif
-- invisibleitemframes
-- keyall
-- keyallz
-- lb
-- liteban
-- litebans
-- lp
-- luckperms
-- mineaclecommandhook
-- multiverse
-- multiverse-inventories
-- mv
-- mvinv
-- noplugins
-- noplm
-- nuvotifier
-- papi
-- pcrate
-- pcrates
-- perworldstatistics
-- phoenixcrates
-- phoenixcrateslite
-- playtime
-- placeholderapi
-- portal
-- portals
-- protocol
-- protocollib
-- region
-- rg
-- sk
-- skript
-- sportal
-- sportals
-- tab
-- tabcompletefilter
-- tcf
-- vault
-- votifier
-- we
-- wg
-- worldedit
-- worldguard
+  - '?'
+  - about
+  - icanhasbukkit
+  - paper
+  - pl
+  - plugin
+  - pluginlist
+  - plugins
+  - ver
+  - version
+
+# These commands remain console-only even if a player receives a broad
+# administrative permission elsewhere.
 console-only-commands:
-- ban-ip
-- deop
-- op
-- pardon-ip
-- reload
-- restart
-- rl
-- save-all
-- save-off
-- save-on
-- stop
-- whitelist
+  - ban-ip
+  - deop
+  - op
+  - pardon-ip
+  - reload
+  - restart
+  - rl
+  - save-all
+  - save-off
+  - save-on
+  - stop
+  - whitelist
+
+
+# -----------------------------------------------------------------------------
+# Root Visibility Capability Groups
+# -----------------------------------------------------------------------------
+#
+# These are NOT LuckPerms ranks.
+# They are small command-visibility capability bundles.
+#
+# Normal players use the curated Default/Plus roots below.
+#
+# Players with mineaclesecurity.permission-aware-roots (Builder/Admin/Developer)
+# keep the command roots that Paper and the owning plugin already expose based
+# on the player's real permissions. This avoids duplicating every WorldEdit,
+# WorldGuard, LiteBans, Multiverse, TAB, etc. command here.
+# -----------------------------------------------------------------------------
+
 groups:
   default:
     permission: ''
     priority: 0
     inherits: []
+
     visible-commands:
-    - ah
-    - balance
-    - baltop
-    - bounty
-    - discord
-    - duel
-    - guide
-    - home
-    - ignore
-    - ignorelist
-    - msg
-    - order
-    - pay
-    - rtp
-    - rules
-    - sell
-    - sethome
-    - spawn
-    - stats
-    - store
-    - team
-    - tpa
-    - tpacancel
-    - tpaccept
-    - tpahere
-    - tpauto
-    - tpdeny
-    - verify
-    - warp
-    - web
-    - worth
-    - x
+      - ah
+      - balance
+      - baltop
+      - bounty
+      - discord
+      - duel
+      - guide
+      - home
+      - ignore
+      - ignorelist
+      - msg
+      - order
+      - pay
+      - rtp
+      - rules
+      - sell
+      - sethome
+      - spawn
+      - stats
+      - store
+      - team
+      - tpa
+      - tpacancel
+      - tpaccept
+      - tpahere
+      - tpauto
+      - tpdeny
+      - verify
+      - warp
+      - web
+      - worth
+      - x
+
+    # Valid aliases/technical roots that remain usable when explicitly typed,
+    # but are intentionally omitted from root command suggestions.
     hidden-commands:
-    - auction
-    - auctionhouse
-    - bal
-    - balancetop
-    - delhome
-    - duels
-    - h
-    - help
-    - homes
-    - lobby
-    - m
-    - mineacle
-    - mineacleweb
-    - money
-    - orders
-    - originrtp
-    - r
-    - renamehome
-    - reply
-    - teams
-    - tell
-    - tpadeny
-    - tphere
-    - tpno
-    - tpyes
-    - w
-    - warps
-    - webprofiles
-    - wild
+      - auction
+      - auctionhouse
+      - bal
+      - balancetop
+      - delhome
+      - duels
+      - h
+      - help
+      - homes
+      - lobby
+      - m
+      - mineacle
+      - money
+      - orders
+      - originrtp
+      - r
+      - renamehome
+      - reply
+      - teams
+      - tell
+      - tpadeny
+      - tpamenu
+      - tphere
+      - tpno
+      - tpyes
+      - w
+      - warps
+      - webprofiles
+      - wild
 
   plus:
     permission: mineacle.plus
     priority: 10
     inherits:
-    - default
-    visible-commands:
-    - fly
-    - nick
+      - default
 
-  # Command visibility follows the same capabilities used by Admin Inspect.
+    visible-commands:
+      - fly
+      - nick
+
+  # Staff/build-tool users are permission-aware at the root level, but noisy
+  # aliases remain hidden so the client command list stays clean.
+  permission-aware-tools:
+    permission: mineaclesecurity.permission-aware-roots
+    priority: 50
+    inherits: []
+
+    hidden-commands:
+      - ecsee
+      - enderchest
+      - flyspeed
+      - nametags
+      - walkspeed
+
+  # Admin Inspect visibility follows its actual capability nodes rather than
+  # a rank name.
   inspect-inventory:
     permission: mineacleadmin.invsee
     priority: 80
     inherits: []
+
     visible-commands:
-    - invsee
+      - invsee
 
   inspect-ender-chest:
     permission: mineacleadmin.echest
     priority: 80
     inherits: []
-    visible-commands:
-    - echest
-    hidden-commands:
-    - ecsee
-    - enderchest
 
-  admin:
-    permission: mineaclesecurity.group.admin
-    priority: 100
-    inherits:
-    - default
     visible-commands:
-    - ban
-    - delwarp
-    - doublejump
-    - eco
-    - enchant
-    - enchantinfo
-    - gma
-    - gmc
-    - gms
-    - gmsp
-    - hide
-    - kick
-    - mineaclehomes
-    - mineaclenametags
-    - mineaclesecurity
-    - mineacleweb
-    - mineacleworldmaintenance
-    - mute
-    - originrtp
-    - realname
-    - setwarp
-    - speed
-    - tempban
-    - tempmute
-    - unban
-    - unmute
-    - warn
-    - wm
-    - worldmaintenance
+      - echest
+
     hidden-commands:
-    - flyspeed
-    - money
-    - nametags
-    - w
-    - walkspeed
-    - webprofiles
+      - ecsee
+      - enderchest

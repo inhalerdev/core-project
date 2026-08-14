@@ -14,16 +14,18 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 public final class GamemodeShortcutCommand
         implements CommandExecutor, TabCompleter {
 
-    private static final String PERMISSION =
-            "mineacle.gamemode";
+    private static final String SELF_PERMISSION =
+            "mineacle.gamemode.self";
+    private static final String OTHERS_PERMISSION =
+            "mineacle.gamemode.others";
 
     private final Core core;
     private final String commandName;
@@ -41,19 +43,11 @@ public final class GamemodeShortcutCommand
 
     @Override
     public boolean onCommand(
-            CommandSender sender,
-            Command command,
-            String label,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String label,
+            @NotNull String @NotNull [] args
     ) {
-        if (!sender.hasPermission(PERMISSION)) {
-            error(
-                    sender,
-                    core.getMessage("general.no-permission")
-            );
-            return true;
-        }
-
         if (args.length > 1) {
             error(
                     sender,
@@ -67,19 +61,52 @@ public final class GamemodeShortcutCommand
         Player target;
 
         if (args.length == 0) {
-            if (!(sender instanceof Player player)) {
+            if (!(sender
+                    instanceof Player player)) {
                 sender.sendMessage(
-                        core.getMessage("general.players-only")
+                        core.getMessage(
+                                "general.players-only"
+                        )
+                );
+                return true;
+            }
+
+            if (!sender.hasPermission(
+                    SELF_PERMISSION
+            )) {
+                error(
+                        sender,
+                        core.getMessage(
+                                "general.no-permission"
+                        )
                 );
                 return true;
             }
 
             target = player;
         } else {
-            target = resolveVisibleTarget(sender, args[0]);
+            if (!sender.hasPermission(
+                    OTHERS_PERMISSION
+            )) {
+                error(
+                        sender,
+                        core.getMessage(
+                                "general.no-permission"
+                        )
+                );
+                return true;
+            }
+
+            target = resolveVisibleTarget(
+                    sender,
+                    args[0]
+            );
 
             if (target == null) {
-                error(sender, "&cThat player is not online");
+                error(
+                        sender,
+                        "&cThat player is not online"
+                );
                 return true;
             }
         }
@@ -92,39 +119,51 @@ public final class GamemodeShortcutCommand
             CommandSender sender,
             Player target
     ) {
-        String mode = displayMode(gameMode);
-        boolean self = sender instanceof Player player
-                && player.getUniqueId().equals(
-                target.getUniqueId()
-        );
+        String mode =
+                displayMode(gameMode);
+        boolean self =
+                sender
+                        instanceof Player player
+                        && player.getUniqueId()
+                        .equals(
+                                target.getUniqueId()
+                        );
 
-        if (target.getGameMode() == gameMode) {
+        if (target.getGameMode()
+                == gameMode) {
             if (self) {
                 send(
                         target,
                         configured(
                                 "gamemode.already-self",
                                 "&#bbbbbbYour gamemode is already "
-                                        + "&#ff88ff%mode%"
-                        ).replace("%mode%", mode)
+                                        + "&#B078FF%mode%"
+                        ).replace(
+                                "%mode%",
+                                mode
+                        )
                 );
             } else {
-                sender.sendMessage(TextColor.color(
-                        configured(
-                                "gamemode.already-other",
-                                "&#bbbbbb"
-                                        + "%player%"
-                                        + "&#bbbbbb is already in "
-                                        + "&#ff88ff%mode%"
-                        )
-                                .replace(
-                                        "%player%",
-                                        DisplayNames.displayName(
-                                                target
-                                        )
+                sender.sendMessage(
+                        TextColor.color(
+                                configured(
+                                        "gamemode.already-other",
+                                        "&#B078FF%player% "
+                                                + "&#bbbbbbis already in "
+                                                + "&#B078FF%mode%"
                                 )
-                                .replace("%mode%", mode)
-                ));
+                                        .replace(
+                                                "%player%",
+                                                DisplayNames.displayName(
+                                                        target
+                                                )
+                                        )
+                                        .replace(
+                                                "%mode%",
+                                                mode
+                                        )
+                        )
+                );
             }
 
             return;
@@ -133,55 +172,98 @@ public final class GamemodeShortcutCommand
         target.setGameMode(gameMode);
 
         if (self) {
-            String message = configured(
-                    "gamemode.message",
-                    "&#bbbbbbGamemode set to "
-                            + "&#ff88ff%mode%"
-            ).replace("%mode%", mode);
+            String message =
+                    configured(
+                            "gamemode.message",
+                            "&#bbbbbbGamemode set to "
+                                    + "&#B078FF%mode%"
+                    ).replace(
+                            "%mode%",
+                            mode
+                    );
 
             send(target, message);
-            SoundService.guiConfirm(target, core);
+            SoundService.guiConfirm(
+                    target,
+                    core
+            );
             return;
         }
 
-        String targetName = DisplayNames.displayName(target);
-        String senderMessage = configured(
-                "gamemode.other",
-                "&#bbbbbbSet "
-                        + "%player%"
-                        + "&#bbbbbb's gamemode to "
-                        + "&#ff88ff%mode%"
-        )
-                .replace("%player%", targetName)
-                .replace("%mode%", mode);
-        String targetMessage = configured(
-                "gamemode.target",
-                "&#bbbbbbYour gamemode was set to "
-                        + "&#ff88ff%mode%"
-        ).replace("%mode%", mode);
+        String targetName =
+                DisplayNames.displayName(
+                        target
+                );
+        String senderMessage =
+                configured(
+                        "gamemode.other",
+                        "&#bbbbbbSet "
+                                + "&#B078FF%player%"
+                                + "&#bbbbbb's gamemode to "
+                                + "&#B078FF%mode%"
+                )
+                        .replace(
+                                "%player%",
+                                targetName
+                        )
+                        .replace(
+                                "%mode%",
+                                mode
+                        );
+        String targetMessage =
+                configured(
+                        "gamemode.target",
+                        "&#bbbbbbYour gamemode was set to "
+                                + "&#B078FF%mode%"
+                ).replace(
+                        "%mode%",
+                        mode
+                );
 
-        sender.sendMessage(TextColor.color(senderMessage));
-        send(target, targetMessage);
+        sender.sendMessage(
+                TextColor.color(
+                        senderMessage
+                )
+        );
+        send(
+                target,
+                targetMessage
+        );
 
-        if (sender instanceof Player player) {
-            player.sendActionBar(component(senderMessage));
-            SoundService.guiConfirm(player, core);
+        if (sender
+                instanceof Player player) {
+            player.sendActionBar(
+                    component(
+                            senderMessage
+                    )
+            );
+            SoundService.guiConfirm(
+                    player,
+                    core
+            );
         }
 
-        SoundService.guiConfirm(target, core);
+        SoundService.guiConfirm(
+                target,
+                core
+        );
     }
 
     private Player resolveVisibleTarget(
             CommandSender sender,
             String input
     ) {
-        Player target = DisplayNames.resolveOnline(input);
+        Player target =
+                DisplayNames.resolveOnline(
+                        input
+                );
 
         if (target == null) {
             return null;
         }
 
-        if (sender instanceof Player viewer
+        if (sender
+                instanceof Player viewer
                 && !viewer.canSee(target)) {
             return null;
         }
@@ -193,10 +275,16 @@ public final class GamemodeShortcutCommand
             String path,
             String fallback
     ) {
-        return core.getConfig().getString(path, fallback);
+        return core.getConfig()
+                .getString(
+                        path,
+                        fallback
+                );
     }
 
-    private String displayMode(GameMode mode) {
+    private String displayMode(
+            GameMode mode
+    ) {
         return switch (mode) {
             case CREATIVE -> "Creative";
             case SURVIVAL -> "Survival";
@@ -209,10 +297,18 @@ public final class GamemodeShortcutCommand
             CommandSender sender,
             String message
     ) {
-        sender.sendMessage(TextColor.color(message));
+        sender.sendMessage(
+                TextColor.color(
+                        message
+                )
+        );
 
-        if (sender instanceof Player player) {
-            SoundService.guiError(player, core);
+        if (sender
+                instanceof Player player) {
+            SoundService.guiError(
+                    player,
+                    core
+            );
         }
     }
 
@@ -220,54 +316,80 @@ public final class GamemodeShortcutCommand
             Player player,
             String message
     ) {
-        player.sendMessage(TextColor.color(message));
-        player.sendActionBar(component(message));
+        player.sendMessage(
+                TextColor.color(
+                        message
+                )
+        );
+        player.sendActionBar(
+                component(message)
+        );
     }
 
-    private Component component(String message) {
-        return LegacyComponentSerializer.legacySection()
-                .deserialize(TextColor.color(message));
+    private Component component(
+            String message
+    ) {
+        return LegacyComponentSerializer
+                .legacySection()
+                .deserialize(
+                        TextColor.color(
+                                message
+                        )
+                );
     }
 
     @Override
     public List<String> onTabComplete(
-            CommandSender sender,
-            Command command,
-            String alias,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String alias,
+            @NotNull String @NotNull [] args
     ) {
-        if (!sender.hasPermission(PERMISSION)
-                || args.length != 1) {
+        if (args.length != 1
+                || !sender.hasPermission(
+                OTHERS_PERMISSION
+        )) {
             return List.of();
         }
 
-        if (sender instanceof Player player) {
-            return PlayerTabComplete.onlinePlayers(
-                    player,
-                    args[0],
-                    true
-            );
+        if (sender
+                instanceof Player player) {
+            return PlayerTabComplete
+                    .onlinePlayers(
+                            player,
+                            args[0],
+                            true
+                    );
         }
 
-        String input = args[0] == null
-                ? ""
-                : args[0].toLowerCase(
+        String input =
+                args[0].toLowerCase(
                         java.util.Locale.ROOT
                 );
-        List<String> names = new ArrayList<>();
+        List<String> names =
+                new ArrayList<>();
 
-        for (Player online : Bukkit.getOnlinePlayers()) {
+        for (Player online
+                : Bukkit.getOnlinePlayers()) {
             String displayName =
-                    DisplayNames.displayName(online);
+                    DisplayNames.displayName(
+                            online
+                    );
 
-            if (displayName.toLowerCase(
-                    java.util.Locale.ROOT
-            ).startsWith(input)) {
-                names.add(displayName);
+            if (displayName
+                    .toLowerCase(
+                            java.util.Locale.ROOT
+                    )
+                    .startsWith(input)) {
+                names.add(
+                        displayName
+                );
             }
         }
 
-        names.sort(String.CASE_INSENSITIVE_ORDER);
+        names.sort(
+                String.CASE_INSENSITIVE_ORDER
+        );
         return List.copyOf(names);
     }
 }

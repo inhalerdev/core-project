@@ -5,60 +5,81 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
-import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
-public final class SecurityCommand implements CommandExecutor, TabCompleter {
+public final class SecurityCommand
+        implements CommandExecutor, TabCompleter {
 
     private final SecurityService service;
 
-    public SecurityCommand(SecurityService service) {
+    public SecurityCommand(
+            SecurityService service
+    ) {
         this.service = service;
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!service.bypass(sender)) {
-            sender.sendMessage(service.unknownMessage());
+    public boolean onCommand(
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String label,
+            @NotNull String @NotNull [] args
+    ) {
+        if (service.canManage(sender)) {
+            if (args.length != 1) {
+                sender.sendMessage(
+                        service.usageMessage()
+                );
+                return true;
+            }
+
+            if (args[0].equalsIgnoreCase(
+                    "reload"
+            )) {
+                service.reload();
+                sender.sendMessage(
+                        service.reloadMessage()
+                );
+                return true;
+            }
+
+            if (args[0].equalsIgnoreCase(
+                    "groups"
+            )) {
+                sender.sendMessage(
+                        service.groupsMessage(sender)
+                );
+                return true;
+            }
+
+            sender.sendMessage(
+                    service.usageMessage()
+            );
             return true;
         }
 
-        if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
-            service.reload();
-            sender.sendMessage(service.reloadMessage());
-            return true;
-        }
-
-        if (args.length > 0 && args[0].equalsIgnoreCase("groups") && sender instanceof Player player) {
-            sender.sendMessage("§7Active security groups: §d" + String.join("§7, §d", service.activeGroupNames(player)));
-            return true;
-        }
-
-        sender.sendMessage("§7Usage: §d/mineaclesecurity reload");
+        sender.sendMessage(
+                service.unknownMessage()
+        );
         return true;
     }
 
     @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!service.bypass(sender)) {
+    public List<String> onTabComplete(
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String alias,
+            @NotNull String @NotNull [] args
+    ) {
+        if (args.length != 1) {
             return List.of();
         }
 
-        if (args.length == 1) {
-            String input = args[0].toLowerCase(Locale.ROOT);
-            List<String> options = new ArrayList<>();
-            if ("reload".startsWith(input)) {
-                options.add("reload");
-            }
-            if (sender instanceof Player && "groups".startsWith(input)) {
-                options.add("groups");
-            }
-            return options;
-        }
-
-        return List.of();
+        return service.commandTabs(
+                sender,
+                args[0]
+        );
     }
 }

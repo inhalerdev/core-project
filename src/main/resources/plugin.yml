@@ -264,22 +264,22 @@ commands:
   gmc:
     description: Set Creative mode
     usage: /gmc [player]
-    permission: mineacle.gamemode
+    permission: mineacle.gamemode.self
 
   gms:
     description: Set Survival mode
     usage: /gms [player]
-    permission: mineacle.gamemode
+    permission: mineacle.gamemode.self
 
   gmsp:
     description: Set Spectator mode
     usage: /gmsp [player]
-    permission: mineacle.gamemode
+    permission: mineacle.gamemode.self
 
   gma:
     description: Set Adventure mode
     usage: /gma [player]
-    permission: mineacle.gamemode
+    permission: mineacle.gamemode.self
 
   discord:
     description: View the Mineacle Discord link
@@ -316,7 +316,7 @@ commands:
   mineaclesecurity:
     description: Reload Mineacle command security
     usage: /mineaclesecurity reload
-    permission: mineaclesecurity.bypass
+    permission: mineaclesecurity.admin
 
   enchant:
     description: Enchant your held item
@@ -388,6 +388,14 @@ permissions:
     default: false
 
   mineacle.gamemode:
+    default: false
+    children:
+      mineacle.gamemode.self: true
+      mineacle.gamemode.others: true
+
+  mineacle.gamemode.self:
+    default: false
+  mineacle.gamemode.others:
     default: false
 
   mineaclehomes.use:
@@ -499,9 +507,11 @@ permissions:
   mineaclenametags.admin:
     default: false
 
-  mineaclesecurity.bypass:
+  mineaclesecurity.admin:
     default: false
-  mineaclesecurity.group.admin:
+  mineaclesecurity.permission-aware-roots:
+    default: false
+  mineaclesecurity.bypass:
     default: false
 
   mineacleenchant.admin:
