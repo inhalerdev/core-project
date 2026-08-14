@@ -1,60 +1,63 @@
 enabled: true
 
-# The Auction House is the player-to-player market layer above /sell and /worth.
-# A listing cannot be created below the current server sell payout for the exact
-# item stack. Player-market-only items fall back to listing.min-price.
+# The Auction House is Mineacle's player-to-player market above /sell and /worth.
+# Local atomic listing/recovery files are authoritative for gameplay. MariaDB is
+# an asynchronous read mirror for the website and must never block player trades.
 
 database:
   mirror:
-    # Non-blocking MariaDB mirror for website/read access.
-    # Local atomic AH storage remains authoritative for gameplay.
     enabled: true
 
     # Reuse the live MariaDB credentials already used by WebProfiles.
     # Do not copy database passwords into this file.
     settings-file: webprofiles.yml
-
-    # Created automatically by the Minecraft server when the DB user has
-    # CREATE TABLE permission.
     table: mineacle_auction_listings
 
-    # Full reconciliation catches missed writes and updates ACTIVE/EXPIRED.
+    # Full reconciliation repairs dropped incremental mirror writes and refreshes
+    # ACTIVE/EXPIRED status. Gameplay remains available if MariaDB is offline.
     sync-seconds: 60
 
+    # Mirror work is intentionally bounded. If the remote database stalls, old
+    # incremental work may be discarded and the next full reconciliation repairs it.
+    queue-capacity: 128
+    connect-timeout-millis: 3000
+    socket-timeout-millis: 5000
+    failure-backoff-seconds: 15
+
+    # Reuses immutable serialized listing payloads without allowing the mirror
+    # cache to grow without bound. 32 MiB is ample for normal market items.
+    payload-cache-max-bytes: 33554432
+
 browse:
-  default-sort: LOWEST_PRICE
+  # Unit price is the most useful default comparison for a competitive market.
+  default-sort: LOWEST_UNIT_PRICE
+
+  # Short shared-result caching prevents many players opening the same market view
+  # from repeatedly scanning/sorting the same immutable listing set.
+  cache-millis: 750
 
   # Normal click opens review. Shift-click buys immediately.
   shift-click-quick-buy: true
 
 listing:
-  # Preserve current behavior until the dedicated LuckPerms permission pass.
   allow-default: true
 
   default-slots: 18
   elevated-slots: 27
   admin-slots: 999
 
-  # Long-term capability authority.
+  # LuckPerms capability authority. No rank/group-name fallback is used.
   elevated-permission: mineacle.plus
-
-  # TEMPORARY bridge while LuckPerms groups only have weights/prefixes.
-  # Remove after capability permissions are assigned.
-  legacy-primary-group-fallback: true
-  legacy-elevated-primary-groups:
-    - plus
-    - mineacleplus
 
   min-price: 1
   max-price: 1B
 
-  # Prevent AH -> /sell arbitrage. The exact stack is checked when it is
-  # listed and again immediately before a buyer can purchase it.
+  # Prevent AH -> /sell arbitrage. The exact stack is checked when it is listed
+  # and again immediately before a buyer can purchase it.
   enforce-server-sell-floor: true
 
-  # Listings expire after exactly 24 hours.
-  # Expired listings remain in their owner's slots until manually reclaimed.
-
+  # Listings expire after exactly 24 hours. Expired listings remain in their
+  # owner's occupied slots until manually reclaimed.
   reject-overstacked: true
   block-filled-containers: true
   max-item-nbt-bytes: 262144
@@ -138,6 +141,8 @@ messages:
   search-prompt: '&#bbbbbbType an item name to search'
   server-sell-reference: '&#bbbbbbServer Sell: &a%price%'
   minimum-listing-reference: '&#bbbbbbMinimum Price: &a%price%'
+  market-low-reference: '&#bbbbbbMarket Low: &a%each% each &#bbbbbb(&#D0AFFF%count% &#bbbbbblisted)'
+  market-low-single-reference: '&#bbbbbbMarket Low: &a%price% &#bbbbbb(&#D0AFFF%count% &#bbbbbblisted)'
   price-prompt: '&#bbbbbbType a price or &#D0AFFFcancel'
   empty-search: '&cSearch cannot be empty'
   search-too-long: '&cSearch cannot exceed %max% characters'
