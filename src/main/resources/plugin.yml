@@ -3,468 +3,575 @@ main: net.mineacle.core.Core
 version: 1.0.0
 api-version: '1.21'
 author: Mineacle
+
 depend:
-- LuckPerms
+  - LuckPerms
+
 softdepend:
-- Vault
-- PlaceholderAPI
-- ProtocolLib
-- NuVotifier
-- Votifier
+  - Vault
+  - PlaceholderAPI
+  - ProtocolLib
+  - NuVotifier
+  - Votifier
+
 loadbefore:
-- ajLeaderboards
-- DeluxeMenus
-- TAB
+  - ajLeaderboards
+  - DeluxeMenus
+  - TAB
+
+
+# =============================================================================
+# Commands
+# =============================================================================
+
 commands:
   auction:
     description: Open the auction house
     aliases:
-    - ah
-    - auctionhouse
+      - ah
+      - auctionhouse
     usage: /ah
     permission: mineacleauctionhouse.use
+
   guide:
     description: Open the Mineacle guide
     aliases:
-    - help
-    - mineacle
+      - help
+      - mineacle
     usage: /guide
     permission: mineacleguide.use
+
   rules:
     description: Open the Mineacle rules
     usage: /rules
     permission: mineacleguide.use
+
   home:
     description: Open your homes menu
     aliases:
-    - homes
-    - h
+      - homes
+      - h
     usage: /home
     permission: mineaclehomes.use
+
   sethome:
     description: Set a named home
     usage: /sethome <name>
     permission: mineaclehomes.use
+
   delhome:
     description: Delete a named home
     usage: /delhome <name>
     permission: mineaclehomes.use
+
   renamehome:
     description: Rename a saved home
     usage: /renamehome <name> <new>
     permission: mineaclehomes.use
+
   mineaclehomes:
     description: Reload Homes configuration
     usage: /mineaclehomes reload
     permission: mineaclehomes.admin
+
   team:
     description: Create, join, and manage your team
     aliases:
-    - teams
+      - teams
     usage: /team
     permission: mineacleteams.use
+
   tpa:
     description: Request to teleport to a player
     usage: /tpa <player>
     permission: mineacletpa.use
+
   tpahere:
     description: Request a player teleport to you
     aliases:
-    - tphere
+      - tphere
     usage: /tpahere <player>
     permission: mineacletpa.use
+
   tpaccept:
     description: Accept a teleport request
     aliases:
-    - tpyes
+      - tpyes
     usage: /tpaccept
     permission: mineacletpa.use
+
   tpdeny:
     description: Deny a teleport request
     aliases:
-    - tpadeny
-    - tpno
+      - tpadeny
+      - tpno
     usage: /tpdeny
     permission: mineacletpa.use
+
   tpacancel:
     description: Cancel your outgoing teleport request
     usage: /tpacancel
     permission: mineacletpa.use
+
   tpauto:
     description: Toggle automatic teleport-request acceptance
     usage: /tpauto
     permission: mineacletpa.use
+
   tpamenu:
     description: Review a teleport request target
     usage: /tpamenu <player>
     permission: mineacletpa.use
+
   stats:
     description: View player statistics
     usage: /stats [player]
     permission: mineaclestats.use
+
   balance:
     description: View a balance
     aliases:
-    - bal
-    - money
+      - bal
+      - money
     usage: /balance [player]
     permission: mineacleeconomy.use
+
   pay:
     description: Pay another player
     usage: /pay <player> <amount>
     permission: mineacleeconomy.pay
+
   eco:
     description: Manage balances
     usage: /eco
     permission: mineacleeconomy.admin
+
   baltop:
     description: View Balance Top
     aliases:
-    - balancetop
+      - balancetop
     usage: /baltop
     permission: mineaclebaltop.use
+
   msg:
     description: Send a private message
     aliases:
-    - tell
-    - w
-    - m
+      - tell
+      - w
+      - m
     usage: /msg <player> <message>
     permission: mineaclechat.message
+
   r:
     description: Reply to your last private message
     aliases:
-    - reply
+      - reply
     usage: /r <message>
     permission: mineaclechat.message
+
   ignore:
     description: Ignore or unignore a player
     usage: /ignore <player>
     permission: mineaclechat.ignore
+
   ignorelist:
     description: View ignored players
     usage: /ignorelist
     permission: mineaclechat.ignore
+
   nick:
     description: Set or reset your nickname
     usage: /nick <nickname|reset>
     permission: mineaclechat.nick
+
   realname:
     description: Resolve a nickname to its username
     usage: /realname <nickname>
     permission: mineaclechat.realname
+
   spawn:
     description: Open the spawn menu
     aliases:
-    - lobby
+      - lobby
     usage: /spawn
     permission: mineaclespawn.use
+
   warp:
     description: Teleport to a configured warp
     aliases:
-    - warps
+      - warps
     usage: /warp <name>
     permission: mineaclewarps.use
+
   setwarp:
     description: Set a warp
     usage: /setwarp <name> [slot] [display name]
     permission: mineaclewarps.admin
+
   delwarp:
     description: Delete a warp
     usage: /delwarp <name>
     permission: mineaclewarps.admin
+
   originrtp:
     description: Open Random Teleport or choose a destination
     aliases:
-    - rtp
-    - wild
+      - rtp
+      - wild
     usage: /rtp [overworld|nether|end]
     permission: mineaclertp.use
+
   doublejump:
     description: Reload Double Jump configuration
     usage: /doublejump reload
     permission: mineacledoublejump.admin
+
   fly:
     description: Toggle flight in spawn worlds
     usage: /fly
     permission: mineaclefly.command
+
   speed:
     description: Set walking or flying speed
     aliases:
-    - walkspeed
-    - flyspeed
+      - walkspeed
+      - flyspeed
     usage: /speed <speed> [player]
     permission: mineaclespeed.use
+
   order:
     description: Open player orders
     aliases:
-    - orders
+      - orders
     usage: /order [create|search|clear]
     permission: mineacleorders.use
+
   sell:
     description: Open the Sell menu
     usage: /sell
     permission: mineaclesell.use
+
   worth:
     description: Open Item Prices
     usage: /worth [item]
     permission: mineaclesell.use
+
   bounty:
     description: View or place bounties
     usage: /bounty
     permission: mineaclebounty.use
+
   gmc:
     description: Set Creative mode
     usage: /gmc [player]
     permission: mineacle.gamemode
+
   gms:
     description: Set Survival mode
     usage: /gms [player]
     permission: mineacle.gamemode
+
   gmsp:
     description: Set Spectator mode
     usage: /gmsp [player]
     permission: mineacle.gamemode
+
   gma:
     description: Set Adventure mode
     usage: /gma [player]
     permission: mineacle.gamemode
+
   discord:
     description: View the Mineacle Discord link
     usage: /discord
     permission: mineaclelinks.use
+
   store:
     description: View the Mineacle Store link
     usage: /store
     permission: mineaclelinks.use
+
   web:
     description: View the Mineacle website link
     usage: /web
     permission: mineaclelinks.use
+
   x:
     description: View the Mineacle X link
     usage: /x
     permission: mineaclelinks.use
+
   hide:
     description: Toggle your overhead nametag
     usage: /hide
     permission: mineaclehide.use
+
   mineaclenametags:
     description: Reload Mineacle nametags
     aliases:
-    - nametags
+      - nametags
     usage: /mineaclenametags reload
     permission: mineaclenametags.admin
+
   mineaclesecurity:
     description: Reload Mineacle command security
     usage: /mineaclesecurity reload
     permission: mineaclesecurity.bypass
+
   enchant:
     description: Enchant your held item
     usage: /enchant <enchantment> <level|remove>
     permission: mineacleenchant.admin
+
   enchantinfo:
     description: View enchantment information
     usage: /enchantinfo <enchantment>
     permission: mineacleenchant.admin
+
   duel:
     description: Challenge players or join Mineacle duels
     aliases:
-    - duels
+      - duels
     usage: /duel <player>
     permission: mineacleduels.use
+
   mineacleworldmaintenance:
     description: Control world maintenance groups
     aliases:
-    - worldmaintenance
-    - wm
+      - worldmaintenance
+      - wm
     usage: /mineacleworldmaintenance <group> <on|off>
     permission: mineacleworldmaintenance.admin
+
   invsee:
     description: Inspect an online player's inventory
     usage: /invsee <player>
     permission: mineacleadmin.invsee
+
   echest:
     description: Inspect an online player's ender chest
     aliases:
-    - enderchest
-    - ecsee
+      - enderchest
+      - ecsee
     usage: /echest <player>
     permission: mineacleadmin.echest
+
   mineacleweb:
     description: Manage Mineacle website synchronization
     aliases:
-    - webprofiles
+      - webprofiles
     usage: /mineacleweb fights <status|clear>
     permission: mineacleweb.admin
+
   verify:
     description: Verify your Minecraft account for the Mineacle website
     usage: /verify <code>
     permission: mineacleweb.verify
+
+
+# =============================================================================
+# Permissions
+# =============================================================================
+#
+# LuckPerms is the sole authority for MineacleCore access.
+# Every node defaults to false so Bukkit/OP does not grant Core capabilities
+# outside the configured LuckPerms group hierarchy.
+# =============================================================================
+
 permissions:
   mineacleguide.use:
-    default: true
+    default: false
   mineacleguide.admin:
-    default: op
+    default: false
+
   mineacle.plus:
     default: false
+
   mineacle.gamemode:
-    default: op
+    default: false
+
   mineaclehomes.use:
-    default: true
+    default: false
   mineaclehomes.admin:
-    default: op
+    default: false
+
   mineacleteams.use:
-    default: true
+    default: false
   mineacleteams.admin:
-    default: op
+    default: false
+
   mineacletpa.use:
-    default: true
+    default: false
   mineacletpa.admin:
-    default: op
+    default: false
+
   mineaclestats.use:
-    default: true
+    default: false
   mineaclestats.admin:
-    default: op
+    default: false
+
   mineacleeconomy.use:
-    default: true
+    default: false
   mineacleeconomy.pay:
-    default: true
+    default: false
   mineacleeconomy.admin:
-    default: op
+    default: false
+
   mineaclebaltop.use:
-    default: true
+    default: false
   mineaclebaltop.admin:
-    default: op
+    default: false
+
   mineaclechat.message:
-    default: true
+    default: false
   mineaclechat.ignore:
-    default: true
+    default: false
   mineaclechat.nick:
     default: false
   mineaclechat.realname:
-    default: true
+    default: false
   mineaclechat.admin:
-    default: op
+    default: false
+
   mineaclespawn.use:
-    default: true
+    default: false
   mineaclespawn.admin:
-    default: op
+    default: false
+
   mineaclewarps.use:
-    default: true
+    default: false
   mineaclewarps.admin:
-    default: op
+    default: false
+
   mineaclertp.use:
-    default: true
+    default: false
   mineaclertp.admin:
-    default: op
+    default: false
     children:
       mineaclertp.use: true
+
   mineacledoublejump.admin:
-    default: op
+    default: false
+
   mineaclefly.command:
-    default: true
+    default: false
   mineaclefly.use:
     default: false
   mineaclefly.admin:
-    default: op
+    default: false
+
   mineaclespeed.use:
-    default: op
+    default: false
   mineaclespeed.others:
-    default: op
+    default: false
   mineaclespeed.admin:
-    default: op
+    default: false
+
   mineacleorders.use:
-    default: true
+    default: false
   mineacleorders.admin:
-    default: op
+    default: false
     children:
       mineacleorders.use: true
+
   mineaclesell.use:
-    default: true
+    default: false
   mineaclesell.admin:
-    default: op
+    default: false
+
   mineaclebounty.use:
-    default: true
+    default: false
   mineaclebounty.admin:
-    default: op
+    default: false
+
   mineaclelinks.use:
-    default: true
+    default: false
   mineaclelinks.admin:
-    default: op
+    default: false
+
   mineaclehide.use:
     default: false
   mineaclehide.admin:
-    default: op
+    default: false
     children:
       mineaclehide.use: true
-  mineaclenametags.admin:
-    default: op
-  mineaclesecurity.bypass:
-    default: op
-  mineaclesecurity.group.admin:
-    default: op
-  mineacleenchant.admin:
-    default: op
-  mineacleworldmaintenance.admin:
-    default: op
-  mineacleworldmaintenance.bypass:
-    default: op
-  mineacleduels.use:
-    default: true
-  mineacleduels.admin:
-    default: op
 
-  # Admin Inspect capabilities are ready for LuckPerms. OP fallback is
-  # intentionally retained until the dedicated permission migration.
+  mineaclenametags.admin:
+    default: false
+
+  mineaclesecurity.bypass:
+    default: false
+  mineaclesecurity.group.admin:
+    default: false
+
+  mineacleenchant.admin:
+    default: false
+
+  mineacleworldmaintenance.admin:
+    default: false
+  mineacleworldmaintenance.bypass:
+    default: false
+
+  mineacleduels.use:
+    default: false
+  mineacleduels.admin:
+    default: false
+
   mineacleadmin.inspect:
-    default: op
+    default: false
     children:
       mineacleadmin.invsee: true
       mineacleadmin.echest: true
+
   mineacleadmin.inspect.self:
-    default: op
+    default: false
     children:
       mineacleadmin.invsee.self: true
       mineacleadmin.echest.self: true
+
   mineacleadmin.inspect.modify:
-    default: op
+    default: false
     children:
       mineacleadmin.invsee.modify: true
       mineacleadmin.echest.modify: true
+
   mineacleadmin.invsee:
-    default: op
+    default: false
   mineacleadmin.invsee.self:
-    default: op
+    default: false
   mineacleadmin.invsee.modify:
-    default: op
+    default: false
+
   mineacleadmin.echest:
-    default: op
+    default: false
   mineacleadmin.echest.self:
-    default: op
+    default: false
   mineacleadmin.echest.modify:
-    default: op
+    default: false
+
   mineacleadmin.inspect.hidden:
-    default: op
+    default: false
   mineacleadmin.inspect.protected:
     default: false
   mineacleadmin.inspect.protected.bypass:
-    default: op
+    default: false
 
   mineacleshulkerpreview.use:
     default: false
   mineacleshulkerpreview.admin:
-    default: op
+    default: false
+
   mineacleauctionhouse.use:
-    default: true
+    default: false
   mineacleauctionhouse.sell:
     default: false
   mineacleauctionhouse.admin:
-    default: op
+    default: false
     children:
       mineacleauctionhouse.use: true
       mineacleauctionhouse.sell: true
+
   mineacleweb.verify:
-    default: true
+    default: false
   mineacleweb.admin:
-    default: op
+    default: false

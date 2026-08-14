@@ -230,7 +230,7 @@ groups:
     permission: mineaclesecurity.group.admin
     priority: 100
     inherits:
-    - plus
+    - default
     visible-commands:
     - ban
     - delwarp
