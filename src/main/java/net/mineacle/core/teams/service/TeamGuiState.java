@@ -9,7 +9,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-@SuppressWarnings("unused")
 public final class TeamGuiState implements Listener {
 
     private final Map<UUID, Confirmation> confirmations =

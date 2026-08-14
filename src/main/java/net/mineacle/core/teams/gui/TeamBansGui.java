@@ -31,7 +31,6 @@ public final class TeamBansGui {
 
     public static final int PREVIOUS_SLOT =
             CenteredToolbar.previousSlot(SIZE);
-    public static final int BACK_SLOT = 48;
     public static final int REFRESH_SLOT =
             CenteredToolbar.centerSlot(SIZE);
     public static final int NEXT_SLOT =
@@ -77,6 +76,14 @@ public final class TeamBansGui {
                         0,
                         maxPage
                 );
+        String title =
+                maxPage == 0
+                        ? "Team Bans"
+                        : "Team Bans (Page "
+                        + (safePage + 1)
+                        + "/"
+                        + (maxPage + 1)
+                        + ")";
 
         BansHolder holder =
                 new BansHolder(
@@ -87,24 +94,16 @@ public final class TeamBansGui {
                 Bukkit.createInventory(
                         holder,
                         SIZE,
-                        GuiText.title(
-                                "Team Bans (Page "
-                                        + (safePage + 1)
-                                        + "/"
-                                        + (maxPage + 1)
-                                        + ")"
-                        )
+                        GuiText.title(title)
                 );
         holder.inventory = inventory;
 
         int start =
-                safePage
-                        * CONTENT_SLOTS;
+                safePage * CONTENT_SLOTS;
         int end =
                 Math.min(
                         bans.size(),
-                        start
-                                + CONTENT_SLOTS
+                        start + CONTENT_SLOTS
                 );
 
         for (int index = start;
@@ -128,27 +127,20 @@ public final class TeamBansGui {
                     playerHead(
                             banned,
                             "&c"
-                                    + DisplayNames
-                                    .displayName(
-                                            banned
-                                    ),
+                                    + DisplayNames.displayName(
+                                    banned
+                            ),
                             List.of(
-                                    BODY
-                                            + "Banned by: "
+                                    BODY + "Banned by: "
                                             + SECONDARY
-                                            + DisplayNames
-                                            .displayName(
-                                                    bannedBy
-                                            ),
-                                    BODY
-                                            + "Expires: "
-                                            + ACCENT
-                                            + remaining(
-                                            record
+                                            + DisplayNames.displayName(
+                                            bannedBy
                                     ),
+                                    BODY + "Expires: "
+                                            + ACCENT
+                                            + remaining(record),
                                     "",
-                                    BODY
-                                            + "Click to unban"
+                                    BODY + "Click to unban"
                             )
                     )
             );
@@ -163,11 +155,9 @@ public final class TeamBansGui {
                     22,
                     item(
                             Material.GRAY_DYE,
-                            BODY
-                                    + "No Active Bans",
+                            BODY + "No Active Bans",
                             List.of(
-                                    BODY
-                                            + "This team has no active bans"
+                                    BODY + "No players are banned"
                             )
                     )
             );
@@ -184,25 +174,12 @@ public final class TeamBansGui {
         }
 
         inventory.setItem(
-                BACK_SLOT,
-                item(
-                        Material.ARROW,
-                        SECONDARY + "Back",
-                        List.of(
-                                BODY
-                                        + "Return to Team"
-                        )
-                )
-        );
-        inventory.setItem(
                 REFRESH_SLOT,
                 item(
                         Material.EMERALD,
-                        SECONDARY
-                                + "Refresh",
+                        SECONDARY + "Refresh",
                         List.of(
-                                BODY
-                                        + "Reload active bans"
+                                BODY + "Reload active bans"
                         )
                 )
         );
@@ -217,9 +194,7 @@ public final class TeamBansGui {
             );
         }
 
-        player.openInventory(
-                inventory
-        );
+        player.openInventory(inventory);
     }
 
     private static String remaining(
@@ -232,8 +207,7 @@ public final class TeamBansGui {
                                 - System.currentTimeMillis()
                 );
         long days =
-                TimeUnit.MILLISECONDS
-                        .toDays(millis);
+                TimeUnit.MILLISECONDS.toDays(millis);
 
         if (days > 0L) {
             return days
@@ -243,8 +217,7 @@ public final class TeamBansGui {
         }
 
         long hours =
-                TimeUnit.MILLISECONDS
-                        .toHours(millis);
+                TimeUnit.MILLISECONDS.toHours(millis);
 
         if (hours > 0L) {
             return hours
@@ -256,10 +229,9 @@ public final class TeamBansGui {
         long minutes =
                 Math.max(
                         1L,
-                        TimeUnit.MILLISECONDS
-                                .toMinutes(
-                                        millis
-                                )
+                        TimeUnit.MILLISECONDS.toMinutes(
+                                millis
+                        )
                 );
 
         return minutes
@@ -275,14 +247,11 @@ public final class TeamBansGui {
         return item(
                 Material.ARROW,
                 SECONDARY
-                        + (
-                        previous
-                                ? "Previous Page"
-                                : "Next Page"
-                ),
+                        + (previous
+                        ? "Previous Page"
+                        : "Next Page"),
                 List.of(
-                        BODY
-                                + "Page "
+                        BODY + "Page "
                                 + ACCENT
                                 + page
                 )
@@ -295,23 +264,16 @@ public final class TeamBansGui {
             List<String> lore
     ) {
         ItemStack item =
-                new ItemStack(
-                        Material.PLAYER_HEAD
-                );
+                new ItemStack(Material.PLAYER_HEAD);
         ItemMeta rawMeta =
                 item.getItemMeta();
 
-        if (!(rawMeta
-                instanceof SkullMeta meta)) {
+        if (!(rawMeta instanceof SkullMeta meta)) {
             return item;
         }
 
         meta.setOwningPlayer(owner);
-        GuiText.apply(
-                meta,
-                name,
-                lore
-        );
+        GuiText.apply(meta, name, lore);
         item.setItemMeta(meta);
         return item;
     }
@@ -330,14 +292,8 @@ public final class TeamBansGui {
             return item;
         }
 
-        GuiText.apply(
-                meta,
-                name,
-                lore
-        );
-        meta.addItemFlags(
-                ItemFlag.HIDE_ATTRIBUTES
-        );
+        GuiText.apply(meta, name, lore);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
     }

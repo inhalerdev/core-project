@@ -18,6 +18,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
+import java.util.UUID;
 
 public final class TeamInviteGui {
 
@@ -49,7 +50,9 @@ public final class TeamInviteGui {
                         player.getUniqueId()
                 );
         InviteHolder holder =
-                new InviteHolder();
+                invite == null
+                        ? InviteHolder.empty()
+                        : InviteHolder.of(invite);
         Inventory inventory =
                 Bukkit.createInventory(
                         holder,
@@ -63,17 +66,13 @@ public final class TeamInviteGui {
                     CENTER_SLOT,
                     item(
                             Material.GRAY_DYE,
-                            BODY
-                                    + "No Team Invites",
+                            BODY + "No Team Invites",
                             List.of(
-                                    BODY
-                                            + "No invite waiting"
+                                    BODY + "No invite waiting"
                             )
                     )
             );
-            player.openInventory(
-                    inventory
-            );
+            player.openInventory(inventory);
             return;
         }
 
@@ -84,7 +83,10 @@ public final class TeamInviteGui {
 
         if (team == null) {
             inviteService.denyInvite(
-                    player.getUniqueId()
+                    player.getUniqueId(),
+                    invite.teamId(),
+                    invite.inviterId(),
+                    invite.createdAt()
             );
             inventory.setItem(
                     CENTER_SLOT,
@@ -92,14 +94,11 @@ public final class TeamInviteGui {
                             Material.BARRIER,
                             "&cInvite Expired",
                             List.of(
-                                    BODY
-                                            + "That team no longer exists"
+                                    BODY + "That team no longer exists"
                             )
                     )
             );
-            player.openInventory(
-                    inventory
-            );
+            player.openInventory(inventory);
             return;
         }
 
@@ -108,19 +107,15 @@ public final class TeamInviteGui {
                         invite.inviterId()
                 );
         String inviterName =
-                DisplayNames.displayName(
-                        inviter
-                );
+                DisplayNames.displayName(inviter);
 
         inventory.setItem(
                 ACCEPT_SLOT,
                 item(
-                        Material
-                                .LIME_STAINED_GLASS_PANE,
+                        Material.LIME_STAINED_GLASS_PANE,
                         "&aAccept",
                         List.of(
-                                BODY
-                                        + "Join "
+                                BODY + "Join "
                                         + PRIMARY
                                         + team.name()
                         )
@@ -132,17 +127,14 @@ public final class TeamInviteGui {
                         Material.PURPLE_BANNER,
                         PRIMARY + team.name(),
                         List.of(
-                                BODY
-                                        + "Invited by "
+                                BODY + "Invited by "
                                         + SECONDARY
                                         + inviterName,
-                                BODY
-                                        + "Expires in "
+                                BODY + "Expires in "
                                         + ACCENT
-                                        + inviteService
-                                        .remainingSeconds(
-                                                player.getUniqueId()
-                                        )
+                                        + inviteService.remainingSeconds(
+                                        player.getUniqueId()
+                                )
                                         + "s"
                         )
                 )
@@ -150,19 +142,15 @@ public final class TeamInviteGui {
         inventory.setItem(
                 DENY_SLOT,
                 item(
-                        Material
-                                .RED_STAINED_GLASS_PANE,
+                        Material.RED_STAINED_GLASS_PANE,
                         "&cDeny",
                         List.of(
-                                BODY
-                                        + "Decline this invite"
+                                BODY + "Decline this invite"
                         )
                 )
         );
 
-        player.openInventory(
-                inventory
-        );
+        player.openInventory(inventory);
     }
 
     private static ItemStack item(
@@ -194,9 +182,53 @@ public final class TeamInviteGui {
     public static final class InviteHolder
             implements InventoryHolder {
 
+        private final String teamId;
+        private final UUID inviterId;
+        private final long createdAt;
         private Inventory inventory;
 
-        private InviteHolder() {
+        private InviteHolder(
+                String teamId,
+                UUID inviterId,
+                long createdAt
+        ) {
+            this.teamId = teamId;
+            this.inviterId = inviterId;
+            this.createdAt = createdAt;
+        }
+
+        private static InviteHolder empty() {
+            return new InviteHolder(
+                    null,
+                    null,
+                    0L
+            );
+        }
+
+        private static InviteHolder of(
+                TeamInviteRecord invite
+        ) {
+            return new InviteHolder(
+                    invite.teamId(),
+                    invite.inviterId(),
+                    invite.createdAt()
+            );
+        }
+
+        public boolean hasInvite() {
+            return teamId != null;
+        }
+
+        public String teamId() {
+            return teamId;
+        }
+
+        public UUID inviterId() {
+            return inviterId;
+        }
+
+        public long createdAt() {
+            return createdAt;
         }
 
         @Override

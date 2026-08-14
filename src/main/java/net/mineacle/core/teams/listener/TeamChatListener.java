@@ -1,6 +1,8 @@
 package net.mineacle.core.teams.listener;
 
 import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
@@ -14,7 +16,6 @@ import org.bukkit.event.Listener;
 
 import java.util.UUID;
 
-@SuppressWarnings("unused")
 public final class TeamChatListener
         implements Listener {
 
@@ -96,20 +97,30 @@ public final class TeamChatListener
             TeamRecord team,
             String message
     ) {
-        String formatted =
-                TextColor.color(
-                        PRIMARY
-                                + "["
-                                + team.name()
-                                + "] "
-                                + DisplayNames
-                                .coloredDisplayName(
-                                        sender
+        Component prefix =
+                LegacyComponentSerializer
+                        .legacySection()
+                        .deserialize(
+                                TextColor.color(
+                                        PRIMARY
+                                                + "["
+                                                + team.name()
+                                                + "] "
+                                                + DisplayNames
+                                                .coloredDisplayName(
+                                                        sender
+                                                )
+                                                + BODY
+                                                + ": "
                                 )
-                                + BODY
-                                + ": "
-                                + BODY
-                                + message
+                        );
+        Component formatted =
+                prefix.append(
+                        Component.text(message)
+                                .color(
+                                        net.kyori.adventure.text.format.TextColor
+                                                .color(0xBBBBBB)
+                                )
                 );
 
         for (UUID memberId :

@@ -9,6 +9,7 @@ import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.teleport.TeleportService;
 import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.homes.gui.HomesMainGui;
 import net.mineacle.core.homes.service.HomeService;
 import net.mineacle.core.stats.PlayerStatisticsGui;
 import net.mineacle.core.teams.gui.TeamBansGui;
@@ -31,12 +32,12 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 
 import java.util.UUID;
 
-@SuppressWarnings("unused")
 public final class TeamsGuiListener
         implements Listener {
 
@@ -120,9 +121,10 @@ public final class TeamsGuiListener
                             slot,
                             event.isRightClick()
                     );
-            case TeamInviteGui.InviteHolder ignored ->
+            case TeamInviteGui.InviteHolder invite ->
                     handleInvite(
                             player,
+                            invite,
                             slot
                     );
             case TeamMemberGui.MemberHolder member ->
@@ -146,6 +148,21 @@ public final class TeamsGuiListener
                     );
             default -> {
             }
+        }
+    }
+
+    @EventHandler
+    public void onInventoryDrag(
+            InventoryDragEvent event
+    ) {
+        InventoryHolder holder =
+                event.getView()
+                        .getTopInventory()
+                        .getHolder(false);
+
+        if (isTeamsHolder(holder)
+                || holder instanceof HomesMainGui.HomesHolder) {
+            event.setCancelled(true);
         }
     }
 
@@ -221,6 +238,16 @@ public final class TeamsGuiListener
 
         if (slot
                 == TeamStartGui.INVITES_SLOT) {
+            if (!inviteService.hasInvite(
+                    player.getUniqueId()
+            )) {
+                SoundService.guiError(
+                        player,
+                        core
+                );
+                return;
+            }
+
             SoundService.guiSelect(
                     player,
                     core
@@ -262,9 +289,13 @@ public final class TeamsGuiListener
                 holder.memberAt(slot);
 
         if (memberId != null) {
-            if (teamService.getMember(
-                    memberId
-            ) == null) {
+            TeamMemberRecord member =
+                    teamService.getMember(memberId);
+
+            if (member == null
+                    || !holder.teamId().equals(
+                    member.teamId()
+            )) {
                 sendError(
                         player,
                         "&cThat member is no longer in your team"
@@ -440,10 +471,20 @@ public final class TeamsGuiListener
             boolean enabled =
                     !team.friendlyFire();
 
-            teamService.setFriendlyFire(
-                    team.teamId(),
-                    enabled
-            );
+            boolean changed =
+                    teamService.setFriendlyFire(
+                            player.getUniqueId(),
+                            enabled
+                    );
+
+            if (!changed) {
+                sendError(
+                        player,
+                        "&cTeam PvP could not be changed"
+                );
+                return;
+            }
+
             sendBoth(
                     player,
                     enabled
@@ -569,12 +610,23 @@ public final class TeamsGuiListener
 
     private void handleInvite(
             Player player,
+            TeamInviteGui.InviteHolder holder,
             int slot
     ) {
-        if (slot
-                == TeamInviteGui.ACCEPT_SLOT) {
+        if (!holder.hasInvite()) {
+            SoundService.guiError(
+                    player,
+                    core
+            );
+            return;
+        }
+
+        if (slot == TeamInviteGui.ACCEPT_SLOT) {
             if (inviteService.acceptInvite(
-                    player.getUniqueId()
+                    player.getUniqueId(),
+                    holder.teamId(),
+                    holder.inviterId(),
+                    holder.createdAt()
             )) {
                 sendBoth(
                         player,
@@ -599,41 +651,52 @@ public final class TeamsGuiListener
 
             sendError(
                     player,
-                    "&cCould not accept invite"
+                    "&cThat invite is no longer valid"
+            );
+            MenuHistory.openWithoutBackTrigger(
+                    core,
+                    player,
+                    () -> TeamInviteGui.open(
+                            player,
+                            inviteService,
+                            teamService
+                    )
             );
             return;
         }
 
-        if (slot
-                == TeamInviteGui.DENY_SLOT) {
-            if (!inviteService.denyInvite(
-                    player.getUniqueId()
+        if (slot == TeamInviteGui.DENY_SLOT) {
+            if (inviteService.denyInvite(
+                    player.getUniqueId(),
+                    holder.teamId(),
+                    holder.inviterId(),
+                    holder.createdAt()
             )) {
-                sendError(
+                sendBoth(
                         player,
-                        "&cNo invite found"
+                        "&cInvite declined"
                 );
+                SoundService.guiCancel(
+                        player,
+                        core
+                );
+
+                if (!MenuHistory.back(
+                        core,
+                        player
+                )) {
+                    MenuHistory.close(
+                            core,
+                            player
+                    );
+                }
                 return;
             }
 
-            sendBoth(
+            sendError(
                     player,
-                    "&cInvite declined"
+                    "&cThat invite is no longer valid"
             );
-            SoundService.guiCancel(
-                    player,
-                    core
-            );
-
-            if (!MenuHistory.back(
-                    core,
-                    player
-            )) {
-                MenuHistory.close(
-                        core,
-                        player
-                );
-            }
         }
     }
 
@@ -645,9 +708,7 @@ public final class TeamsGuiListener
         UUID targetId =
                 holder.targetId();
         TeamMemberRecord target =
-                teamService.getMember(
-                        targetId
-                );
+                teamService.getMember(targetId);
         TeamMemberRecord viewer =
                 teamService.getMember(
                         player.getUniqueId()
@@ -655,20 +716,21 @@ public final class TeamsGuiListener
 
         if (target == null
                 || viewer == null
-                || !viewer.teamId()
-                .equals(
-                        target.teamId()
-                )) {
+                || !holder.teamId().equals(
+                viewer.teamId()
+        )
+                || !holder.teamId().equals(
+                target.teamId()
+        )) {
             sendError(
                     player,
                     "&cThat member is no longer available"
             );
-            reopenMain(player);
+            recoverRoot(player);
             return;
         }
 
-        if (slot
-                == TeamMemberGui.STATS_SLOT) {
+        if (slot == TeamMemberGui.STATS_SLOT) {
             SoundService.guiSelect(
                     player,
                     core
@@ -689,24 +751,52 @@ public final class TeamsGuiListener
             return;
         }
 
-        if (slot
-                == TeamMemberGui.PROMOTE_SLOT
-                && viewer.role()
-                == TeamRole.FOUNDER
-                && target.role()
-                .canBePromoted()) {
+        if (player.getUniqueId().equals(targetId)) {
+            if (slot != TeamMemberGui.SELF_ACTION_SLOT) {
+                return;
+            }
+
+            if (viewer.role() == TeamRole.FOUNDER) {
+                openConfirm(
+                        player,
+                        "DISBAND",
+                        null,
+                        "Disband Team",
+                        () -> TeamMemberGui.open(
+                                player,
+                                targetId,
+                                teamService
+                        )
+                );
+            } else {
+                openConfirm(
+                        player,
+                        "LEAVE",
+                        null,
+                        "Leave Team",
+                        () -> TeamMemberGui.open(
+                                player,
+                                targetId,
+                                teamService
+                        )
+                );
+            }
+            return;
+        }
+
+        if (slot == TeamMemberGui.PROMOTE_SLOT
+                && viewer.role() == TeamRole.FOUNDER
+                && target.role().canBePromoted()) {
             openConfirm(
                     player,
                     "PROMOTE",
                     targetId,
                     "Promote "
-                            + DisplayNames
-                            .displayName(
-                                    org.bukkit.Bukkit
-                                            .getOfflinePlayer(
-                                                    targetId
-                                            )
-                            ),
+                            + DisplayNames.displayName(
+                            org.bukkit.Bukkit.getOfflinePlayer(
+                                    targetId
+                            )
+                    ),
                     () -> TeamMemberGui.open(
                             player,
                             targetId,
@@ -716,24 +806,19 @@ public final class TeamsGuiListener
             return;
         }
 
-        if (slot
-                == TeamMemberGui.DEMOTE_SLOT
-                && viewer.role()
-                == TeamRole.FOUNDER
-                && target.role()
-                .canBeDemoted()) {
+        if (slot == TeamMemberGui.DEMOTE_SLOT
+                && viewer.role() == TeamRole.FOUNDER
+                && target.role().canBeDemoted()) {
             openConfirm(
                     player,
                     "DEMOTE",
                     targetId,
                     "Demote "
-                            + DisplayNames
-                            .displayName(
-                                    org.bukkit.Bukkit
-                                            .getOfflinePlayer(
-                                                    targetId
-                                            )
-                            ),
+                            + DisplayNames.displayName(
+                            org.bukkit.Bukkit.getOfflinePlayer(
+                                    targetId
+                            )
+                    ),
                     () -> TeamMemberGui.open(
                             player,
                             targetId,
@@ -743,24 +828,20 @@ public final class TeamsGuiListener
             return;
         }
 
-        if (slot
-                == TeamMemberGui.KICK_SLOT
-                && viewer.role()
-                .canModerate(
-                        target.role()
-                )) {
+        if (slot == TeamMemberGui.KICK_SLOT
+                && viewer.role().canModerate(
+                target.role()
+        )) {
             openConfirm(
                     player,
                     "KICK",
                     targetId,
                     "Kick "
-                            + DisplayNames
-                            .displayName(
-                                    org.bukkit.Bukkit
-                                            .getOfflinePlayer(
-                                                    targetId
-                                            )
-                            ),
+                            + DisplayNames.displayName(
+                            org.bukkit.Bukkit.getOfflinePlayer(
+                                    targetId
+                            )
+                    ),
                     () -> TeamMemberGui.open(
                             player,
                             targetId,
@@ -770,24 +851,20 @@ public final class TeamsGuiListener
             return;
         }
 
-        if (slot
-                == TeamMemberGui.BAN_SLOT
-                && viewer.role()
-                .canModerate(
-                        target.role()
-                )) {
+        if (slot == TeamMemberGui.BAN_SLOT
+                && viewer.role().canModerate(
+                target.role()
+        )) {
             openConfirm(
                     player,
                     "BAN",
                     targetId,
                     "Ban "
-                            + DisplayNames
-                            .displayName(
-                                    org.bukkit.Bukkit
-                                            .getOfflinePlayer(
-                                                    targetId
-                                            )
-                            ),
+                            + DisplayNames.displayName(
+                            org.bukkit.Bukkit.getOfflinePlayer(
+                                    targetId
+                            )
+                    ),
                     () -> TeamMemberGui.open(
                             player,
                             targetId,
@@ -797,12 +874,9 @@ public final class TeamsGuiListener
             return;
         }
 
-        if (slot
-                == TeamMemberGui.TRANSFER_SLOT
-                && viewer.role()
-                == TeamRole.FOUNDER
-                && target.role()
-                != TeamRole.FOUNDER) {
+        if (slot == TeamMemberGui.TRANSFER_SLOT
+                && viewer.role() == TeamRole.FOUNDER
+                && target.role() != TeamRole.FOUNDER) {
             openConfirm(
                     player,
                     "TRANSFER",
@@ -868,22 +942,6 @@ public final class TeamsGuiListener
                             holder.page()
                     )
             );
-            return;
-        }
-
-        if (slot
-                == TeamBansGui.BACK_SLOT) {
-            SoundService.guiBack(
-                    player,
-                    core
-            );
-
-            if (!MenuHistory.back(
-                    core,
-                    player
-            )) {
-                reopenMain(player);
-            }
             return;
         }
 
@@ -959,6 +1017,16 @@ public final class TeamsGuiListener
             String actionName,
             Runnable previous
     ) {
+        TeamRecord team =
+                teamService.getTeamByPlayer(
+                        player.getUniqueId()
+                );
+
+        if (team == null) {
+            recoverRoot(player);
+            return;
+        }
+
         SoundService.guiClick(
                 player,
                 core
@@ -971,6 +1039,7 @@ public final class TeamsGuiListener
                 previous,
                 () -> TeamConfirmGui.open(
                         player,
+                        team.teamId(),
                         action,
                         targetId,
                         actionName
@@ -984,8 +1053,20 @@ public final class TeamsGuiListener
             Inventory inventory,
             int slot
     ) {
-        if (slot
-                == TeamConfirmGui.CANCEL_SLOT) {
+        if (currentTeam(
+                player,
+                holder.teamId()
+        ) == null) {
+            guiState.clear(player);
+            sendError(
+                    player,
+                    "&cThis team action is no longer valid"
+            );
+            recoverRoot(player);
+            return;
+        }
+
+        if (slot == TeamConfirmGui.CANCEL_SLOT) {
             guiState.clear(player);
             sendBoth(
                     player,
@@ -1008,13 +1089,20 @@ public final class TeamsGuiListener
             return;
         }
 
-        if (slot
-                == TeamConfirmGui.ACTION_SLOT) {
+        if (slot == TeamConfirmGui.ACTION_SLOT) {
             return;
         }
 
-        if (slot
-                != TeamConfirmGui.CONFIRM_SLOT) {
+        if (slot != TeamConfirmGui.CONFIRM_SLOT) {
+            return;
+        }
+
+        if (!holder.requiresSecondConfirm()) {
+            guiState.clear(player);
+            executeConfirmed(
+                    player,
+                    holder
+            );
             return;
         }
 
@@ -1028,11 +1116,10 @@ public final class TeamsGuiListener
             int timeout =
                     Math.max(
                             1,
-                            core.getConfig()
-                                    .getInt(
-                                            "teams.confirm-timeout-seconds",
-                                            5
-                                    )
+                            core.getConfig().getInt(
+                                    "teams.confirm-timeout-seconds",
+                                    5
+                            )
                     );
             long expiresAt =
                     guiState.arm(
@@ -1046,8 +1133,7 @@ public final class TeamsGuiListener
             );
             sendBoth(
                     player,
-                    BODY
-                            + "Click "
+                    BODY + "Click "
                             + "&aConfirm Again "
                             + BODY
                             + "to continue"
@@ -1133,6 +1219,21 @@ public final class TeamsGuiListener
             Player player,
             TeamConfirmGui.ConfirmHolder holder
     ) {
+        TeamRecord expectedTeam =
+                currentTeam(
+                        player,
+                        holder.teamId()
+                );
+
+        if (expectedTeam == null) {
+            sendError(
+                    player,
+                    "&cThis team action is no longer valid"
+            );
+            recoverRoot(player);
+            return;
+        }
+
         String action =
                 holder.action();
         UUID targetId =
@@ -1140,10 +1241,12 @@ public final class TeamsGuiListener
 
         switch (action) {
             case "PROMOTE" -> {
-                if (!teamService.promoteMember(
+                boolean promoted = teamService.promoteMember(
                         player.getUniqueId(),
                         targetId
-                )) {
+                );
+
+                if (!promoted) {
                     failConfirm(
                             player,
                             "&cYou cannot promote that member"
@@ -1162,10 +1265,12 @@ public final class TeamsGuiListener
                 backOrMain(player);
             }
             case "DEMOTE" -> {
-                if (!teamService.demoteMember(
+                boolean demoted = teamService.demoteMember(
                         player.getUniqueId(),
                         targetId
-                )) {
+                );
+
+                if (!demoted) {
                     failConfirm(
                             player,
                             "&cYou cannot demote that member"
@@ -1184,10 +1289,12 @@ public final class TeamsGuiListener
                 backOrMain(player);
             }
             case "KICK" -> {
-                if (!teamService.kickMember(
+                boolean kicked = teamService.kickMember(
                         player.getUniqueId(),
                         targetId
-                )) {
+                );
+
+                if (!kicked) {
                     failConfirm(
                             player,
                             "&cYou cannot kick that member"
@@ -1206,10 +1313,12 @@ public final class TeamsGuiListener
                 reopenMainRoot(player);
             }
             case "BAN" -> {
-                if (!teamService.banMember(
+                boolean banned = teamService.banMember(
                         player.getUniqueId(),
                         targetId
-                )) {
+                );
+
+                if (!banned) {
                     failConfirm(
                             player,
                             "&cYou cannot ban that member"
@@ -1228,10 +1337,12 @@ public final class TeamsGuiListener
                 reopenMainRoot(player);
             }
             case "TRANSFER" -> {
-                if (!teamService.transferFounder(
+                boolean transferred = teamService.transferFounder(
                         player.getUniqueId(),
                         targetId
-                )) {
+                );
+
+                if (!transferred) {
                     failConfirm(
                             player,
                             "&cFounder transfer failed"
@@ -1272,9 +1383,11 @@ public final class TeamsGuiListener
                 );
             }
             case "LEAVE" -> {
-                if (!teamService.removeMember(
+                boolean left = teamService.removeMember(
                         player.getUniqueId()
-                )) {
+                );
+
+                if (!left) {
                     failConfirm(
                             player,
                             "&cYou cannot leave as Founder"
@@ -1300,9 +1413,11 @@ public final class TeamsGuiListener
                 );
             }
             case "DISBAND" -> {
-                if (!teamService.disbandTeam(
+                boolean disbanded = teamService.disbandTeam(
                         player.getUniqueId()
-                )) {
+                );
+
+                if (!disbanded) {
                     failConfirm(
                             player,
                             "&cOnly Founder can disband the team"
@@ -1328,21 +1443,12 @@ public final class TeamsGuiListener
                 );
             }
             case "DELETE_HOME" -> {
-                TeamRecord team =
-                        teamService
-                                .getTeamByPlayer(
-                                        player.getUniqueId()
-                                );
-
-                if (team == null
-                        || !teamService
-                        .canManageTeamHome(
-                                player.getUniqueId()
-                        )
-                        || !teamHomeService
-                        .hasTeamHome(
-                                team.teamId()
-                        )) {
+                if (!teamService.canManageTeamHome(
+                        player.getUniqueId()
+                )
+                        || !teamHomeService.hasTeamHome(
+                        expectedTeam.teamId()
+                )) {
                     failConfirm(
                             player,
                             "&cTeam Home cannot be deleted"
@@ -1351,7 +1457,7 @@ public final class TeamsGuiListener
                 }
 
                 teamHomeService.deleteTeamHome(
-                        team.teamId()
+                        expectedTeam.teamId()
                 );
                 sendBoth(
                         player,

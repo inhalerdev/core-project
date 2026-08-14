@@ -198,12 +198,8 @@ public final class TeamsMainGui {
                             SECONDARY
                                     + "Invite Player",
                             List.of(
-                                    BODY
-                                            + "Invite someone to "
-                                            + SECONDARY
-                                            + team.name(),
-                                    BODY
-                                            + "Click to autofill "
+                                    BODY + "Click to invite a player",
+                                    BODY + "Autofills "
                                             + ACCENT
                                             + "/team invite"
                             )
@@ -425,24 +421,17 @@ public final class TeamsMainGui {
                 );
 
         return item(
-                Material.IRON_BARS,
-                SECONDARY + "Team Bans",
+                canManage
+                        ? Material.IRON_BARS
+                        : Material.GRAY_DYE,
+                (canManage ? SECONDARY : BODY)
+                        + "Team Bans",
                 canManage
                         ? List.of(
-                        BODY
-                                + "Review active team bans",
-                        BODY
-                                + "Click to manage"
+                        BODY + "Click to manage bans"
                 )
                         : List.of(
-                        BODY
-                                + "Managed by "
-                                + SECONDARY
-                                + "Founder"
-                                + BODY
-                                + " / "
-                                + SECONDARY
-                                + "MVP"
+                        BODY + "Founder / MVP only"
                 )
         );
     }
@@ -454,27 +443,17 @@ public final class TeamsMainGui {
         if (hasHome) {
             return item(
                     Material.PURPLE_BANNER,
-                    SECONDARY
-                            + "Team Home",
+                    SECONDARY + "Team Home",
                     canManageHome
                             ? List.of(
-                            BODY
-                                    + "Status: "
-                                    + "&aSet",
-                            "",
-                            BODY
-                                    + "Left-click: Teleport",
-                            BODY
-                                    + "Right-click: "
-                                    + "&cDelete"
+                            "&aReady",
+                            BODY + "Left-click to teleport",
+                            BODY + "Right-click to "
+                                    + "&cdelete"
                     )
                             : List.of(
-                            BODY
-                                    + "Status: "
-                                    + "&aSet",
-                            "",
-                            BODY
-                                    + "Click to teleport"
+                            "&aReady",
+                            BODY + "Click to teleport"
                     )
             );
         }
@@ -482,16 +461,10 @@ public final class TeamsMainGui {
         if (canManageHome) {
             return item(
                     Material.WHITE_BANNER,
-                    SECONDARY
-                            + "Team Home",
+                    SECONDARY + "Team Home",
                     List.of(
-                            BODY
-                                    + "Status: "
-                                    + BODY
-                                    + "Not Set",
-                            "",
-                            BODY
-                                    + "Click to set here"
+                            BODY + "Not set",
+                            BODY + "Click to set here"
                     )
             );
         }
@@ -500,12 +473,8 @@ public final class TeamsMainGui {
                 Material.LIGHT_GRAY_BANNER,
                 BODY + "Team Home",
                 List.of(
-                        BODY
-                                + "Status: "
-                                + BODY
-                                + "Not Set",
-                        BODY
-                                + "Founder can set Team Home"
+                        BODY + "Not set",
+                        BODY + "Waiting for Founder"
                 )
         );
     }
@@ -517,20 +486,12 @@ public final class TeamsMainGui {
                 enabled
                         ? Material.LIME_DYE
                         : Material.GRAY_DYE,
-                SECONDARY
-                        + "Team Chat",
+                SECONDARY + "Team Chat",
                 List.of(
-                        BODY
-                                + "Status: "
-                                + (
-                                enabled
-                                        ? "&aEnabled"
-                                        : BODY
-                                        + "Disabled"
-                        ),
-                        "",
-                        BODY
-                                + "Click to toggle"
+                        enabled
+                                ? "&aEnabled"
+                                : BODY + "Disabled",
+                        BODY + "Click to toggle"
                 )
         );
     }
@@ -545,32 +506,26 @@ public final class TeamsMainGui {
                 Material.NETHER_STAR,
                 PRIMARY + "Team Info",
                 List.of(
-                        BODY
-                                + "Team: "
+                        BODY + "Team: "
                                 + SECONDARY
                                 + team.name(),
-                        BODY
-                                + "Founder: "
+                        BODY + "Founder: "
                                 + PRIMARY
-                                + DisplayNames
-                                .displayName(
-                                        Bukkit.getOfflinePlayer(
-                                                team.founder()
-                                        )
-                                ),
-                        BODY
-                                + "Members: "
+                                + DisplayNames.displayName(
+                                Bukkit.getOfflinePlayer(
+                                        team.founder()
+                                )
+                        ),
+                        BODY + "Members: "
                                 + ACCENT
                                 + memberCount
                                 + BODY
                                 + "/"
                                 + ACCENT
                                 + maxMembers,
-                        BODY
-                                + "Your Role: "
+                        BODY + "Your Role: "
                                 + viewerRole.color()
-                                + viewerRole
-                                .displayName()
+                                + viewerRole.displayName()
                 )
         );
     }
@@ -582,36 +537,25 @@ public final class TeamsMainGui {
                 new ArrayList<>();
 
         lore.add(
-                BODY
-                        + "Current: "
+                BODY + "Current: "
                         + ACCENT
-                        + current
-                        .displayName()
+                        + current.displayName()
         );
         lore.add("");
 
         for (TeamSortMode mode :
                 TeamSortMode.values()) {
             lore.add(
-                    (
-                            mode == current
-                                    ? ACCENT
-                                    : BODY
-                    )
-                            + mode
-                            .displayName()
+                    (mode == current
+                            ? ACCENT
+                            : BODY)
+                            + mode.displayName()
             );
         }
 
         lore.add("");
-        lore.add(
-                BODY
-                        + "Left-click: Next"
-        );
-        lore.add(
-                BODY
-                        + "Right-click: Previous"
-        );
+        lore.add(BODY + "Left-click: Next");
+        lore.add(BODY + "Right-click: Previous");
 
         return item(
                 Material.ANVIL,
@@ -628,32 +572,20 @@ public final class TeamsMainGui {
                 new ArrayList<>();
 
         lore.add(
-                BODY
-                        + "Status: "
-                        + (
-                        friendlyFire
-                                ? "&cEnabled"
-                                : "&aDisabled"
-                )
+                friendlyFire
+                        ? "&cEnabled"
+                        : "&aDisabled"
         );
-        lore.add("");
+        lore.add(
+                friendlyFire
+                        ? BODY + "Teammates can damage each other"
+                        : BODY + "Teammates are protected"
+        );
 
         if (canToggle) {
-            lore.add(
-                    BODY
-                            + "Click to toggle"
-            );
+            lore.add(BODY + "Click to toggle");
         } else {
-            lore.add(
-                    BODY
-                            + "Managed by "
-                            + SECONDARY
-                            + "Founder"
-                            + BODY
-                            + " / "
-                            + SECONDARY
-                            + "MVP"
-            );
+            lore.add(BODY + "Founder / MVP only");
         }
 
         return item(

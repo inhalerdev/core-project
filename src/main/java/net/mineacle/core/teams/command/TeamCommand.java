@@ -281,10 +281,12 @@ public final class TeamCommand
         String name =
                 args[1];
 
-        if (!teamService.createTeam(
+        boolean created = teamService.createTeam(
                 player.getUniqueId(),
                 name
-        )) {
+        );
+
+        if (!created) {
             sendError(
                     player,
                     "&cUse 3-16 letters, numbers, or underscores"
@@ -413,7 +415,8 @@ public final class TeamCommand
         }
 
         Player target =
-                DisplayNames.resolveOnline(
+                resolvePublicOnline(
+                        player,
                         args[1]
                 );
 
@@ -458,11 +461,13 @@ public final class TeamCommand
             return;
         }
 
-        if (!inviteService.createInvite(
+        boolean invited = inviteService.createInvite(
                 team.teamId(),
                 player.getUniqueId(),
                 target.getUniqueId()
-        )) {
+        );
+
+        if (!invited) {
             sendError(
                     player,
                     "&cCould not send invite"
@@ -659,6 +664,16 @@ public final class TeamCommand
             return;
         }
 
+        if (teamHomeService.hasTeamHome(
+                team.teamId()
+        )) {
+            sendError(
+                    player,
+                    "&cDelete the current Team Home before setting a new one"
+            );
+            return;
+        }
+
         if (!homeService.canSetTeamHomeHere(
                 player
         )) {
@@ -759,10 +774,20 @@ public final class TeamCommand
         boolean enabled =
                 !team.friendlyFire();
 
-        teamService.setFriendlyFire(
-                team.teamId(),
-                enabled
-        );
+        boolean changed =
+                teamService.setFriendlyFire(
+                        player.getUniqueId(),
+                        enabled
+                );
+
+        if (!changed) {
+            sendError(
+                    player,
+                    "&cTeam PvP could not be changed"
+            );
+            return;
+        }
+
         sendBoth(
                 player,
                 enabled
@@ -841,25 +866,22 @@ public final class TeamCommand
                         args[1]
                 );
 
-        if (targetId != null
-                && teamService.unbanMember(
-                player.getUniqueId(),
-                targetId
-        )) {
-            sendBoth(
+        if (targetId == null) {
+            sendError(
                     player,
-                    "&aPlayer unbanned"
-            );
-            SoundService.guiConfirm(
-                    player,
-                    core
+                    "&cThat player is not actively banned"
             );
             return;
         }
 
-        sendError(
+        openRootConfirm(
                 player,
-                "&cThat player is not actively banned"
+                "UNBAN",
+                targetId,
+                "Unban "
+                        + DisplayNames.displayName(
+                        Bukkit.getOfflinePlayer(targetId)
+                )
         );
     }
 
@@ -1009,6 +1031,19 @@ public final class TeamCommand
             UUID targetId,
             String actionName
     ) {
+        TeamRecord team =
+                teamService.getTeamByPlayer(
+                        player.getUniqueId()
+                );
+
+        if (team == null) {
+            sendError(
+                    player,
+                    "&cYou are not in a team"
+            );
+            return;
+        }
+
         guiState.clear(player);
         SoundService.guiClick(
                 player,
@@ -1019,11 +1054,54 @@ public final class TeamCommand
                 player,
                 () -> TeamConfirmGui.open(
                         player,
+                        team.teamId(),
                         action,
                         targetId,
                         actionName
                 )
         );
+    }
+
+    private Player resolvePublicOnline(
+            Player viewer,
+            String input
+    ) {
+        if (input == null || input.isBlank()) {
+            return null;
+        }
+
+        String normalized =
+                TextColor.strip(input)
+                        .trim()
+                        .toLowerCase(Locale.ROOT);
+        Player match = null;
+
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            if (!viewer.canSee(online)) {
+                continue;
+            }
+
+            String display =
+                    DisplayNames.commandDisplayName(online);
+
+            if (!TextColor.strip(display)
+                    .trim()
+                    .toLowerCase(Locale.ROOT)
+                    .equals(normalized)) {
+                continue;
+            }
+
+            if (match != null
+                    && !match.getUniqueId().equals(
+                    online.getUniqueId()
+            )) {
+                return null;
+            }
+
+            match = online;
+        }
+
+        return match;
     }
 
     private UUID resolveTeamMember(
@@ -1044,42 +1122,34 @@ public final class TeamCommand
         String normalized =
                 TextColor.strip(input)
                         .trim()
-                        .toLowerCase(
-                                Locale.ROOT
-                        );
+                        .toLowerCase(Locale.ROOT);
+        UUID match = null;
 
         for (UUID memberId :
                 teamService.getTeamMembers(
                         team.teamId()
                 )) {
             OfflinePlayer member =
-                    Bukkit.getOfflinePlayer(
-                            memberId
-                    );
+                    Bukkit.getOfflinePlayer(memberId);
             String display =
-                    DisplayNames.commandDisplayName(
-                            member
-                    );
+                    DisplayNames.commandDisplayName(member);
 
-            if (TextColor.strip(display)
+            if (!TextColor.strip(display)
                     .trim()
-                    .toLowerCase(
-                            Locale.ROOT
-                    )
+                    .toLowerCase(Locale.ROOT)
                     .equals(normalized)) {
-                return memberId;
+                continue;
             }
 
-            if (member.getName() != null
-                    && member.getName()
-                    .equalsIgnoreCase(
-                            input
-                    )) {
-                return memberId;
+            if (match != null
+                    && !match.equals(memberId)) {
+                return null;
             }
+
+            match = memberId;
         }
 
-        return null;
+        return match;
     }
 
     private UUID resolveBannedPlayer(
@@ -1095,39 +1165,36 @@ public final class TeamCommand
         String normalized =
                 TextColor.strip(input)
                         .trim()
-                        .toLowerCase(
-                                Locale.ROOT
-                        );
+                        .toLowerCase(Locale.ROOT);
+        UUID match = null;
 
         for (net.mineacle.core.teams.model.TeamBanRecord record :
-                teamService.activeBans(
-                        teamId
-                )) {
+                teamService.activeBans(teamId)) {
             OfflinePlayer player =
                     Bukkit.getOfflinePlayer(
                             record.playerId()
                     );
             String display =
-                    DisplayNames.commandDisplayName(
-                            player
-                    );
+                    DisplayNames.commandDisplayName(player);
 
-            if (TextColor.strip(display)
+            if (!TextColor.strip(display)
                     .trim()
-                    .toLowerCase(
-                            Locale.ROOT
-                    )
-                    .equals(normalized)
-                    || player.getName() != null
-                    && player.getName()
-                    .equalsIgnoreCase(
-                            input
-                    )) {
-                return record.playerId();
+                    .toLowerCase(Locale.ROOT)
+                    .equals(normalized)) {
+                continue;
             }
+
+            if (match != null
+                    && !match.equals(
+                    record.playerId()
+            )) {
+                return null;
+            }
+
+            match = record.playerId();
         }
 
-        return null;
+        return match;
     }
 
     @Override
@@ -1153,11 +1220,10 @@ public final class TeamCommand
         }
 
         if (args.length == 2
-                && args[0]
-                .equalsIgnoreCase(
-                        "invite"
-                )) {
-            return PlayerTabComplete.onlinePlayers(
+                && args[0].equalsIgnoreCase(
+                "invite"
+        )) {
+            return inviteCompletions(
                     player,
                     args[1]
             );
@@ -1180,6 +1246,7 @@ public final class TeamCommand
         )) {
             return teamMemberCompletions(
                     player,
+                    args[0],
                     args[1]
             );
         }
@@ -1268,7 +1335,7 @@ public final class TeamCommand
         );
     }
 
-    private List<String> teamMemberCompletions(
+    private List<String> inviteCompletions(
             Player player,
             String partial
     ) {
@@ -1277,18 +1344,80 @@ public final class TeamCommand
                         player.getUniqueId()
                 );
 
-        if (team == null) {
+        if (team == null
+                || !teamService.canInvite(
+                player.getUniqueId()
+        )
+                || teamService.memberCount(
+                team.teamId()
+        ) >= teamService.maxMembers()) {
             return List.of();
         }
 
         String normalized =
                 partial == null
                         ? ""
-                        : partial
+                        : TextColor.strip(partial)
                         .trim()
-                        .toLowerCase(
-                                Locale.ROOT
-                        );
+                        .toLowerCase(Locale.ROOT);
+        List<String> names =
+                new ArrayList<>();
+
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            if (online.getUniqueId().equals(
+                    player.getUniqueId()
+            )
+                    || !player.canSee(online)
+                    || teamService.hasTeam(
+                    online.getUniqueId()
+            )
+                    || teamService.isBanned(
+                    team.teamId(),
+                    online.getUniqueId()
+            )) {
+                continue;
+            }
+
+            String name =
+                    DisplayNames.commandDisplayName(online);
+            String stripped =
+                    TextColor.strip(name)
+                            .toLowerCase(Locale.ROOT);
+
+            if (normalized.isEmpty()
+                    || stripped.startsWith(normalized)) {
+                names.add(name);
+            }
+        }
+
+        names.sort(String.CASE_INSENSITIVE_ORDER);
+        return List.copyOf(names);
+    }
+
+    private List<String> teamMemberCompletions(
+            Player player,
+            String action,
+            String partial
+    ) {
+        TeamRecord team =
+                teamService.getTeamByPlayer(
+                        player.getUniqueId()
+                );
+        TeamMemberRecord actor =
+                teamService.getMember(
+                        player.getUniqueId()
+                );
+
+        if (team == null || actor == null) {
+            return List.of();
+        }
+
+        String normalized =
+                partial == null
+                        ? ""
+                        : TextColor.strip(partial)
+                        .trim()
+                        .toLowerCase(Locale.ROOT);
         List<String> names =
                 new ArrayList<>();
 
@@ -1302,29 +1431,60 @@ public final class TeamCommand
                 continue;
             }
 
+            TeamMemberRecord target =
+                    teamService.getMember(memberId);
+
+            if (target == null
+                    || !tabActionAllowed(
+                    actor.role(),
+                    target.role(),
+                    action
+            )) {
+                continue;
+            }
+
             String name =
                     DisplayNames.commandDisplayName(
-                            Bukkit.getOfflinePlayer(
-                                    memberId
-                            )
+                            Bukkit.getOfflinePlayer(memberId)
                     );
 
             if (normalized.isEmpty()
                     || TextColor.strip(name)
-                    .toLowerCase(
-                            Locale.ROOT
-                    )
-                    .startsWith(
-                            normalized
-                    )) {
+                    .toLowerCase(Locale.ROOT)
+                    .startsWith(normalized)) {
                 names.add(name);
             }
         }
 
-        names.sort(
-                String.CASE_INSENSITIVE_ORDER
-        );
+        names.sort(String.CASE_INSENSITIVE_ORDER);
         return List.copyOf(names);
+    }
+
+    private boolean tabActionAllowed(
+            TeamRole actor,
+            TeamRole target,
+            String action
+    ) {
+        if (actor == null
+                || target == null
+                || action == null) {
+            return false;
+        }
+
+        return switch (action.toLowerCase(Locale.ROOT)) {
+            case "promote" ->
+                    actor == TeamRole.FOUNDER
+                            && target.canBePromoted();
+            case "demote" ->
+                    actor == TeamRole.FOUNDER
+                            && target.canBeDemoted();
+            case "kick", "ban" ->
+                    actor.canModerate(target);
+            case "transfer" ->
+                    actor == TeamRole.FOUNDER
+                            && target != TeamRole.FOUNDER;
+            default -> false;
+        };
     }
 
     private List<String> bannedPlayerCompletions(
@@ -1336,7 +1496,10 @@ public final class TeamCommand
                         player.getUniqueId()
                 );
 
-        if (team == null) {
+        if (team == null
+                || !teamService.canManageBans(
+                player.getUniqueId()
+        )) {
             return List.of();
         }
 

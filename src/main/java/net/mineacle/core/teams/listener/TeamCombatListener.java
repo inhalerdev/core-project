@@ -2,15 +2,24 @@ package net.mineacle.core.teams.listener;
 
 import net.mineacle.core.teams.model.TeamRecord;
 import net.mineacle.core.teams.service.TeamService;
+import org.bukkit.entity.AreaEffectCloud;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
+import org.bukkit.entity.TNTPrimed;
 import org.bukkit.entity.Tameable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.AreaEffectCloudApplyEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.PotionSplashEvent;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectTypeCategory;
+import org.bukkit.potion.PotionType;
 
-@SuppressWarnings("unused")
+import java.util.Collection;
+
 public final class TeamCombatListener
         implements Listener {
 
@@ -37,12 +46,82 @@ public final class TeamCombatListener
         Player attacker =
                 attacker(event);
 
-        if (attacker == null
-                || attacker.getUniqueId()
-                .equals(
-                        damaged.getUniqueId()
-                )) {
+        if (attacker != null
+                && protectedFrom(
+                attacker,
+                damaged
+        )) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(
+            priority = EventPriority.HIGH,
+            ignoreCancelled = true
+    )
+    public void onPotionSplash(
+            PotionSplashEvent event
+    ) {
+        if (!(event.getPotion().getShooter()
+                instanceof Player attacker)
+                || !hasHarmfulEffect(
+                event.getPotion().getEffects()
+        )) {
             return;
+        }
+
+        for (LivingEntity affected :
+                event.getAffectedEntities()) {
+            if (affected instanceof Player player
+                    && protectedFrom(
+                    attacker,
+                    player
+            )) {
+                event.setIntensity(
+                        player,
+                        0.0D
+                );
+            }
+        }
+    }
+
+    @EventHandler(
+            priority = EventPriority.HIGH,
+            ignoreCancelled = true
+    )
+    public void onAreaEffectCloud(
+            AreaEffectCloudApplyEvent event
+    ) {
+        AreaEffectCloud cloud =
+                event.getEntity();
+
+        if (!(cloud.getSource()
+                instanceof Player attacker)
+                || !hasHarmfulEffect(cloud)) {
+            return;
+        }
+
+        event.getAffectedEntities()
+                .removeIf(
+                        entity ->
+                                entity instanceof Player player
+                                        && protectedFrom(
+                                        attacker,
+                                        player
+                                )
+                );
+    }
+
+    private boolean protectedFrom(
+            Player attacker,
+            Player damaged
+    ) {
+        if (attacker == null
+                || damaged == null
+                || attacker.getUniqueId().equals(
+                damaged.getUniqueId()
+        )) {
+            return false;
         }
 
         TeamRecord damagedTeam =
@@ -54,18 +133,12 @@ public final class TeamCombatListener
                         attacker.getUniqueId()
                 );
 
-        if (damagedTeam == null
-                || attackerTeam == null
-                || !damagedTeam.teamId()
-                .equals(
-                        attackerTeam.teamId()
-                )) {
-            return;
-        }
-
-        if (!damagedTeam.friendlyFire()) {
-            event.setCancelled(true);
-        }
+        return damagedTeam != null
+                && attackerTeam != null
+                && damagedTeam.teamId().equals(
+                attackerTeam.teamId()
+        )
+                && !damagedTeam.friendlyFire();
     }
 
     private Player attacker(
@@ -83,7 +156,43 @@ public final class TeamCombatListener
                             instanceof Player player
                             ? player
                             : null;
+            case TNTPrimed tnt ->
+                    tnt.getSource()
+                            instanceof Player player
+                            ? player
+                            : null;
             default -> null;
         };
+    }
+
+    private boolean hasHarmfulEffect(
+            AreaEffectCloud cloud
+    ) {
+        PotionType base =
+                cloud.getBasePotionType();
+
+        if (base != null
+                && hasHarmfulEffect(
+                base.getPotionEffects()
+        )) {
+            return true;
+        }
+
+        return hasHarmfulEffect(
+                cloud.getCustomEffects()
+        );
+    }
+
+    private boolean hasHarmfulEffect(
+            Collection<PotionEffect> effects
+    ) {
+        for (PotionEffect effect : effects) {
+            if (effect.getType().getCategory()
+                    == PotionEffectTypeCategory.HARMFUL) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -232,6 +232,14 @@ public final class TeamService {
     }
 
     public boolean toggleTeamChat(UUID playerId) {
+        if (!hasTeam(playerId)) {
+            setTeamChat(
+                    playerId,
+                    false
+            );
+            return false;
+        }
+
         boolean enabled =
                 !isTeamChatEnabled(playerId);
 
@@ -250,7 +258,7 @@ public final class TeamService {
             return;
         }
 
-        if (enabled) {
+        if (enabled && hasTeam(playerId)) {
             teamChatEnabled.add(playerId);
             core.getTeamsConfig().set(
                     "team-chat." + playerId,
@@ -338,7 +346,7 @@ public final class TeamService {
         return true;
     }
 
-    public boolean addMember(
+    boolean addMember(
             String teamId,
             UUID playerId
     ) {
@@ -763,15 +771,27 @@ public final class TeamService {
         return true;
     }
 
-    public void setFriendlyFire(
-            String teamId,
+    public boolean setFriendlyFire(
+            UUID actorId,
             boolean friendlyFire
     ) {
+        TeamMemberRecord actor =
+                members.get(actorId);
+
+        if (actor == null
+                || !actor.role().canTogglePvp()) {
+            return false;
+        }
+
         TeamRecord old =
-                teams.get(teamId);
+                teams.get(actor.teamId());
 
         if (old == null) {
-            return;
+            return false;
+        }
+
+        if (old.friendlyFire() == friendlyFire) {
+            return true;
         }
 
         TeamRecord updated =
@@ -783,16 +803,17 @@ public final class TeamService {
                 );
 
         teams.put(
-                teamId,
+                old.teamId(),
                 updated
         );
         core.getTeamsConfig().set(
                 "teams."
-                        + teamId
+                        + old.teamId()
                         + ".friendly-fire",
                 friendlyFire
         );
         persist();
+        return true;
     }
 
     private boolean setMemberRoleInternal(
@@ -1056,23 +1077,46 @@ public final class TeamService {
                                         role,
                                         joinedAt
                                 );
+                        TeamMemberRecord existing =
+                                members.get(memberId);
+
+                        if (existing != null
+                                && !existing.teamId().equals(teamId)) {
+                            TeamRecord existingTeam =
+                                    teams.get(existing.teamId());
+                            boolean existingFounder =
+                                    existingTeam != null
+                                            && existingTeam.founder()
+                                            .equals(memberId);
+                            boolean currentFounder =
+                                    founder.equals(memberId);
+
+                            if (existingFounder
+                                    || !currentFounder) {
+                                changedStoredData = true;
+                                continue;
+                            }
+                        }
 
                         members.put(
                                 memberId,
                                 member
                         );
-                        membersByTeam
-                                .computeIfAbsent(
-                                        teamId,
-                                        ignored ->
-                                                new LinkedHashSet<>()
-                                )
-                                .add(memberId);
                     } catch (Exception ignored) {
                     }
                 }
             }
         }
+
+        if (repairFounderMemberships(config)) {
+            changedStoredData = true;
+        }
+
+        if (cleanDuplicateStoredMemberships(config)) {
+            changedStoredData = true;
+        }
+
+        rebuildMemberIndex();
 
         ConfigurationSection bansSection =
                 config.getConfigurationSection(
@@ -1176,7 +1220,15 @@ public final class TeamService {
                                     + uuidRaw,
                             false
                     )) {
-                        teamChatEnabled.add(uuid);
+                        if (hasTeam(uuid)) {
+                            teamChatEnabled.add(uuid);
+                        } else {
+                            config.set(
+                                    "team-chat." + uuidRaw,
+                                    null
+                            );
+                            changedStoredData = true;
+                        }
                     }
                 } catch (IllegalArgumentException ignored) {
                 }
@@ -1185,6 +1237,139 @@ public final class TeamService {
 
         if (changedStoredData) {
             persist();
+        }
+    }
+
+    private boolean repairFounderMemberships(
+            FileConfiguration config
+    ) {
+        boolean changed = false;
+
+        for (TeamRecord team : teams.values()) {
+            UUID founderId = team.founder();
+            TeamMemberRecord current =
+                    members.get(founderId);
+
+            if (current != null
+                    && current.teamId().equals(team.teamId())
+                    && current.role() == TeamRole.FOUNDER) {
+                continue;
+            }
+
+            if (current != null
+                    && !current.teamId().equals(team.teamId())) {
+                TeamRecord currentTeam =
+                        teams.get(current.teamId());
+
+                if (currentTeam != null
+                        && currentTeam.founder().equals(founderId)) {
+                    core.getLogger().warning(
+                            "Player " + founderId
+                                    + " is stored as founder of multiple teams; keeping the first canonical team"
+                    );
+                    continue;
+                }
+
+                config.set(
+                        "teams." + current.teamId()
+                                + ".members." + founderId,
+                        null
+                );
+            }
+
+            long joinedAt =
+                    config.getLong(
+                            "teams." + team.teamId()
+                                    + ".members." + founderId
+                                    + ".joined-at",
+                            System.currentTimeMillis()
+                    );
+            TeamMemberRecord repaired =
+                    new TeamMemberRecord(
+                            team.teamId(),
+                            founderId,
+                            TeamRole.FOUNDER,
+                            joinedAt
+                    );
+
+            members.put(founderId, repaired);
+            writeMember(repaired);
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private boolean cleanDuplicateStoredMemberships(
+            FileConfiguration config
+    ) {
+        ConfigurationSection teamsSection =
+                config.getConfigurationSection("teams");
+
+        if (teamsSection == null) {
+            return false;
+        }
+
+        boolean changed = false;
+
+        for (String teamId : teamsSection.getKeys(false)) {
+            ConfigurationSection membersSection =
+                    config.getConfigurationSection(
+                            "teams." + teamId + ".members"
+                    );
+
+            if (membersSection == null) {
+                continue;
+            }
+
+            for (String rawId :
+                    new ArrayList<>(membersSection.getKeys(false))) {
+                UUID playerId;
+
+                try {
+                    playerId = UUID.fromString(rawId);
+                } catch (IllegalArgumentException ignored) {
+                    config.set(
+                            "teams." + teamId
+                                    + ".members." + rawId,
+                            null
+                    );
+                    changed = true;
+                    continue;
+                }
+
+                TeamMemberRecord canonical =
+                        members.get(playerId);
+
+                if (canonical == null
+                        || !canonical.teamId().equals(teamId)) {
+                    config.set(
+                            "teams." + teamId
+                                    + ".members." + rawId,
+                            null
+                    );
+                    changed = true;
+                }
+            }
+        }
+
+        return changed;
+    }
+
+    private void rebuildMemberIndex() {
+        membersByTeam.clear();
+
+        for (TeamMemberRecord member : members.values()) {
+            if (!teams.containsKey(member.teamId())) {
+                continue;
+            }
+
+            membersByTeam
+                    .computeIfAbsent(
+                            member.teamId(),
+                            ignored -> new LinkedHashSet<>()
+                    )
+                    .add(member.playerId());
         }
     }
 

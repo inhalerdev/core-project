@@ -2,6 +2,7 @@ package net.mineacle.core.teams.service;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.teams.model.TeamInviteRecord;
+import net.mineacle.core.teams.model.TeamMemberRecord;
 import net.mineacle.core.teams.model.TeamRecord;
 
 import java.util.HashMap;
@@ -27,7 +28,6 @@ public final class TeamInviteService {
         this.core = core;
         this.teamService = teamService;
     }
-
 
     public int timeoutSeconds() {
         if (core == null) {
@@ -58,21 +58,26 @@ public final class TeamInviteService {
         purgeExpiredIfDue();
 
         TeamRecord team =
-                teamService.getTeamById(
-                        teamId
-                );
+                teamService.getTeamById(teamId);
+        TeamMemberRecord inviter =
+                teamService.getMember(inviterId);
 
         if (team == null
-                || teamService.hasTeam(
-                targetId
-        )
-                || teamService.isBanned(
-                teamId,
-                targetId
-        )
-                || teamService.memberCount(
-                teamId
-        ) >= teamService.maxMembers()) {
+                || inviter == null
+                || !teamId.equals(inviter.teamId())
+                || !teamService.canInvite(inviterId)
+                || teamService.hasTeam(targetId)
+                || teamService.isBanned(teamId, targetId)
+                || teamService.memberCount(teamId)
+                >= teamService.maxMembers()) {
+            return false;
+        }
+
+        TeamInviteRecord existing =
+                getInvite(targetId);
+
+        if (existing != null
+                && !existing.teamId().equals(teamId)) {
             return false;
         }
 
@@ -91,10 +96,7 @@ public final class TeamInviteService {
     public boolean hasInvite(
             UUID playerId
     ) {
-        purgeExpired(playerId);
-        return invites.containsKey(
-                playerId
-        );
+        return getInvite(playerId) != null;
     }
 
     public TeamInviteRecord getInvite(
@@ -117,11 +119,11 @@ public final class TeamInviteService {
         long expiresAt =
                 invite.createdAt()
                         + timeoutSeconds()
-                        * 1000L;
+                        * 1_000L;
         long remaining =
                 (expiresAt
                         - System.currentTimeMillis()
-                ) / 1000L;
+                ) / 1_000L;
 
         return Math.max(
                 0L,
@@ -132,33 +134,80 @@ public final class TeamInviteService {
     public boolean acceptInvite(
             UUID playerId
     ) {
-        purgeExpired(playerId);
+        return acceptInvite(
+                playerId,
+                null,
+                null,
+                0L
+        );
+    }
 
+    public boolean acceptInvite(
+            UUID playerId,
+            String expectedTeamId,
+            UUID expectedInviterId,
+            long expectedCreatedAt
+    ) {
         TeamInviteRecord invite =
-                invites.remove(playerId);
+                validatedInvite(
+                        playerId,
+                        expectedTeamId,
+                        expectedInviterId,
+                        expectedCreatedAt
+                );
 
-        if (invite == null
-                || teamService.isBanned(
-                invite.teamId(),
-                playerId
-        )) {
+        if (invite == null) {
             return false;
         }
 
-        return teamService.addMember(
+        boolean joined = teamService.addMember(
                 invite.teamId(),
                 playerId
         );
+
+        if (!joined) {
+            return false;
+        }
+
+        invites.remove(
+                playerId,
+                invite
+        );
+        return true;
     }
 
     public boolean denyInvite(
             UUID playerId
     ) {
-        purgeExpired(playerId);
-        return invites.remove(playerId)
-                != null;
+        TeamInviteRecord invite =
+                getInvite(playerId);
+
+        return invite != null
+                && invites.remove(
+                playerId,
+                invite
+        );
     }
 
+    public boolean denyInvite(
+            UUID playerId,
+            String expectedTeamId,
+            UUID expectedInviterId,
+            long expectedCreatedAt
+    ) {
+        TeamInviteRecord invite =
+                getInvite(playerId);
+
+        return matches(
+                invite,
+                expectedTeamId,
+                expectedInviterId,
+                expectedCreatedAt
+        ) && invites.remove(
+                playerId,
+                invite
+        );
+    }
 
     public void clearAll() {
         invites.clear();
@@ -174,6 +223,81 @@ public final class TeamInviteService {
 
         lastGlobalPurgeMillis =
                 System.currentTimeMillis();
+    }
+
+    private TeamInviteRecord validatedInvite(
+            UUID playerId,
+            String expectedTeamId,
+            UUID expectedInviterId,
+            long expectedCreatedAt
+    ) {
+        TeamInviteRecord invite =
+                getInvite(playerId);
+
+        if (invite == null
+                || !matches(
+                invite,
+                expectedTeamId,
+                expectedInviterId,
+                expectedCreatedAt
+        )) {
+            return null;
+        }
+
+        TeamRecord team =
+                teamService.getTeamById(
+                        invite.teamId()
+                );
+        TeamMemberRecord inviter =
+                teamService.getMember(
+                        invite.inviterId()
+                );
+
+        if (team == null
+                || inviter == null
+                || !invite.teamId().equals(
+                inviter.teamId()
+        )
+                || !teamService.canInvite(
+                invite.inviterId()
+        )
+                || teamService.hasTeam(playerId)
+                || teamService.isBanned(
+                invite.teamId(),
+                playerId
+        )
+                || teamService.memberCount(
+                invite.teamId()
+        ) >= teamService.maxMembers()) {
+            return null;
+        }
+
+        return invite;
+    }
+
+    private boolean matches(
+            TeamInviteRecord invite,
+            String expectedTeamId,
+            UUID expectedInviterId,
+            long expectedCreatedAt
+    ) {
+        if (invite == null) {
+            return false;
+        }
+
+        if (expectedTeamId == null) {
+            return true;
+        }
+
+        return expectedTeamId.equals(
+                invite.teamId()
+        )
+                && expectedInviterId != null
+                && expectedInviterId.equals(
+                invite.inviterId()
+        )
+                && expectedCreatedAt
+                == invite.createdAt();
     }
 
     private void purgeExpiredIfDue() {
@@ -200,7 +324,10 @@ public final class TeamInviteService {
 
         if (invite != null
                 && isExpired(invite)) {
-            invites.remove(playerId);
+            invites.remove(
+                    playerId,
+                    invite
+            );
         }
     }
 
@@ -213,6 +340,6 @@ public final class TeamInviteService {
 
         return age
                 >= timeoutSeconds()
-                * 1000L;
+                * 1_000L;
     }
 }

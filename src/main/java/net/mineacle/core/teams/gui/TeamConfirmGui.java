@@ -30,14 +30,17 @@ public final class TeamConfirmGui {
 
     public static void open(
             Player player,
+            String teamId,
             String action,
             UUID targetId,
             String actionName
     ) {
         ConfirmHolder holder =
                 new ConfirmHolder(
+                        teamId,
                         action,
-                        targetId
+                        targetId,
+                        requiresSecondConfirm(action)
                 );
         Inventory inventory =
                 Bukkit.createInventory(
@@ -50,12 +53,10 @@ public final class TeamConfirmGui {
         inventory.setItem(
                 CANCEL_SLOT,
                 item(
-                        Material
-                                .RED_STAINED_GLASS_PANE,
+                        Material.RED_STAINED_GLASS_PANE,
                         "&cCancel",
                         List.of(
-                                BODY
-                                        + "Return without changes"
+                                BODY + "Return without changes"
                         )
                 )
         );
@@ -65,19 +66,21 @@ public final class TeamConfirmGui {
                         Material.RED_DYE,
                         "&c" + actionName,
                         List.of(
-                                BODY
-                                        + "Review this action"
+                                holder.requiresSecondConfirm()
+                                        ? BODY + "High-risk team action"
+                                        : BODY + "Review this action"
                         )
                 )
         );
         inventory.setItem(
                 CONFIRM_SLOT,
-                confirmItem(false)
+                confirmItem(
+                        false,
+                        holder.requiresSecondConfirm()
+                )
         );
 
-        player.openInventory(
-                inventory
-        );
+        player.openInventory(inventory);
     }
 
     public static void showUnarmed(
@@ -85,13 +88,16 @@ public final class TeamConfirmGui {
     ) {
         if (inventory == null
                 || !(inventory.getHolder(false)
-                instanceof ConfirmHolder)) {
+                instanceof ConfirmHolder holder)) {
             return;
         }
 
         inventory.setItem(
                 CONFIRM_SLOT,
-                confirmItem(false)
+                confirmItem(
+                        false,
+                        holder.requiresSecondConfirm()
+                )
         );
     }
 
@@ -100,31 +106,60 @@ public final class TeamConfirmGui {
     ) {
         if (inventory == null
                 || !(inventory.getHolder(false)
-                instanceof ConfirmHolder)) {
+                instanceof ConfirmHolder holder)
+                || !holder.requiresSecondConfirm()) {
             return;
         }
 
         inventory.setItem(
                 CONFIRM_SLOT,
-                confirmItem(true)
+                confirmItem(
+                        true,
+                        true
+                )
         );
     }
 
-    private static ItemStack confirmItem(
-            boolean armed
+    private static boolean requiresSecondConfirm(
+            String action
     ) {
+        if (action == null) {
+            return true;
+        }
+
+        return switch (action) {
+            case "BAN",
+                    "TRANSFER",
+                    "LEAVE",
+                    "DISBAND",
+                    "DELETE_HOME" -> true;
+            default -> false;
+        };
+    }
+
+    private static ItemStack confirmItem(
+            boolean armed,
+            boolean requiresSecondConfirm
+    ) {
+        if (!requiresSecondConfirm) {
+            return item(
+                    Material.LIME_STAINED_GLASS_PANE,
+                    "&aConfirm",
+                    List.of(
+                            BODY + "Click to continue"
+                    )
+            );
+        }
+
         return item(
-                Material
-                        .LIME_STAINED_GLASS_PANE,
+                Material.LIME_STAINED_GLASS_PANE,
                 armed
                         ? "&aConfirm Again"
                         : "&aConfirm",
                 List.of(
                         armed
-                                ? BODY
-                                + "Click again to continue"
-                                : BODY
-                                + "Click to ready this action"
+                                ? BODY + "Click again to continue"
+                                : BODY + "Click once to ready"
                 )
         );
     }
@@ -158,16 +193,26 @@ public final class TeamConfirmGui {
     public static final class ConfirmHolder
             implements InventoryHolder {
 
+        private final String teamId;
         private final String action;
         private final UUID targetId;
+        private final boolean requiresSecondConfirm;
         private Inventory inventory;
 
         private ConfirmHolder(
+                String teamId,
                 String action,
-                UUID targetId
+                UUID targetId,
+                boolean requiresSecondConfirm
         ) {
+            this.teamId = teamId;
             this.action = action;
             this.targetId = targetId;
+            this.requiresSecondConfirm = requiresSecondConfirm;
+        }
+
+        public String teamId() {
+            return teamId;
         }
 
         public String action() {
@@ -178,16 +223,18 @@ public final class TeamConfirmGui {
             return targetId;
         }
 
+        public boolean requiresSecondConfirm() {
+            return requiresSecondConfirm;
+        }
 
         public String token() {
-            return action
+            return (teamId == null ? "-" : teamId)
                     + ":"
-                    + (
-                    targetId == null
-                            ? "-"
-                            : targetId
-                            .toString()
-            );
+                    + action
+                    + ":"
+                    + (targetId == null
+                    ? "-"
+                    : targetId.toString());
         }
 
         @Override
