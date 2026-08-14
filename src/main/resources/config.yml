@@ -31,8 +31,8 @@ teleport-perks:
 
 homes:
   max-homes:
-    default: 3
-    plus: 5
+    default: 2
+    plus: 3
 
   plus-permission: mineacle.plus
   default-name-format: 'Home %id%'
@@ -513,7 +513,7 @@ sounds:
 
     delete:
       enabled: true
-      sound: BLOCK_BEACON_DEACTIVATE
+      sound: ENTITY_ITEM_BREAK
       volume: 0.8
       pitch: 1.15
 
@@ -596,7 +596,7 @@ sounds:
 
     delete:
       enabled: true
-      sound: BLOCK_NOTE_BLOCK_BASS
+      sound: ENTITY_ITEM_BREAK
       volume: 0.8
       pitch: 1.0
 
@@ -615,7 +615,7 @@ sounds:
 
     disband:
       enabled: true
-      sound: BLOCK_BEACON_DEACTIVATE
+      sound: ENTITY_ITEM_BREAK
       volume: 0.8
       pitch: 1.0
 
@@ -674,7 +674,7 @@ sounds:
   bounty:
     claim:
       enabled: true
-      sound: BLOCK_BEACON_POWER_SELECT
+      sound: ENTITY_PLAYER_LEVELUP
       volume: 0.8
       pitch: 1.25
 

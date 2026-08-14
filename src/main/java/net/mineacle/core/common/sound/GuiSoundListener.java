@@ -3,6 +3,7 @@ package net.mineacle.core.common.sound;
 import net.kyori.adventure.text.Component;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.GuiText;
+import net.mineacle.core.common.text.TextColor;
 import org.bukkit.Material;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.DoubleChest;
@@ -149,6 +150,17 @@ public final class GuiSoundListener
             return;
         }
 
+        /*
+         * The purple delete dyes in Player Homes open a confirmation menu;
+         * they do not perform the deletion themselves. Keep that first click
+         * as a restrained UI click. The Homes listener requests homes.delete
+         * only after the second confirmation actually removes the home.
+         */
+        if (homesDeleteEntry(view, item, text)) {
+            SoundService.guiClick(player, core);
+            return;
+        }
+
         route(
                 player,
                 item,
@@ -256,6 +268,29 @@ public final class GuiSoundListener
         }
 
         SoundService.guiClick(player, core);
+    }
+
+    private boolean homesDeleteEntry(
+            InventoryView view,
+            ItemStack item,
+            String text
+    ) {
+        if (item.getType() != Material.PURPLE_DYE
+                || !text.contains("delete")) {
+            return false;
+        }
+
+        String currentTitle = normalize(
+                GuiText.plain(view.title())
+        );
+        String homesTitle = normalize(
+                TextColor.strip(
+                        core.getMessage("homes.gui.title")
+                )
+        );
+
+        return !homesTitle.isBlank()
+                && currentTitle.equals(homesTitle);
     }
 
     private boolean mineacleMenu(InventoryView view) {

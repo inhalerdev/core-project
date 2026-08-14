@@ -1,6 +1,7 @@
 package net.mineacle.core.homes.service;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.homes.model.HomeRecord;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -13,7 +14,8 @@ import java.util.UUID;
 
 public final class HomeService {
 
-    private static final int ABSOLUTE_MAX_HOMES = 5;
+    private static final int ACTIVE_MAX_HOMES = 3;
+    private static final int LEGACY_STORAGE_MAX_HOMES = 5;
 
     private final Core core;
 
@@ -23,49 +25,71 @@ public final class HomeService {
     }
 
     public int getMaxHomes(Player player) {
+        if (player == null) {
+            return 0;
+        }
+
         FileConfiguration config = core.getConfig();
-        int defaultMax = config.getInt(
-                "homes.max-homes.default",
-                3
+        int defaultMax = Math.clamp(
+                config.getInt(
+                        "homes.max-homes.default",
+                        2
+                ),
+                0,
+                ACTIVE_MAX_HOMES
         );
-        int plusMax = config.getInt(
-                "homes.max-homes.plus",
-                5
+        int plusMax = Math.clamp(
+                Math.max(
+                        defaultMax,
+                        config.getInt(
+                                "homes.max-homes.plus",
+                                3
+                        )
+                ),
+                0,
+                ACTIVE_MAX_HOMES
         );
         String plusPermission = config.getString(
                 "homes.plus-permission",
                 "mineacle.plus"
         );
 
-        int configuredMax = plusPermission != null
-                && !plusPermission.isBlank()
+        int configuredMax = !plusPermission.isBlank()
                 && player.hasPermission(plusPermission)
                 ? plusMax
                 : defaultMax;
 
-        return Math.max(
+        return Math.clamp(
+                configuredMax,
                 0,
-                Math.min(ABSOLUTE_MAX_HOMES, configuredMax)
+                ACTIVE_MAX_HOMES
         );
     }
 
-    public boolean canSetPersonalHomeHere(Player player) {
-        return player != null
-                && isWorldAllowedForPersonalHome(
-                player.getWorld()
-        );
+    /**
+     * Home limits are slot entitlements, not merely a count limit.
+     * Default players own slots 1..2 and Mineacle+ owns slots 1..3.
+     * Stored data in a currently locked slot is intentionally preserved.
+     */
+    public boolean slotLocked(Player player, int id) {
+        return player == null
+                || invalidActiveId(id)
+                || id > getMaxHomes(player);
     }
 
-    public boolean canSetTeamHomeHere(Player player) {
-        return player != null
-                && isWorldAllowedForTeamHome(
-                player.getWorld()
-        );
+    public boolean personalHomeSetBlocked(Player player) {
+        return player == null
+                || personalHomeWorldBlocked(player.getWorld());
     }
 
-    public boolean isWorldAllowedForPersonalHome(World world) {
+    public boolean teamHomeSetBlocked(Player player) {
+        return player == null
+                || teamHomeWorldBlocked(player.getWorld());
+    }
+
+    public boolean personalHomeWorldBlocked(World world) {
         if (world == null) {
-            return false;
+            return true;
         }
 
         String worldName = world.getName();
@@ -74,25 +98,25 @@ public final class HomeService {
                 "homes.blocked-worlds",
                 worldName
         )) {
-            return false;
+            return true;
         }
 
         if (!core.getConfig().getBoolean(
                 "homes.allowed-worlds.enabled",
                 true
         )) {
-            return true;
+            return false;
         }
 
-        return isListedWorld(
+        return !isListedWorld(
                 "homes.allowed-worlds.worlds",
                 worldName
         );
     }
 
-    public boolean isWorldAllowedForTeamHome(World world) {
+    public boolean teamHomeWorldBlocked(World world) {
         if (world == null) {
-            return false;
+            return true;
         }
 
         String worldName = world.getName();
@@ -101,37 +125,20 @@ public final class HomeService {
                 "homes.team-home.blocked-worlds",
                 worldName
         )) {
-            return false;
+            return true;
         }
 
         if (!core.getConfig().getBoolean(
                 "homes.team-home.allowed-worlds.enabled",
                 true
         )) {
-            return true;
+            return false;
         }
 
-        return isListedWorld(
+        return !isListedWorld(
                 "homes.team-home.allowed-worlds.worlds",
                 worldName
         );
-    }
-
-    public int getUsedHomeCount(UUID playerId) {
-        int count = 0;
-
-        for (int id = 1; id <= ABSOLUTE_MAX_HOMES; id++) {
-            if (exists(playerId, id)) {
-                count++;
-            }
-        }
-
-        return count;
-    }
-
-    public boolean hasFreeHomeCapacity(Player player) {
-        return getUsedHomeCount(player.getUniqueId())
-                < getMaxHomes(player);
     }
 
     /**
@@ -139,7 +146,7 @@ public final class HomeService {
      * unavailable. World resolution must not make a saved slot appear empty.
      */
     public boolean exists(UUID playerId, int id) {
-        if (!validId(id) || playerId == null) {
+        if (invalidStoredId(id) || playerId == null) {
             return false;
         }
 
@@ -152,26 +159,6 @@ public final class HomeService {
                 && !world.isBlank();
     }
 
-    public boolean isWorldAvailable(UUID playerId, int id) {
-        if (!exists(playerId, id)) {
-            return false;
-        }
-
-        return HomeWorldNames.resolve(
-                storedWorldName(playerId, id)
-        ) != null;
-    }
-
-    public String storedWorldName(UUID playerId, int id) {
-        if (!validId(id) || playerId == null) {
-            return null;
-        }
-
-        return core.getHomesConfig().getString(
-                path(playerId, id) + ".world"
-        );
-    }
-
     public Location get(UUID playerId, int id) {
         if (!exists(playerId, id)) {
             return null;
@@ -180,8 +167,7 @@ public final class HomeService {
         String base = path(playerId, id);
         FileConfiguration homes = core.getHomesConfig();
         String storedWorld = homes.getString(base + ".world");
-        String canonicalWorld =
-                HomeWorldNames.canonical(storedWorld);
+        String canonicalWorld = HomeWorldNames.canonical(storedWorld);
 
         if (HomeWorldNames.isLegacy(storedWorld)) {
             HomeWorldMigration.migratePersonalHome(
@@ -222,7 +208,7 @@ public final class HomeService {
             String displayName
     ) {
         if (playerId == null
-                || !validId(id)
+                || invalidActiveId(id)
                 || location == null
                 || location.getWorld() == null) {
             throw new IllegalArgumentException(
@@ -265,7 +251,7 @@ public final class HomeService {
     }
 
     public void delete(UUID playerId, int id) {
-        if (playerId == null || !validId(id)) {
+        if (playerId == null || invalidStoredId(id)) {
             return;
         }
 
@@ -285,7 +271,11 @@ public final class HomeService {
             return getDefaultDisplayName(id);
         }
 
-        return stored;
+        String safe = safeDisplayName(stored);
+
+        return safe.isBlank()
+                ? getDefaultDisplayName(id)
+                : safe;
     }
 
     public String getDefaultDisplayName(int id) {
@@ -305,9 +295,10 @@ public final class HomeService {
         }
 
         String trimmed = input.trim();
-        int maximum = Math.min(
-                ABSOLUTE_MAX_HOMES,
-                Math.max(0, maxHomes)
+        int maximum = Math.clamp(
+                maxHomes,
+                0,
+                LEGACY_STORAGE_MAX_HOMES
         );
 
         for (int id = 1; id <= maximum; id++) {
@@ -333,6 +324,10 @@ public final class HomeService {
     }
 
     public Integer findFirstEmptySlot(Player player) {
+        if (player == null) {
+            return null;
+        }
+
         UUID playerId = player.getUniqueId();
         int maximum = getMaxHomes(player);
 
@@ -355,9 +350,10 @@ public final class HomeService {
         }
 
         String trimmed = name.trim();
-        int maximum = Math.min(
-                ABSOLUTE_MAX_HOMES,
-                Math.max(0, maxHomes)
+        int maximum = Math.clamp(
+                maxHomes,
+                0,
+                LEGACY_STORAGE_MAX_HOMES
         );
 
         for (int id = 1; id <= maximum; id++) {
@@ -371,7 +367,24 @@ public final class HomeService {
         return null;
     }
 
+    /**
+     * Searches every physical slot, including currently locked Mineacle+
+     * slots. This prevents creating duplicate names while paid-slot data is
+     * preserved for a player whose entitlement temporarily changed.
+     */
+    public Integer findAnyByName(UUID playerId, String name) {
+        return findByName(
+                playerId,
+                LEGACY_STORAGE_MAX_HOMES,
+                name
+        );
+    }
+
     public List<String> getSavedHomeNames(Player player) {
+        if (player == null) {
+            return List.of();
+        }
+
         List<String> names = new ArrayList<>();
         UUID playerId = player.getUniqueId();
         int maximum = getMaxHomes(player);
@@ -385,26 +398,140 @@ public final class HomeService {
         return List.copyOf(names);
     }
 
-    public boolean isValidName(String name) {
+    public boolean invalidName(String name) {
         if (name == null) {
-            return false;
+            return true;
         }
 
         String trimmed = name.trim();
 
-        return !trimmed.isBlank()
-                && trimmed.length() <= 24;
+        if (trimmed.isBlank()
+                || trimmed.length() > 24
+                || TextColor.containsFormatting(trimmed)) {
+            return true;
+        }
+
+        for (int index = 0; index < trimmed.length(); index++) {
+            if (Character.isISOControl(trimmed.charAt(index))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Keeps labels unique and reserves Home 1/2/3 for their matching slots.
+     * This prevents ambiguous command targets after a custom rename.
+     */
+    public boolean nameUnavailableForSlot(
+            UUID playerId,
+            int targetId,
+            String name
+    ) {
+        if (playerId == null
+                || invalidActiveId(targetId)
+                || invalidName(name)) {
+            return true;
+        }
+
+        String candidate = name.trim();
+
+        for (int id = 1; id <= ACTIVE_MAX_HOMES; id++) {
+            if (id != targetId
+                    && getDefaultDisplayName(id)
+                    .equalsIgnoreCase(candidate)) {
+                return true;
+            }
+        }
+
+        for (int id = 1; id <= LEGACY_STORAGE_MAX_HOMES; id++) {
+            if (id != targetId
+                    && exists(playerId, id)
+                    && getDisplayName(playerId, id)
+                    .equalsIgnoreCase(candidate)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public String sanitizeName(
             String name,
             int fallbackId
     ) {
-        if (!isValidName(name)) {
+        if (invalidName(name)) {
             return getDefaultDisplayName(fallbackId);
         }
 
         return name.trim();
+    }
+
+    public boolean personalHomeTeleportBlocked(Location location) {
+        return invalidTeleportLocation(location)
+                || personalHomeWorldBlocked(location.getWorld());
+    }
+
+    public boolean teamHomeTeleportBlocked(Location location) {
+        return invalidTeleportLocation(location)
+                || teamHomeWorldBlocked(location.getWorld());
+    }
+
+    private boolean invalidTeleportLocation(Location location) {
+        if (location == null
+                || !location.isFinite()
+                || !location.isWorldLoaded()) {
+            return true;
+        }
+
+        World world;
+
+        try {
+            world = location.getWorld();
+        } catch (IllegalArgumentException ignored) {
+            return true;
+        }
+
+        if (world == null) {
+            return true;
+        }
+
+        int blockY = location.getBlockY();
+
+        return blockY < world.getMinHeight()
+                || blockY >= world.getMaxHeight()
+                || !world.getWorldBorder().isInside(location);
+    }
+
+    private String safeDisplayName(String stored) {
+        String trimmed = stored == null
+                ? ""
+                : stored.trim();
+
+        if (trimmed.isBlank()) {
+            return "";
+        }
+
+        String safe = TextColor.containsFormatting(trimmed)
+                ? TextColor.strip(trimmed)
+                : trimmed;
+
+        StringBuilder output = new StringBuilder(
+                Math.min(24, safe.length())
+        );
+
+        for (int index = 0;
+             index < safe.length() && output.length() < 24;
+             index++) {
+            char character = safe.charAt(index);
+
+            if (!Character.isISOControl(character)) {
+                output.append(character);
+            }
+        }
+
+        return output.toString().trim();
     }
 
     private boolean isListedWorld(
@@ -428,8 +555,12 @@ public final class HomeService {
         return false;
     }
 
-    private boolean validId(int id) {
-        return id >= 1 && id <= ABSOLUTE_MAX_HOMES;
+    private boolean invalidActiveId(int id) {
+        return id < 1 || id > ACTIVE_MAX_HOMES;
+    }
+
+    private boolean invalidStoredId(int id) {
+        return id < 1 || id > LEGACY_STORAGE_MAX_HOMES;
     }
 
     private String path(UUID playerId, int id) {
