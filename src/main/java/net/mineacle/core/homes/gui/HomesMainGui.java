@@ -63,7 +63,7 @@ public final class HomesMainGui {
                 inventory.setItem(
                         dyeSlot,
                         lockedItem(
-                                Material.LIGHT_GRAY_DYE,
+                                Material.GRAY_DYE,
                                 id
                         )
                 );
