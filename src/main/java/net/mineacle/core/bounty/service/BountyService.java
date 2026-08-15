@@ -872,30 +872,18 @@ public final class BountyService {
     public OfflinePlayer resolveTarget(
             String input
     ) {
-        Player online =
-                DisplayNames.resolveOnline(
-                        input
-                );
-
-        if (online != null) {
-            return online;
-        }
-
-        OfflinePlayer offline =
+        OfflinePlayer target =
                 DisplayNames.resolveOffline(
                         input
                 );
 
-        if (offline == null
-                || (
-                offline.getName() == null
-                        && !offline
-                        .hasPlayedBefore()
-        )) {
+        if (target == null
+                || (target.getName() == null
+                && !target.hasPlayedBefore())) {
             return null;
         }
 
-        return offline;
+        return target;
     }
 
     public String displayName(
@@ -918,9 +906,7 @@ public final class BountyService {
                 );
 
         return display.isBlank()
-                ? cleanDisplayName(
-                record.targetUsername()
-        )
+                ? "Unknown"
                 : display;
     }
 
@@ -975,6 +961,11 @@ public final class BountyService {
                 && online.isOnline();
     }
 
+    /**
+     * Public bounty search matches only the public Mineacle identity.
+     * Stored raw usernames remain internal persistence metadata and are never
+     * accepted as a public search key while a nickname replaces that identity.
+     */
     public boolean matches(
             BountyRecord record,
             String rawQuery
@@ -991,19 +982,13 @@ public final class BountyService {
                         .toLowerCase(
                                 Locale.ROOT
                         );
-        String username =
-                record.targetUsername()
-                        .toLowerCase(
-                                Locale.ROOT
-                        );
         String display =
                 displayName(record)
                         .toLowerCase(
                                 Locale.ROOT
                         );
 
-        return username.contains(query)
-                || display.contains(query);
+        return display.contains(query);
     }
 
     public String displaySearchLabel(
@@ -1016,9 +1001,7 @@ public final class BountyService {
 
         for (BountyRecord record
                 : repository.listAll()) {
-            if (record.targetUsername()
-                    .equalsIgnoreCase(query)
-                    || displayName(record)
+            if (displayName(record)
                     .equalsIgnoreCase(query)) {
                 return displayName(record);
             }

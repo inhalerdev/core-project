@@ -114,6 +114,13 @@ public final class DisplayNames {
         return displayName(player);
     }
 
+    /**
+     * Resolves an online player by public Mineacle identity only.
+     * A nickname replaces the username while it is active. The hidden raw
+     * username is therefore never accepted as a public command target. If a
+     * legacy data collision ever causes more than one player to share the
+     * same normalized public identity, resolution fails closed.
+     */
     public static Player resolveOnline(
             String input
     ) {
@@ -122,66 +129,91 @@ public final class DisplayNames {
             return null;
         }
 
-        String raw = input.trim();
-        Player exactUsername =
-                Bukkit.getPlayerExact(raw);
-
-        if (exactUsername != null) {
-            return exactUsername;
-        }
-
-        String normalized = normalize(raw);
-        NicknameService service =
-                ChatModule.nicknameService();
+        String normalized = normalize(input);
+        Player match = null;
 
         for (Player online
                 : Bukkit.getOnlinePlayers()) {
-            if (normalize(
-                    username(online)
+            if (!normalize(
+                    commandDisplayName(online)
             ).equals(normalized)) {
-                return online;
+                continue;
             }
 
-            if (service != null
-                    && normalize(
-                    service.nickname(online)
-            ).equals(normalized)) {
-                return online;
+            if (match != null
+                    && !match.getUniqueId()
+                    .equals(online.getUniqueId())) {
+                return null;
             }
+
+            match = online;
         }
 
-        return null;
+        return match;
     }
 
+    /**
+     * Resolves an offline-capable public identity without exposing a hidden
+     * username. Nicknames resolve by the nickname registry. Raw usernames are
+     * accepted only for known players who do not currently have a nickname.
+     * Cross-identity collisions fail closed.
+     */
     public static OfflinePlayer resolveOffline(
             String input
     ) {
+        if (input == null
+                || input.isBlank()) {
+            return null;
+        }
+
         Player online = resolveOnline(input);
 
         if (online != null) {
             return online;
         }
 
-        if (input == null
-                || input.isBlank()) {
-            return null;
-        }
-
+        String raw = input.trim();
+        String normalized = normalize(raw);
         NicknameService service =
                 ChatModule.nicknameService();
+        OfflinePlayer nicknameMatch = null;
 
         if (service != null) {
-            OfflinePlayer byNickname =
-                    service.findByNickname(input);
+            OfflinePlayer candidate =
+                    service.findByNickname(raw);
 
-            if (byNickname != null) {
-                return byNickname;
+            if (candidate != null
+                    && normalize(
+                    commandDisplayName(candidate)
+            ).equals(normalized)) {
+                nicknameMatch = candidate;
             }
         }
 
-        return Bukkit.getOfflinePlayer(
-                input.trim()
-        );
+        OfflinePlayer usernameMatch = null;
+        OfflinePlayer candidate =
+                Bukkit.getOfflinePlayer(raw);
+
+        if (knownPlayer(candidate)
+                && nickname(candidate).isBlank()
+                && normalize(
+                username(candidate)
+        ).equals(normalized)) {
+            usernameMatch = candidate;
+        }
+
+        if (nicknameMatch != null
+                && usernameMatch != null
+                && !nicknameMatch.getUniqueId()
+                .equals(
+                        usernameMatch.getUniqueId()
+                )) {
+            return null;
+        }
+
+        return nicknameMatch != null
+                ? nicknameMatch
+                : usernameMatch;
     }
 
     /**
@@ -222,6 +254,14 @@ public final class DisplayNames {
             String input
     ) {
         return normalize(input);
+    }
+
+    private static boolean knownPlayer(
+            OfflinePlayer player
+    ) {
+        return player != null
+                && (player.isOnline()
+                || player.hasPlayedBefore());
     }
 
     private static String normalize(

@@ -145,14 +145,7 @@ public final class ChatFormatListener
             String message
     ) {
         Component identity =
-                legacyPrefix(
-                        compactRankPrefix(
-                                sender
-                        )
-                )
-                        .append(
-                                displayName(sender)
-                        )
+                identityComponent(sender)
                         .hoverEvent(
                                 HoverEvent.showText(
                                         hoverStats(
@@ -228,7 +221,7 @@ public final class ChatFormatListener
                         );
 
         Component hover =
-                displayName(player);
+                identityComponent(player);
 
         TeamRecord team =
                 teamService == null
@@ -241,64 +234,48 @@ public final class ChatFormatListener
         if (team != null
                 && team.name() != null
                 && !team.name().isBlank()) {
-            hover =
-                    hover
-                            .append(
-                                    Component.newline()
+            hover = hover
+                    .append(Component.newline())
+                    .append(
+                            statLine(
+                                    TEAM,
+                                    "🔥",
+                                    team.name()
                             )
-                            .append(
-                                    statLine(
-                                            TEAM,
-                                            "🔥",
-                                            "Team",
-                                            team.name()
-                                    )
-                            );
+                    );
         }
 
         return hover
-                .append(
-                        Component.newline()
-                )
+                .append(Component.newline())
                 .append(
                         statLine(
                                 MONEY,
                                 "$",
-                                "Balance",
                                 money
                         )
                 )
-                .append(
-                        Component.newline()
-                )
-                .append(
-                        statLine(
-                                KILLS,
-                                "🗡",
-                                "Kills",
-                                String.valueOf(kills)
-                        )
-                )
-                .append(
-                        Component.newline()
-                )
-                .append(
-                        statLine(
-                                DEATHS,
-                                "☠",
-                                "Deaths",
-                                String.valueOf(deaths)
-                        )
-                )
-                .append(
-                        Component.newline()
-                )
+                .append(Component.newline())
                 .append(
                         statLine(
                                 PLAYTIME,
                                 "⌚",
-                                "Playtime",
                                 playtime
+                        )
+                )
+                .append(Component.newline())
+                .append(
+                        statLine(
+                                KILLS,
+                                "🗡",
+                                String.valueOf(kills)
+                        )
+                )
+                .append(Component.newline())
+                .append(
+                        statLine(
+                                DEATHS,
+                                "☠",
+                                String.valueOf(deaths)
                         )
                 );
     }
@@ -306,7 +283,6 @@ public final class ChatFormatListener
     private Component statLine(
             String color,
             String icon,
-            String name,
             String value
     ) {
         return legacyPrefix(
@@ -314,10 +290,17 @@ public final class ChatFormatListener
                         + icon
                         + " "
                         + NEUTRAL
-                        + name
-                        + " "
-                        + color
                         + value
+        );
+    }
+
+    private Component identityComponent(
+            Player player
+    ) {
+        return legacyPrefix(
+                compactRankPrefix(player)
+        ).append(
+                displayName(player)
         );
     }
 

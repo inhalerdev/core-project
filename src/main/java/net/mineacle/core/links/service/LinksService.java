@@ -7,7 +7,6 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
-import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -33,6 +32,13 @@ public final class LinksService {
             "discord",
             "x"
     );
+
+    private static final String PRIMARY =
+            "&#8436FE";
+    private static final String SECONDARY =
+            "&#B078FF";
+    private static final String BODY =
+            "&#bbbbbb";
 
     private final Core core;
     private final File file;
@@ -73,7 +79,7 @@ public final class LinksService {
                             key,
                             linkSection.getString(
                                     "title",
-                                    "&dMineacle"
+                                    PRIMARY + "Mineacle"
                             ),
                             List.copyOf(
                                     linkSection.getStringList(
@@ -82,15 +88,15 @@ public final class LinksService {
                             ),
                             linkSection.getString(
                                     "button",
-                                    "&d› &#bbbbbbOpen"
+                                    SECONDARY + "Open"
                             ),
                             linkSection.getString(
                                     "button-line",
-                                    "&d› &#bbbbbbOpen"
+                                    SECONDARY + "Open Link"
                             ),
                             linkSection.getString(
                                     "hover",
-                                    "&#bbbbbbClick to open"
+                                    BODY + "Click to open"
                             ),
                             validUrl(
                                     linkSection.getString(
@@ -130,14 +136,14 @@ public final class LinksService {
             return;
         }
 
-        player.sendMessage(Component.empty());
         player.sendMessage(legacy(link.title()));
 
         for (String line : link.lines()) {
-            player.sendMessage(legacy(line));
+            if (line != null && !line.isBlank()) {
+                player.sendMessage(legacy(line));
+            }
         }
 
-        player.sendMessage(Component.empty());
         player.sendMessage(
                 clickable(
                         link.buttonLine(),
@@ -145,52 +151,6 @@ public final class LinksService {
                         link.url()
                 )
         );
-
-        SoundService.guiClick(player, core);
-    }
-
-    public void sendAllLinks(Player player) {
-        if (player == null) {
-            return;
-        }
-
-        if (!enabled) {
-            error(player, "&cLinks are currently disabled");
-            return;
-        }
-
-        player.sendMessage(Component.empty());
-        player.sendMessage(legacy("&dMineacle Links"));
-
-        int sent = 0;
-
-        for (String key : ORDER) {
-            LinkDefinition link = links.get(key);
-
-            if (link == null || link.url() == null) {
-                continue;
-            }
-
-            Component line = legacy(
-                    "&#bbbbbb- "
-                            + plainTitle(link.title())
-                            + " "
-            ).append(
-                    clickable(
-                            link.button(),
-                            link.hover(),
-                            link.url()
-                    )
-            );
-
-            player.sendMessage(line);
-            sent++;
-        }
-
-        if (sent == 0) {
-            error(player, "&cNo links are configured");
-            return;
-        }
 
         SoundService.guiClick(player, core);
     }
@@ -234,20 +194,6 @@ public final class LinksService {
                 .hoverEvent(
                         HoverEvent.showText(legacy(hover))
                 );
-    }
-
-    private String plainTitle(String coloredTitle) {
-        String stripped = ChatColor.stripColor(
-                TextColor.color(
-                        coloredTitle == null
-                                ? "Mineacle"
-                                : coloredTitle
-                )
-        );
-
-        return stripped == null || stripped.isBlank()
-                ? "Mineacle"
-                : stripped;
     }
 
     private void error(Player player, String message) {

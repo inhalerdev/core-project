@@ -3,40 +3,36 @@ enabled: true
 links:
   web:
     url: "https://mineacle.net/"
-    title: "&dMineacle Website"
+    title: "&#8436FEMineacle &#B078FFWebsite"
     lines:
-      - "&#bbbbbbExplore Mineacle player profiles and leaderboards"
-      - "&#bbbbbbView network information, updates, and more"
-    button: "&d› &#bbbbbbmineacle.net"
-    button-line: "&d› &#bbbbbbmineacle.net"
-    hover: "&#bbbbbbClick to open &#ff88ffmineacle.net"
+      - "&#bbbbbbProfiles, leaderboards and network information"
+    button: "&#D0AFFFmineacle.net"
+    button-line: "&#B078FFOpen Website &#D0AFFFmineacle.net"
+    hover: "&#bbbbbbOpen the Mineacle website"
 
   store:
     url: "https://store.mineacle.net/"
-    title: "&dMineacle Store"
+    title: "&#8436FEMineacle &#B078FFStore"
     lines:
-      - "&#bbbbbbSupport the server and unlock &#ff88ffMineacle+"
-      - "&#bbbbbbView perks, cosmetics, and progression upgrades"
-    button: "&d› &#bbbbbbstore.mineacle.net"
-    button-line: "&d› &#bbbbbbstore.mineacle.net"
-    hover: "&#bbbbbbClick to open &#ff88ffstore.mineacle.net"
+      - "&#bbbbbbMineacle+ membership, cosmetics and supporter perks"
+    button: "&#D0AFFFstore.mineacle.net"
+    button-line: "&#B078FFOpen Store &#D0AFFFstore.mineacle.net"
+    hover: "&#bbbbbbOpen the Mineacle Store"
 
   discord:
     url: "https://discord.gg/4xrYFxdSWg"
-    title: "&dMineacle Discord"
+    title: "&#8436FEMineacle &#B078FFDiscord"
     lines:
-      - "&#bbbbbbJoin the community and stay updated"
-      - "&#bbbbbbGet support, announcements, events, and tickets"
-    button: "&d› &#bbbbbbdiscord.gg/mineacle"
-    button-line: "&d› &#bbbbbbdiscord.gg/mineacle"
-    hover: "&#bbbbbbClick to open the &#ff88ffMineacle Discord"
+      - "&#bbbbbbCommunity, support, announcements and events"
+    button: "&#D0AFFFDiscord"
+    button-line: "&#B078FFJoin Discord"
+    hover: "&#bbbbbbOpen the Mineacle Discord"
 
   x:
     url: "https://x.com/mineaclenetwork"
-    title: "&dMineacle on X"
+    title: "&#8436FEMineacle &#B078FFon X"
     lines:
-      - "&#bbbbbbFollow server news, clips, and updates"
-      - "&#bbbbbbSee announcements from the Mineacle network"
-    button: "&d› &#bbbbbbx.com/mineaclenetwork"
-    button-line: "&d› &#bbbbbbx.com/mineaclenetwork"
-    hover: "&#bbbbbbClick to open &#ff88ffx.com/mineaclenetwork"
+      - "&#bbbbbbNews, updates and highlights from Mineacle"
+    button: "&#D0AFFF@mineaclenetwork"
+    button-line: "&#B078FFOpen X &#D0AFFF@mineaclenetwork"
+    hover: "&#bbbbbbOpen Mineacle on X"

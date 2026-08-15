@@ -14,7 +14,6 @@ import net.mineacle.core.tpa.gui.TpaRequestGui;
 import net.mineacle.core.tpa.service.TpaRequest;
 import net.mineacle.core.tpa.service.TpaRequestType;
 import net.mineacle.core.tpa.service.TpaService;
-import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -101,7 +100,7 @@ public final class TpaCommand
             String[] args,
             TpaRequestType type
     ) {
-        if (args.length < 1) {
+        if (args.length != 1) {
             error(
                     requester,
                     type == TpaRequestType.TO_TARGET
@@ -111,7 +110,10 @@ public final class TpaCommand
             return;
         }
 
-        Player target = resolveTarget(args[0]);
+        Player target =
+                DisplayNames.resolveOnline(
+                        args[0]
+                );
 
         if (target == null) {
             error(
@@ -168,29 +170,12 @@ public final class TpaCommand
                         + "Teleport request sent to "
                         + playerName(target)
         );
-        SoundService.teleportRequest(
-                requester,
-                core
-        );
 
         sendRequestMessage(
                 requester,
                 target,
                 type
         );
-        SoundService.teleportReceived(
-                target,
-                core
-        );
-    }
-
-    private Player resolveTarget(String input) {
-        Player target =
-                DisplayNames.resolveOnline(input);
-
-        return target != null
-                ? target
-                : Bukkit.getPlayerExact(input);
     }
 
     private void sendRequestMessage(
