@@ -3,36 +3,36 @@ enabled: true
 links:
   web:
     url: "https://mineacle.net/"
-    title: "&#8436FEMineacle &#B078FFWebsite"
+    title: "&#B078FFMineacle Website"
     lines:
-      - "&#bbbbbbProfiles, leaderboards and network information"
-    button: "&#D0AFFFmineacle.net"
-    button-line: "&#B078FFOpen Website &#D0AFFFmineacle.net"
-    hover: "&#bbbbbbOpen the Mineacle website"
+      - "&#D0AFFFProfiles, leaderboards and network information"
+    button: "&amineacle.net"
+    button-line: "&#D0AFFFVisit &amineacle.net"
+    hover: "&#D0AFFFOpen the Mineacle website"
 
   store:
     url: "https://store.mineacle.net/"
-    title: "&#8436FEMineacle &#B078FFStore"
+    title: "&#B078FFMineacle Store"
     lines:
-      - "&#bbbbbbMineacle+ membership, cosmetics and supporter perks"
-    button: "&#D0AFFFstore.mineacle.net"
-    button-line: "&#B078FFOpen Store &#D0AFFFstore.mineacle.net"
-    hover: "&#bbbbbbOpen the Mineacle Store"
+      - "&#D0AFFFMineacle+ membership, cosmetics and supporter perks"
+    button: "&astore.mineacle.net"
+    button-line: "&#D0AFFFVisit &astore.mineacle.net"
+    hover: "&#D0AFFFOpen the Mineacle Store"
 
   discord:
     url: "https://discord.gg/4xrYFxdSWg"
-    title: "&#8436FEMineacle &#B078FFDiscord"
+    title: "&#B078FFMineacle Discord"
     lines:
-      - "&#bbbbbbCommunity, support, announcements and events"
-    button: "&#D0AFFFDiscord"
-    button-line: "&#B078FFJoin Discord"
-    hover: "&#bbbbbbOpen the Mineacle Discord"
+      - "&#D0AFFFCommunity, support, announcements and events"
+    button: "&aDiscord"
+    button-line: "&#D0AFFFJoin &aDiscord"
+    hover: "&#D0AFFFOpen the Mineacle Discord"
 
   x:
     url: "https://x.com/mineaclenetwork"
-    title: "&#8436FEMineacle &#B078FFon X"
+    title: "&#B078FFMineacle on X"
     lines:
-      - "&#bbbbbbNews, updates and highlights from Mineacle"
-    button: "&#D0AFFF@mineaclenetwork"
-    button-line: "&#B078FFOpen X &#D0AFFF@mineaclenetwork"
-    hover: "&#bbbbbbOpen Mineacle on X"
+      - "&#D0AFFFNews, updates and highlights from Mineacle"
+    button: "&a@mineaclenetwork"
+    button-line: "&#D0AFFFFollow &a@mineaclenetwork"
+    hover: "&#D0AFFFOpen Mineacle on X"

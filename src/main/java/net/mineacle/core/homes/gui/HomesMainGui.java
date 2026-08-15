@@ -26,8 +26,6 @@ public final class HomesMainGui {
     private static final int FIRST_DYE_SLOT = 21;
     private static final int HOME_SLOT_COUNT = 5;
 
-    private static final String PRIMARY =
-            "&#8436FE";
     private static final String SECONDARY =
             "&#B078FF";
     private static final String ACCENT =
@@ -156,9 +154,8 @@ public final class HomesMainGui {
                 material,
                 BODY + "Home " + homeId,
                 List.of(
-                        BODY + "Locked",
-                        BODY + "Requires "
-                                + PRIMARY
+                        ACCENT + "Unlock with "
+                                + SECONDARY
                                 + "Mineacle+"
                 )
         );

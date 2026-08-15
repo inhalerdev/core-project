@@ -25,8 +25,8 @@ homes:
   teleport-cancelled-move: "&cTeleport cancelled — you moved"
   teleported: "&#bbbbbbTeleported to &#8436FE%home%"
 
-  upgrade-line-1: "&#f8f8f8Elevate your gameplay experience with &#8436FEMineacle+"
-  upgrade-line-2: "&#8436FE➥ &#f8f8f8https://store.mineacle.net/"
+  upgrade-line-1: "&#D0AFFFUnlock up to 5 homes with &#B078FFMineacle+"
+  upgrade-line-2: "&#D0AFFFView membership at &astore.mineacle.net"
 
   gui:
     title: "Player Homes"
