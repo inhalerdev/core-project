@@ -6,6 +6,7 @@ import net.mineacle.core.common.teleport.TeleportService;
 import net.mineacle.core.warp.command.DelWarpCommand;
 import net.mineacle.core.warp.command.SetWarpCommand;
 import net.mineacle.core.warp.command.WarpCommand;
+import net.mineacle.core.warp.listener.WarpQueueListener;
 import net.mineacle.core.warp.service.WarpService;
 import net.mineacle.core.warp.service.WarpTeleportService;
 import org.bukkit.command.CommandExecutor;
@@ -24,7 +25,8 @@ public final class WarpModule extends Module {
 
     @Override
     public void enable(Core core) {
-        TeleportService sharedTeleport = core.teleports();
+        TeleportService sharedTeleport =
+                core.teleports();
 
         if (sharedTeleport == null) {
             throw new IllegalStateException(
@@ -36,14 +38,26 @@ public final class WarpModule extends Module {
                 new WarpService(core);
         teleportService =
                 new WarpTeleportService(
+                        core,
                         warpService,
                         sharedTeleport
+                );
+        teleportService.start();
+
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new WarpQueueListener(
+                                teleportService
+                        ),
+                        core
                 );
 
         registerCommand(
                 core,
                 "warp",
                 new WarpCommand(
+                        core,
                         warpService,
                         teleportService
                 )
@@ -66,6 +80,10 @@ public final class WarpModule extends Module {
 
     @Override
     public void disable() {
+        if (teleportService != null) {
+            teleportService.stop();
+        }
+
         teleportService = null;
         warpService = null;
     }
@@ -99,5 +117,4 @@ public final class WarpModule extends Module {
             );
         }
     }
-
 }

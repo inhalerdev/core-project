@@ -6,17 +6,92 @@ spawn-worlds:
   - spawn3
 
 teleport:
-  default-delay-seconds: 5
-  plus-delay-seconds: 3
   cancel-on-move: true
+
+  # Group delay and queue priority are separate concerns.
+  # spawn1-3 always bypass these delays and the queue entirely.
+  groups:
+    default:
+      delay-seconds: 5
+      priority: 0
+      permissions: []
+      primary-groups: []
+
+    plus:
+      delay-seconds: 3
+      priority: 100
+      permissions:
+        - mineacle.plus
+      primary-groups:
+        - plus
+
+    media-plus:
+      delay-seconds: 3
+      priority: 200
+      permissions:
+        - mineacle.media-plus
+        - mineacle.mediaplus
+      primary-groups:
+        - media-plus
+        - mediaplus
+        - media_plus
+        - media+
+
+    admin:
+      delay-seconds: 3
+      priority: 300
+      permissions:
+        - mineaclewarps.admin
+        - mineacle.admin
+      primary-groups:
+        - admin
+        - administrator
+
+    developer:
+      delay-seconds: 3
+      priority: 400
+      permissions:
+        - mineacle.developer
+      primary-groups:
+        - developer
+        - dev
+
+  # Non-spawn Warp admission control.
+  # Requests normally leave this queue on the next server tick. During bursts,
+  # these limits prevent dozens/hundreds of countdowns and chunk preparations
+  # from being started at exactly the same time.
+  queue:
+    enabled: true
+
+    # Maximum queued-admitted Warp pipelines at once.
+    max-active: 32
+
+    # Hard code cap is also 4096. Misconfiguration cannot exceed it.
+    max-queued: 4096
+
+    # Smooth new countdown/chunk-preparation start times across ticks.
+    max-starts-per-tick: 2
+
+    # Prevent stale reservations from living forever.
+    max-wait-seconds: 30
+
+    # Priority aging prevents default players from starving under a sustained
+    # privileged-player burst. Base order remains:
+    # Developer > Admin > Media+ > Plus > Default.
+    aging-points-per-second: 25
+    max-aging-bonus: 500
 
 messages:
   no-permission: "&cYou do not have permission"
   not-found: "&cThat warp does not exist"
   set: "&aWarp &#8436FE%warp% &#bbbbbbset"
   deleted: "&cWarp %warp% deleted"
-  teleported: "&aTeleported &#bbbbbbto &#8436FE%warp%"
-  starting: "&#bbbbbbTeleporting to &#8436FE%warp% &#bbbbbbin &#B078FF%seconds%s"
+
+  already-active: "&cYou already have a teleport in progress"
+  destination-unavailable: "&cWarp destination is unavailable"
+  queue-full: "&cWarp queue is busy — try again"
+  queue-expired: "&cWarp queue expired — try again"
+  queued: "&#bbbbbbWarp queued — preparing &#B078FF%warp%"
   cancelled: "&cTeleport cancelled — you moved"
 
 warps:

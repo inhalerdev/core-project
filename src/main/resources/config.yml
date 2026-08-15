@@ -450,56 +450,56 @@ sounds:
   feedback:
     minimum-interval-millis: 55
 
-    # Neutral GUI / non-destructive interaction
     navigate:
       enabled: true
       sound: UI_BUTTON_CLICK
       volume: 0.35
       pitch: 1.0
       minimum-interval-millis: 55
+  
+    # Original Mineacle Double Jump identity
+    jump:
+      enabled: true
+      sound: BLOCK_WOODEN_BUTTON_CLICK_ON
+      volume: 0.80
+      pitch: 1.00
+      minimum-interval-millis: 80
 
-    # Teleport countdown: one identical neutral tick per displayed number
     tick:
       enabled: true
-      sound: UI_BUTTON_CLICK
-      volume: 0.30
-      pitch: 1.0
+      sound: BLOCK_NOTE_BLOCK_HAT
+      volume: 0.80
+      pitch: 1.20
       minimum-interval-millis: 700
-
-    # Low-key incoming message / notification feedback
+  
     notice:
       enabled: true
       sound: UI_BUTTON_CLICK
       volume: 0.30
       pitch: 1.05
       minimum-interval-millis: 120
-
-    # Positive / completed / accepted / created / paid / received / set
+  
     success:
       enabled: true
       sound: ENTITY_EXPERIENCE_ORB_PICKUP
       volume: 0.45
       pitch: 1.0
       minimum-interval-millis: 55
-
-    # RED semantic family:
-    # cancel / deny / delete / disband / invalid / blocked / error /
-    # no-permission / failed / disabled / destructive outcomes
+  
     negative:
       enabled: true
       sound: BLOCK_NOTE_BLOCK_BASS
       volume: 0.45
       pitch: 0.80
       minimum-interval-millis: 100
-
-    # Intentional no-sound routes such as teleport start/request/received
+  
     silent:
       enabled: false
       sound: UI_BUTTON_CLICK
       volume: 0.0
       pitch: 1.0
       minimum-interval-millis: 0
-
+  
   gui:
     minimum-interval-millis: 55
 
@@ -701,8 +701,9 @@ sounds:
     jump:
       enabled: true
       sound: BLOCK_WOODEN_BUTTON_CLICK_ON
-      volume: 0.8
-      pitch: 1.0
+      volume: 0.80
+      pitch: 1.00
+      minimum-interval-millis: 80
 
     cooldown:
       enabled: false
@@ -729,8 +730,6 @@ sounds:
       sound: ENTITY_PLAYER_LEVELUP
       volume: 0.8
       pitch: 1.25
-
-  minimum-interval-millis: 50
 
   # Keep the global GUI ownership rules. This list controls where the common
   # GUI listener is allowed to infer semantic navigation sounds.

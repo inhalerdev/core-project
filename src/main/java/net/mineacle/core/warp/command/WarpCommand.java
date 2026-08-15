@@ -1,5 +1,7 @@
 package net.mineacle.core.warp.command;
 
+import net.mineacle.core.Core;
+import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.warp.model.WarpPoint;
 import net.mineacle.core.warp.service.WarpService;
@@ -14,15 +16,22 @@ import org.jetbrains.annotations.NotNull;
 import java.util.List;
 import java.util.Locale;
 
-public final class WarpCommand implements CommandExecutor, TabCompleter {
+public final class WarpCommand
+        implements CommandExecutor, TabCompleter {
 
     private static final String PRIMARY = "&#8436FE";
     private static final String BODY = "&#bbbbbb";
 
+    private final Core core;
     private final WarpService warpService;
     private final WarpTeleportService teleportService;
 
-    public WarpCommand(WarpService warpService, WarpTeleportService teleportService) {
+    public WarpCommand(
+            Core core,
+            WarpService warpService,
+            WarpTeleportService teleportService
+    ) {
+        this.core = core;
         this.warpService = warpService;
         this.teleportService = teleportService;
     }
@@ -39,45 +48,94 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (!player.hasPermission("mineaclewarps.use")) {
-            player.sendMessage(warpService.noPermissionMessage());
+        if (!player.hasPermission(
+                "mineaclewarps.use"
+        )) {
+            player.sendMessage(
+                    warpService.noPermissionMessage()
+            );
+            SoundService.negative(
+                    player,
+                    core
+            );
             return true;
         }
 
-        if (args.length == 0) {
+        if (args.length != 1) {
             sendUsage(player);
+            SoundService.negative(
+                    player,
+                    core
+            );
             return true;
         }
 
-        String warpId = args[0].toLowerCase(Locale.ROOT);
-        WarpPoint warp = warpService.warp(warpId);
+        String warpId =
+                args[0].toLowerCase(
+                        Locale.ROOT
+                );
+        WarpPoint warp =
+                warpService.warp(warpId);
 
         if (warp == null) {
-            player.sendMessage(warpService.notFoundMessage(args[0]));
+            player.sendMessage(
+                    warpService.notFoundMessage(
+                            args[0]
+                    )
+            );
             sendAvailable(player);
+            SoundService.negative(
+                    player,
+                    core
+            );
             return true;
         }
 
-        teleportService.teleport(player, warp);
+        teleportService.teleport(
+                player,
+                warp
+        );
         return true;
     }
 
     private void sendUsage(Player player) {
-        player.sendMessage(TextColor.color(BODY + "Usage: " + PRIMARY + "/warp <warp>"));
+        player.sendMessage(
+                TextColor.color(
+                        BODY
+                                + "Usage: "
+                                + PRIMARY
+                                + "/warp <warp>"
+                )
+        );
         sendAvailable(player);
     }
 
     private void sendAvailable(Player player) {
-        List<String> keys = warpService.warpKeys("");
+        List<String> keys =
+                warpService.warpKeys("");
 
         if (keys.isEmpty()) {
-            player.sendMessage(TextColor.color("&cNo warps are available"));
+            player.sendMessage(
+                    TextColor.color(
+                            "&cNo warps are available"
+                    )
+            );
             return;
         }
 
-        player.sendMessage(TextColor.color(
-                BODY + "Warps: " + PRIMARY + String.join(BODY + ", " + PRIMARY, keys)
-        ));
+        player.sendMessage(
+                TextColor.color(
+                        BODY
+                                + "Warps: "
+                                + PRIMARY
+                                + String.join(
+                                BODY
+                                        + ", "
+                                        + PRIMARY,
+                                keys
+                        )
+                )
+        );
     }
 
     @Override
@@ -87,12 +145,16 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
             @NotNull String alias,
             String @NotNull [] args
     ) {
-        if (!sender.hasPermission("mineaclewarps.use")) {
+        if (!sender.hasPermission(
+                "mineaclewarps.use"
+        )) {
             return List.of();
         }
 
         if (args.length == 1) {
-            return warpService.warpKeys(args[0]);
+            return warpService.warpKeys(
+                    args[0]
+            );
         }
 
         return List.of();

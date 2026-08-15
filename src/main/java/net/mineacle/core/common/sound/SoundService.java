@@ -82,6 +82,13 @@ public final class SoundService {
         playIntent(player, core, SoundIntent.TICK);
     }
 
+    public static void jump(
+            Player player,
+            Core core
+    ) {
+        playIntent(player, core, SoundIntent.JUMP);
+    }
+
     public static void notice(
             Player player,
             Core core
@@ -387,6 +394,8 @@ public final class SoundService {
             return switch (normalized) {
                 case "feedback.navigate" ->
                         SoundIntent.NAVIGATE;
+                case "feedback.jump" ->
+                        SoundIntent.JUMP;
                 case "feedback.tick" ->
                         SoundIntent.TICK;
                 case "feedback.notice" ->
@@ -406,6 +415,10 @@ public final class SoundService {
                 || normalized.equals("spawn.open")
                 || normalized.equals("double-jump.cooldown")) {
             return SoundIntent.SILENT;
+        }
+
+        if (normalized.equals("double-jump.jump")) {
+            return SoundIntent.JUMP;
         }
 
         if (normalized.contains("countdown")) {
@@ -917,7 +930,7 @@ public final class SoundService {
             Player player,
             Core core
     ) {
-        navigate(player, core);
+        jump(player, core);
     }
 
     public static void doubleJumpCooldown(
@@ -964,13 +977,22 @@ public final class SoundService {
                 1.0D,
                 -1L
         ),
+        JUMP(
+                "feedback.jump",
+                60,
+                true,
+                "BLOCK_WOODEN_BUTTON_CLICK_ON",
+                0.80D,
+                1.0D,
+                80L
+        ),
         TICK(
                 "feedback.tick",
                 70,
                 true,
-                "UI_BUTTON_CLICK",
-                0.30D,
-                1.0D,
+                "BLOCK_NOTE_BLOCK_HAT",
+                0.80D,
+                1.20D,
                 700L
         ),
         NOTICE(
