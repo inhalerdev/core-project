@@ -446,7 +446,59 @@ double-jump:
 
 sounds:
   enabled: true
-  volume: 0.8
+
+  feedback:
+    minimum-interval-millis: 55
+
+    # Neutral GUI / non-destructive interaction
+    navigate:
+      enabled: true
+      sound: UI_BUTTON_CLICK
+      volume: 0.35
+      pitch: 1.0
+      minimum-interval-millis: 55
+
+    # Teleport countdown: one identical neutral tick per displayed number
+    tick:
+      enabled: true
+      sound: UI_BUTTON_CLICK
+      volume: 0.30
+      pitch: 1.0
+      minimum-interval-millis: 700
+
+    # Low-key incoming message / notification feedback
+    notice:
+      enabled: true
+      sound: UI_BUTTON_CLICK
+      volume: 0.30
+      pitch: 1.05
+      minimum-interval-millis: 120
+
+    # Positive / completed / accepted / created / paid / received / set
+    success:
+      enabled: true
+      sound: ENTITY_EXPERIENCE_ORB_PICKUP
+      volume: 0.45
+      pitch: 1.0
+      minimum-interval-millis: 55
+
+    # RED semantic family:
+    # cancel / deny / delete / disband / invalid / blocked / error /
+    # no-permission / failed / disabled / destructive outcomes
+    negative:
+      enabled: true
+      sound: BLOCK_NOTE_BLOCK_BASS
+      volume: 0.45
+      pitch: 0.80
+      minimum-interval-millis: 100
+
+    # Intentional no-sound routes such as teleport start/request/received
+    silent:
+      enabled: false
+      sound: UI_BUTTON_CLICK
+      volume: 0.0
+      pitch: 1.0
+      minimum-interval-millis: 0
 
   gui:
     minimum-interval-millis: 55
@@ -544,9 +596,9 @@ sounds:
       pitch: 1.0
 
     countdown:
-      enabled: false
-      sound: BLOCK_NOTE_BLOCK_HAT
-      volume: 0.35
+      enabled: true
+      sound: UI_BUTTON_CLICK
+      volume: 0.30
       pitch: 1.0
       minimum-interval-millis: 700
 
@@ -680,6 +732,8 @@ sounds:
 
   minimum-interval-millis: 50
 
+  # Keep the global GUI ownership rules. This list controls where the common
+  # GUI listener is allowed to infer semantic navigation sounds.
   gui-router:
     known-title-contains:
       - Home
@@ -708,7 +762,6 @@ sounds:
       - Player Statistics
       - Stats
       - Shulker Box
-
 
 # -----------------------------------------------------------------------------
 # Flight
