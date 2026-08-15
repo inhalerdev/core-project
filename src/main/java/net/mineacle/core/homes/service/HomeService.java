@@ -14,8 +14,8 @@ import java.util.UUID;
 
 public final class HomeService {
 
-    private static final int ACTIVE_MAX_HOMES = 3;
-    private static final int LEGACY_STORAGE_MAX_HOMES = 5;
+    private static final int ACTIVE_MAX_HOMES = 5;
+    private static final int STORAGE_MAX_HOMES = 5;
 
     private final Core core;
 
@@ -33,7 +33,7 @@ public final class HomeService {
         int defaultMax = Math.clamp(
                 config.getInt(
                         "homes.max-homes.default",
-                        2
+                        3
                 ),
                 0,
                 ACTIVE_MAX_HOMES
@@ -43,7 +43,7 @@ public final class HomeService {
                         defaultMax,
                         config.getInt(
                                 "homes.max-homes.plus",
-                                3
+                                5
                         )
                 ),
                 0,
@@ -68,13 +68,26 @@ public final class HomeService {
 
     /**
      * Home limits are slot entitlements, not merely a count limit.
-     * Default players own slots 1..2 and Mineacle+ owns slots 1..3.
-     * Stored data in a currently locked slot is intentionally preserved.
+     * Default players may create homes in slots 1..3.
+     * Mineacle+ players may create homes in slots 1..5.
+     * A saved home in a slot above the player's current entitlement is
+     * grandfathered. The player may keep using, moving, renaming, or deleting
+     * that existing home after Mineacle+ expires. Once the saved home is
+     * deleted, that paid slot locks again until Mineacle+ is restored.
      */
     public boolean slotLocked(Player player, int id) {
-        return player == null
-                || invalidActiveId(id)
-                || id > getMaxHomes(player);
+        if (player == null || invalidActiveId(id)) {
+            return true;
+        }
+
+        if (id <= getMaxHomes(player)) {
+            return false;
+        }
+
+        return !exists(
+                player.getUniqueId(),
+                id
+        );
     }
 
     public boolean personalHomeSetBlocked(Player player) {
@@ -289,25 +302,30 @@ public final class HomeService {
         ).replace("%id%", String.valueOf(id));
     }
 
-    public Integer findHomeIdByName(
-            UUID playerId,
-            int maxHomes,
+    /**
+     * Resolves every currently usable saved home, including grandfathered
+     * Mineacle+ homes above the player's current creation limit.
+     */
+    public Integer findAccessibleHomeIdByName(
+            Player player,
             String input
     ) {
-        if (input == null || input.isBlank()) {
+        if (player == null
+                || input == null
+                || input.isBlank()) {
             return null;
         }
 
+        UUID playerId = player.getUniqueId();
         String trimmed = input.trim();
-        int maximum = Math.clamp(
-                maxHomes,
-                0,
-                LEGACY_STORAGE_MAX_HOMES
-        );
 
-        for (int id = 1; id <= maximum; id++) {
-            if (exists(playerId, id)
-                    && getDisplayName(playerId, id)
+        for (int id = 1; id <= STORAGE_MAX_HOMES; id++) {
+            if (!exists(playerId, id)
+                    || slotLocked(player, id)) {
+                continue;
+            }
+
+            if (getDisplayName(playerId, id)
                     .equalsIgnoreCase(trimmed)) {
                 return id;
             }
@@ -317,8 +335,9 @@ public final class HomeService {
             int parsed = Integer.parseInt(trimmed);
 
             if (parsed >= 1
-                    && parsed <= maximum
-                    && exists(playerId, parsed)) {
+                    && parsed <= STORAGE_MAX_HOMES
+                    && exists(playerId, parsed)
+                    && !slotLocked(player, parsed)) {
                 return parsed;
             }
         } catch (NumberFormatException ignored) {
@@ -357,7 +376,7 @@ public final class HomeService {
         int maximum = Math.clamp(
                 maxHomes,
                 0,
-                LEGACY_STORAGE_MAX_HOMES
+                STORAGE_MAX_HOMES
         );
 
         for (int id = 1; id <= maximum; id++) {
@@ -373,17 +392,21 @@ public final class HomeService {
 
     /**
      * Searches every physical slot, including currently locked Mineacle+
-     * slots. This prevents creating duplicate names while paid-slot data is
-     * preserved for a player whose entitlement temporarily changed.
+     * slots. This prevents duplicate names and allows /sethome to update a
+     * grandfathered saved home without granting a new paid slot.
      */
     public Integer findAnyByName(UUID playerId, String name) {
         return findByName(
                 playerId,
-                LEGACY_STORAGE_MAX_HOMES,
+                STORAGE_MAX_HOMES,
                 name
         );
     }
 
+    /**
+     * Returns all currently usable saved homes. Grandfathered Mineacle+ homes
+     * remain visible in tab completion until the player deletes them.
+     */
     public List<String> getSavedHomeNames(Player player) {
         if (player == null) {
             return List.of();
@@ -391,11 +414,16 @@ public final class HomeService {
 
         List<String> names = new ArrayList<>();
         UUID playerId = player.getUniqueId();
-        int maximum = getMaxHomes(player);
 
-        for (int id = 1; id <= maximum; id++) {
-            if (exists(playerId, id)) {
-                names.add(getDisplayName(playerId, id));
+        for (int id = 1; id <= STORAGE_MAX_HOMES; id++) {
+            if (exists(playerId, id)
+                    && !slotLocked(player, id)) {
+                names.add(
+                        getDisplayName(
+                                playerId,
+                                id
+                        )
+                );
             }
         }
 
@@ -425,8 +453,8 @@ public final class HomeService {
     }
 
     /**
-     * Keeps labels unique and reserves Home 1/2/3 for their matching slots.
-     * This prevents ambiguous command targets after a custom rename.
+     * Keeps labels unique and reserves Home 1/2/3/4/5 for their matching
+     * slots. This prevents ambiguous command targets after a custom rename.
      */
     public boolean nameUnavailableForSlot(
             UUID playerId,
@@ -449,7 +477,7 @@ public final class HomeService {
             }
         }
 
-        for (int id = 1; id <= LEGACY_STORAGE_MAX_HOMES; id++) {
+        for (int id = 1; id <= STORAGE_MAX_HOMES; id++) {
             if (id != targetId
                     && exists(playerId, id)
                     && getDisplayName(playerId, id)
@@ -564,7 +592,7 @@ public final class HomeService {
     }
 
     private boolean invalidStoredId(int id) {
-        return id < 1 || id > LEGACY_STORAGE_MAX_HOMES;
+        return id < 1 || id > STORAGE_MAX_HOMES;
     }
 
     private String path(UUID playerId, int id) {

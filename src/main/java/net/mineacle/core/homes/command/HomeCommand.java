@@ -190,8 +190,18 @@ public final class HomeCommand implements CommandExecutor, TabCompleter {
         int targetId;
 
         if (existingId != null) {
+            /*
+             * Updating an already-saved grandfathered Mineacle+ home is
+             * allowed. This moves the existing entitlement; it does not
+             * create a new paid slot.
+             */
             targetId = existingId;
         } else {
+            /*
+             * New homes are created only inside the player's current active
+             * entitlement. A former Plus member cannot refill an empty paid
+             * slot without regaining mineacle.plus.
+             */
             Integer emptySlot = homeService.findFirstEmptySlot(player);
 
             if (emptySlot == null) {
@@ -256,10 +266,8 @@ public final class HomeCommand implements CommandExecutor, TabCompleter {
         }
 
         String requestedName = String.join(" ", args).trim();
-        int maximum = homeService.getMaxHomes(player);
-        Integer id = homeService.findHomeIdByName(
-                player.getUniqueId(),
-                maximum,
+        Integer id = homeService.findAccessibleHomeIdByName(
+                player,
                 requestedName
         );
 
@@ -360,12 +368,11 @@ public final class HomeCommand implements CommandExecutor, TabCompleter {
             return null;
         }
 
-        UUID playerId = player.getUniqueId();
-        int maximum = homeService.getMaxHomes(player);
-
         /*
          * Longest saved-name prefix wins, allowing multi-word names such as:
          * /renamehome My Base New Base
+         *
+         * The lookup includes grandfathered Mineacle+ slots.
          */
         for (int split = args.length - 1; split >= 1; split--) {
             String oldName = String.join(
@@ -376,9 +383,8 @@ public final class HomeCommand implements CommandExecutor, TabCompleter {
                     " ",
                     Arrays.copyOfRange(args, split, args.length)
             ).trim();
-            Integer homeId = homeService.findHomeIdByName(
-                    playerId,
-                    maximum,
+            Integer homeId = homeService.findAccessibleHomeIdByName(
+                    player,
                     oldName
             );
 

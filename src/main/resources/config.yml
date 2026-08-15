@@ -32,7 +32,7 @@ teleport-perks:
 homes:
   max-homes:
     default: 2
-    plus: 3
+    plus: 5
 
   plus-permission: mineacle.plus
   default-name-format: 'Home %id%'
