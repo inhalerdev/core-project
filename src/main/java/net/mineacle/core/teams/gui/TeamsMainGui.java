@@ -1,9 +1,10 @@
 package net.mineacle.core.teams.gui;
 
 import net.mineacle.core.Core;
-import net.mineacle.core.common.gui.CenteredToolbar;
 import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.common.player.DisplayNames;
+import net.mineacle.core.economy.EconomyModule;
+import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.teams.model.TeamMemberRecord;
 import net.mineacle.core.teams.model.TeamRecord;
 import net.mineacle.core.teams.model.TeamRole;
@@ -34,29 +35,35 @@ public final class TeamsMainGui {
     public static final int SIZE = 54;
     public static final int CONTENT_SLOTS = 45;
 
-    private static final int[] TOOLBAR =
-            CenteredToolbar
-                    .interiorSlotsCenteredOn(
-                            SIZE,
-                            6,
-                            3
-                    );
+    /*
+     * Bottom-row grouping:
+     *
+     * 45  Team Bans    management-only, far left
+     * 46  empty        visual separator
+     * 47  Sort         shared utility position
+     * 48  Team Home    primary team control
+     * 49  Team Info    primary team control
+     * 50  empty        visual separator
+     * 51  Team Chat    optional setting
+     * 52  Team PvP     optional setting
+     * 53  empty
+     */
+    public static final int BANS_SLOT = 45;
+    public static final int SORT_SLOT = 47;
+    public static final int TEAM_HOME_SLOT = 48;
+    public static final int TEAM_INFO_SLOT = 49;
+    public static final int TEAM_CHAT_SLOT = 51;
+    public static final int TEAM_PVP_SLOT = 52;
 
-    public static final int BANS_SLOT = TOOLBAR[0];
-    public static final int TEAM_HOME_SLOT = TOOLBAR[1];
-    public static final int TEAM_CHAT_SLOT = TOOLBAR[2];
-    public static final int TEAM_INFO_SLOT = TOOLBAR[3];
-    public static final int SORT_SLOT = TOOLBAR[4];
-    public static final int TEAM_PVP_SLOT = TOOLBAR[5];
-
-    private static final String PRIMARY =
-            "&#8436FE";
     private static final String SECONDARY =
             "&#B078FF";
     private static final String ACCENT =
             "&#D0AFFF";
     private static final String BODY =
             "&#bbbbbb";
+    private static final String MONEY =
+            "&#11fc7b";
+
     private static final Map<UUID, TeamSortMode> SORT_MODES =
             new HashMap<>();
 
@@ -139,10 +146,13 @@ public final class TeamsMainGui {
                     Bukkit.getOfflinePlayer(
                             memberId
                     );
-            boolean online =
+            Player onlinePlayer =
                     Bukkit.getPlayer(
                             memberId
-                    ) != null;
+                    );
+            boolean online =
+                    onlinePlayer != null
+                            && onlinePlayer.isOnline();
             String displayName =
                     DisplayNames.displayName(
                             offlinePlayer
@@ -152,24 +162,23 @@ public final class TeamsMainGui {
                     slot,
                     playerHead(
                             offlinePlayer,
-                            member.role()
-                                    .color()
+                            (online
+                                    ? "&a"
+                                    : BODY)
                                     + displayName,
                             List.of(
+                                    BODY
+                                            + "Balance: "
+                                            + MONEY
+                                            + balance(
+                                            offlinePlayer
+                                    ),
                                     BODY
                                             + "Role: "
                                             + member.role()
                                             .color()
                                             + member.role()
                                             .displayName(),
-                                    BODY
-                                            + "Status: "
-                                            + (
-                                            online
-                                                    ? "&aOnline"
-                                                    : BODY
-                                                    + "Offline"
-                                    ),
                                     "",
                                     BODY
                                             + "Click to view"
@@ -219,11 +228,19 @@ public final class TeamsMainGui {
                                 player.getUniqueId()
                         );
 
+        if (teamService.canManageBans(
+                player.getUniqueId()
+        )) {
+            inventory.setItem(
+                    BANS_SLOT,
+                    bansItem()
+            );
+        }
+
         inventory.setItem(
-                BANS_SLOT,
-                bansItem(
-                        player,
-                        teamService
+                SORT_SLOT,
+                sortItem(
+                        currentSort(player)
                 )
         );
         inventory.setItem(
@@ -237,12 +254,6 @@ public final class TeamsMainGui {
                 )
         );
         inventory.setItem(
-                TEAM_CHAT_SLOT,
-                teamChatItem(
-                        teamChatEnabled
-                )
-        );
-        inventory.setItem(
                 TEAM_INFO_SLOT,
                 teamInfoItem(
                         team,
@@ -252,9 +263,9 @@ public final class TeamsMainGui {
                 )
         );
         inventory.setItem(
-                SORT_SLOT,
-                sortItem(
-                        currentSort(player)
+                TEAM_CHAT_SLOT,
+                teamChatItem(
+                        teamChatEnabled
                 )
         );
         inventory.setItem(
@@ -411,27 +422,12 @@ public final class TeamsMainGui {
         SORT_MODES.clear();
     }
 
-    private static ItemStack bansItem(
-            Player player,
-            TeamService teamService
-    ) {
-        boolean canManage =
-                teamService.canManageBans(
-                        player.getUniqueId()
-                );
-
+    private static ItemStack bansItem() {
         return item(
-                canManage
-                        ? Material.IRON_BARS
-                        : Material.GRAY_DYE,
-                (canManage ? SECONDARY : BODY)
-                        + "Team Bans",
-                canManage
-                        ? List.of(
+                Material.IRON_BARS,
+                SECONDARY + "Team Bans",
+                List.of(
                         BODY + "Click to manage bans"
-                )
-                        : List.of(
-                        BODY + "Founder / MVP only"
                 )
         );
     }
@@ -504,13 +500,13 @@ public final class TeamsMainGui {
     ) {
         return item(
                 Material.NETHER_STAR,
-                PRIMARY + "Team Info",
+                SECONDARY + "Team Info",
                 List.of(
                         BODY + "Team: "
                                 + SECONDARY
                                 + team.name(),
                         BODY + "Founder: "
-                                + PRIMARY
+                                + SECONDARY
                                 + DisplayNames.displayName(
                                 Bukkit.getOfflinePlayer(
                                         team.founder()
@@ -554,8 +550,12 @@ public final class TeamsMainGui {
         }
 
         lore.add("");
-        lore.add(BODY + "Left-click: Next");
-        lore.add(BODY + "Right-click: Previous");
+        lore.add(
+                BODY + "Left-click: Next"
+        );
+        lore.add(
+                BODY + "Right-click: Previous"
+        );
 
         return item(
                 Material.ANVIL,
@@ -578,20 +578,44 @@ public final class TeamsMainGui {
         );
         lore.add(
                 friendlyFire
-                        ? BODY + "Teammates can damage each other"
-                        : BODY + "Teammates are protected"
+                        ? BODY
+                        + "Teammates can damage each other"
+                        : BODY
+                        + "Teammates are protected"
         );
 
         if (canToggle) {
-            lore.add(BODY + "Click to toggle");
+            lore.add(
+                    BODY + "Click to toggle"
+            );
         } else {
-            lore.add(BODY + "Founder / MVP only");
+            lore.add(
+                    BODY + "Founder / MVP only"
+            );
         }
 
         return item(
                 Material.DIAMOND_SWORD,
                 SECONDARY + "Team PvP",
                 lore
+        );
+    }
+
+    private static String balance(
+            OfflinePlayer player
+    ) {
+        EconomyService economyService =
+                EconomyModule.economyService();
+
+        if (economyService == null
+                || player == null) {
+            return "$0";
+        }
+
+        return economyService.format(
+                economyService.getBalanceCents(
+                        player.getUniqueId()
+                )
         );
     }
 
@@ -657,7 +681,9 @@ public final class TeamsMainGui {
         private int inviteSlot = -1;
         private Inventory inventory;
 
-        private MainHolder(String teamId) {
+        private MainHolder(
+                String teamId
+        ) {
             this.teamId = teamId;
         }
 
@@ -665,7 +691,9 @@ public final class TeamsMainGui {
             return teamId;
         }
 
-        public UUID memberAt(int slot) {
+        public UUID memberAt(
+                int slot
+        ) {
             return memberSlots.get(slot);
         }
 

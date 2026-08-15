@@ -35,7 +35,7 @@ public final class BountyMainGui {
             CenteredToolbar
                     .interiorSlotsCenteredOn(
                             SIZE,
-                            4,
+                            3,
                             1
                     );
 
@@ -48,8 +48,6 @@ public final class BountyMainGui {
             TOOLBAR[1];
     public static final int SEARCH_SLOT =
             TOOLBAR[2];
-    public static final int PLACE_SLOT =
-            TOOLBAR[3];
     public static final int NEXT_SLOT =
             CenteredToolbar
                     .nextSlot(SIZE);
@@ -176,16 +174,6 @@ public final class BountyMainGui {
         inventory.setItem(
                 SEARCH_SLOT,
                 searchItem(state)
-        );
-        inventory.setItem(
-                PLACE_SLOT,
-                item(
-                        Material.GOLD_INGOT,
-                        "&#B078FFPlace Bounty",
-                        "&#bbbbbbClick to choose a player",
-                        "",
-                        "&#D0AFFF/bounty set <player> <amount>"
-                )
         );
 
         if (page
@@ -555,7 +543,7 @@ public final class BountyMainGui {
                 "&#bbbbbbNo Bounties",
                 "&#bbbbbbNo active bounties",
                 "",
-                "&#D0AFFFUse Place Bounty to create one"
+                "&#D0AFFF/bounty set <player> <amount>"
         );
     }
 

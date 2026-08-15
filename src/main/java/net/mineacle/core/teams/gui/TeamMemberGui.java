@@ -2,7 +2,8 @@ package net.mineacle.core.teams.gui;
 
 import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.common.player.DisplayNames;
-import net.mineacle.core.stats.VaultMoneyHook;
+import net.mineacle.core.economy.EconomyModule;
+import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.teams.model.TeamMemberRecord;
 import net.mineacle.core.teams.model.TeamRole;
 import net.mineacle.core.teams.service.TeamService;
@@ -33,8 +34,6 @@ public final class TeamMemberGui {
     public static final int TRANSFER_SLOT = 22;
     public static final int SELF_ACTION_SLOT = 22;
 
-    private static final String PRIMARY =
-            "&#8436FE";
     private static final String SECONDARY =
             "&#B078FF";
     private static final String ACCENT =
@@ -53,24 +52,35 @@ public final class TeamMemberGui {
             TeamService teamService
     ) {
         OfflinePlayer target =
-                Bukkit.getOfflinePlayer(targetId);
+                Bukkit.getOfflinePlayer(
+                        targetId
+                );
         TeamMemberRecord viewerMember =
                 teamService.getMember(
                         viewer.getUniqueId()
                 );
         TeamMemberRecord targetMember =
-                teamService.getMember(targetId);
+                teamService.getMember(
+                        targetId
+                );
 
         if (targetMember == null) {
             return;
         }
 
         String displayName =
-                DisplayNames.displayName(target);
+                DisplayNames.displayName(
+                        target
+                );
         TeamRole targetRole =
                 targetMember.role();
+        Player onlinePlayer =
+                Bukkit.getPlayer(
+                        targetId
+                );
         boolean online =
-                Bukkit.getPlayer(targetId) != null;
+                onlinePlayer != null
+                        && onlinePlayer.isOnline();
 
         MemberHolder holder =
                 new MemberHolder(
@@ -92,21 +102,19 @@ public final class TeamMemberGui {
                 4,
                 playerHead(
                         target,
-                        targetRole.color()
+                        (online
+                                ? "&a"
+                                : BODY)
                                 + displayName,
                         List.of(
-                                BODY + "Role: "
-                                        + targetRole.color()
-                                        + targetRole.displayName(),
-                                BODY + "Status: "
-                                        + (online
-                                        ? "&aOnline"
-                                        : BODY + "Offline"),
                                 BODY + "Balance: "
                                         + MONEY
-                                        + VaultMoneyHook.formattedBalance(
+                                        + balance(
                                         target
-                                )
+                                ),
+                                BODY + "Role: "
+                                        + targetRole.color()
+                                        + targetRole.displayName()
                         )
                 )
         );
@@ -117,7 +125,8 @@ public final class TeamMemberGui {
                         Material.BOOK,
                         SECONDARY + "View Stats",
                         List.of(
-                                BODY + "Click to view statistics"
+                                BODY
+                                        + "Click to view statistics"
                         )
                 )
         );
@@ -126,20 +135,27 @@ public final class TeamMemberGui {
                 || !viewerMember.teamId().equals(
                 targetMember.teamId()
         )) {
-            viewer.openInventory(inventory);
+            viewer.openInventory(
+                    inventory
+            );
             return;
         }
 
-        if (viewer.getUniqueId().equals(targetId)) {
-            if (targetRole == TeamRole.FOUNDER) {
+        if (viewer.getUniqueId().equals(
+                targetId
+        )) {
+            if (targetRole
+                    == TeamRole.FOUNDER) {
                 inventory.setItem(
                         SELF_ACTION_SLOT,
                         item(
                                 Material.REDSTONE_BLOCK,
                                 "&cDisband Team",
                                 List.of(
-                                        BODY + "Delete the entire team",
-                                        BODY + "Requires double confirmation"
+                                        BODY
+                                                + "Delete the entire team",
+                                        BODY
+                                                + "Requires double confirmation"
                                 )
                         )
                 );
@@ -150,24 +166,31 @@ public final class TeamMemberGui {
                                 Material.OAK_DOOR,
                                 "&cLeave Team",
                                 List.of(
-                                        BODY + "Leave your current team",
-                                        BODY + "Requires double confirmation"
+                                        BODY
+                                                + "Leave your current team",
+                                        BODY
+                                                + "Requires double confirmation"
                                 )
                         )
                 );
             }
 
-            viewer.openInventory(inventory);
+            viewer.openInventory(
+                    inventory
+            );
             return;
         }
 
         TeamRole viewerRole =
                 viewerMember.role();
 
-        if (viewerRole == TeamRole.FOUNDER
-                && targetRole.canBePromoted()) {
+        if (viewerRole
+                == TeamRole.FOUNDER
+                && targetRole
+                .canBePromoted()) {
             TeamRole promoted =
                     targetRole.promoted();
+
             inventory.setItem(
                     PROMOTE_SLOT,
                     item(
@@ -176,45 +199,58 @@ public final class TeamMemberGui {
                             List.of(
                                     targetRole.color()
                                             + targetRole.displayName()
-                                            + BODY + " → "
+                                            + BODY
+                                            + " → "
                                             + promoted.color()
                                             + promoted.displayName(),
-                                    BODY + "Click to confirm"
+                                    BODY
+                                            + "Click to confirm"
                             )
                     )
             );
         }
 
-        if (viewerRole == TeamRole.FOUNDER
-                && targetRole.canBeDemoted()) {
+        if (viewerRole
+                == TeamRole.FOUNDER
+                && targetRole
+                .canBeDemoted()) {
             TeamRole demoted =
                     targetRole.demoted();
+
             inventory.setItem(
                     DEMOTE_SLOT,
                     item(
                             Material.ORANGE_DYE,
-                            SECONDARY + "Demote",
+                            SECONDARY
+                                    + "Demote",
                             List.of(
                                     targetRole.color()
                                             + targetRole.displayName()
-                                            + BODY + " → "
+                                            + BODY
+                                            + " → "
                                             + demoted.color()
                                             + demoted.displayName(),
-                                    BODY + "Click to confirm"
+                                    BODY
+                                            + "Click to confirm"
                             )
                     )
             );
         }
 
-        if (viewerRole.canModerate(targetRole)) {
+        if (viewerRole
+                .canModerate(
+                        targetRole
+                )) {
             inventory.setItem(
                     KICK_SLOT,
                     item(
                             Material.BARRIER,
                             "&cKick",
                             List.of(
-                                    BODY + "Remove this member",
-                                    BODY + "Click to confirm"
+                                    BODY
+                                            + "Remove this member",
+                                    BODY
+                                            + "Click to confirm"
                             )
                     )
             );
@@ -224,40 +260,72 @@ public final class TeamMemberGui {
                             Material.REDSTONE_BLOCK,
                             "&cBan",
                             List.of(
-                                    BODY + "Remove and block rejoining",
-                                    BODY + "Duration: "
+                                    BODY
+                                            + "Remove and block rejoining",
+                                    BODY
+                                            + "Duration: "
                                             + ACCENT
-                                            + teamService.banDays()
+                                            + teamService
+                                            .banDays()
                                             + " days",
-                                    BODY + "Requires double confirmation"
+                                    BODY
+                                            + "Requires double confirmation"
                             )
                     )
             );
         }
 
-        if (viewerRole == TeamRole.FOUNDER
-                && targetRole != TeamRole.FOUNDER) {
+        if (viewerRole
+                == TeamRole.FOUNDER
+                && targetRole
+                != TeamRole.FOUNDER) {
             inventory.setItem(
                     TRANSFER_SLOT,
                     item(
                             Material.NETHER_STAR,
-                            PRIMARY + "Transfer Founder",
+                            SECONDARY
+                                    + "Transfer Founder",
                             List.of(
-                                    BODY + "Make "
+                                    BODY
+                                            + "Make "
                                             + SECONDARY
                                             + displayName
                                             + BODY
                                             + " the Founder",
-                                    BODY + "You become "
-                                            + TeamRole.MVP.color()
-                                            + TeamRole.MVP.displayName(),
-                                    BODY + "Requires double confirmation"
+                                    BODY
+                                            + "You become "
+                                            + TeamRole.MVP
+                                            .color()
+                                            + TeamRole.MVP
+                                            .displayName(),
+                                    BODY
+                                            + "Requires double confirmation"
                             )
                     )
             );
         }
 
-        viewer.openInventory(inventory);
+        viewer.openInventory(
+                inventory
+        );
+    }
+
+    private static String balance(
+            OfflinePlayer player
+    ) {
+        EconomyService economyService =
+                EconomyModule.economyService();
+
+        if (economyService == null
+                || player == null) {
+            return "$0";
+        }
+
+        return economyService.format(
+                economyService.getBalanceCents(
+                        player.getUniqueId()
+                )
+        );
     }
 
     private static ItemStack playerHead(
@@ -266,17 +334,28 @@ public final class TeamMemberGui {
             List<String> lore
     ) {
         ItemStack item =
-                new ItemStack(Material.PLAYER_HEAD);
+                new ItemStack(
+                        Material.PLAYER_HEAD
+                );
         ItemMeta rawMeta =
                 item.getItemMeta();
 
-        if (!(rawMeta instanceof SkullMeta meta)) {
+        if (!(rawMeta
+                instanceof SkullMeta meta)) {
             return item;
         }
 
-        meta.setOwningPlayer(owner);
-        GuiText.apply(meta, name, lore);
-        item.setItemMeta(meta);
+        meta.setOwningPlayer(
+                owner
+        );
+        GuiText.apply(
+                meta,
+                name,
+                lore
+        );
+        item.setItemMeta(
+                meta
+        );
         return item;
     }
 
@@ -286,7 +365,9 @@ public final class TeamMemberGui {
             List<String> lore
     ) {
         ItemStack item =
-                new ItemStack(material);
+                new ItemStack(
+                        material
+                );
         ItemMeta meta =
                 item.getItemMeta();
 
@@ -294,9 +375,17 @@ public final class TeamMemberGui {
             return item;
         }
 
-        GuiText.apply(meta, name, lore);
-        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-        item.setItemMeta(meta);
+        GuiText.apply(
+                meta,
+                name,
+                lore
+        );
+        meta.addItemFlags(
+                ItemFlag.HIDE_ATTRIBUTES
+        );
+        item.setItemMeta(
+                meta
+        );
         return item;
     }
 

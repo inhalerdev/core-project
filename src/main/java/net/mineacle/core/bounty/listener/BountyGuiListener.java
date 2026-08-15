@@ -206,19 +206,6 @@ public final class BountyGuiListener
         }
 
         if (rawSlot
-                == BountyMainGui.PLACE_SLOT) {
-            SoundService.guiSelect(
-                    player,
-                    core
-            );
-            inputListener.beginPlaceTarget(
-                    player,
-                    holder.page()
-            );
-            return;
-        }
-
-        if (rawSlot
                 == BountyMainGui.NEXT_SLOT) {
             if (!holder.hasNext()) {
                 return;

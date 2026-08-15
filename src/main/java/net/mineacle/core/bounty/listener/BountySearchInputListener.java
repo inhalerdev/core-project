@@ -81,35 +81,6 @@ public final class BountySearchInputListener
         );
     }
 
-    public void beginPlaceTarget(
-            Player player,
-            int page
-    ) {
-        begin(
-                player,
-                new InputPrompt(
-                        InputType.PLACE_TARGET,
-                        page,
-                        null
-                )
-        );
-
-        player.sendMessage(
-                TextColor.color(
-                        "&#bbbbbbType the player to place a bounty on"
-                )
-        );
-        player.sendMessage(
-                TextColor.color(
-                        "&#bbbbbbType &#D0AFFFcancel &#bbbbbbto return"
-                )
-        );
-        sendActionBar(
-                player,
-                "&#bbbbbbChoose a bounty target"
-        );
-    }
-
     public void beginAmount(
             Player player,
             int page,
@@ -218,6 +189,7 @@ public final class BountySearchInputListener
                 );
     }
 
+    @SuppressWarnings("unused")
     @EventHandler
     public void onQuit(
             PlayerQuitEvent event
@@ -345,12 +317,6 @@ public final class BountySearchInputListener
                             prompt,
                             input
                     );
-            case PLACE_TARGET ->
-                    handleTarget(
-                            player,
-                            prompt,
-                            input
-                    );
             case PLACE_AMOUNT ->
                     handleAmount(
                             player,
@@ -427,47 +393,6 @@ public final class BountySearchInputListener
         reopen(
                 player,
                 0
-        );
-    }
-
-    private void handleTarget(
-            Player player,
-            InputPrompt prompt,
-            String input
-    ) {
-        if (input.isBlank()) {
-            error(
-                    player,
-                    "&cPlayer name cannot be empty"
-            );
-            reopen(
-                    player,
-                    prompt.page()
-            );
-            return;
-        }
-
-        OfflinePlayer target =
-                bountyService.resolveTarget(
-                        input
-                );
-
-        if (target == null) {
-            error(
-                    player,
-                    "&cThat player could not be found"
-            );
-            reopen(
-                    player,
-                    prompt.page()
-            );
-            return;
-        }
-
-        beginAmount(
-                player,
-                prompt.page(),
-                target.getUniqueId()
         );
     }
 
@@ -691,7 +616,6 @@ public final class BountySearchInputListener
 
     private enum InputType {
         SEARCH,
-        PLACE_TARGET,
         PLACE_AMOUNT
     }
 

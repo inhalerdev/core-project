@@ -454,50 +454,50 @@ sounds:
     click:
       enabled: true
       sound: UI_BUTTON_CLICK
-      volume: 0.8
-      pitch: 1.05
+      volume: 0.35
+      pitch: 1.0
 
     back:
       enabled: true
       sound: UI_BUTTON_CLICK
-      volume: 0.8
-      pitch: 1.05
+      volume: 0.35
+      pitch: 1.0
 
     page:
       enabled: true
       sound: UI_BUTTON_CLICK
-      volume: 0.8
-      pitch: 1.05
+      volume: 0.35
+      pitch: 1.0
 
     sort:
       enabled: true
       sound: UI_BUTTON_CLICK
-      volume: 0.8
-      pitch: 1.05
+      volume: 0.35
+      pitch: 1.0
 
     filter:
       enabled: true
       sound: UI_BUTTON_CLICK
-      volume: 0.8
-      pitch: 1.05
+      volume: 0.35
+      pitch: 1.0
 
     search:
       enabled: true
       sound: UI_BUTTON_CLICK
-      volume: 0.8
-      pitch: 1.05
+      volume: 0.35
+      pitch: 1.0
 
     refresh:
       enabled: true
       sound: UI_BUTTON_CLICK
-      volume: 0.8
-      pitch: 1.05
+      volume: 0.35
+      pitch: 1.0
 
     select:
       enabled: true
       sound: UI_BUTTON_CLICK
-      volume: 0.8
-      pitch: 1.05
+      volume: 0.35
+      pitch: 1.0
 
     confirm:
       enabled: true
