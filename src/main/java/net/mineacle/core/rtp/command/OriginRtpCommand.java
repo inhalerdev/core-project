@@ -148,9 +148,24 @@ public final class OriginRtpCommand
             return;
         }
 
-        Player target = DisplayNames.resolveOnline(
-                args[0]
-        );
+        /*
+         * Console is an internal/staff execution boundary.
+         *
+         * SimplePortals expands {player} to the real Minecraft username.
+         * Public player-facing commands intentionally do not accept that raw
+         * username while a nickname is active, but trusted console automation
+         * must still be able to target the actual online player.
+         *
+         * Try the exact Bukkit username first, then allow the public identity
+         * as a convenience for manually entered console commands.
+         */
+        Player target = Bukkit.getPlayerExact(args[0]);
+
+        if (target == null) {
+            target = DisplayNames.resolveOnline(
+                    args[0]
+            );
+        }
 
         if (target == null) {
             sender.sendMessage(
@@ -209,6 +224,11 @@ public final class OriginRtpCommand
             return;
         }
 
+        /*
+         * Player-issued admin targeting remains on the public identity
+         * resolver. The raw username exception above is deliberately limited
+         * to trusted console automation.
+         */
         Player target = DisplayNames.resolveOnline(
                 args[0]
         );
