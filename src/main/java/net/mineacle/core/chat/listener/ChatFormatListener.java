@@ -8,6 +8,7 @@ import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.chat.service.ChatService;
+import net.mineacle.core.common.chat.ChatPauseService;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.economy.EconomyModule;
@@ -120,7 +121,10 @@ public final class ChatFormatListener
         for (Player recipient
                 : chatService
                 .chatRecipients(sender)) {
-            recipient.sendMessage(
+            ChatPauseService.deliver(
+                    core,
+                    sender,
+                    recipient,
                     chatComponent(
                             sender,
                             recipient,

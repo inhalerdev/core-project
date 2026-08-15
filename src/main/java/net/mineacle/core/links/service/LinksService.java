@@ -5,6 +5,7 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
+import net.mineacle.core.common.chat.ChatPauseService;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import org.bukkit.configuration.ConfigurationSection;
@@ -135,6 +136,11 @@ public final class LinksService {
             );
             return;
         }
+
+        ChatPauseService.pauseForLink(
+                core,
+                player
+        );
 
         player.sendMessage(legacy(link.title()));
 

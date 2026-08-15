@@ -1,6 +1,7 @@
 package net.mineacle.core.common.sound;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.chat.ChatPauseService;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
 import org.bukkit.Sound;
@@ -818,6 +819,10 @@ public final class SoundService {
             Player player,
             Core core
     ) {
+        ChatPauseService.pauseForPlus(
+                core,
+                player
+        );
         negative(player, core);
     }
 

@@ -5,6 +5,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.mineacle.core.Core;
+import net.mineacle.core.common.chat.ChatPauseService;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.teams.model.TeamRecord;
@@ -135,7 +136,10 @@ public final class TeamChatListener
 
             if (member != null
                     && member.isOnline()) {
-                member.sendMessage(
+                ChatPauseService.deliver(
+                        core,
+                        sender,
+                        member,
                         formatted
                 );
             }

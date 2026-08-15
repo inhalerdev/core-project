@@ -13,6 +13,7 @@ import net.mineacle.core.chat.listener.JoinQuitMessageListener;
 import net.mineacle.core.chat.service.ChatService;
 import net.mineacle.core.chat.service.NicknameService;
 import net.mineacle.core.chat.service.NicknameSettings;
+import net.mineacle.core.common.chat.ChatPauseService;
 import net.mineacle.core.teams.TeamsModule;
 import net.mineacle.core.teams.service.TeamService;
 import org.bukkit.command.CommandExecutor;
@@ -128,6 +129,8 @@ public final class ChatModule extends Module {
 
     @Override
     public void disable() {
+        ChatPauseService.clearAll();
+
         if (chatService != null) {
             chatService.shutdown();
         }

@@ -8,7 +8,7 @@ links:
       - "&#D0AFFFProfiles, leaderboards and network information"
     button: "&amineacle.net"
     button-line: "&#D0AFFFVisit &amineacle.net"
-    hover: "&#D0AFFFOpen the Mineacle website"
+    hover: "&#bbbbbbOpen the Mineacle website"
 
   store:
     url: "https://store.mineacle.net/"
@@ -17,7 +17,7 @@ links:
       - "&#D0AFFFMineacle+ membership, cosmetics and supporter perks"
     button: "&astore.mineacle.net"
     button-line: "&#D0AFFFVisit &astore.mineacle.net"
-    hover: "&#D0AFFFOpen the Mineacle Store"
+    hover: "&#bbbbbbOpen the Mineacle Store"
 
   discord:
     url: "https://discord.gg/4xrYFxdSWg"
@@ -26,7 +26,7 @@ links:
       - "&#D0AFFFCommunity, support, announcements and events"
     button: "&aDiscord"
     button-line: "&#D0AFFFJoin &aDiscord"
-    hover: "&#D0AFFFOpen the Mineacle Discord"
+    hover: "&#bbbbbbOpen the Mineacle Discord"
 
   x:
     url: "https://x.com/mineaclenetwork"
@@ -35,4 +35,4 @@ links:
       - "&#D0AFFFNews, updates and highlights from Mineacle"
     button: "&a@mineaclenetwork"
     button-line: "&#D0AFFFFollow &a@mineaclenetwork"
-    hover: "&#D0AFFFOpen Mineacle on X"
+    hover: "&#bbbbbbOpen Mineacle on X"
