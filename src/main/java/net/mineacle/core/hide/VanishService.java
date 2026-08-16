@@ -13,6 +13,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
+import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
@@ -34,6 +35,8 @@ public final class VanishService {
             "mineaclevanish.use";
     private static final String DEFAULT_SEE_PERMISSION =
             "mineaclevanish.see";
+    private static final String TAB_VANISH_METADATA =
+            "vanished";
 
     private final Core core;
     private final File file;
@@ -220,6 +223,7 @@ public final class VanishService {
         applyViewer(player);
 
         if (!isVanished(player.getUniqueId())) {
+            clearTabVanishMetadata(player);
             return;
         }
 
@@ -246,6 +250,7 @@ public final class VanishService {
                     player.getUniqueId(),
                     false
             );
+            clearTabVanishMetadata(player);
             saveState();
         }
     }
@@ -256,6 +261,7 @@ public final class VanishService {
         }
 
         if (!isVanished(player.getUniqueId())) {
+            clearTabVanishMetadata(player);
             return;
         }
 
@@ -348,6 +354,8 @@ public final class VanishService {
     }
 
     private void applyVanishedState(Player player) {
+        setTabVanishMetadata(player);
+
         if (player.isInsideVehicle()) {
             player.leaveVehicle();
         }
@@ -388,6 +396,8 @@ public final class VanishService {
     }
 
     private void restoreRuntimeState(Player player) {
+        clearTabVanishMetadata(player);
+
         RuntimeState state = runtime.remove(player.getUniqueId());
 
         if (state == null) {
@@ -402,6 +412,21 @@ public final class VanishService {
         player.setCanPickupItems(state.canPickupItems());
         player.setSilent(state.silent());
         player.setInvulnerable(state.invulnerable());
+    }
+
+    @SuppressWarnings("deprecation")
+    private void setTabVanishMetadata(Player player) {
+        player.setMetadata(
+                TAB_VANISH_METADATA,
+                new FixedMetadataValue(core, true)
+        );
+    }
+
+    private void clearTabVanishMetadata(Player player) {
+        player.removeMetadata(
+                TAB_VANISH_METADATA,
+                core
+        );
     }
 
     private void sendActionbars() {
