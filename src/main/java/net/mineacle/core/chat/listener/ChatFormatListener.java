@@ -121,6 +121,10 @@ public final class ChatFormatListener
         for (Player recipient
                 : chatService
                 .chatRecipients(sender)) {
+            if (!recipient.canSee(sender)) {
+                continue;
+            }
+
             ChatPauseService.deliver(
                     core,
                     sender,

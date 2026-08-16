@@ -152,7 +152,8 @@ public final class TeamsMainGui {
                     );
             boolean online =
                     onlinePlayer != null
-                            && onlinePlayer.isOnline();
+                            && onlinePlayer.isOnline()
+                            && player.canSee(onlinePlayer);
             String displayName =
                     DisplayNames.displayName(
                             offlinePlayer
@@ -335,11 +336,10 @@ public final class TeamsMainGui {
                                     )
                                     .thenComparing(
                                             id ->
-                                                    Bukkit
-                                                            .getPlayer(
-                                                                    id
-                                                            )
-                                                            == null
+                                                    isOfflineFor(
+                                                            viewer,
+                                                            id
+                                                    )
                                     )
                                     .thenComparing(
                                             nameComparator
@@ -348,11 +348,10 @@ public final class TeamsMainGui {
                             Comparator
                                     .comparing(
                                             (UUID id) ->
-                                                    Bukkit
-                                                            .getPlayer(
-                                                                    id
-                                                            )
-                                                            == null
+                                                    isOfflineFor(
+                                                            viewer,
+                                                            id
+                                                    )
                                     )
                                     .thenComparingInt(
                                             id -> {
@@ -382,6 +381,18 @@ public final class TeamsMainGui {
         return List.copyOf(
                 members
         );
+    }
+
+    private static boolean isOfflineFor(
+            Player viewer,
+            UUID playerId
+    ) {
+        Player online = Bukkit.getPlayer(playerId);
+
+        return online == null
+                || !online.isOnline()
+                || (viewer != null
+                && !viewer.canSee(online));
     }
 
     public static TeamSortMode currentSort(

@@ -1,0 +1,32 @@
+enabled: true
+
+# LuckPerms remains the authority. Grant mineaclevanish.admin to Admin and
+# Developer groups; Bukkit/OP does not receive these nodes automatically.
+permission: mineaclevanish.use
+see-permission: mineaclevanish.see
+persist-across-restarts: true
+
+stealth:
+  disable-collision: true
+  disable-item-pickup: true
+  silent-entity: true
+  invulnerable: true
+  prevent-world-interactions: true
+
+# Disabled by default so vanish never overwrites teleport/RTP countdown
+# action bars. Enable only if a periodic staff indicator is desired.
+indicator:
+  enabled: false
+  interval-ticks: 100
+
+audit:
+  enabled: true
+
+messages:
+  enabled: "&#bbbbbbVanish &#B078FFenabled"
+  disabled: "&#bbbbbbVanish &cdisabled"
+  blocked: "&cYou do not have permission to use vanish"
+  actionbar: "&eVANISHED"
+
+# Runtime state. Do not edit while the server is running.
+vanished: []

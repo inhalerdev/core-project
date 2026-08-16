@@ -2,35 +2,41 @@
 #
 # Security model:
 # - Base /invsee and /echest permissions are read-only
-# - Live item changes require the matching *.modify permission
-# - Hidden players require mineacleadmin.inspect.hidden
-# - Targets with mineacleadmin.inspect.protected require
-#   mineacleadmin.inspect.protected.bypass
+# - Live/offline item changes require the matching *.modify permission
+# - Hidden/vanished players require mineacleadmin.inspect.hidden
+# - Targets marked protected require mineacleadmin.inspect.protected.bypass
 
 session-validation-ticks: 20
 read-only-feedback-cooldown-millis: 750
 
 live-editing:
-  # Emergency master switch. Base inspection remains available when disabled.
+  enabled: true
+  allow-creative: false
+  single-editor-per-target: true
+  blocked-actions:
+    - CLONE_STACK
+    - COLLECT_TO_CURSOR
+    - DROP_ALL_CURSOR
+    - DROP_ALL_SLOT
+    - DROP_ONE_CURSOR
+    - DROP_ONE_SLOT
+    - UNKNOWN
+
+offline-editing:
+  # Safe snapshot/writeback mode. Mineacle does not fabricate an NMS Player or
+  # rewrite raw world/playerdata NBT while a player is offline.
   enabled: true
 
-  # Creative-mode inspectors are forced read-only by default to prevent
-  # creative clone/packet behavior from becoming an item-generation path.
+  # Match live inspection hardening: Creative inspectors are read-only by
+  # default so creative clone/packet behavior cannot become an item source.
   allow-creative: false
 
-  # Multiple read-only viewers are fine; only one live editor may hold a
-  # target inventory or ender chest at a time.
-  single-editor-per-target: true
+  # A snapshot is captured from the real live Player on quit. Authorized edits
+  # are applied five ticks after the next join, after normal player data loads.
+  apply-delay-ticks: 5
 
-  # Dangerous or lossy actions remain blocked even for live editors.
-  blocked-actions:
-  - CLONE_STACK
-  - COLLECT_TO_CURSOR
-  - DROP_ALL_CURSOR
-  - DROP_ALL_SLOT
-  - DROP_ONE_CURSOR
-  - DROP_ONE_SLOT
-  - UNKNOWN
+  # Safety invariant: Mineacle always permits only one editable offline session
+  # per target. Read-only viewers may still inspect the same snapshot.
 
 audit:
   enabled: true
@@ -40,7 +46,8 @@ messages:
   no-permission: '&cYou do not have permission to inspect player inventories'
   usage-inventory: '&cUsage: /invsee <player>'
   usage-ender-chest: '&cUsage: /echest <player>'
-  target-unavailable: '&cThat player is not online'
+  target-unavailable: '&cThat player is unavailable'
+  offline-data-unavailable: '&cOffline inventory data is not available for that player yet'
   self-inventory: '&cYou cannot inspect your own inventory'
   self-ender-chest: '&cYou cannot inspect your own ender chest'
   protected: '&cYou cannot inspect that player'
@@ -48,6 +55,8 @@ messages:
   open-failed: '&cCould not open that inventory'
   open-read-only: '&#bbbbbbInspecting &#B078FF%player% &#bbbbbb— &#D0AFFFRead Only'
   open-editable: '&#bbbbbbInspecting &#B078FF%player% &#bbbbbb— &cLive Editing'
+  open-offline-read-only: '&#bbbbbbInspecting &#B078FF%player% &#bbbbbb— &#D0AFFFOffline Read Only'
+  open-offline-editable: '&#bbbbbbInspecting &#B078FF%player% &#bbbbbb— &cOffline Editing'
   read-only: '&cRead-only inspection'
   downgraded-read-only: '&#bbbbbbInspection changed to &#D0AFFFRead Only'
   blocked-edit-action: '&cThat action is blocked during inspection'

@@ -18,10 +18,6 @@ manage-permission: mineaclesecurity.admin
 bypass-permission: mineaclesecurity.bypass
 permission-aware-root-permission: mineaclesecurity.permission-aware-roots
 
-# Some plugins expose legitimate command-tree nodes through their namespace.
-# These namespaces are allowed only for permission-aware staff. The command
-# inside the namespace is still checked against Mineacle hard blocks and the
-# owning plugin remains responsible for its own permission.
 permission-aware-namespaces:
   - worldedit
 
@@ -30,21 +26,9 @@ reload-message: '&#bbbbbbSecurity reloaded'
 usage-message: '&#bbbbbbUsage: &#8436FE/mineaclesecurity reload'
 groups-message: '&#bbbbbbActive command groups: &#B078FF%groups%'
 
-
-# -----------------------------------------------------------------------------
-# Performance
-# -----------------------------------------------------------------------------
-
 performance:
   command-tree-refreshes-per-tick: 100
 
-
-# -----------------------------------------------------------------------------
-# Hard Security Rules
-# -----------------------------------------------------------------------------
-
-# Namespaced roots remain blocked by default. Only namespaces explicitly listed
-# above may pass for players with mineaclesecurity.permission-aware-roots.
 block-namespaced-commands: true
 
 blocked-commands:
@@ -100,9 +84,9 @@ always-hidden-commands:
   - tell
   - tpadeny
   - tpamenu
-  - tphere
   - tpno
   - tpyes
+  - v
   - w
   - walkspeed
   - warps
@@ -110,11 +94,6 @@ always-hidden-commands:
   - wild
   - wm
   - worldmaintenance
-
-
-# -----------------------------------------------------------------------------
-# Root Visibility Capability Groups
-# -----------------------------------------------------------------------------
 
 groups:
   default:
@@ -181,3 +160,20 @@ groups:
 
     visible-commands:
       - echest
+
+  admin-teleport:
+    permission: mineacleadmin.tp
+    priority: 90
+    inherits: []
+
+    visible-commands:
+      - tp
+      - tphere
+
+  staff-vanish:
+    permission: mineaclevanish.use
+    priority: 90
+    inherits: []
+
+    visible-commands:
+      - vanish

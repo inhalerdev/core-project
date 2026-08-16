@@ -80,7 +80,8 @@ public final class TeamMemberGui {
                 );
         boolean online =
                 onlinePlayer != null
-                        && onlinePlayer.isOnline();
+                        && onlinePlayer.isOnline()
+                        && viewer.canSee(onlinePlayer);
 
         MemberHolder holder =
                 new MemberHolder(

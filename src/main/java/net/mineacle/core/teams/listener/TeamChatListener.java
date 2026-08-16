@@ -135,7 +135,8 @@ public final class TeamChatListener
                     );
 
             if (member != null
-                    && member.isOnline()) {
+                    && member.isOnline()
+                    && member.canSee(sender)) {
                 ChatPauseService.deliver(
                         core,
                         sender,

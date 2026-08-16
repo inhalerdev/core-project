@@ -17,25 +17,16 @@ softdepend:
 loadbefore:
   - TAB
 
-
-# =============================================================================
-# Commands
-# =============================================================================
-
 commands:
   auction:
     description: Open the auction house
-    aliases:
-      - ah
-      - auctionhouse
+    aliases: [ah, auctionhouse]
     usage: /ah
     permission: mineacleauctionhouse.use
 
   guide:
     description: Open the Mineacle guide
-    aliases:
-      - help
-      - mineacle
+    aliases: [help, mineacle]
     usage: /guide
     permission: mineacleguide.use
 
@@ -46,9 +37,7 @@ commands:
 
   home:
     description: Open your homes menu
-    aliases:
-      - homes
-      - h
+    aliases: [homes, h]
     usage: /home
     permission: mineaclehomes.use
 
@@ -74,8 +63,7 @@ commands:
 
   team:
     description: Create, join, and manage your team
-    aliases:
-      - teams
+    aliases: [teams]
     usage: /team
     permission: mineacleteams.use
 
@@ -86,23 +74,18 @@ commands:
 
   tpahere:
     description: Request a player teleport to you
-    aliases:
-      - tphere
     usage: /tpahere <player>
     permission: mineacletpa.use
 
   tpaccept:
     description: Accept a teleport request
-    aliases:
-      - tpyes
+    aliases: [tpyes]
     usage: /tpaccept
     permission: mineacletpa.use
 
   tpdeny:
     description: Deny a teleport request
-    aliases:
-      - tpadeny
-      - tpno
+    aliases: [tpadeny, tpno]
     usage: /tpdeny
     permission: mineacletpa.use
 
@@ -121,6 +104,16 @@ commands:
     usage: /tpamenu <player>
     permission: mineacletpa.use
 
+  tp:
+    description: Teleport immediately as Mineacle staff
+    usage: /tp <player> [target]
+    permission: mineacleadmin.tp
+
+  tphere:
+    description: Teleport a player immediately to you
+    usage: /tphere <player>
+    permission: mineacleadmin.tp
+
   stats:
     description: View player statistics
     usage: /stats [player]
@@ -128,9 +121,7 @@ commands:
 
   balance:
     description: View a balance
-    aliases:
-      - bal
-      - money
+    aliases: [bal, money]
     usage: /balance [player]
     permission: mineacleeconomy.use
 
@@ -146,24 +137,19 @@ commands:
 
   baltop:
     description: View Balance Top
-    aliases:
-      - balancetop
+    aliases: [balancetop]
     usage: /baltop
     permission: mineaclebaltop.use
 
   msg:
     description: Send a private message
-    aliases:
-      - tell
-      - w
-      - m
+    aliases: [tell, w, m]
     usage: /msg <player> <message>
     permission: mineaclechat.message
 
   r:
     description: Reply to your last private message
-    aliases:
-      - reply
+    aliases: [reply]
     usage: /r <message>
     permission: mineaclechat.message
 
@@ -189,15 +175,13 @@ commands:
 
   spawn:
     description: Open the spawn menu
-    aliases:
-      - lobby
+    aliases: [lobby]
     usage: /spawn
     permission: mineaclespawn.use
 
   warp:
     description: Teleport to a configured warp
-    aliases:
-      - warps
+    aliases: [warps]
     usage: /warp <name>
     permission: mineaclewarps.use
 
@@ -213,9 +197,7 @@ commands:
 
   originrtp:
     description: Open Random Teleport or choose a destination
-    aliases:
-      - rtp
-      - wild
+    aliases: [rtp, wild]
     usage: /rtp [overworld|nether|end]
     permission: mineaclertp.use
 
@@ -231,16 +213,13 @@ commands:
 
   speed:
     description: Set walking or flying speed
-    aliases:
-      - walkspeed
-      - flyspeed
+    aliases: [walkspeed, flyspeed]
     usage: /speed <speed> [player]
     permission: mineaclespeed.use
 
   order:
     description: Open player orders
-    aliases:
-      - orders
+    aliases: [orders]
     usage: /order [create|search|clear]
     permission: mineacleorders.use
 
@@ -304,10 +283,15 @@ commands:
     usage: /hide
     permission: mineaclehide.use
 
+  vanish:
+    description: Toggle true staff vanish
+    aliases: [v]
+    usage: /vanish
+    permission: mineaclevanish.use
+
   mineaclenametags:
     description: Reload Mineacle nametags
-    aliases:
-      - nametags
+    aliases: [nametags]
     usage: /mineaclenametags reload
     permission: mineaclenametags.admin
 
@@ -328,36 +312,30 @@ commands:
 
   duel:
     description: Challenge players or join Mineacle duels
-    aliases:
-      - duels
+    aliases: [duels]
     usage: /duel <player>
     permission: mineacleduels.use
 
   mineacleworldmaintenance:
     description: Control world maintenance groups
-    aliases:
-      - worldmaintenance
-      - wm
+    aliases: [worldmaintenance, wm]
     usage: /mineacleworldmaintenance <group> <on|off>
     permission: mineacleworldmaintenance.admin
 
   invsee:
-    description: Inspect an online player's inventory
+    description: Inspect a player's inventory
     usage: /invsee <player>
     permission: mineacleadmin.invsee
 
   echest:
-    description: Inspect an online player's ender chest
-    aliases:
-      - enderchest
-      - ecsee
+    description: Inspect a player's ender chest
+    aliases: [enderchest, ecsee]
     usage: /echest <player>
     permission: mineacleadmin.echest
 
   mineacleweb:
     description: Manage Mineacle website synchronization
-    aliases:
-      - webprofiles
+    aliases: [webprofiles]
     usage: /mineacleweb fights <status|clear>
     permission: mineacleweb.admin
 
@@ -365,16 +343,6 @@ commands:
     description: Verify your Minecraft account for the Mineacle website
     usage: /verify <code>
     permission: mineacleweb.verify
-
-
-# =============================================================================
-# Permissions
-# =============================================================================
-#
-# LuckPerms is the sole authority for MineacleCore access.
-# Every node defaults to false so Bukkit/OP does not grant Core capabilities
-# outside the configured LuckPerms group hierarchy.
-# =============================================================================
 
 permissions:
   mineacleguide.use:
@@ -390,7 +358,6 @@ permissions:
     children:
       mineacle.gamemode.self: true
       mineacle.gamemode.others: true
-
   mineacle.gamemode.self:
     default: false
   mineacle.gamemode.others:
@@ -400,16 +367,27 @@ permissions:
     default: false
   mineaclehomes.admin:
     default: false
-
   mineacleteams.use:
     default: false
   mineacleteams.admin:
     default: false
-
   mineacletpa.use:
     default: false
   mineacletpa.admin:
     default: false
+
+  mineacleadmin.tp:
+    default: false
+
+  mineaclevanish.use:
+    default: false
+  mineaclevanish.see:
+    default: false
+  mineaclevanish.admin:
+    default: false
+    children:
+      mineaclevanish.use: true
+      mineaclevanish.see: true
 
   mineaclestats.use:
     default: false
@@ -422,7 +400,6 @@ permissions:
     default: false
   mineacleeconomy.admin:
     default: false
-
   mineaclebaltop.use:
     default: false
   mineaclebaltop.admin:
@@ -443,12 +420,10 @@ permissions:
     default: false
   mineaclespawn.admin:
     default: false
-
   mineaclewarps.use:
     default: false
   mineaclewarps.admin:
     default: false
-
   mineaclertp.use:
     default: false
   mineaclertp.admin:
@@ -458,14 +433,12 @@ permissions:
 
   mineacledoublejump.admin:
     default: false
-
   mineaclefly.command:
     default: false
   mineaclefly.use:
     default: false
   mineaclefly.admin:
     default: false
-
   mineaclespeed.use:
     default: false
   mineaclespeed.others:
@@ -479,17 +452,14 @@ permissions:
     default: false
     children:
       mineacleorders.use: true
-
   mineaclesell.use:
     default: false
   mineaclesell.admin:
     default: false
-
   mineaclebounty.use:
     default: false
   mineaclebounty.admin:
     default: false
-
   mineaclelinks.use:
     default: false
   mineaclelinks.admin:
@@ -504,22 +474,18 @@ permissions:
 
   mineaclenametags.admin:
     default: false
-
   mineaclesecurity.admin:
     default: false
   mineaclesecurity.permission-aware-roots:
     default: false
   mineaclesecurity.bypass:
     default: false
-
   mineacleenchant.admin:
     default: false
-
   mineacleworldmaintenance.admin:
     default: false
   mineacleworldmaintenance.bypass:
     default: false
-
   mineacleduels.use:
     default: false
   mineacleduels.admin:
@@ -530,13 +496,11 @@ permissions:
     children:
       mineacleadmin.invsee: true
       mineacleadmin.echest: true
-
   mineacleadmin.inspect.self:
     default: false
     children:
       mineacleadmin.invsee.self: true
       mineacleadmin.echest.self: true
-
   mineacleadmin.inspect.modify:
     default: false
     children:
@@ -549,20 +513,28 @@ permissions:
     default: false
   mineacleadmin.invsee.modify:
     default: false
-
   mineacleadmin.echest:
     default: false
   mineacleadmin.echest.self:
     default: false
   mineacleadmin.echest.modify:
     default: false
-
   mineacleadmin.inspect.hidden:
     default: false
   mineacleadmin.inspect.protected:
     default: false
   mineacleadmin.inspect.protected.bypass:
     default: false
+
+  mineacleadmin.tools:
+    default: false
+    children:
+      mineacleadmin.tp: true
+      mineaclevanish.admin: true
+      mineacleadmin.inspect: true
+      mineacleadmin.inspect.modify: true
+      mineacleadmin.inspect.hidden: true
+      mineacleadmin.inspect.protected.bypass: true
 
   mineacleshulkerpreview.use:
     default: false

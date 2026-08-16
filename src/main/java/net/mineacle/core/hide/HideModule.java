@@ -8,6 +8,7 @@ import org.bukkit.command.PluginCommand;
 public final class HideModule extends Module {
 
     private static HideService service;
+    private static VanishService vanishService;
 
     @Override
     public String name() {
@@ -17,31 +18,53 @@ public final class HideModule extends Module {
     @Override
     public void enable(Core core) {
         service = new HideService(core);
+        vanishService = new VanishService(core);
 
-        PluginCommand command = core.getCommand("hide");
+        PluginCommand hideCommand = requiredCommand(
+                core,
+                "hide"
+        );
+        HideCommand hideExecutor =
+                new HideCommand(core, service);
+        hideCommand.setExecutor(hideExecutor);
+        hideCommand.setTabCompleter(hideExecutor);
 
-        if (command == null) {
-            service = null;
-            throw new IllegalStateException(
-                    "Missing command in plugin.yml: hide"
-            );
-        }
-
-        HideCommand executor = new HideCommand(core, service);
-        command.setExecutor(executor);
-        command.setTabCompleter(executor);
+        PluginCommand vanishCommand = requiredCommand(
+                core,
+                "vanish"
+        );
+        VanishCommand vanishExecutor =
+                new VanishCommand(
+                        core,
+                        vanishService
+                );
+        vanishCommand.setExecutor(vanishExecutor);
+        vanishCommand.setTabCompleter(vanishExecutor);
 
         core.getServer().getPluginManager().registerEvents(
                 new HideListener(core, service),
                 core
         );
+        core.getServer().getPluginManager().registerEvents(
+                new VanishListener(
+                        core,
+                        vanishService
+                ),
+                core
+        );
 
         service.start();
+        vanishService.start();
         NametagModule.refreshAll();
     }
 
     @Override
     public void disable() {
+        if (vanishService != null) {
+            vanishService.stop();
+            vanishService = null;
+        }
+
         if (service != null) {
             service.showAll();
             service.stop();
@@ -51,5 +74,20 @@ public final class HideModule extends Module {
 
     public static HideService service() {
         return service;
+    }
+
+    private PluginCommand requiredCommand(
+            Core core,
+            String name
+    ) {
+        PluginCommand command = core.getCommand(name);
+
+        if (command == null) {
+            throw new IllegalStateException(
+                    "Missing command in plugin.yml: " + name
+            );
+        }
+
+        return command;
     }
 }

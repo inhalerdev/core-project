@@ -2,6 +2,7 @@ package net.mineacle.core.teams.listener;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
+import net.mineacle.core.common.player.VanishRegistry;
 import net.mineacle.core.teams.model.TeamRecord;
 import net.mineacle.core.teams.service.TeamService;
 import org.bukkit.Bukkit;
@@ -22,10 +23,20 @@ public final class TeamDeathListener implements Listener {
         this.teamService = teamService;
     }
 
+    @SuppressWarnings("unused")
     @EventHandler
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player deadPlayer = event.getEntity();
-        TeamRecord team = teamService.getTeamByPlayer(deadPlayer.getUniqueId());
+
+        if (VanishRegistry.isVanished(
+                deadPlayer.getUniqueId()
+        )) {
+            return;
+        }
+
+        TeamRecord team = teamService.getTeamByPlayer(
+                deadPlayer.getUniqueId()
+        );
 
         if (team == null) {
             return;
@@ -33,12 +44,20 @@ public final class TeamDeathListener implements Listener {
 
         Player killer = deadPlayer.getKiller();
 
-        String deadDisplayName = DisplayNames.displayName(deadPlayer);
+        if (killer != null
+                && VanishRegistry.isVanished(
+                killer.getUniqueId()
+        )) {
+            return;
+        }
 
+        String deadDisplayName =
+                DisplayNames.displayName(deadPlayer);
         String message;
 
         if (killer != null) {
-            String killerDisplayName = DisplayNames.displayName(killer);
+            String killerDisplayName =
+                    DisplayNames.displayName(killer);
 
             message = core.getMessage("teams.death.killed")
                     .replace("%player%", deadDisplayName)
@@ -50,7 +69,8 @@ public final class TeamDeathListener implements Listener {
                     .replace("%team%", team.name());
         }
 
-        for (UUID memberId : teamService.getTeamMembers(team.teamId())) {
+        for (UUID memberId :
+                teamService.getTeamMembers(team.teamId())) {
             Player member = Bukkit.getPlayer(memberId);
 
             if (member == null || !member.isOnline()) {

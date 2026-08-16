@@ -1,6 +1,7 @@
 package net.mineacle.core.collision;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.player.VanishRegistry;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -223,7 +224,12 @@ public final class PlayerCollisionService {
 
     private TeamState stateFor(Player player) {
         boolean collisionEnabled =
-                collisionEnabled(player.getWorld());
+                !VanishRegistry.isVanished(
+                        player.getUniqueId()
+                )
+                        && collisionEnabled(
+                        player.getWorld()
+                );
         boolean hidden =
                 Boolean.TRUE.equals(
                         nativeTagHidden.get(

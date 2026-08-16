@@ -120,6 +120,9 @@ public final class DisplayNames {
      * username is therefore never accepted as a public command target. If a
      * legacy data collision ever causes more than one player to share the
      * same normalized public identity, resolution fails closed.
+     * Vanished players are deliberately excluded from public resolution.
+     * Staff-only tools that are allowed to target vanished players use their
+     * own visibility-aware resolver rather than weakening this public API.
      */
     public static Player resolveOnline(
             String input
@@ -134,6 +137,12 @@ public final class DisplayNames {
 
         for (Player online
                 : Bukkit.getOnlinePlayers()) {
+            if (VanishRegistry.isVanished(
+                    online.getUniqueId()
+            )) {
+                continue;
+            }
+
             if (!normalize(
                     commandDisplayName(online)
             ).equals(normalized)) {
@@ -182,7 +191,7 @@ public final class DisplayNames {
             OfflinePlayer candidate =
                     service.findByNickname(raw);
 
-            if (candidate != null
+            if (publiclyTargetable(candidate)
                     && normalize(
                     commandDisplayName(candidate)
             ).equals(normalized)) {
@@ -195,6 +204,7 @@ public final class DisplayNames {
                 Bukkit.getOfflinePlayer(raw);
 
         if (knownPlayer(candidate)
+                && publiclyTargetable(candidate)
                 && nickname(candidate).isBlank()
                 && normalize(
                 username(candidate)
@@ -225,7 +235,10 @@ public final class DisplayNames {
             Player player,
             String partial
     ) {
-        if (player == null) {
+        if (player == null
+                || VanishRegistry.isVanished(
+                player.getUniqueId()
+        )) {
             return false;
         }
 
@@ -254,6 +267,18 @@ public final class DisplayNames {
             String input
     ) {
         return normalize(input);
+    }
+
+    private static boolean publiclyTargetable(
+            OfflinePlayer player
+    ) {
+        if (player == null) {
+            return false;
+        }
+
+        return !VanishRegistry.isVanished(
+                player.getUniqueId()
+        );
     }
 
     private static boolean knownPlayer(

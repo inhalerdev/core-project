@@ -1,0 +1,537 @@
+package net.mineacle.core.hide;
+
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.mineacle.core.Core;
+import net.mineacle.core.collision.CollisionModule;
+import net.mineacle.core.collision.PlayerCollisionService;
+import net.mineacle.core.common.player.VanishRegistry;
+import net.mineacle.core.common.text.TextColor;
+import org.bukkit.Bukkit;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Mob;
+import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+public final class VanishService {
+
+    private static final String DEFAULT_USE_PERMISSION =
+            "mineaclevanish.use";
+    private static final String DEFAULT_SEE_PERMISSION =
+            "mineaclevanish.see";
+
+    private final Core core;
+    private final File file;
+    private final Set<UUID> vanished = new HashSet<>();
+    private final Map<UUID, RuntimeState> runtime =
+            new HashMap<>();
+
+    private FileConfiguration config;
+    private BukkitTask actionbarTask;
+
+    public VanishService(Core core) {
+        this.core = core;
+        this.file = new File(
+                core.getDataFolder(),
+                "vanish.yml"
+        );
+        reload();
+    }
+
+    public void reload() {
+        ensureDataFile();
+        config = YamlConfiguration.loadConfiguration(file);
+
+        vanished.clear();
+        VanishRegistry.clear();
+
+        if (!enabled()) {
+            return;
+        }
+
+        if (persistAcrossRestarts()) {
+            for (String raw : config.getStringList("vanished")) {
+                try {
+                    UUID playerId = UUID.fromString(raw);
+                    vanished.add(playerId);
+                    VanishRegistry.setVanished(playerId, true);
+                } catch (IllegalArgumentException ignored) {
+                    // Ignore malformed persisted UUIDs safely.
+                }
+            }
+        }
+    }
+
+    public void start() {
+        stopActionbar();
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (isVanished(player.getUniqueId())) {
+                applyVanishedState(player);
+            }
+        }
+        applyAllViewers();
+
+        if (config.getBoolean(
+                "indicator.enabled",
+                false
+        )) {
+            long interval = Math.clamp(
+                    config.getLong(
+                            "indicator.interval-ticks",
+                            100L
+                    ),
+                    40L,
+                    1200L
+            );
+
+            actionbarTask = core.getServer()
+                    .getScheduler()
+                    .runTaskTimer(
+                            core,
+                            this::sendActionbars,
+                            interval,
+                            interval
+                    );
+        }
+    }
+
+    public void stop() {
+        stopActionbar();
+
+        List<Player> restoredPlayers = new ArrayList<>();
+
+        for (UUID playerId : Set.copyOf(vanished)) {
+            Player player = Bukkit.getPlayer(playerId);
+
+            if (player != null && player.isOnline()) {
+                restoreRuntimeState(player);
+                showToAll(player);
+                restoredPlayers.add(player);
+            }
+        }
+
+        runtime.clear();
+        VanishRegistry.clear();
+
+        for (Player player : restoredPlayers) {
+            refreshCollision(player);
+        }
+    }
+
+    public boolean enabled() {
+        return config.getBoolean("enabled", true);
+    }
+
+    public boolean cannotUse(Player player) {
+        return player == null
+                || !player.hasPermission(usePermission());
+    }
+
+    public boolean canSee(Player viewer) {
+        return viewer != null
+                && viewer.hasPermission(seePermission());
+    }
+
+    public String usePermission() {
+        return config.getString(
+                "permission",
+                DEFAULT_USE_PERMISSION
+        );
+    }
+
+    public String seePermission() {
+        return config.getString(
+                "see-permission",
+                DEFAULT_SEE_PERMISSION
+        );
+    }
+
+    public boolean isVanished(UUID playerId) {
+        return playerId != null && vanished.contains(playerId);
+    }
+
+    public boolean toggle(Player player) {
+        if (isVanished(player.getUniqueId())) {
+            show(player);
+            return false;
+        }
+
+        hide(player);
+        return true;
+    }
+
+    public void hide(Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+
+        UUID playerId = player.getUniqueId();
+        vanished.add(playerId);
+        VanishRegistry.setVanished(playerId, true);
+        applyVanishedState(player);
+        refreshCollision(player);
+        applyToViewers(player);
+        saveState();
+        audit(player, "enabled");
+    }
+
+    public void show(Player player) {
+        if (player == null) {
+            return;
+        }
+
+        UUID playerId = player.getUniqueId();
+        vanished.remove(playerId);
+        VanishRegistry.setVanished(playerId, false);
+
+        if (player.isOnline()) {
+            restoreRuntimeState(player);
+            refreshCollision(player);
+            showToAll(player);
+        } else {
+            runtime.remove(playerId);
+        }
+
+        saveState();
+        audit(player, "disabled");
+    }
+
+    public void handleJoin(Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+
+        applyViewer(player);
+
+        if (!isVanished(player.getUniqueId())) {
+            return;
+        }
+
+        if (cannotUse(player)) {
+            show(player);
+            return;
+        }
+
+        applyVanishedState(player);
+        refreshCollision(player);
+        applyToViewers(player);
+    }
+
+    public void handleQuit(Player player) {
+        if (player == null) {
+            return;
+        }
+
+        runtime.remove(player.getUniqueId());
+
+        if (!persistAcrossRestarts()
+                && vanished.remove(player.getUniqueId())) {
+            VanishRegistry.setVanished(
+                    player.getUniqueId(),
+                    false
+            );
+            saveState();
+        }
+    }
+
+    public void reapply(Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+
+        if (!isVanished(player.getUniqueId())) {
+            return;
+        }
+
+        if (cannotUse(player)) {
+            show(player);
+            return;
+        }
+
+        applyVanishedState(player);
+        refreshCollision(player);
+        applyToViewers(player);
+    }
+
+    public void applyViewer(Player viewer) {
+        if (viewer == null || !viewer.isOnline()) {
+            return;
+        }
+
+        for (UUID playerId : Set.copyOf(vanished)) {
+            Player hiddenPlayer = Bukkit.getPlayer(playerId);
+
+            if (hiddenPlayer == null
+                    || !hiddenPlayer.isOnline()
+                    || hiddenPlayer.getUniqueId()
+                    .equals(viewer.getUniqueId())) {
+                continue;
+            }
+
+            if (canSee(viewer)) {
+                viewer.showPlayer(core, hiddenPlayer);
+            } else {
+                viewer.hidePlayer(core, hiddenPlayer);
+            }
+        }
+    }
+
+    public boolean interactionLocked(Player player) {
+        return player != null
+                && isVanished(player.getUniqueId())
+                && config.getBoolean(
+                "stealth.prevent-world-interactions",
+                true
+        );
+    }
+
+    public String message(String path, String fallback) {
+        return config.getString(
+                "messages." + path,
+                fallback
+        );
+    }
+
+    private void refreshCollision(Player player) {
+        PlayerCollisionService collision =
+                CollisionModule.service();
+
+        if (collision != null) {
+            collision.apply(player);
+        }
+    }
+
+    private void applyAllViewers() {
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            applyViewer(viewer);
+        }
+    }
+
+    private void applyToViewers(Player hiddenPlayer) {
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            if (viewer.getUniqueId()
+                    .equals(hiddenPlayer.getUniqueId())) {
+                continue;
+            }
+
+            if (canSee(viewer)) {
+                viewer.showPlayer(core, hiddenPlayer);
+            } else {
+                viewer.hidePlayer(core, hiddenPlayer);
+            }
+        }
+    }
+
+    private void showToAll(Player player) {
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            if (!viewer.getUniqueId()
+                    .equals(player.getUniqueId())) {
+                viewer.showPlayer(core, player);
+            }
+        }
+    }
+
+    private void applyVanishedState(Player player) {
+        if (player.isInsideVehicle()) {
+            player.leaveVehicle();
+        }
+
+        for (Entity entity : player.getNearbyEntities(
+                64.0D,
+                64.0D,
+                64.0D
+        )) {
+            if (entity instanceof Mob mob
+                    && mob.getTarget() == player) {
+                mob.setTarget(null);
+            }
+        }
+
+        runtime.computeIfAbsent(
+                player.getUniqueId(),
+                ignored -> new RuntimeState(
+                        player.isCollidable(),
+                        player.getCanPickupItems(),
+                        player.isSilent(),
+                        player.isInvulnerable()
+                )
+        );
+
+        if (config.getBoolean("stealth.disable-collision", true)) {
+            player.setCollidable(false);
+        }
+        if (config.getBoolean("stealth.disable-item-pickup", true)) {
+            player.setCanPickupItems(false);
+        }
+        if (config.getBoolean("stealth.silent-entity", true)) {
+            player.setSilent(true);
+        }
+        if (config.getBoolean("stealth.invulnerable", true)) {
+            player.setInvulnerable(true);
+        }
+    }
+
+    private void restoreRuntimeState(Player player) {
+        RuntimeState state = runtime.remove(player.getUniqueId());
+
+        if (state == null) {
+            player.setCollidable(true);
+            player.setCanPickupItems(true);
+            player.setSilent(false);
+            player.setInvulnerable(false);
+            return;
+        }
+
+        player.setCollidable(state.collidable());
+        player.setCanPickupItems(state.canPickupItems());
+        player.setSilent(state.silent());
+        player.setInvulnerable(state.invulnerable());
+    }
+
+    private void sendActionbars() {
+        if (vanished.isEmpty()) {
+            return;
+        }
+
+        Component component = LegacyComponentSerializer
+                .legacySection()
+                .deserialize(
+                        TextColor.color(
+                                message(
+                                        "actionbar",
+                                        "&eVANISHED"
+                                )
+                        )
+                );
+
+        for (UUID playerId : Set.copyOf(vanished)) {
+            Player player = Bukkit.getPlayer(playerId);
+
+            if (player != null && player.isOnline()) {
+                player.sendActionBar(component);
+            }
+        }
+    }
+
+    private boolean persistAcrossRestarts() {
+        return config == null
+                || config.getBoolean(
+                "persist-across-restarts",
+                true
+        );
+    }
+
+    private void saveState() {
+        List<String> values = new ArrayList<>();
+
+        if (persistAcrossRestarts()) {
+            for (UUID playerId : vanished) {
+                values.add(playerId.toString());
+            }
+            values.sort(String.CASE_INSENSITIVE_ORDER);
+        }
+
+        config.set("vanished", values);
+
+        File temporary = new File(
+                file.getParentFile(),
+                file.getName() + ".tmp"
+        );
+
+        try {
+            config.save(temporary);
+
+            try {
+                Files.move(
+                        temporary.toPath(),
+                        file.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING,
+                        StandardCopyOption.ATOMIC_MOVE
+                );
+            } catch (AtomicMoveNotSupportedException exception) {
+                Files.move(
+                        temporary.toPath(),
+                        file.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING
+                );
+            }
+        } catch (IOException exception) {
+            core.getLogger().warning(
+                    "[Vanish] Could not save vanish.yml: "
+                            + exception.getMessage()
+            );
+        } finally {
+            try {
+                Files.deleteIfExists(temporary.toPath());
+            } catch (IOException ignored) {
+                // Best-effort temporary file cleanup.
+            }
+        }
+    }
+
+    private void audit(Player player, String action) {
+        if (!config.getBoolean("audit.enabled", true)) {
+            return;
+        }
+
+        core.getLogger().info(
+                "[Vanish] "
+                        + player.getName()
+                        + " ("
+                        + player.getUniqueId()
+                        + ") "
+                        + action
+        );
+    }
+
+    private void stopActionbar() {
+        if (actionbarTask != null) {
+            actionbarTask.cancel();
+            actionbarTask = null;
+        }
+    }
+
+    private void ensureDataFile() {
+        if (!core.getDataFolder().exists()
+                && !core.getDataFolder().mkdirs()
+                && !core.getDataFolder().isDirectory()) {
+            throw new IllegalStateException(
+                    "Could not create MineacleCore data directory"
+            );
+        }
+
+        if (!file.exists()) {
+            core.saveResource("vanish.yml", false);
+        }
+
+        if (!file.isFile()) {
+            throw new IllegalStateException(
+                    "Could not initialize vanish.yml"
+            );
+        }
+    }
+
+    private record RuntimeState(
+            boolean collidable,
+            boolean canPickupItems,
+            boolean silent,
+            boolean invulnerable
+    ) {
+    }
+}

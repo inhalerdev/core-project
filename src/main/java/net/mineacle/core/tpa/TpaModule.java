@@ -3,6 +3,8 @@ package net.mineacle.core.tpa;
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
 import net.mineacle.core.common.teleport.TeleportService;
+import net.mineacle.core.tpa.command.TpCommand;
+import net.mineacle.core.tpa.command.TpHereCommand;
 import net.mineacle.core.tpa.command.TpaCommand;
 import net.mineacle.core.tpa.command.TpaMenuCommand;
 import net.mineacle.core.tpa.listener.TpaGuiListener;
@@ -29,11 +31,19 @@ public final class TpaModule extends Module {
         this.teleportService = core.teleports();
 
         if (teleportService == null) {
-            throw new IllegalStateException("Core TeleportService is not initialized");
+            throw new IllegalStateException(
+                    "Core TeleportService is not initialized"
+            );
         }
 
-        TpaCommand command = new TpaCommand(core, tpaService, teleportService);
-        TpaMenuCommand menuCommand = new TpaMenuCommand(tpaService);
+        TpaCommand command =
+                new TpaCommand(
+                        core,
+                        tpaService,
+                        teleportService
+                );
+        TpaMenuCommand menuCommand =
+                new TpaMenuCommand(tpaService);
 
         registerCommand(core, "tpa", command);
         registerCommand(core, "tpahere", command);
@@ -43,12 +53,30 @@ public final class TpaModule extends Module {
         registerCommand(core, "tpauto", command);
         registerCommand(core, "tpamenu", menuCommand);
 
+        registerCommand(
+                core,
+                "tp",
+                new TpCommand(core)
+        );
+        registerCommand(
+                core,
+                "tphere",
+                new TpHereCommand(core)
+        );
+
         core.getServer().getPluginManager().registerEvents(
-                new TpaGuiListener(core, tpaService, teleportService),
+                new TpaGuiListener(
+                        core,
+                        tpaService,
+                        teleportService
+                ),
                 core
         );
         core.getServer().getPluginManager().registerEvents(
-                new TpaTargetMenuListener(core, tpaService),
+                new TpaTargetMenuListener(
+                        core,
+                        tpaService
+                ),
                 core
         );
         core.getServer().getPluginManager().registerEvents(
@@ -69,16 +97,24 @@ public final class TpaModule extends Module {
         teleportService = null;
     }
 
-    private void registerCommand(Core core, String name, Object executor) {
+    private void registerCommand(
+            Core core,
+            String name,
+            Object executor
+    ) {
         PluginCommand command = core.getCommand(name);
 
         if (command == null) {
-            throw new IllegalStateException("Missing command in plugin.yml: " + name);
+            throw new IllegalStateException(
+                    "Missing command in plugin.yml: " + name
+            );
         }
 
-        if (!(executor instanceof CommandExecutor commandExecutor)) {
+        if (!(executor
+                instanceof CommandExecutor commandExecutor)) {
             throw new IllegalArgumentException(
-                    "Command executor does not implement CommandExecutor: " + name
+                    "Command executor does not implement CommandExecutor: "
+                            + name
             );
         }
 
