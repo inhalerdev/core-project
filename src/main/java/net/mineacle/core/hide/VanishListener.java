@@ -1,6 +1,7 @@
 package net.mineacle.core.hide;
 
 import com.destroystokyo.paper.event.player.PlayerPickupExperienceEvent;
+import com.destroystokyo.paper.event.server.PaperServerListPingEvent;
 import net.mineacle.core.Core;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
@@ -26,6 +27,9 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 
+import java.util.Set;
+import java.util.UUID;
+
 @SuppressWarnings("unused")
 public final class VanishListener
         implements Listener {
@@ -39,6 +43,40 @@ public final class VanishListener
     ) {
         this.core = core;
         this.service = service;
+    }
+
+    @EventHandler(
+            priority = EventPriority.HIGHEST,
+            ignoreCancelled = true
+    )
+    public void onServerListPing(
+            PaperServerListPingEvent event
+    ) {
+        Set<UUID> hidden =
+                service.onlineVanishedSnapshot();
+
+        if (hidden.isEmpty()) {
+            return;
+        }
+
+        int reportedPlayers =
+                event.getNumPlayers();
+
+        if (reportedPlayers >= 0) {
+            event.setNumPlayers(
+                    Math.max(
+                            0,
+                            reportedPlayers - hidden.size()
+                    )
+            );
+        }
+
+        event.getListedPlayers().removeIf(
+                listedPlayer ->
+                        hidden.contains(
+                                listedPlayer.id()
+                        )
+        );
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)

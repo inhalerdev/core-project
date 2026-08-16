@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class VanishService {
 
@@ -41,6 +42,8 @@ public final class VanishService {
     private final Core core;
     private final File file;
     private final Set<UUID> vanished = new HashSet<>();
+    private final Set<UUID> onlineVanished =
+            ConcurrentHashMap.newKeySet();
     private final Map<UUID, RuntimeState> runtime =
             new HashMap<>();
 
@@ -61,6 +64,7 @@ public final class VanishService {
         config = YamlConfiguration.loadConfiguration(file);
 
         vanished.clear();
+        onlineVanished.clear();
         VanishRegistry.clear();
 
         if (!enabled()) {
@@ -130,6 +134,7 @@ public final class VanishService {
         }
 
         runtime.clear();
+        onlineVanished.clear();
         VanishRegistry.clear();
 
         for (Player player : restoredPlayers) {
@@ -169,6 +174,10 @@ public final class VanishService {
         return playerId != null && vanished.contains(playerId);
     }
 
+    public Set<UUID> onlineVanishedSnapshot() {
+        return Set.copyOf(onlineVanished);
+    }
+
     public boolean toggle(Player player) {
         if (isVanished(player.getUniqueId())) {
             show(player);
@@ -201,6 +210,7 @@ public final class VanishService {
 
         UUID playerId = player.getUniqueId();
         vanished.remove(playerId);
+        onlineVanished.remove(playerId);
         VanishRegistry.setVanished(playerId, false);
 
         if (player.isOnline()) {
@@ -223,6 +233,7 @@ public final class VanishService {
         applyViewer(player);
 
         if (!isVanished(player.getUniqueId())) {
+            onlineVanished.remove(player.getUniqueId());
             clearTabVanishMetadata(player);
             return;
         }
@@ -243,6 +254,7 @@ public final class VanishService {
         }
 
         runtime.remove(player.getUniqueId());
+        onlineVanished.remove(player.getUniqueId());
 
         if (!persistAcrossRestarts()
                 && vanished.remove(player.getUniqueId())) {
@@ -261,6 +273,7 @@ public final class VanishService {
         }
 
         if (!isVanished(player.getUniqueId())) {
+            onlineVanished.remove(player.getUniqueId());
             clearTabVanishMetadata(player);
             return;
         }
@@ -354,6 +367,7 @@ public final class VanishService {
     }
 
     private void applyVanishedState(Player player) {
+        onlineVanished.add(player.getUniqueId());
         setTabVanishMetadata(player);
 
         if (player.isInsideVehicle()) {
@@ -396,6 +410,7 @@ public final class VanishService {
     }
 
     private void restoreRuntimeState(Player player) {
+        onlineVanished.remove(player.getUniqueId());
         clearTabVanishMetadata(player);
 
         RuntimeState state = runtime.remove(player.getUniqueId());

@@ -40,7 +40,11 @@ offline-editing:
 
 audit:
   enabled: true
-  log-modifications: true
+
+  # Keep session open/close auditing and modification counts, but do not emit
+  # one console line for every normal authorized inventory click/drag.
+  # Blocked/suspicious actions still log separately.
+  log-modifications: false
 
 messages:
   no-permission: '&cYou do not have permission to inspect player inventories'

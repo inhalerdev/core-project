@@ -713,7 +713,7 @@ public final class OfflineInspectService {
                 updated
         );
 
-        core.getLogger().warning(
+        core.getLogger().info(
                 "[AdminInspect] session="
                         + session.sessionId()
                         + " saved OFFLINE edits for "
