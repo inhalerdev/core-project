@@ -3,7 +3,7 @@ package net.mineacle.core.hide;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
-import net.mineacle.core.common.player.DisplayNames;
+import net.mineacle.core.common.player.VanishRegistry;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.nametag.NametagModule;
 import org.bukkit.Bukkit;
@@ -83,19 +83,8 @@ public final class HideService {
                 );
     }
 
-    /**
-     * Compatibility accessor retained for callers using the former name.
-     */
-    public String adminPermission() {
-        return permission();
-    }
-
     public boolean isHidden(UUID playerId) {
         return playerId != null && hidden.contains(playerId);
-    }
-
-    public Set<UUID> hiddenPlayers() {
-        return Set.copyOf(hidden);
     }
 
     public boolean toggle(Player player) {
@@ -148,29 +137,6 @@ public final class HideService {
         NametagModule.refresh(hiddenPlayer);
     }
 
-    public void applyAll() {
-        NametagModule.refreshAll();
-    }
-
-    /**
-     * Compatibility no-op. Hide is nametag-only and must never override
-     * visibility decisions made by vanish or moderation plugins.
-     */
-    public void applyViewer(Player viewer) {
-        // Deliberately does not call showPlayer or hidePlayer
-    }
-
-    /**
-     * Compatibility no-op. Hide is nametag-only and must never override
-     * visibility decisions made by vanish or moderation plugins.
-     */
-    public void applyViewer(
-            Player viewer,
-            Player hiddenPlayer
-    ) {
-        // Deliberately does not call showPlayer or hidePlayer
-    }
-
     public void showAll() {
         if (hidden.isEmpty()) {
             return;
@@ -194,22 +160,12 @@ public final class HideService {
         );
     }
 
-    public String parsedMessage(
-            String path,
-            String fallback,
-            Player player
-    ) {
-        return TextColor.color(
-                message(path, fallback).replace(
-                        "%player%",
-                        DisplayNames.displayName(player)
-                )
-        );
-    }
-
     public boolean shouldHideRealNametag(Player player) {
         return player != null
-                && isHidden(player.getUniqueId());
+                && (isHidden(player.getUniqueId())
+                || VanishRegistry.isVanished(
+                        player.getUniqueId()
+                ));
     }
 
     private void sendActionbars() {

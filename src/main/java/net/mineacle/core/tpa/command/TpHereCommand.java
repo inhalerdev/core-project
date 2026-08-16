@@ -4,6 +4,7 @@ import net.mineacle.core.Core;
 import net.mineacle.core.common.player.DisplayNames;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.common.teleport.TeleportService;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -61,27 +62,43 @@ public final class TpHereCommand
             return true;
         }
 
-        if (!target.teleport(viewer.getLocation())) {
-            fail(viewer, "&cTeleport failed");
-            return true;
-        }
+        boolean viewerIsTarget =
+                target.getUniqueId()
+                        .equals(viewer.getUniqueId());
 
-        viewer.sendMessage(
-                TextColor.color(
-                        BODY
-                                + "Teleported "
-                                + SECONDARY
-                                + DisplayNames.displayName(target)
-                                + BODY
-                                + " to you"
-                )
+        core.teleports().forceLocation(
+                target,
+                DisplayNames.displayName(viewer),
+                viewer.getLocation(),
+                viewerIsTarget
+                        ? null
+                        : () -> {
+                            viewer.sendMessage(
+                                    TextColor.color(
+                                            BODY
+                                                    + "Teleported "
+                                                    + SECONDARY
+                                                    + DisplayNames.displayName(target)
+                                                    + BODY
+                                                    + " to you"
+                                    )
+                            );
+                            SoundService.teleportComplete(
+                                    viewer,
+                                    core
+                            );
+                        },
+                viewerIsTarget
+                        ? null
+                        : reason -> fail(
+                                viewer,
+                                reason
+                                        == TeleportService.FailureReason
+                                        .DESTINATION_UNAVAILABLE
+                                        ? "&cTeleport failed — destination unavailable"
+                                        : "&cTeleport failed"
+                        )
         );
-        SoundService.teleportComplete(viewer, core);
-
-        if (!target.getUniqueId()
-                .equals(viewer.getUniqueId())) {
-            SoundService.teleportComplete(target, core);
-        }
         return true;
     }
 

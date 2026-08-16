@@ -6,6 +6,7 @@ import net.mineacle.core.common.player.PlayerTabComplete;
 import net.mineacle.core.common.player.VanishRegistry;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.common.teleport.TeleportService;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -69,20 +70,11 @@ public final class TpCommand
                 return true;
             }
 
-            if (!viewer.teleport(target.getLocation())) {
-                fail(viewer, "&cTeleport failed");
-                return true;
-            }
-
-            viewer.sendMessage(
-                    TextColor.color(
-                            BODY
-                                    + "Teleported to "
-                                    + SECONDARY
-                                    + DisplayNames.displayName(target)
-                    )
+            core.teleports().forceLocation(
+                    viewer,
+                    DisplayNames.displayName(target),
+                    target.getLocation()
             );
-            SoundService.teleportComplete(viewer, core);
             return true;
         }
 
@@ -100,29 +92,45 @@ public final class TpCommand
             return true;
         }
 
-        if (!moving.teleport(target.getLocation())) {
-            fail(viewer, "&cTeleport failed");
-            return true;
-        }
+        boolean viewerIsMoving =
+                moving.getUniqueId()
+                        .equals(viewer.getUniqueId());
 
-        viewer.sendMessage(
-                TextColor.color(
-                        BODY
-                                + "Teleported "
-                                + SECONDARY
-                                + DisplayNames.displayName(moving)
-                                + BODY
-                                + " to "
-                                + SECONDARY
-                                + DisplayNames.displayName(target)
-                )
+        core.teleports().forceLocation(
+                moving,
+                DisplayNames.displayName(target),
+                target.getLocation(),
+                viewerIsMoving
+                        ? null
+                        : () -> {
+                            viewer.sendMessage(
+                                    TextColor.color(
+                                            BODY
+                                                    + "Teleported "
+                                                    + SECONDARY
+                                                    + DisplayNames.displayName(moving)
+                                                    + BODY
+                                                    + " to "
+                                                    + SECONDARY
+                                                    + DisplayNames.displayName(target)
+                                    )
+                            );
+                            SoundService.teleportComplete(
+                                    viewer,
+                                    core
+                            );
+                        },
+                viewerIsMoving
+                        ? null
+                        : reason -> fail(
+                                viewer,
+                                reason
+                                        == TeleportService.FailureReason
+                                        .DESTINATION_UNAVAILABLE
+                                        ? "&cTeleport failed — destination unavailable"
+                                        : "&cTeleport failed"
+                        )
         );
-        SoundService.teleportComplete(viewer, core);
-
-        if (!moving.getUniqueId()
-                .equals(viewer.getUniqueId())) {
-            SoundService.teleportComplete(moving, core);
-        }
         return true;
     }
 

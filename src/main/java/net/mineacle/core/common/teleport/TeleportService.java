@@ -57,6 +57,9 @@ public final class TeleportService {
     public static final String ACCENT = "&#D0AFFF";
     public static final String BODY = "&#bbbbbb";
 
+    private static final String INSTANT_PERMISSION =
+            "mineacle.teleport.instant";
+
     private static final String CANCELLED_MOVE =
             ERROR + "Teleport cancelled — you moved";
     private static final String ALREADY_ACTIVE =
@@ -244,14 +247,52 @@ public final class TeleportService {
             String displayTarget,
             Location target
     ) {
+        return forceLocation(
+                player,
+                displayTarget,
+                target,
+                null,
+                null
+        );
+    }
+
+    /**
+     * Immediate shared teleport with completion callbacks.
+     * Used by staff movement so cross-world attachment handling remains
+     * centralized and the command issuer is only told success after Paper
+     * actually accepts the teleport.
+     */
+    public boolean forceLocation(
+            Player player,
+            String displayTarget,
+            Location target,
+            Runnable onSuccess,
+            Consumer<FailureReason> onFailure
+    ) {
         if (player == null) {
+            if (onFailure != null) {
+                onFailure.accept(
+                        FailureReason.DESTINATION_UNAVAILABLE
+                );
+            }
             return false;
         }
 
         cancel(player.getUniqueId(), false);
 
+        Callbacks callbacks = new Callbacks(
+                onSuccess,
+                onFailure
+        );
+
         if (target == null || target.getWorld() == null) {
-            failImmediate(player, displayTarget);
+            fail(
+                    player,
+                    safeDisplayTarget(displayTarget),
+                    TeleportKind.SAFETY,
+                    FailureReason.DESTINATION_UNAVAILABLE,
+                    callbacks
+            );
             return false;
         }
 
@@ -260,7 +301,7 @@ public final class TeleportService {
                 safeDisplayTarget(displayTarget),
                 TeleportKind.SAFETY,
                 target.clone(),
-                Callbacks.NONE
+                callbacks
         );
     }
 
@@ -354,8 +395,12 @@ public final class TeleportService {
         Callbacks safeCallbacks = callbacks == null
                 ? Callbacks.NONE
                 : callbacks;
+        int effectiveDelay =
+                player.hasPermission(INSTANT_PERMISSION)
+                        ? 0
+                        : Math.max(0, delaySeconds);
 
-        if (delaySeconds <= 0) {
+        if (effectiveDelay <= 0) {
             Location destination = resolveDestination(destinationSupplier);
 
             if (destination == null) {
@@ -382,7 +427,7 @@ public final class TeleportService {
                 player.getLocation().clone(),
                 safeTarget,
                 kind,
-                delaySeconds,
+                effectiveDelay,
                 cancelOnMove,
                 destinationSupplier,
                 safeCallbacks
@@ -772,7 +817,6 @@ public final class TeleportService {
                         + teleport.secondsRemaining() + "s"
         );
     }
-
 
     private void sendBoth(Player player, String message) {
         String colored = TextColor.color(message);

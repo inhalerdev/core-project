@@ -379,6 +379,9 @@ permissions:
   mineacleadmin.tp:
     default: false
 
+  mineacle.teleport.instant:
+    default: false
+
   mineaclevanish.use:
     default: false
   mineaclevanish.see:
@@ -530,6 +533,7 @@ permissions:
     default: false
     children:
       mineacleadmin.tp: true
+      mineacle.teleport.instant: true
       mineaclevanish.admin: true
       mineacleadmin.inspect: true
       mineacleadmin.inspect.modify: true
