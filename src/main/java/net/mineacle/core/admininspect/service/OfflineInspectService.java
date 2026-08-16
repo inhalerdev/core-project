@@ -73,6 +73,8 @@ public final class OfflineInspectService {
             new HashMap<>();
     private final Map<UUID, UUID> editorsByTarget =
             new HashMap<>();
+    private final Map<UUID, Session> recoveryByTarget =
+            new HashMap<>();
 
     private YamlConfiguration settings;
     private YamlConfiguration indexConfig;
@@ -251,7 +253,25 @@ public final class OfflineInspectService {
 
         boolean editable = canModify(viewer, type);
 
+        /*
+         * Finalize any older inspection owned by this viewer before admitting
+         * a new editable session. If that older session cannot be persisted,
+         * its target moves into recovery and keeps its exclusive editor lock.
+         */
+        closeViewerSession(viewer);
+
         if (editable) {
+            if (recoveryByTarget.containsKey(
+                    meta.playerId()
+            )) {
+                fail(
+                        viewer,
+                        "messages.edit-locked",
+                        "&cThat offline inventory has unsaved changes being recovered"
+                );
+                return;
+            }
+
             UUID existing = editorsByTarget.get(meta.playerId());
 
             if (existing != null
@@ -264,8 +284,6 @@ public final class OfflineInspectService {
                 return;
             }
         }
-
-        closeViewerSession(viewer);
 
         OfflineHolder holder = new OfflineHolder();
         Inventory inventory = createInventory(
@@ -471,14 +489,10 @@ public final class OfflineInspectService {
             return;
         }
 
-        sessions.remove(viewer.getUniqueId());
-        releaseEditor(session);
-
-        if (session.dirty()) {
-            saveEditedSession(session);
-        }
-
-        auditClose(session, "inventory-close");
+        finishOrRecover(
+                session,
+                "inventory-close"
+        );
     }
 
     public void viewerQuit(Player viewer) {
@@ -486,19 +500,18 @@ public final class OfflineInspectService {
             return;
         }
 
-        Session session = sessions.remove(viewer.getUniqueId());
+        Session session = sessions.get(
+                viewer.getUniqueId()
+        );
 
         if (session == null) {
             return;
         }
 
-        releaseEditor(session);
-
-        if (session.dirty()) {
-            saveEditedSession(session);
-        }
-
-        auditClose(session, "viewer-disconnected");
+        finishOrRecover(
+                session,
+                "viewer-disconnected"
+        );
     }
 
     public void targetJoining(Player target) {
@@ -508,22 +521,74 @@ public final class OfflineInspectService {
 
         UUID targetId = target.getUniqueId();
 
-        for (Session session : List.copyOf(sessions.values())) {
-            if (!session.meta().playerId().equals(targetId)) {
+        Session recovery = recoveryByTarget.get(targetId);
+
+        if (recovery != null) {
+            if (persistDirtySession(
+                    recovery,
+                    true
+            )) {
+                recoveryByTarget.remove(
+                        targetId,
+                        recovery
+                );
+                releaseEditor(recovery);
+                auditClose(
+                        recovery,
+                        "recovered-before-target-join"
+                );
+            } else {
+                discardUnsavedForTargetJoin(
+                        recovery,
+                        "recovery-save-failed"
+                );
+            }
+        }
+
+        for (Session session :
+                List.copyOf(sessions.values())) {
+            if (!session.meta().playerId()
+                    .equals(targetId)) {
                 continue;
             }
 
-            Player viewer = Bukkit.getPlayer(session.viewerId());
+            Player viewer = Bukkit.getPlayer(
+                    session.viewerId()
+            );
 
-            if (viewer != null && viewer.isOnline()) {
-                viewer.closeInventory();
+            if (session.dirty()
+                    && !persistDirtySession(
+                    session,
+                    true
+            )) {
+                discardUnsavedForTargetJoin(
+                        session,
+                        "active-session-save-failed"
+                );
             } else {
-                sessions.remove(session.viewerId());
+                sessions.remove(
+                        session.viewerId(),
+                        session
+                );
+                recoveryByTarget.remove(
+                        targetId,
+                        session
+                );
                 releaseEditor(session);
+                auditClose(
+                        session,
+                        "target-joined"
+                );
+            }
 
-                if (session.editable() && session.dirty()) {
-                    saveEditedSession(session);
-                }
+            if (viewer != null
+                    && viewer.isOnline()
+                    && viewer.getOpenInventory()
+                    .getTopInventory()
+                    == session.inventory()) {
+                viewer.closeInventory(
+                        InventoryCloseEvent.Reason.CANT_USE
+                );
             }
         }
     }
@@ -664,17 +729,62 @@ public final class OfflineInspectService {
             capture(player);
         }
 
-        for (Session session : List.copyOf(sessions.values())) {
-            Player viewer = Bukkit.getPlayer(session.viewerId());
+        Set<Session> toFlush = new java.util.LinkedHashSet<>();
+        toFlush.addAll(sessions.values());
+        toFlush.addAll(recoveryByTarget.values());
 
-            if (viewer != null && viewer.isOnline()) {
-                viewer.closeInventory();
-            } else if (session.dirty()) {
-                saveEditedSession(session);
+        for (Session session : toFlush) {
+            Player viewer = Bukkit.getPlayer(
+                    session.viewerId()
+            );
+
+            boolean persisted =
+                    !session.dirty()
+                            || persistDirtySession(
+                            session,
+                            true
+                    );
+
+            if (!persisted) {
+                persisted = persistDirtySession(
+                        session,
+                        false
+                );
+            }
+
+            if (!persisted) {
+                core.getLogger().severe(
+                        "[AdminInspect] CRITICAL: shutdown could not persist "
+                                + "unsaved offline edits for "
+                                + session.meta().username()
+                                + " ("
+                                + session.meta().playerId()
+                                + ") | session="
+                                + session.sessionId()
+                                + " | edits were NOT applied to the player"
+                );
+            }
+
+            if (viewer != null
+                    && viewer.isOnline()
+                    && viewer.getOpenInventory()
+                    .getTopInventory()
+                    == session.inventory()) {
+                viewer.closeInventory(
+                        InventoryCloseEvent.Reason.PLUGIN
+                );
+            }
+
+            if (persisted) {
+                auditClose(
+                        session,
+                        "module-shutdown"
+                );
             }
         }
 
         sessions.clear();
+        recoveryByTarget.clear();
         editorsByTarget.clear();
         saveIndex();
     }
@@ -767,14 +877,34 @@ public final class OfflineInspectService {
             return;
         }
 
-        /*
-         * Changes already made while the viewer was authorized must not be
-         * discarded just because modify access changed afterward. Commit the
-         * dirty state first; if persistence fails the dirty flag remains true
-         * and close/shutdown gets another save attempt.
-         */
-        if (session.dirty()) {
-            saveEditedSession(session);
+        if (session.dirty()
+                && !persistDirtySession(
+                session,
+                true
+        )) {
+            retainRecovery(
+                    session,
+                    "edit-access-changed-save-failed"
+            );
+
+            if (viewer != null
+                    && viewer.isOnline()
+                    && viewer.getOpenInventory()
+                    .getTopInventory()
+                    == session.inventory()) {
+                viewer.closeInventory(
+                        InventoryCloseEvent.Reason.CANT_USE
+                );
+                viewer.sendMessage(
+                        TextColor.color(
+                                message(
+                                        "messages.recovery-pending",
+                                        "&cInspection closed — unsaved changes are being safely retried"
+                                )
+                        )
+                );
+            }
+            return;
         }
 
         releaseEditor(session);
@@ -841,6 +971,7 @@ public final class OfflineInspectService {
 
     private void validateSessions() {
         if (sessions.isEmpty()) {
+            retryRecoveries();
             return;
         }
 
@@ -851,17 +982,7 @@ public final class OfflineInspectService {
             );
 
             if (viewer == null || !viewer.isOnline()) {
-                sessions.remove(
-                        session.viewerId(),
-                        session
-                );
-                releaseEditor(session);
-
-                if (session.dirty()) {
-                    saveEditedSession(session);
-                }
-
-                auditClose(
+                finishOrRecover(
                         session,
                         "viewer-unavailable"
                 );
@@ -871,17 +992,7 @@ public final class OfflineInspectService {
             if (viewer.getOpenInventory()
                     .getTopInventory()
                     != session.inventory()) {
-                sessions.remove(
-                        session.viewerId(),
-                        session
-                );
-                releaseEditor(session);
-
-                if (session.dirty()) {
-                    saveEditedSession(session);
-                }
-
-                auditClose(
+                finishOrRecover(
                         session,
                         "inventory-no-longer-open"
                 );
@@ -907,6 +1018,8 @@ public final class OfflineInspectService {
                 );
             }
         }
+
+        retryRecoveries();
     }
 
     private void closeForAccessChange(
@@ -921,15 +1034,10 @@ public final class OfflineInspectService {
             return;
         }
 
-        if (expected.dirty()) {
-            saveEditedSession(expected);
-        }
-
-        sessions.remove(
-                expected.viewerId(),
-                expected
+        boolean recovered = !finishOrRecover(
+                expected,
+                "access-changed"
         );
-        releaseEditor(expected);
 
         if (viewer.isOnline()
                 && viewer.getOpenInventory()
@@ -943,7 +1051,12 @@ public final class OfflineInspectService {
         if (viewer.isOnline()) {
             viewer.sendMessage(
                     TextColor.color(
-                            message(
+                            recovered
+                                    ? message(
+                                    "messages.recovery-pending",
+                                    "&cInspection closed — unsaved changes are being safely retried"
+                            )
+                                    : message(
                                     "messages.access-changed",
                                     "&cInspection closed — access changed"
                             )
@@ -951,11 +1064,6 @@ public final class OfflineInspectService {
             );
             SoundService.guiError(viewer, core);
         }
-
-        auditClose(
-                expected,
-                "access-changed"
-        );
     }
 
     private Inventory createInventory(
@@ -1024,14 +1132,23 @@ public final class OfflineInspectService {
         return inventory;
     }
 
-    private void saveEditedSession(Session session) {
+    private boolean persistDirtySession(
+            Session session,
+            boolean reportFailure
+    ) {
+        if (session == null || !session.dirty()) {
+            return true;
+        }
+
         Snapshot current = loadSnapshot(
                 session.meta().playerId()
         );
 
         if (current == null) {
-            offlineEditSaveFailed(session);
-            return;
+            if (reportFailure) {
+                offlineEditSaveFailed(session);
+            }
+            return false;
         }
 
         Snapshot updated;
@@ -1073,9 +1190,14 @@ public final class OfflineInspectService {
         updated = updated.withPending(true)
                 .withUpdatedAt(System.currentTimeMillis());
 
-        if (snapshotSaveFailed(updated)) {
-            offlineEditSaveFailed(session);
-            return;
+        if (snapshotSaveFailed(
+                updated,
+                reportFailure
+        )) {
+            if (reportFailure) {
+                offlineEditSaveFailed(session);
+            }
+            return false;
         }
 
         updateIndex(
@@ -1097,6 +1219,7 @@ public final class OfflineInspectService {
         );
 
         session.dirty = false;
+        return true;
     }
 
     private SnapshotMeta resolve(String input) {
@@ -1209,6 +1332,16 @@ public final class OfflineInspectService {
     private boolean snapshotSaveFailed(
             Snapshot snapshot
     ) {
+        return snapshotSaveFailed(
+                snapshot,
+                true
+        );
+    }
+
+    private boolean snapshotSaveFailed(
+            Snapshot snapshot,
+            boolean reportFailure
+    ) {
         YamlConfiguration yaml = new YamlConfiguration();
         yaml.set("username", snapshot.username());
         yaml.set("public-name", snapshot.publicName());
@@ -1228,12 +1361,14 @@ public final class OfflineInspectService {
             );
             return false;
         } catch (IOException | RuntimeException exception) {
-            core.getLogger().log(
-                    Level.SEVERE,
-                    "[AdminInspect] Could not safely persist offline snapshot for "
-                            + snapshot.playerId(),
-                    exception
-            );
+            if (reportFailure) {
+                core.getLogger().log(
+                        Level.SEVERE,
+                        "[AdminInspect] Could not safely persist offline snapshot for "
+                                + snapshot.playerId(),
+                        exception
+                );
+            }
             return true;
         }
     }
@@ -1507,6 +1642,190 @@ public final class OfflineInspectService {
         return items;
     }
 
+    private boolean finishOrRecover(
+            Session session,
+            String reason
+    ) {
+        if (session == null) {
+            return true;
+        }
+
+        if (session.dirty()
+                && !persistDirtySession(
+                session,
+                true
+        )) {
+            retainRecovery(
+                    session,
+                    reason + "-save-failed"
+            );
+            return false;
+        }
+
+        sessions.remove(
+                session.viewerId(),
+                session
+        );
+        recoveryByTarget.remove(
+                session.meta().playerId(),
+                session
+        );
+        releaseEditor(session);
+        auditClose(session, reason);
+        return true;
+    }
+
+    private void retainRecovery(
+            Session session,
+            String reason
+    ) {
+        UUID targetId = session.meta().playerId();
+
+        sessions.remove(
+                session.viewerId(),
+                session
+        );
+        recoveryByTarget.put(
+                targetId,
+                session
+        );
+        editorsByTarget.put(
+                targetId,
+                session.viewerId()
+        );
+        session.editable = false;
+        session.closeQueued = true;
+
+        core.getLogger().warning(
+                "[AdminInspect] session="
+                        + session.sessionId()
+                        + " entered SAVE RECOVERY for "
+                        + session.meta().username()
+                        + " ("
+                        + targetId
+                        + ") | reason="
+                        + reason
+                        + " | editor lock retained"
+        );
+    }
+
+    private void retryRecoveries() {
+        if (recoveryByTarget.isEmpty()) {
+            return;
+        }
+
+        for (Session session :
+                List.copyOf(
+                        recoveryByTarget.values()
+                )) {
+            UUID targetId =
+                    session.meta().playerId();
+            Player target =
+                    Bukkit.getPlayer(targetId);
+
+            if (target != null
+                    && target.isOnline()) {
+                discardUnsavedForTargetJoin(
+                        session,
+                        "target-became-online-during-recovery"
+                );
+                continue;
+            }
+
+            if (!persistDirtySession(
+                    session,
+                    false
+            )) {
+                continue;
+            }
+
+            recoveryByTarget.remove(
+                    targetId,
+                    session
+            );
+            releaseEditor(session);
+            auditClose(
+                    session,
+                    "save-recovery-complete"
+            );
+
+            Player viewer = Bukkit.getPlayer(
+                    session.viewerId()
+            );
+
+            if (viewer != null
+                    && viewer.isOnline()) {
+                viewer.sendMessage(
+                        TextColor.color(
+                                "&#bbbbbbOffline inventory changes for "
+                                        + "&#B078FF"
+                                        + session.meta().publicName()
+                                        + " &#bbbbbbwere saved safely"
+                        )
+                );
+            }
+        }
+    }
+
+    private void discardUnsavedForTargetJoin(
+            Session session,
+            String reason
+    ) {
+        if (session == null) {
+            return;
+        }
+
+        UUID targetId = session.meta().playerId();
+        sessions.remove(
+                session.viewerId(),
+                session
+        );
+        recoveryByTarget.remove(
+                targetId,
+                session
+        );
+        releaseEditor(session);
+        session.dirty = false;
+        session.editable = false;
+
+        core.getLogger().severe(
+                "[AdminInspect] UNSAVED offline edits were discarded for "
+                        + session.meta().username()
+                        + " ("
+                        + targetId
+                        + ") because the player joined before the edits could "
+                        + "be persisted safely | session="
+                        + session.sessionId()
+                        + " | reason="
+                        + reason
+                        + " | player state was NOT overwritten"
+        );
+
+        Player viewer = Bukkit.getPlayer(
+                session.viewerId()
+        );
+
+        if (viewer != null
+                && viewer.isOnline()) {
+            viewer.sendMessage(
+                    TextColor.color(
+                            "&cOffline inventory changes were not saved "
+                                    + "because the player joined — "
+                                    + "no unsafe changes were applied"
+                    )
+            );
+            SoundService.guiError(
+                    viewer,
+                    core
+            );
+        }
+
+        auditClose(
+                session,
+                "target-joined-unsaved-edits-discarded"
+        );
+    }
+
     private void releaseEditor(Session session) {
         if (session == null) {
             return;
@@ -1521,19 +1840,18 @@ public final class OfflineInspectService {
     private void closeViewerSession(
             Player viewer
     ) {
-        Session old = sessions.remove(viewer.getUniqueId());
+        Session old = sessions.get(
+                viewer.getUniqueId()
+        );
 
         if (old == null) {
             return;
         }
 
-        releaseEditor(old);
-
-        if (old.dirty()) {
-            saveEditedSession(old);
-        }
-
-        auditClose(old, "replaced-by-new-inspection");
+        finishOrRecover(
+                old,
+                "replaced-by-new-inspection"
+        );
     }
 
     private void auditOpen(Player viewer, Session session) {
