@@ -6,6 +6,7 @@ import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.nametag.NametagModule;
+import net.mineacle.core.webprofiles.WebProfilesModule;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -66,6 +67,7 @@ public final class VanishCommand
 
         boolean vanished = service.toggle(player);
         NametagModule.refresh(player);
+        WebProfilesModule.refreshPlayer(player);
 
         if (vanished) {
             send(

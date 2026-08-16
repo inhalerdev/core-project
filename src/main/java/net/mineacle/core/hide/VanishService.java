@@ -6,8 +6,12 @@ import net.mineacle.core.Core;
 import net.mineacle.core.collision.CollisionModule;
 import net.mineacle.core.collision.PlayerCollisionService;
 import net.mineacle.core.common.player.VanishRegistry;
+import net.mineacle.core.common.player.VanishRegistry.WebPrivacySnapshot;
 import net.mineacle.core.common.text.TextColor;
+import net.mineacle.core.stats.StatsModule;
+import net.mineacle.core.stats.service.StatsService;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Entity;
@@ -76,7 +80,27 @@ public final class VanishService {
                 try {
                     UUID playerId = UUID.fromString(raw);
                     vanished.add(playerId);
-                    VanishRegistry.setVanished(playerId, true);
+
+                    WebPrivacySnapshot snapshot =
+                            loadWebPrivacySnapshot(
+                                    playerId
+                            );
+
+                    if (snapshot == null) {
+                        snapshot =
+                                fallbackWebPrivacySnapshot(
+                                        playerId
+                                );
+                    }
+
+                    VanishRegistry.setWebPrivacySnapshot(
+                            playerId,
+                            snapshot
+                    );
+                    VanishRegistry.setVanished(
+                            playerId,
+                            true
+                    );
                 } catch (IllegalArgumentException ignored) {
                     // Ignore malformed persisted UUIDs safely.
                 }
@@ -194,6 +218,11 @@ public final class VanishService {
         }
 
         UUID playerId = player.getUniqueId();
+
+        VanishRegistry.setWebPrivacySnapshot(
+                playerId,
+                captureWebPrivacySnapshot(player)
+        );
         vanished.add(playerId);
         VanishRegistry.setVanished(playerId, true);
         applyVanishedState(player);
@@ -325,6 +354,158 @@ public final class VanishService {
                 "messages." + path,
                 fallback
         );
+    }
+
+    private WebPrivacySnapshot captureWebPrivacySnapshot(
+            Player player
+    ) {
+        if (player == null) {
+            return new WebPrivacySnapshot(
+                    0L,
+                    "0m",
+                    0L,
+                    0L,
+                    0.0D,
+                    0L
+            );
+        }
+
+        UUID playerId = player.getUniqueId();
+        StatsService stats = StatsModule.statsService();
+
+        long playtime = stats == null
+                ? 0L
+                : stats.playtimeSeconds(playerId);
+        long kills = stats == null
+                ? 0L
+                : stats.kills(playerId);
+        long deaths = stats == null
+                ? 0L
+                : stats.deaths(playerId);
+
+        return new WebPrivacySnapshot(
+                playtime,
+                stats == null
+                        ? formatPlaytime(playtime)
+                        : stats.formatPlaytime(playtime),
+                kills,
+                deaths,
+                kdRatio(kills, deaths),
+                System.currentTimeMillis()
+        );
+    }
+
+    private WebPrivacySnapshot fallbackWebPrivacySnapshot(
+            UUID playerId
+    ) {
+        StatsService stats = StatsModule.statsService();
+
+        long playtime = stats == null
+                ? 0L
+                : stats.playtimeSeconds(playerId);
+        long kills = stats == null
+                ? 0L
+                : stats.kills(playerId);
+        long deaths = stats == null
+                ? 0L
+                : stats.deaths(playerId);
+
+        OfflinePlayer offline =
+                Bukkit.getOfflinePlayer(playerId);
+        long lastSeen = Math.max(
+                0L,
+                offline.getLastSeen()
+        );
+
+        return new WebPrivacySnapshot(
+                playtime,
+                stats == null
+                        ? formatPlaytime(playtime)
+                        : stats.formatPlaytime(playtime),
+                kills,
+                deaths,
+                kdRatio(kills, deaths),
+                lastSeen
+        );
+    }
+
+    private WebPrivacySnapshot loadWebPrivacySnapshot(
+            UUID playerId
+    ) {
+        String path =
+                "web-privacy."
+                        + playerId
+                        + ".";
+
+        if (!config.contains(
+                path + "playtime-seconds"
+        )) {
+            return null;
+        }
+
+        return new WebPrivacySnapshot(
+                config.getLong(
+                        path + "playtime-seconds",
+                        0L
+                ),
+                config.getString(
+                        path + "playtime-formatted",
+                        "0m"
+                ),
+                config.getLong(
+                        path + "kills",
+                        0L
+                ),
+                config.getLong(
+                        path + "deaths",
+                        0L
+                ),
+                config.getDouble(
+                        path + "kd-ratio",
+                        0.0D
+                ),
+                config.getLong(
+                        path + "last-seen",
+                        0L
+                )
+        );
+    }
+
+    private double kdRatio(
+            long kills,
+            long deaths
+    ) {
+        if (deaths <= 0L) {
+            return Math.max(0L, kills);
+        }
+
+        return Math.round(
+                (kills / (double) deaths)
+                        * 100.0D
+        ) / 100.0D;
+    }
+
+    private String formatPlaytime(long totalSeconds) {
+        long safe = Math.max(
+                0L,
+                totalSeconds
+        );
+        long days = safe / 86400L;
+        long hours =
+                (safe % 86400L) / 3600L;
+        long minutes =
+                (safe % 3600L) / 60L;
+
+        if (days > 0L) {
+            return days + "d " + hours + "h";
+        }
+
+        if (hours > 0L) {
+            return hours + "h "
+                    + minutes + "m";
+        }
+
+        return minutes + "m";
     }
 
     private void refreshCollision(Player player) {
@@ -488,6 +669,59 @@ public final class VanishService {
         }
 
         config.set("vanished", values);
+        config.set("web-privacy", null);
+
+        if (persistAcrossRestarts()) {
+            for (UUID playerId : vanished) {
+                WebPrivacySnapshot snapshot =
+                        VanishRegistry
+                                .webPrivacySnapshot(
+                                        playerId
+                                );
+
+                if (snapshot == null) {
+                    snapshot =
+                            fallbackWebPrivacySnapshot(
+                                    playerId
+                            );
+                    VanishRegistry
+                            .setWebPrivacySnapshot(
+                                    playerId,
+                                    snapshot
+                            );
+                }
+
+                String path =
+                        "web-privacy."
+                                + playerId
+                                + ".";
+
+                config.set(
+                        path + "playtime-seconds",
+                        snapshot.playtimeSeconds()
+                );
+                config.set(
+                        path + "playtime-formatted",
+                        snapshot.playtimeFormatted()
+                );
+                config.set(
+                        path + "kills",
+                        snapshot.kills()
+                );
+                config.set(
+                        path + "deaths",
+                        snapshot.deaths()
+                );
+                config.set(
+                        path + "kd-ratio",
+                        snapshot.kdRatio()
+                );
+                config.set(
+                        path + "last-seen",
+                        snapshot.lastSeen()
+                );
+            }
+        }
 
         File temporary = new File(
                 file.getParentFile(),

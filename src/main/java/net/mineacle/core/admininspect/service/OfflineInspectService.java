@@ -15,10 +15,12 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryAction;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
@@ -35,6 +37,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.logging.Level;
 
 public final class OfflineInspectService {
 
@@ -73,6 +76,7 @@ public final class OfflineInspectService {
 
     private YamlConfiguration settings;
     private YamlConfiguration indexConfig;
+    private BukkitTask validationTask;
 
     public OfflineInspectService(Core core) {
         this.core = core;
@@ -102,8 +106,47 @@ public final class OfflineInspectService {
 
     public void start() {
         for (Player player : Bukkit.getOnlinePlayers()) {
+            Snapshot snapshot = loadSnapshot(
+                    player.getUniqueId()
+            );
+
+            if (snapshot != null && snapshot.pending()) {
+                core.getServer().getScheduler().runTaskLater(
+                        core,
+                        () -> {
+                            if (player.isOnline()) {
+                                applyPending(player);
+                            }
+                        },
+                        applyDelayTicks()
+                );
+                continue;
+            }
+
             capture(player);
         }
+
+        if (validationTask != null) {
+            validationTask.cancel();
+        }
+
+        long validationTicks = Math.clamp(
+                settings.getLong(
+                        "session-validation-ticks",
+                        20L
+                ),
+                5L,
+                200L
+        );
+
+        validationTask = core.getServer()
+                .getScheduler()
+                .runTaskTimer(
+                        core,
+                        this::validateSessions,
+                        validationTicks,
+                        validationTicks
+                );
     }
 
     public long applyDelayTicks() {
@@ -298,6 +341,14 @@ public final class OfflineInspectService {
                 continue;
             }
 
+            if (meta.protectedPlayer()
+                    && !viewer.hasPermission(
+                    AdminInspectService
+                            .PROTECTED_BYPASS_PERMISSION
+            )) {
+                continue;
+            }
+
             String publicName = meta.publicName();
             String normalized = normalize(publicName);
 
@@ -324,7 +375,11 @@ public final class OfflineInspectService {
             return Access.NONE;
         }
 
-        if (!viewer.hasPermission(session.type().permission())) {
+        if (accessDenied(viewer, session)) {
+            scheduleAccessClose(
+                    viewer,
+                    session
+            );
             return Access.UNAUTHORIZED;
         }
 
@@ -332,11 +387,14 @@ public final class OfflineInspectService {
             return Access.READ_ONLY;
         }
 
-        if (!viewer.hasPermission(
-                session.type().modifyPermission()
+        if (!canModify(
+                viewer,
+                session.type()
         )) {
-            session.editable = false;
-            releaseEditor(session);
+            downgradeToReadOnly(
+                    viewer,
+                    session
+            );
             return Access.READ_ONLY;
         }
 
@@ -416,7 +474,7 @@ public final class OfflineInspectService {
         sessions.remove(viewer.getUniqueId());
         releaseEditor(session);
 
-        if (session.editable() && session.dirty()) {
+        if (session.dirty()) {
             saveEditedSession(session);
         }
 
@@ -436,7 +494,7 @@ public final class OfflineInspectService {
 
         releaseEditor(session);
 
-        if (session.editable() && session.dirty()) {
+        if (session.dirty()) {
             saveEditedSession(session);
         }
 
@@ -481,29 +539,52 @@ public final class OfflineInspectService {
             return;
         }
 
-        PlayerInventory inventory = player.getInventory();
-        inventory.setStorageContents(
-                copyArray(snapshot.storage(), STORAGE_SIZE)
-        );
-        inventory.setArmorContents(
-                copyArray(snapshot.armor(), 4)
-        );
-        inventory.setItemInOffHand(
-                cloneItem(snapshot.offhand())
-        );
+        /*
+         * Pending offline edits are transactional from the player's point of
+         * view. Keep a same-tick rollback image until both the real playerdata
+         * and the Mineacle acknowledgement have been persisted successfully.
+         * This prevents a failed pending=false write from replaying stale
+         * inventory data over a player's newer inventory on a later join.
+         */
+        LiveInventoryState original = captureLiveState(player);
 
-        Inventory enderChest = player.getEnderChest();
-        ItemStack[] ender = copyArray(
-                snapshot.enderChest(),
-                enderChest.getSize()
-        );
-        enderChest.setContents(ender);
+        try {
+            applySnapshotToPlayer(player, snapshot);
+            player.saveData();
+        } catch (RuntimeException exception) {
+            rollbackPendingApply(
+                    player,
+                    original,
+                    "player-data-save-failed",
+                    exception
+            );
+            return;
+        }
 
-        Snapshot applied = snapshot.withPending(false);
-        saveSnapshot(applied);
-        updateIndex(player, applied.updatedAt());
+        boolean protectedPlayer =
+                player.hasPermission(
+                        AdminInspectService.PROTECTED_PERMISSION
+                ) || snapshot.protectedPlayer()
+                || previouslyProtected(
+                        player.getUniqueId()
+                );
+
+        Snapshot applied = snapshot
+                .withProtected(protectedPlayer)
+                .withPending(false);
+
+        if (snapshotSaveFailed(applied)) {
+            rollbackPendingApply(
+                    player,
+                    original,
+                    "snapshot-acknowledgement-failed",
+                    null
+            );
+            return;
+        }
+
+        updateIndex(player, applied);
         player.updateInventory();
-        player.saveData();
 
         core.getLogger().info(
                 "[AdminInspect] Applied pending offline inventory changes to "
@@ -519,14 +600,38 @@ public final class OfflineInspectService {
             return;
         }
 
+        Snapshot existing = loadSnapshot(
+                player.getUniqueId()
+        );
+
+        /*
+         * Never overwrite a committed offline edit that is still waiting to
+         * be applied. This covers rapid re-log, shutdown/reload during the
+         * join delay, and persistence-failure retries.
+         */
+        if (existing != null && existing.pending()) {
+            core.getLogger().info(
+                    "[AdminInspect] Preserved pending offline snapshot for "
+                            + player.getName()
+                            + " ("
+                            + player.getUniqueId()
+                            + ") during live capture"
+            );
+            return;
+        }
+
+        UUID playerId = player.getUniqueId();
         PlayerInventory inventory = player.getInventory();
-        Snapshot snapshot = new Snapshot(
-                player.getUniqueId(),
-                player.getName(),
-                DisplayNames.commandDisplayName(player),
+        boolean protectedPlayer =
                 player.hasPermission(
                         AdminInspectService.PROTECTED_PERMISSION
-                ),
+                ) || previouslyProtected(playerId);
+
+        Snapshot snapshot = new Snapshot(
+                playerId,
+                player.getName(),
+                DisplayNames.commandDisplayName(player),
+                protectedPlayer,
                 false,
                 cloneArray(inventory.getStorageContents()),
                 cloneArray(inventory.getArmorContents()),
@@ -535,11 +640,26 @@ public final class OfflineInspectService {
                 System.currentTimeMillis()
         );
 
-        saveSnapshot(snapshot);
-        updateIndex(player, snapshot.updatedAt());
+        if (snapshotSaveFailed(snapshot)) {
+            core.getLogger().severe(
+                    "[AdminInspect] Snapshot capture failed for "
+                            + player.getName()
+                            + " ("
+                            + player.getUniqueId()
+                            + ") — index was not advanced"
+            );
+            return;
+        }
+
+        updateIndex(player, snapshot);
     }
 
     public void shutdown() {
+        if (validationTask != null) {
+            validationTask.cancel();
+            validationTask = null;
+        }
+
         for (Player player : Bukkit.getOnlinePlayers()) {
             capture(player);
         }
@@ -549,7 +669,7 @@ public final class OfflineInspectService {
 
             if (viewer != null && viewer.isOnline()) {
                 viewer.closeInventory();
-            } else if (session.editable() && session.dirty()) {
+            } else if (session.dirty()) {
                 saveEditedSession(session);
             }
         }
@@ -592,6 +712,250 @@ public final class OfflineInspectService {
                 "offline-editing.allow-creative",
                 false
         ) || viewer.getGameMode() != GameMode.CREATIVE;
+    }
+
+    private boolean accessDenied(
+            Player viewer,
+            Session session
+    ) {
+        if (viewer == null
+                || session == null
+                || !viewer.isOnline()
+                || !viewer.hasPermission(
+                session.type().permission()
+        )) {
+            return true;
+        }
+
+        SnapshotMeta meta = session.meta();
+        UUID targetId = meta.playerId();
+
+        Player online = Bukkit.getPlayer(targetId);
+
+        if (online != null && online.isOnline()) {
+            return true;
+        }
+
+        boolean self = viewer.getUniqueId()
+                .equals(targetId);
+
+        if (self && !viewer.hasPermission(
+                session.type().selfPermission()
+        )) {
+            return true;
+        }
+
+        if (VanishRegistry.isVanished(targetId)
+                && !viewer.hasPermission(
+                AdminInspectService.HIDDEN_PERMISSION
+        )) {
+            return true;
+        }
+
+        return meta.protectedPlayer()
+                && !viewer.hasPermission(
+                AdminInspectService
+                        .PROTECTED_BYPASS_PERMISSION
+        );
+    }
+
+    private void downgradeToReadOnly(
+            Player viewer,
+            Session session
+    ) {
+        if (session == null || !session.editable()) {
+            return;
+        }
+
+        /*
+         * Changes already made while the viewer was authorized must not be
+         * discarded just because modify access changed afterward. Commit the
+         * dirty state first; if persistence fails the dirty flag remains true
+         * and close/shutdown gets another save attempt.
+         */
+        if (session.dirty()) {
+            saveEditedSession(session);
+        }
+
+        releaseEditor(session);
+        session.editable = false;
+
+        if (viewer != null && viewer.isOnline()) {
+            viewer.sendActionBar(
+                    GuiText.component(
+                            message(
+                                    "messages.downgraded-read-only",
+                                    "&#bbbbbbInspection changed to &#D0AFFFRead Only"
+                            )
+                    )
+            );
+        }
+
+        if (settings.getBoolean(
+                "audit.enabled",
+                true
+        )) {
+            core.getLogger().info(
+                    "[AdminInspect] session="
+                            + session.sessionId()
+                            + " changed to READ_ONLY"
+                            + " | reason=edit-access-changed"
+                            + " | target="
+                            + session.meta().username()
+                            + " ("
+                            + session.meta().playerId()
+                            + ")"
+            );
+        }
+    }
+
+    private void scheduleAccessClose(
+            Player viewer,
+            Session expected
+    ) {
+        if (viewer == null
+                || expected == null
+                || expected.closeQueued) {
+            return;
+        }
+
+        expected.closeQueued = true;
+        UUID viewerId = viewer.getUniqueId();
+
+        core.getServer().getScheduler().runTask(
+                core,
+                () -> {
+                    Session current = sessions.get(viewerId);
+
+                    if (current != expected) {
+                        return;
+                    }
+
+                    closeForAccessChange(
+                            viewer,
+                            expected
+                    );
+                }
+        );
+    }
+
+    private void validateSessions() {
+        if (sessions.isEmpty()) {
+            return;
+        }
+
+        for (Session session :
+                List.copyOf(sessions.values())) {
+            Player viewer = Bukkit.getPlayer(
+                    session.viewerId()
+            );
+
+            if (viewer == null || !viewer.isOnline()) {
+                sessions.remove(
+                        session.viewerId(),
+                        session
+                );
+                releaseEditor(session);
+
+                if (session.dirty()) {
+                    saveEditedSession(session);
+                }
+
+                auditClose(
+                        session,
+                        "viewer-unavailable"
+                );
+                continue;
+            }
+
+            if (viewer.getOpenInventory()
+                    .getTopInventory()
+                    != session.inventory()) {
+                sessions.remove(
+                        session.viewerId(),
+                        session
+                );
+                releaseEditor(session);
+
+                if (session.dirty()) {
+                    saveEditedSession(session);
+                }
+
+                auditClose(
+                        session,
+                        "inventory-no-longer-open"
+                );
+                continue;
+            }
+
+            if (accessDenied(viewer, session)) {
+                closeForAccessChange(
+                        viewer,
+                        session
+                );
+                continue;
+            }
+
+            if (session.editable()
+                    && !canModify(
+                    viewer,
+                    session.type()
+            )) {
+                downgradeToReadOnly(
+                        viewer,
+                        session
+                );
+            }
+        }
+    }
+
+    private void closeForAccessChange(
+            Player viewer,
+            Session expected
+    ) {
+        Session current = sessions.get(
+                expected.viewerId()
+        );
+
+        if (current != expected) {
+            return;
+        }
+
+        if (expected.dirty()) {
+            saveEditedSession(expected);
+        }
+
+        sessions.remove(
+                expected.viewerId(),
+                expected
+        );
+        releaseEditor(expected);
+
+        if (viewer.isOnline()
+                && viewer.getOpenInventory()
+                .getTopInventory()
+                == expected.inventory()) {
+            viewer.closeInventory(
+                    InventoryCloseEvent.Reason.CANT_USE
+            );
+        }
+
+        if (viewer.isOnline()) {
+            viewer.sendMessage(
+                    TextColor.color(
+                            message(
+                                    "messages.access-changed",
+                                    "&cInspection closed — access changed"
+                            )
+                    )
+            );
+            SoundService.guiError(viewer, core);
+        }
+
+        auditClose(
+                expected,
+                "access-changed"
+        );
     }
 
     private Inventory createInventory(
@@ -666,6 +1030,7 @@ public final class OfflineInspectService {
         );
 
         if (current == null) {
+            offlineEditSaveFailed(session);
             return;
         }
 
@@ -707,7 +1072,12 @@ public final class OfflineInspectService {
 
         updated = updated.withPending(true)
                 .withUpdatedAt(System.currentTimeMillis());
-        saveSnapshot(updated);
+
+        if (snapshotSaveFailed(updated)) {
+            offlineEditSaveFailed(session);
+            return;
+        }
+
         updateIndex(
                 session.meta().playerId(),
                 updated
@@ -725,6 +1095,8 @@ public final class OfflineInspectService {
                         + " | modification-events="
                         + session.modificationEvents()
         );
+
+        session.dirty = false;
     }
 
     private SnapshotMeta resolve(String input) {
@@ -834,7 +1206,9 @@ public final class OfflineInspectService {
         );
     }
 
-    private void saveSnapshot(Snapshot snapshot) {
+    private boolean snapshotSaveFailed(
+            Snapshot snapshot
+    ) {
         YamlConfiguration yaml = new YamlConfiguration();
         yaml.set("username", snapshot.username());
         yaml.set("public-name", snapshot.publicName());
@@ -852,25 +1226,167 @@ public final class OfflineInspectService {
                     yaml,
                     snapshotFile(snapshot.playerId())
             );
-        } catch (IOException exception) {
-            core.getLogger().warning(
-                    "[AdminInspect] Could not save offline snapshot for "
-                            + snapshot.playerId()
-                            + ": "
-                            + exception.getMessage()
+            return false;
+        } catch (IOException | RuntimeException exception) {
+            core.getLogger().log(
+                    Level.SEVERE,
+                    "[AdminInspect] Could not safely persist offline snapshot for "
+                            + snapshot.playerId(),
+                    exception
+            );
+            return true;
+        }
+    }
+
+    private LiveInventoryState captureLiveState(Player player) {
+        PlayerInventory inventory = player.getInventory();
+
+        return new LiveInventoryState(
+                cloneArray(inventory.getStorageContents()),
+                cloneArray(inventory.getArmorContents()),
+                cloneItem(inventory.getItemInOffHand()),
+                cloneArray(player.getEnderChest().getContents())
+        );
+    }
+
+    private void applySnapshotToPlayer(
+            Player player,
+            Snapshot snapshot
+    ) {
+        PlayerInventory inventory = player.getInventory();
+        inventory.setStorageContents(
+                copyArray(snapshot.storage(), STORAGE_SIZE)
+        );
+        inventory.setArmorContents(
+                copyArray(snapshot.armor(), 4)
+        );
+        inventory.setItemInOffHand(
+                cloneItem(snapshot.offhand())
+        );
+
+        Inventory enderChest = player.getEnderChest();
+        enderChest.setContents(
+                copyArray(
+                        snapshot.enderChest(),
+                        enderChest.getSize()
+                )
+        );
+    }
+
+    private void restoreLiveState(
+            Player player,
+            LiveInventoryState state
+    ) {
+        PlayerInventory inventory = player.getInventory();
+        inventory.setStorageContents(
+                copyArray(state.storage(), STORAGE_SIZE)
+        );
+        inventory.setArmorContents(
+                copyArray(state.armor(), 4)
+        );
+        inventory.setItemInOffHand(
+                cloneItem(state.offhand())
+        );
+
+        Inventory enderChest = player.getEnderChest();
+        enderChest.setContents(
+                copyArray(
+                        state.enderChest(),
+                        enderChest.getSize()
+                )
+        );
+    }
+
+    private void rollbackPendingApply(
+            Player player,
+            LiveInventoryState original,
+            String reason,
+            RuntimeException cause
+    ) {
+        boolean rollbackSaved = false;
+
+        try {
+            restoreLiveState(player, original);
+            player.updateInventory();
+            player.saveData();
+            rollbackSaved = true;
+        } catch (RuntimeException rollbackException) {
+            core.getLogger().log(
+                    Level.SEVERE,
+                    "[AdminInspect] CRITICAL: could not persist rollback for "
+                            + player.getName()
+                            + " ("
+                            + player.getUniqueId()
+                            + ") after failed offline apply",
+                    rollbackException
+            );
+        }
+
+        String message =
+                "[AdminInspect] Offline inventory apply aborted for "
+                        + player.getName()
+                        + " ("
+                        + player.getUniqueId()
+                        + ") | reason="
+                        + reason
+                        + " | rollback-saved="
+                        + rollbackSaved
+                        + " | pending snapshot retained for safe retry";
+
+        if (cause == null) {
+            core.getLogger().severe(message);
+        } else {
+            core.getLogger().log(
+                    Level.SEVERE,
+                    message,
+                    cause
             );
         }
     }
 
-    private void updateIndex(Player player, long updatedAt) {
+    private void offlineEditSaveFailed(Session session) {
+        core.getLogger().severe(
+                "[AdminInspect] session="
+                        + session.sessionId()
+                        + " FAILED to persist OFFLINE edits for "
+                        + session.meta().username()
+                        + " ("
+                        + session.meta().playerId()
+                        + ") | type="
+                        + session.type().name()
+                        + " | new changes were not persisted"
+        );
+
+        Player viewer = Bukkit.getPlayer(session.viewerId());
+
+        if (viewer != null && viewer.isOnline()) {
+            fail(
+                    viewer,
+                    "messages.offline-save-failed",
+                    "&cOffline inventory changes could not be saved safely — no new changes will be applied"
+            );
+        }
+    }
+
+    private void updateIndex(
+            Player player,
+            Snapshot snapshot
+    ) {
+        boolean protectedPlayer =
+                snapshot.protectedPlayer()
+                        || player.hasPermission(
+                        AdminInspectService.PROTECTED_PERMISSION
+                )
+                        || previouslyProtected(
+                        player.getUniqueId()
+                );
+
         SnapshotMeta meta = new SnapshotMeta(
                 player.getUniqueId(),
                 player.getName(),
                 DisplayNames.commandDisplayName(player),
-                player.hasPermission(
-                        AdminInspectService.PROTECTED_PERMISSION
-                ),
-                updatedAt
+                protectedPlayer,
+                snapshot.updatedAt()
         );
         index.put(meta.playerId(), meta);
         writeIndexMeta(meta);
@@ -888,6 +1404,20 @@ public final class OfflineInspectService {
         index.put(playerId, meta);
         writeIndexMeta(meta);
         saveIndex();
+    }
+
+    private boolean previouslyProtected(
+            UUID playerId
+    ) {
+        SnapshotMeta meta = index.get(playerId);
+
+        if (meta != null && meta.protectedPlayer()) {
+            return true;
+        }
+
+        Snapshot snapshot = loadSnapshot(playerId);
+        return snapshot != null
+                && snapshot.protectedPlayer();
     }
 
     private void writeIndexMeta(SnapshotMeta meta) {
@@ -978,7 +1508,7 @@ public final class OfflineInspectService {
     }
 
     private void releaseEditor(Session session) {
-        if (session == null || !session.editable()) {
+        if (session == null) {
             return;
         }
 
@@ -999,7 +1529,7 @@ public final class OfflineInspectService {
 
         releaseEditor(old);
 
-        if (old.editable() && old.dirty()) {
+        if (old.dirty()) {
             saveEditedSession(old);
         }
 
@@ -1208,6 +1738,7 @@ public final class OfflineInspectService {
         private final long openedAt;
         private boolean editable;
         private boolean dirty;
+        private boolean closeQueued;
         private int modificationEvents;
 
         private Session(
@@ -1265,6 +1796,14 @@ public final class OfflineInspectService {
         }
     }
 
+    private record LiveInventoryState(
+            ItemStack[] storage,
+            ItemStack[] armor,
+            ItemStack offhand,
+            ItemStack[] enderChest
+    ) {
+    }
+
     private record SnapshotMeta(
             UUID playerId,
             String username,
@@ -1286,6 +1825,23 @@ public final class OfflineInspectService {
             ItemStack[] enderChest,
             long updatedAt
     ) {
+        private Snapshot withProtected(
+                boolean value
+        ) {
+            return new Snapshot(
+                    playerId,
+                    username,
+                    publicName,
+                    value,
+                    pending,
+                    storage,
+                    armor,
+                    offhand,
+                    enderChest,
+                    updatedAt
+            );
+        }
+
         private Snapshot withPending(boolean value) {
             return new Snapshot(
                     playerId,

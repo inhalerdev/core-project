@@ -539,6 +539,7 @@ permissions:
       mineacleadmin.inspect.modify: true
       mineacleadmin.inspect.hidden: true
       mineacleadmin.inspect.protected.bypass: true
+      mineacleadmin.inspect.protected: true
 
   mineacleshulkerpreview.use:
     default: false

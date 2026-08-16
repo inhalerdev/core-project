@@ -30,3 +30,8 @@ messages:
 
 # Runtime state. Do not edit while the server is running.
 vanished: []
+
+# Public web-profile presence snapshot for persisted vanish.
+# Core maintains this automatically so a vanished Admin/Developer does not
+# leak current playtime, combat activity, world movement, or hidden join time.
+web-privacy: {}
