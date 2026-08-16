@@ -56,6 +56,15 @@ abstract class AbstractInspectCommand
             return true;
         }
 
+        if (!viewer.hasPermission(type.permission())) {
+            service.fail(
+                    viewer,
+                    OpenResult.NO_PERMISSION,
+                    type
+            );
+            return true;
+        }
+
         if (args.length != 1) {
             service.fail(
                     viewer,
@@ -71,9 +80,24 @@ abstract class AbstractInspectCommand
         );
 
         if (target == null) {
+            String offlinePublicName =
+                    exactOfflinePublicName(
+                            viewer,
+                            args[0]
+                    );
+
+            if (offlinePublicName == null) {
+                service.fail(
+                        viewer,
+                        OpenResult.TARGET_UNAVAILABLE,
+                        type
+                );
+                return true;
+            }
+
             offlineService.open(
                     viewer,
-                    args[0],
+                    offlinePublicName,
                     type
             );
             return true;
@@ -111,9 +135,8 @@ abstract class AbstractInspectCommand
         Map<String, String> merged =
                 new LinkedHashMap<>();
 
-        for (String value : service.completions(
+        for (String value : onlineCompletions(
                 viewer,
-                type,
                 args[0]
         )) {
             merged.putIfAbsent(
@@ -139,24 +162,154 @@ abstract class AbstractInspectCommand
         return List.copyOf(result);
     }
 
+    private String exactOfflinePublicName(
+            Player viewer,
+            String input
+    ) {
+        String normalized = normalize(input);
+
+        if (normalized.isEmpty()) {
+            return null;
+        }
+
+        String match = null;
+
+        for (String value : offlineService.completions(
+                viewer,
+                type,
+                input
+        )) {
+            if (!normalize(value).equals(normalized)) {
+                continue;
+            }
+
+            match = value;
+        }
+
+        return match;
+    }
+
+    private List<String> onlineCompletions(
+            Player viewer,
+            String input
+    ) {
+        if (!viewer.hasPermission(type.permission())) {
+            return List.of();
+        }
+
+        String partial = normalize(input);
+        boolean includeSelf =
+                viewer.hasPermission(type.selfPermission());
+        boolean includeHidden =
+                viewer.hasPermission(
+                        AdminInspectService.HIDDEN_PERMISSION
+                );
+        boolean bypassProtected =
+                viewer.hasPermission(
+                        AdminInspectService
+                                .PROTECTED_BYPASS_PERMISSION
+                );
+
+        Map<String, String> unique =
+                new LinkedHashMap<>();
+
+        for (Player target : Bukkit.getOnlinePlayers()) {
+            if (!target.isOnline() || target.isDead()) {
+                continue;
+            }
+
+            boolean self = target.getUniqueId()
+                    .equals(viewer.getUniqueId());
+
+            if (self && !includeSelf) {
+                continue;
+            }
+
+            boolean hidden = VanishRegistry.isVanished(
+                    target.getUniqueId()
+            );
+
+            if (!self && hidden && !includeHidden) {
+                continue;
+            }
+
+            if (!self
+                    && !viewer.canSee(target)
+                    && !includeHidden) {
+                continue;
+            }
+
+            if (!self
+                    && target.hasPermission(
+                    AdminInspectService.PROTECTED_PERMISSION
+            )
+                    && !bypassProtected) {
+                continue;
+            }
+
+            String publicName =
+                    DisplayNames.commandDisplayName(target);
+
+            if (publicName == null || publicName.isBlank()) {
+                continue;
+            }
+
+            if (!partial.isEmpty()
+                    && !normalize(publicName)
+                    .startsWith(partial)) {
+                continue;
+            }
+
+            unique.putIfAbsent(
+                    normalize(publicName),
+                    publicName
+            );
+        }
+
+        List<String> result =
+                new ArrayList<>(unique.values());
+        result.sort(String.CASE_INSENSITIVE_ORDER);
+        return List.copyOf(result);
+    }
+
     private Player resolveOnlineForInspector(
             Player viewer,
             String input
     ) {
         String normalized = normalize(input);
         Player match = null;
+        boolean includeHidden =
+                viewer.hasPermission(
+                        AdminInspectService.HIDDEN_PERMISSION
+                );
+        boolean bypassProtected =
+                viewer.hasPermission(
+                        AdminInspectService
+                                .PROTECTED_BYPASS_PERMISSION
+                );
 
         for (Player online : Bukkit.getOnlinePlayers()) {
+            boolean self = online.getUniqueId()
+                    .equals(viewer.getUniqueId());
             boolean hidden = VanishRegistry.isVanished(
                     online.getUniqueId()
             );
-            boolean authorizedHidden =
-                    viewer.hasPermission(
-                            AdminInspectService.HIDDEN_PERMISSION
-                    );
 
-            if (!viewer.canSee(online)
-                    && !(hidden && authorizedHidden)) {
+            if (!self && hidden && !includeHidden) {
+                continue;
+            }
+
+            if (!self
+                    && !viewer.canSee(online)
+                    && !includeHidden) {
+                continue;
+            }
+
+            if (!self
+                    && online.hasPermission(
+                    AdminInspectService.PROTECTED_PERMISSION
+            )
+                    && !bypassProtected) {
                 continue;
             }
 
