@@ -4,6 +4,9 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.model.AuctionHouseListing;
+import net.mineacle.core.common.player.DisplayNames;
+import net.mineacle.core.common.text.TextColor;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -63,9 +66,13 @@ public final class AuctionHouseDatabaseMirror {
     private final AtomicLong generation = new AtomicLong(System.currentTimeMillis());
 
     /*
-     * Listing payloads are immutable for the life of a listing. Caching the
-     * serialized item avoids rebuilding every ItemStack NBT blob during each
-     * 60-second website reconciliation pass.
+     * Listing item payloads are immutable for the life of a listing. Caching
+     * the serialized item avoids rebuilding every ItemStack NBT blob during
+     * each 60-second website reconciliation pass.
+     *
+     * Seller display identity is deliberately NOT trusted from this cache.
+     * Nicknames may change while a listing is active, so each mirror snapshot
+     * resolves the current public Mineacle identity from the seller UUID.
      */
     private final Object payloadCacheLock = new Object();
     private final LinkedHashMap<UUID, MirrorPayload> payloadCache =
@@ -287,6 +294,7 @@ public final class AuctionHouseDatabaseMirror {
             long lifetimeMillis
     ) {
         MirrorPayload payload = cachedPayload(listing);
+        String sellerName = publicSellerName(listing);
         long expiresAt = safeAdd(
                 listing.createdAt(),
                 Math.max(0L, lifetimeMillis)
@@ -295,7 +303,12 @@ public final class AuctionHouseDatabaseMirror {
                 ? "EXPIRED"
                 : "ACTIVE";
 
-        return new MirrorListing(payload, expiresAt, status);
+        return new MirrorListing(
+                payload,
+                sellerName,
+                expiresAt,
+                status
+        );
     }
 
     private MirrorPayload cachedPayload(AuctionHouseListing listing) {
@@ -403,7 +416,6 @@ public final class AuctionHouseDatabaseMirror {
         return new MirrorPayload(
                 listing.id(),
                 listing.owner(),
-                listing.ownerName(),
                 item.getType(),
                 itemDisplayName(item),
                 listing.amount(),
@@ -411,6 +423,32 @@ public final class AuctionHouseDatabaseMirror {
                 listing.priceCents(),
                 listing.createdAt()
         );
+    }
+
+    /**
+     * Public website identity only. UUID remains the stable seller authority;
+     * the mirrored name follows Mineacle's nickname-or-username rule and is
+     * resolved for every mirror snapshot so nickname changes repair active rows.
+     */
+    private String publicSellerName(AuctionHouseListing listing) {
+        String display = TextColor.strip(
+                DisplayNames.commandDisplayName(
+                        Bukkit.getOfflinePlayer(listing.owner())
+                )
+        );
+
+        if (display.isBlank()) {
+            display = TextColor.strip(listing.ownerName());
+        }
+
+        display = display
+                .replace('\n', ' ')
+                .replace('\r', ' ')
+                .trim();
+
+        return display.isBlank()
+                ? "Unknown"
+                : display;
     }
 
     private void submit(Runnable task) {
@@ -643,6 +681,7 @@ public final class AuctionHouseDatabaseMirror {
                     sync_generation
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
+                    seller_name = VALUES(seller_name),
                     status = VALUES(status),
                     updated_at = VALUES(updated_at),
                     sync_generation = VALUES(sync_generation)
@@ -657,7 +696,7 @@ public final class AuctionHouseDatabaseMirror {
         MirrorPayload payload = listing.payload();
         statement.setString(1, payload.id().toString());
         statement.setString(2, payload.sellerId().toString());
-        statement.setString(3, limit(payload.sellerName(), 16));
+        statement.setString(3, limit(listing.sellerName(), 16));
         statement.setString(4, payload.material().name());
         statement.setString(5, limit(payload.itemName(), 128));
         statement.setInt(6, payload.amount());
@@ -839,7 +878,6 @@ public final class AuctionHouseDatabaseMirror {
     private record MirrorPayload(
             UUID id,
             UUID sellerId,
-            String sellerName,
             Material material,
             String itemName,
             int amount,
@@ -848,7 +886,6 @@ public final class AuctionHouseDatabaseMirror {
             long createdAt
     ) {
         private MirrorPayload {
-            sellerName = sellerName == null ? "" : sellerName;
             itemName = itemName == null ? "" : itemName;
             itemNbt = itemNbt == null ? new byte[0] : itemNbt.clone();
             amount = Math.max(1, amount);
@@ -867,8 +904,14 @@ public final class AuctionHouseDatabaseMirror {
 
     private record MirrorListing(
             MirrorPayload payload,
+            String sellerName,
             long expiresAt,
             String status
     ) {
+        private MirrorListing {
+            sellerName = sellerName == null || sellerName.isBlank()
+                    ? "Unknown"
+                    : sellerName;
+        }
     }
 }

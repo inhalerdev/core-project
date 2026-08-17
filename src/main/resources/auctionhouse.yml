@@ -24,8 +24,9 @@ database:
     socket-timeout-millis: 5000
     failure-backoff-seconds: 15
 
-    # Reuses immutable serialized listing payloads without allowing the mirror
-    # cache to grow without bound. 32 MiB is ample for normal market items.
+    # Reuses immutable serialized listing item payloads without allowing the
+    # mirror cache to grow without bound. Public seller identity is intentionally
+    # resolved fresh on each reconciliation so nickname changes repair DB rows.
     payload-cache-max-bytes: 33554432
 
 browse:
@@ -42,12 +43,15 @@ browse:
 listing:
   allow-default: true
 
+  # Default players can occupy the first 18 listing cells in Your Listings.
+  # The expanded permission tier can use all 45 listing cells on one page.
   default-slots: 18
-  elevated-slots: 27
+  elevated-slots: 45
   admin-slots: 999
 
-  # LuckPerms capability authority. No rank/group-name fallback is used.
-  elevated-permission: mineacle.plus
+  # Capability authority only. Grant this permission to Plus and Media in
+  # LuckPerms rather than checking group/rank names in code.
+  elevated-permission: mineacleauctionhouse.slots.45
 
   min-price: 1
   max-price: 1B

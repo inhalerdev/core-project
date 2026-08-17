@@ -353,6 +353,9 @@ permissions:
   mineacle.plus:
     default: false
 
+  mineacleauctionhouse.slots.45:
+    default: false
+
   mineacle.gamemode:
     default: false
     children:
@@ -555,6 +558,7 @@ permissions:
     children:
       mineacleauctionhouse.use: true
       mineacleauctionhouse.sell: true
+      mineacleauctionhouse.slots.45: true
 
   mineacleweb.verify:
     default: false
