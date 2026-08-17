@@ -81,6 +81,8 @@ public final class AuctionHouseGuiListener implements Listener {
                 && !(holder
                 instanceof AuctionHouseGui.OwnHolder)
                 && !(holder
+                instanceof AuctionHouseGui.HistoryHolder)
+                && !(holder
                 instanceof AuctionHouseGui.ConfirmBuyHolder)
                 && !(holder
                 instanceof AuctionHouseGui.ConfirmCancelHolder)) {
@@ -128,6 +130,8 @@ public final class AuctionHouseGuiListener implements Listener {
                         "shulker-preview.enabled",
                         true
                 )
+                && !(holder
+                instanceof AuctionHouseGui.HistoryHolder)
                 && event.isRightClick()
                 && empty(
                 event.getCursor()
@@ -155,6 +159,12 @@ public final class AuctionHouseGuiListener implements Listener {
                             event,
                             player,
                             own
+                    );
+            case AuctionHouseGui.HistoryHolder history ->
+                    handleHistory(
+                            event,
+                            player,
+                            history
                     );
             case AuctionHouseGui.ConfirmBuyHolder confirmBuy ->
                     handleConfirmBuy(
@@ -186,6 +196,8 @@ public final class AuctionHouseGuiListener implements Listener {
                 instanceof AuctionHouseGui.BrowseHolder)
                 && !(holder
                 instanceof AuctionHouseGui.OwnHolder)
+                && !(holder
+                instanceof AuctionHouseGui.HistoryHolder)
                 && !(holder
                 instanceof AuctionHouseGui.ConfirmBuyHolder)
                 && !(holder
@@ -554,6 +566,38 @@ public final class AuctionHouseGuiListener implements Listener {
             return;
         }
 
+        if (slot >= 0
+                && slot < service.pageSize()
+                && slot >= service.listingLimit(
+                player
+        )
+                && service.listingLimit(
+                player
+        ) < service.elevatedListingLimit()) {
+            SoundService.mineaclePlus(
+                    player,
+                    core
+            );
+            player.sendActionBar(
+                    GuiText.component(
+                            service.text(
+                                    "messages.plus-slots-cta",
+                                    "&#bbbbbbUnlock all &#B078FF"
+                                            + service.elevatedListingLimit()
+                                            + " &#bbbbbbAuction slots with &#B078FFMineacle+"
+                            )
+                    )
+            );
+            MenuHistory.close(
+                    core,
+                    player
+            );
+            player.performCommand(
+                    "store"
+            );
+            return;
+        }
+
         if (slot
                 == AuctionHouseGui.ownPreviousSlot()
                 && holder.page() > 0) {
@@ -581,6 +625,29 @@ public final class AuctionHouseGuiListener implements Listener {
                     AuctionHouseService
                             .FilterMode.ALL,
                     ""
+            );
+            return;
+        }
+
+        if (slot
+                == AuctionHouseGui.ownHistorySlot()) {
+            SoundService.guiSelect(
+                    player,
+                    core
+            );
+            MenuHistory.openChild(
+                    core,
+                    player,
+                    () -> AuctionHouseGui.openOwn(
+                            player,
+                            service,
+                            holder.page()
+                    ),
+                    () -> AuctionHouseGui.openHistory(
+                            player,
+                            service,
+                            0
+                    )
             );
             return;
         }
@@ -617,6 +684,73 @@ public final class AuctionHouseGuiListener implements Listener {
                     core
             );
             replaceOwn(
+                    player,
+                    holder.page() + 1
+            );
+        }
+    }
+
+    private void handleHistory(
+            InventoryClickEvent event,
+            Player player,
+            AuctionHouseGui.HistoryHolder holder
+    ) {
+        int slot =
+                event.getRawSlot();
+
+        if (slot
+                == AuctionHouseGui.historyPreviousSlot()
+                && holder.page() > 0) {
+            SoundService.guiPage(
+                    player,
+                    core
+            );
+            replaceHistory(
+                    player,
+                    holder.page() - 1
+            );
+            return;
+        }
+
+        if (slot
+                == AuctionHouseGui.historyBackSlot()) {
+            SoundService.guiBack(
+                    player,
+                    core
+            );
+
+            if (!MenuHistory.back(
+                    core,
+                    player
+            )) {
+                replaceOwn(
+                        player,
+                        0
+                );
+            }
+            return;
+        }
+
+        if (slot
+                == AuctionHouseGui.historyRefreshSlot()) {
+            SoundService.guiRefresh(
+                    player,
+                    core
+            );
+            replaceHistory(
+                    player,
+                    holder.page()
+            );
+            return;
+        }
+
+        if (slot
+                == AuctionHouseGui.historyNextSlot()) {
+            SoundService.guiPage(
+                    player,
+                    core
+            );
+            replaceHistory(
                     player,
                     holder.page() + 1
             );
@@ -1775,6 +1909,35 @@ public final class AuctionHouseGuiListener implements Listener {
                         sortMode,
                         filterMode,
                         query
+                )
+        );
+    }
+
+    private void replaceHistory(
+            Player player,
+            int page
+    ) {
+        if (lacksUsePermission(player)) {
+            MenuHistory.close(
+                    core,
+                    player
+            );
+            fail(
+                    player,
+                    core.getMessage(
+                            "general.no-permission"
+                    )
+            );
+            return;
+        }
+
+        MenuHistory.openWithoutBackTrigger(
+                core,
+                player,
+                () -> AuctionHouseGui.openHistory(
+                        player,
+                        service,
+                        page
                 )
         );
     }
