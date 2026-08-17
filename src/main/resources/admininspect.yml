@@ -5,6 +5,7 @@
 # - Live/offline item changes require the matching *.modify permission
 # - Hidden/vanished players require mineacleadmin.inspect.hidden
 # - Targets marked protected require mineacleadmin.inspect.protected.bypass
+# - Offline snapshots fail closed after an unclean player/server session
 
 session-validation-ticks: 20
 read-only-feedback-cooldown-millis: 750
@@ -27,24 +28,34 @@ offline-editing:
   # rewrite raw world/playerdata NBT while a player is offline.
   enabled: true
 
-  # Match live inspection hardening: Creative inspectors are read-only by
-  # default so creative clone/packet behavior cannot become an item source.
+  # Creative inspectors are read-only by default so creative clone/packet
+  # behavior cannot become an item source.
   allow-creative: false
 
-  # A snapshot is captured from the real live Player on quit. Authorized edits
-  # are applied five ticks after the next join, after normal player data loads.
+  # Authorized offline edits are applied shortly after the target joins, after
+  # normal playerdata has loaded. The writeback is protected by a transaction
+  # UUID stored in player PDC so a crash cannot replay an already-applied edit.
   apply-delay-ticks: 5
 
-  # Safety invariant: Mineacle always permits only one editable offline session
-  # per target. Read-only viewers may still inspect the same snapshot.
+  # The in-memory lookup index is coalesced instead of rewriting the full index
+  # on every player quit. Individual player snapshots remain atomic/durable.
+  index-flush-ticks: 100
+
+  # Safety invariants:
+  # - only one editable offline session exists per target
+  # - staff inventory is never a transfer destination/source for offline edits
+  # - an unclean online-session marker makes the old snapshot unavailable until
+  #   that player reconnects and reaches a clean capture
+  # - unresolved target-owned cursor state discards unsaved synthetic edits
+  #   instead of risking item loss or duplication
 
 audit:
   enabled: true
 
-  # Keep session open/close auditing and modification counts, but do not emit
-  # one console line for every normal authorized inventory click/drag.
-  # Blocked/suspicious actions still log separately.
+  # Keep session open/close auditing and a final slot delta without producing
+  # one console line for every normal authorized click or drag.
   log-modifications: false
+  max-delta-slots: 24
 
 messages:
   no-permission: '&cYou do not have permission to inspect player inventories'
@@ -52,6 +63,11 @@ messages:
   usage-ender-chest: '&cUsage: /echest <player>'
   target-unavailable: '&cThat player is unavailable'
   offline-data-unavailable: '&cOffline inventory data is not available for that player yet'
+  offline-stale: '&cOffline inventory data is stale — that player must reconnect before it can be inspected'
+  protection-refresh: '&cPlayer protection is being verified — try again'
+  pending-target-change: '&cThat player already has offline inventory changes waiting to apply'
+  recovery-pending: '&cInspection closed — unsaved changes are being safely retried'
+  offline-save-failed: '&cOffline inventory changes could not be saved safely — no new changes will be applied'
   self-inventory: '&cYou cannot inspect your own inventory'
   self-ender-chest: '&cYou cannot inspect your own ender chest'
   protected: '&cYou cannot inspect that player'

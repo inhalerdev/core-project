@@ -4,7 +4,6 @@ import net.mineacle.core.Core;
 import net.mineacle.core.admininspect.service.OfflineInspectService;
 import net.mineacle.core.admininspect.service.OfflineInspectService.Access;
 import net.mineacle.core.admininspect.service.OfflineInspectService.Session;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -18,18 +17,12 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
-
 @SuppressWarnings("unused")
 public final class OfflineInspectListener
         implements Listener {
 
     private final Core core;
     private final OfflineInspectService service;
-    private final Set<UUID> targetOwnedCursors =
-            new HashSet<>();
 
     public OfflineInspectListener(
             Core core,
@@ -89,11 +82,9 @@ public final class OfflineInspectListener
         int rawSlot = event.getRawSlot();
 
         /*
-         * Offline inspection edits a detached Mineacle snapshot. The lower
-         * inventory belongs to the live inspector and is a different
-         * persistence domain, so cross-inventory transfer is intentionally
-         * denied. This removes the item-loss/duplication window that existed
-         * when an offline target item could be moved into staff playerdata.
+         * Offline editing is a detached target snapshot. Never permit a click
+         * against the inspector's live lower inventory or outside the target
+         * inventory while this transaction domain is open.
          */
         if (rawSlot < 0 || rawSlot >= topSize) {
             event.setCancelled(true);
@@ -101,26 +92,22 @@ public final class OfflineInspectListener
             return;
         }
 
-        if (service.blockedTopSlot(
-                session,
-                rawSlot
-        )) {
+        if (service.blockedTopSlot(session, rawSlot)) {
             event.setCancelled(true);
             service.blockedFeedback(viewer);
             return;
         }
 
-        UUID viewerId = viewer.getUniqueId();
         ItemStack cursor = event.getCursor();
 
         /*
-         * Every non-empty cursor used in an offline edit must have originated
-         * from this target snapshot. A foreign cursor is rejected instead of
-         * allowing a plugin/client edge case to inject an inspector item into
-         * the offline player's pending data.
+         * A non-empty cursor may interact with the offline snapshot only when
+         * it was obtained from that snapshot during this exact session. This
+         * prevents staff/playerdata items from being injected through unusual
+         * client or plugin inventory sequences.
          */
         if (hasItem(cursor)
-                && !targetOwnedCursors.contains(viewerId)) {
+                && service.targetCursorUnowned(viewer)) {
             event.setCancelled(true);
             service.blockedFeedback(viewer);
             return;
@@ -131,7 +118,7 @@ public final class OfflineInspectListener
                 cursor,
                 event.getCurrentItem()
         )) {
-            targetOwnedCursors.add(viewerId);
+            service.markTargetCursorOwned(viewer);
         }
 
         if (action != InventoryAction.NOTHING) {
@@ -164,7 +151,13 @@ public final class OfflineInspectListener
                 event.getView().getTopInventory()
         );
 
-        if (access != Access.EDITABLE) {
+        if (access == Access.UNAUTHORIZED) {
+            event.setCancelled(true);
+            viewer.closeInventory();
+            return;
+        }
+
+        if (access == Access.READ_ONLY) {
             event.setCancelled(true);
             service.readOnlyFeedback(viewer);
             return;
@@ -182,23 +175,19 @@ public final class OfflineInspectListener
                 return;
             }
 
-            touchesTarget = true;
-
-            if (service.blockedTopSlot(
-                    session,
-                    rawSlot
-            )) {
+            if (service.blockedTopSlot(session, rawSlot)) {
                 event.setCancelled(true);
                 service.blockedFeedback(viewer);
                 return;
             }
+
+            touchesTarget = true;
         }
 
-        UUID viewerId = viewer.getUniqueId();
         ItemStack oldCursor = event.getOldCursor();
 
         if (hasItem(oldCursor)
-                && !targetOwnedCursors.contains(viewerId)) {
+                && service.targetCursorUnowned(viewer)) {
             event.setCancelled(true);
             service.blockedFeedback(viewer);
             return;
@@ -217,40 +206,40 @@ public final class OfflineInspectListener
             return;
         }
 
-        Inventory targetInventory =
-                event.getView().getTopInventory();
-        Session session = service.session(
-                viewer,
-                targetInventory
-        );
+        Inventory targetInventory = event.getView().getTopInventory();
+        Session session = service.session(viewer, targetInventory);
 
         if (session == null) {
-            targetOwnedCursors.remove(
-                    viewer.getUniqueId()
-            );
             return;
         }
 
-        if (!returnTargetCursor(
-                viewer,
-                session
-        )) {
-            scheduleRecoveryReopen(
+        /*
+         * Cursor return is simulated atomically by the service. A failed return
+         * makes no partial target mutation, so reopening cannot duplicate a
+         * partially merged stack.
+         */
+        if (!service.resolveTargetCursor(viewer, session)) {
+            service.abortUnresolvedCursor(
                     viewer,
-                    session
+                    session,
+                    "inventory-close-cursor-unresolved"
             );
             return;
         }
 
-        service.close(
-                viewer,
-                targetInventory
-        );
+        service.close(viewer, targetInventory);
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+
+        /*
+         * The durable online marker is established before any pending offline
+         * edit is considered. An old marker means the previous JVM/session was
+         * unclean and causes stale snapshots to fail closed.
+         */
+        service.playerJoined(player);
         service.targetJoining(player);
 
         core.getServer().getScheduler().runTaskLater(
@@ -267,27 +256,16 @@ public final class OfflineInspectListener
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
-        Session session = service.session(
-                player,
-                player.getOpenInventory()
-                        .getTopInventory()
-        );
 
-        if (session != null) {
-            returnTargetCursor(
-                    player,
-                    session
-            );
-        } else {
-            targetOwnedCursors.remove(
-                    player.getUniqueId()
-            );
-        }
-
+        /*
+         * Session finalization runs before the inspector/player snapshot. If a
+         * target-owned cursor cannot be returned in full, the service clears
+         * the synthetic cursor and discards the unsaved detached session rather
+         * than allowing either item loss or transfer into staff playerdata.
+         */
         service.viewerQuit(player);
         service.capture(player);
     }
-
 
     private boolean isBundleAction(InventoryAction action) {
         return action == InventoryAction.PICKUP_FROM_BUNDLE
@@ -313,176 +291,13 @@ public final class OfflineInspectListener
                 || action == InventoryAction.PICKUP_SOME;
     }
 
-    private void reconcileCursorOwnershipNextTick(
-            Player viewer
-    ) {
-        UUID viewerId = viewer.getUniqueId();
-
+    private void reconcileCursorOwnershipNextTick(Player viewer) {
         core.getServer().getScheduler().runTask(
                 core,
                 () -> {
-                    if (!viewer.isOnline()) {
-                        targetOwnedCursors.remove(viewerId);
-                        return;
+                    if (viewer.isOnline()) {
+                        service.reconcileTargetCursorOwnership(viewer);
                     }
-
-                    if (!hasItem(viewer.getItemOnCursor())) {
-                        targetOwnedCursors.remove(viewerId);
-                    }
-                }
-        );
-    }
-
-    private boolean returnTargetCursor(
-            Player viewer,
-            Session session
-    ) {
-        UUID viewerId = viewer.getUniqueId();
-
-        if (!targetOwnedCursors.contains(viewerId)) {
-            return true;
-        }
-
-        ItemStack cursor = viewer.getItemOnCursor();
-
-        if (!hasItem(cursor)) {
-            targetOwnedCursors.remove(viewerId);
-            return true;
-        }
-
-        ItemStack remaining = cursor.clone();
-        Inventory target = session.inventory();
-
-        mergeIntoExistingStacks(
-                session,
-                target,
-                remaining
-        );
-        placeIntoEmptySlots(
-                session,
-                target,
-                remaining
-        );
-
-        if (remaining.getAmount() > 0) {
-            core.getLogger().severe(
-                    "[AdminInspect] Could not return target-owned cursor item "
-                            + "to offline inspection session for viewer="
-                            + viewerId
-            );
-            service.blockedFeedback(viewer);
-            return false;
-        }
-
-        viewer.setItemOnCursor(
-                new ItemStack(Material.AIR)
-        );
-        targetOwnedCursors.remove(viewerId);
-        service.recordModification(viewer);
-        return true;
-    }
-
-    private void mergeIntoExistingStacks(
-            Session session,
-            Inventory target,
-            ItemStack remaining
-    ) {
-        for (int slot = 0;
-             slot < target.getSize()
-                     && remaining.getAmount() > 0;
-             slot++) {
-            if (service.blockedTopSlot(
-                    session,
-                    slot
-            )) {
-                continue;
-            }
-
-            ItemStack existing = target.getItem(slot);
-
-            if (!hasItem(existing)
-                    || !existing.isSimilar(remaining)) {
-                continue;
-            }
-
-            int maxStack = existing.getMaxStackSize();
-            int free = maxStack - existing.getAmount();
-
-            if (free <= 0) {
-                continue;
-            }
-
-            int moved = Math.min(
-                    free,
-                    remaining.getAmount()
-            );
-            ItemStack merged = existing.clone();
-            merged.setAmount(existing.getAmount() + moved);
-            target.setItem(slot, merged);
-            remaining.setAmount(
-                    remaining.getAmount() - moved
-            );
-        }
-    }
-
-    private void placeIntoEmptySlots(
-            Session session,
-            Inventory target,
-            ItemStack remaining
-    ) {
-        for (int slot = 0;
-             slot < target.getSize()
-                     && remaining.getAmount() > 0;
-             slot++) {
-            if (service.blockedTopSlot(
-                    session,
-                    slot
-            )) {
-                continue;
-            }
-
-            ItemStack existing = target.getItem(slot);
-
-            if (hasItem(existing)) {
-                continue;
-            }
-
-            int moved = Math.min(
-                    remaining.getMaxStackSize(),
-                    remaining.getAmount()
-            );
-            ItemStack placed = remaining.clone();
-            placed.setAmount(moved);
-            target.setItem(slot, placed);
-            remaining.setAmount(
-                    remaining.getAmount() - moved
-            );
-        }
-    }
-
-    private void scheduleRecoveryReopen(
-            Player viewer,
-            Session session
-    ) {
-        core.getServer().getScheduler().runTask(
-                core,
-                () -> {
-                    if (!viewer.isOnline()) {
-                        return;
-                    }
-
-                    Session current = service.session(
-                            viewer,
-                            session.inventory()
-                    );
-
-                    if (current != session) {
-                        return;
-                    }
-
-                    viewer.openInventory(
-                            session.inventory()
-                    );
                 }
         );
     }
