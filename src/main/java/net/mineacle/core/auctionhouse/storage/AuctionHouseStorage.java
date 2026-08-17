@@ -3,6 +3,7 @@ package net.mineacle.core.auctionhouse.storage;
 import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.model.AuctionHouseListing;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
 
@@ -20,7 +21,9 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -30,7 +33,7 @@ public final class AuctionHouseStorage {
     private static final String EXTENSION =
             ".yml";
     private static final int MINIMUM_ITEM_BYTES = 16_384;
-    private static final int MAXIMUM_ITEM_BYTES = 4_194_304;
+    private static final int MAXIMUM_ITEM_BYTES = 1_048_576;
     private static final long YAML_OVERHEAD_BYTES = 65_536L;
     private static final long MAXIMUM_RECEIPT_BYTES = 262_144L;
 
@@ -142,21 +145,19 @@ public final class AuctionHouseStorage {
         return List.copyOf(result);
     }
 
-    public List<PurchaseRecovery>
-    loadRecoveries() {
+    public LegacyRecoveryLoadResult loadRecoveries() {
         initialize();
 
         File[] files =
-                recoveryFolder.listFiles(
-                        (directory, name) ->
-                                name.endsWith(
-                                        EXTENSION
-                                )
-                );
+                recoveryFolder.listFiles();
 
-        if (files == null
-                || files.length == 0) {
-            return List.of();
+        if (files == null) {
+            return new LegacyRecoveryLoadResult(
+                    List.of(),
+                    List.of(
+                            "legacy recovery directory could not be read"
+                    )
+            );
         }
 
         List<File> ordered =
@@ -170,20 +171,105 @@ public final class AuctionHouseStorage {
         );
 
         List<PurchaseRecovery> result =
-                new ArrayList<>(
-                        ordered.size()
-                );
+                new ArrayList<>();
+        List<String> problems =
+                new ArrayList<>();
+        Map<UUID, UUID> listingTransactions =
+                new LinkedHashMap<>();
 
         for (File file : ordered) {
-            PurchaseRecovery recovery =
-                    readRecovery(file);
+            if (Files.isSymbolicLink(
+                    file.toPath()
+            )
+                    || !file.isFile()) {
+                problems.add(
+                        file.getName()
+                                + " • unexpected non-regular legacy recovery entry"
+                );
+                continue;
+            }
 
-            if (recovery != null) {
+            if (!file.getName()
+                    .endsWith(
+                            EXTENSION
+                    )) {
+                problems.add(
+                        file.getName()
+                                + " • unexpected file in legacy recovery storage"
+                );
+                continue;
+            }
+
+            try {
+                PurchaseRecovery recovery =
+                        readRecoveryStrict(
+                                file
+                        );
+                String expectedName =
+                        recovery.transactionId()
+                                + EXTENSION;
+
+                if (!file.getName()
+                        .equals(
+                                expectedName
+                        )) {
+                    problems.add(
+                            file.getName()
+                                    + " • filename does not match legacy transaction id "
+                                    + recovery.transactionId()
+                    );
+                    continue;
+                }
+
+                UUID previousTransaction =
+                        listingTransactions.putIfAbsent(
+                                recovery.listing()
+                                        .id(),
+                                recovery.transactionId()
+                        );
+
+                if (previousTransaction != null
+                        && !previousTransaction.equals(
+                        recovery.transactionId()
+                )) {
+                    problems.add(
+                            file.getName()
+                                    + " • listing "
+                                    + recovery.listing()
+                                    .id()
+                                    + " is referenced by multiple legacy recoveries"
+                    );
+                }
+
                 result.add(recovery);
+            } catch (
+                    IOException
+                    | InvalidConfigurationException
+                    | RuntimeException exception
+            ) {
+                core.getLogger().log(
+                        Level.SEVERE,
+                        "Could not safely read auction legacy recovery "
+                                + file.getName(),
+                        exception
+                );
+                problems.add(
+                        file.getName()
+                                + " • unreadable or invalid legacy recovery"
+                );
             }
         }
 
-        return List.copyOf(result);
+        result.sort(
+                Comparator.comparingLong(
+                        PurchaseRecovery::createdAt
+                )
+        );
+
+        return new LegacyRecoveryLoadResult(
+                result,
+                problems
+        );
     }
 
     public boolean listingExists(
@@ -360,7 +446,7 @@ public final class AuctionHouseStorage {
         }
     }
 
-    public boolean recordSaleReceipt(
+    public synchronized boolean recordSaleReceipt(
             UUID transactionId,
             UUID sellerId,
             String itemName,
@@ -385,10 +471,25 @@ public final class AuctionHouseStorage {
         }
 
         YamlConfiguration yaml =
-                file.isFile()
-                        ? YamlConfiguration
-                        .loadConfiguration(file)
-                        : new YamlConfiguration();
+                new YamlConfiguration();
+
+        if (file.isFile()) {
+            try {
+                yaml.load(file);
+            } catch (
+                    IOException
+                    | InvalidConfigurationException
+                    | RuntimeException exception
+            ) {
+                core.getLogger().log(
+                        Level.SEVERE,
+                        "Could not safely read Auction House sale receipt "
+                                + file.getName(),
+                        exception
+                );
+                return false;
+            }
+        }
 
         List<String> transactionIds =
                 new ArrayList<>(
@@ -462,10 +563,9 @@ public final class AuctionHouseStorage {
         );
         yaml.set(
                 "last-item",
-                itemName == null
-                        || itemName.isBlank()
-                        ? "Item"
-                        : itemName
+                boundedItemName(
+                        itemName
+                )
         );
         yaml.set(
                 "last-price-cents",
@@ -480,7 +580,7 @@ public final class AuctionHouseStorage {
         );
     }
 
-    public SaleReceipt loadSaleReceipt(
+    public synchronized SaleReceipt loadSaleReceipt(
             UUID sellerId
     ) {
         if (sellerId == null) {
@@ -503,8 +603,24 @@ public final class AuctionHouseStorage {
         }
 
         YamlConfiguration yaml =
-                YamlConfiguration
-                        .loadConfiguration(file);
+                new YamlConfiguration();
+
+        try {
+            yaml.load(file);
+        } catch (
+                IOException
+                | InvalidConfigurationException
+                | RuntimeException exception
+        ) {
+            core.getLogger().log(
+                    Level.SEVERE,
+                    "Could not safely read Auction House sale receipt "
+                            + file.getName(),
+                    exception
+            );
+            return null;
+        }
+
         int count =
                 Math.max(
                         0,
@@ -522,9 +638,11 @@ public final class AuctionHouseStorage {
                         )
                 );
         String lastItem =
-                yaml.getString(
-                        "last-item",
-                        "Item"
+                boundedItemName(
+                        yaml.getString(
+                                "last-item",
+                                "Item"
+                        )
                 );
         long lastPriceCents =
                 Math.max(
@@ -549,7 +667,7 @@ public final class AuctionHouseStorage {
         );
     }
 
-    public boolean clearSaleReceipt(
+    public synchronized boolean clearSaleReceipt(
             UUID sellerId
     ) {
         return sellerId != null
@@ -673,7 +791,8 @@ public final class AuctionHouseStorage {
 
         if (invalidListing(
                 item,
-                priceCents
+                priceCents,
+                createdAt
         )) {
             core.getLogger().warning(
                     "Skipped invalid legacy auction listing "
@@ -733,84 +852,103 @@ public final class AuctionHouseStorage {
         }
     }
 
-    private PurchaseRecovery readRecovery(
+    private PurchaseRecovery readRecoveryStrict(
             File file
-    ) {
+    ) throws IOException, InvalidConfigurationException {
         if (storageFileTooLarge(file)) {
-            core.getLogger().severe(
-                    "Skipped oversized auction recovery file "
-                            + file.getName()
+            throw new IOException(
+                    "Legacy recovery exceeds configured safety limit"
             );
-            return null;
         }
 
-        try {
-            YamlConfiguration yaml =
-                    YamlConfiguration
-                            .loadConfiguration(
-                                    file
-                            );
+        YamlConfiguration yaml =
+                new YamlConfiguration();
+        yaml.load(file);
 
-            UUID transactionId =
-                    UUID.fromString(
-                            yaml.getString(
-                                    "transaction-id",
-                                    ""
-                            )
-                    );
-            PurchaseState state =
-                    PurchaseState.valueOf(
-                            yaml.getString(
-                                    "state",
-                                    "PREPARED"
-                            )
-                                    .trim()
-                                    .toUpperCase(
-                                            Locale.ROOT
-                                    )
-                    );
-            UUID buyer =
-                    UUID.fromString(
-                            yaml.getString(
-                                    "buyer",
-                                    ""
-                            )
-                    );
-            String buyerName =
-                    yaml.getString(
-                            "buyer-name",
-                            "Unknown"
-                    );
-            long createdAt =
-                    yaml.getLong(
-                            "created-at",
-                            System.currentTimeMillis()
-                    );
-            AuctionHouseListing listing =
-                    readListing(yaml);
+        requireRecoveryFields(yaml);
 
-            if (listing == null) {
+        UUID transactionId =
+                UUID.fromString(
+                        yaml.getString(
+                                "transaction-id",
+                                ""
+                        )
+                );
+        PurchaseState state =
+                PurchaseState.valueOf(
+                        yaml.getString(
+                                        "state",
+                                        "PREPARED"
+                                )
+                                .trim()
+                                .toUpperCase(
+                                        Locale.ROOT
+                                )
+                );
+        UUID buyer =
+                UUID.fromString(
+                        yaml.getString(
+                                "buyer",
+                                ""
+                        )
+                );
+        String buyerName =
+                yaml.getString(
+                        "buyer-name",
+                        "Unknown"
+                );
+        long createdAt =
+                yaml.getLong(
+                        "created-at"
+                );
+
+        if (createdAt <= 0L) {
+            throw new IllegalStateException(
+                    "Invalid legacy recovery created-at"
+            );
+        }
+
+        AuctionHouseListing listing =
+                readListing(yaml);
+
+        if (listing == null) {
+            throw new IllegalStateException(
+                    "Missing recovery listing"
+            );
+        }
+
+        return new PurchaseRecovery(
+                transactionId,
+                state,
+                listing,
+                buyer,
+                buyerName,
+                createdAt
+        );
+    }
+
+    private static void requireRecoveryFields(
+            YamlConfiguration yaml
+    ) {
+        for (String path : List.of(
+                "transaction-id",
+                "state",
+                "buyer",
+                "buyer-name",
+                "created-at",
+                "listing.id",
+                "listing.owner",
+                "listing.owner-name",
+                "listing.price-cents",
+                "listing.created-at",
+                "listing.item-nbt"
+        )) {
+            if (!yaml.contains(path)) {
                 throw new IllegalStateException(
-                        "Missing recovery listing"
+                        "Missing required recovery field "
+                                + path
                 );
             }
-
-            return new PurchaseRecovery(
-                    transactionId,
-                    state,
-                    listing,
-                    buyer,
-                    buyerName,
-                    createdAt
-            );
-        } catch (RuntimeException exception) {
-            core.getLogger().log(
-                    Level.SEVERE,
-                    "Could not read auction recovery file "
-                            + file.getName(),
-                    exception
-            );
-            return null;
         }
     }
 
@@ -874,7 +1012,8 @@ public final class AuctionHouseStorage {
 
         if (invalidListing(
                 item,
-                priceCents
+                priceCents,
+                createdAt
         )) {
             return null;
         }
@@ -975,12 +1114,14 @@ public final class AuctionHouseStorage {
 
     private boolean invalidListing(
             ItemStack item,
-            long priceCents
+            long priceCents,
+            long createdAt
     ) {
         return item == null
                 || item.getType().isAir()
                 || item.getAmount() <= 0
-                || priceCents <= 0L;
+                || priceCents <= 0L
+                || createdAt <= 0L;
     }
 
     private boolean atomicSave(
@@ -1188,6 +1329,35 @@ public final class AuctionHouseStorage {
         }
     }
 
+    private static String boundedItemName(
+            String input
+    ) {
+        String value =
+                input == null
+                        || input.isBlank()
+                        ? "Item"
+                        : input
+                        .replace(
+                                '\n',
+                                ' '
+                        )
+                        .replace(
+                                '\r',
+                                ' '
+                        )
+                        .trim();
+
+        if (value.length()
+                > 128) {
+            return value.substring(
+                    0,
+                    128
+            );
+        }
+
+        return value;
+    }
+
     private boolean receiptFileTooLarge(
             File file
     ) {
@@ -1263,6 +1433,30 @@ public final class AuctionHouseStorage {
                 transactionId
                         + EXTENSION
         );
+    }
+
+    public record LegacyRecoveryLoadResult(
+            List<PurchaseRecovery> recoveries,
+            List<String> problems
+    ) {
+        public LegacyRecoveryLoadResult {
+            recoveries =
+                    recoveries == null
+                            ? List.of()
+                            : List.copyOf(
+                            recoveries
+                    );
+            problems =
+                    problems == null
+                            ? List.of()
+                            : List.copyOf(
+                            problems
+                    );
+        }
+
+        public boolean healthy() {
+            return problems.isEmpty();
+        }
     }
 
     public record SaleReceipt(

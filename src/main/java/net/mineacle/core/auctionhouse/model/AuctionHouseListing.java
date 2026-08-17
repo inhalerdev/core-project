@@ -92,6 +92,10 @@ public final class AuctionHouseListing {
         return serializedItem.clone();
     }
 
+    public int serializedItemSize() {
+        return serializedItem.length;
+    }
+
     public long priceCents() {
         return priceCents;
     }

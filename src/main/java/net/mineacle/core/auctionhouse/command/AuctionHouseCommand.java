@@ -157,6 +157,17 @@ public final class AuctionHouseCommand
             return true;
         }
 
+        if (service.searchRateLimited(
+                player
+        )) {
+            failPath(
+                    player,
+                    "messages.search-cooldown",
+                    "&cPlease wait before searching again"
+            );
+            return true;
+        }
+
         String query =
                 service.sanitizeSearchQuery(
                         rawQuery
@@ -185,6 +196,16 @@ public final class AuctionHouseCommand
         }
 
         service.load();
+
+        if (!service.healthy()) {
+            fail(
+                    player,
+                    TextColor.color(
+                            "&cAuction House reload completed but the system remains safety-blocked &#bbbbbb— use &#D0AFFF/ah recovery"
+                    )
+            );
+            return;
+        }
 
         player.sendMessage(
                 TextColor.color(
@@ -424,6 +445,18 @@ public final class AuctionHouseCommand
                             player,
                             "messages.oversized-item",
                             "&cThat item contains too much data to list safely"
+                    );
+            case APPRAISAL_FAILED ->
+                    failPath(
+                            player,
+                            "messages.appraisal-failed",
+                            "&cCould not verify the current server sell value — try again"
+                    );
+            case MARKET_FULL ->
+                    failPath(
+                            player,
+                            "messages.market-full",
+                            "&cThe Auction House is at its global safety limit — try again later"
                     );
             case STORAGE_ERROR ->
                     failPath(

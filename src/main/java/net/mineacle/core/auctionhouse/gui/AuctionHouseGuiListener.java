@@ -222,18 +222,7 @@ public final class AuctionHouseGuiListener implements Listener {
             return;
         }
 
-        int topSize =
-                event.getView()
-                        .getTopInventory()
-                        .getSize();
-
-        for (int rawSlot
-                : event.getRawSlots()) {
-            if (rawSlot < topSize) {
-                event.setCancelled(true);
-                return;
-            }
-        }
+        event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -635,19 +624,42 @@ public final class AuctionHouseGuiListener implements Listener {
                     player,
                     core
             );
-            MenuHistory.openChild(
-                    core,
-                    player,
-                    () -> AuctionHouseGui.openOwn(
-                            player,
-                            service,
-                            holder.page()
-                    ),
-                    () -> AuctionHouseGui.openHistory(
-                            player,
-                            service,
-                            0
-                    )
+
+            service.loadHistoryAsync(
+                    player.getUniqueId(),
+                    () -> {
+                        if (!player.isOnline()
+                                || player.getOpenInventory()
+                                .getTopInventory()
+                                .getHolder()
+                                != holder) {
+                            return;
+                        }
+
+                        MenuHistory.openChild(
+                                core,
+                                player,
+                                () -> AuctionHouseGui.openOwn(
+                                        player,
+                                        service,
+                                        holder.page()
+                                ),
+                                () -> AuctionHouseGui.openHistory(
+                                        player,
+                                        service,
+                                        0
+                                )
+                        );
+                    },
+                    () -> {
+                        if (player.isOnline()) {
+                            failPath(
+                                    player,
+                                    "messages.history-unavailable",
+                                    "&cTransaction history is temporarily unavailable"
+                            );
+                        }
+                    }
             );
             return;
         }
@@ -966,6 +978,12 @@ public final class AuctionHouseGuiListener implements Listener {
                             "messages.payment-failed",
                             "&cCould not safely complete that payment"
                     );
+            case APPRAISAL_FAILED ->
+                    failPath(
+                            player,
+                            "messages.appraisal-failed",
+                            "&cCould not verify the current server sell value — try again"
+                    );
             case STORAGE_ERROR ->
                     failPath(
                             player,
@@ -1169,6 +1187,32 @@ public final class AuctionHouseGuiListener implements Listener {
                         held.getAmount()
                 );
 
+        ItemStack worthItem =
+                held.clone();
+        worthItem.setAmount(
+                amount
+        );
+
+        long serverSell =
+                service.serverSellCents(
+                        player,
+                        worthItem
+                );
+        long minimumPrice =
+                service.minimumListingPriceCents(
+                        player,
+                        worthItem
+                );
+
+        if (minimumPrice < 0L) {
+            failPath(
+                    player,
+                    "messages.appraisal-failed",
+                    "&cCould not verify the current server sell value — try again"
+            );
+            return;
+        }
+
         ItemStack preview =
                 held.clone();
         preview.setAmount(1);
@@ -1200,23 +1244,6 @@ public final class AuctionHouseGuiListener implements Listener {
                         )
                 )
         );
-
-        ItemStack worthItem =
-                held.clone();
-        worthItem.setAmount(
-                amount
-        );
-
-        long serverSell =
-                service.serverSellCents(
-                        player,
-                        worthItem
-                );
-        long minimumPrice =
-                service.minimumListingPriceCents(
-                        player,
-                        worthItem
-                );
 
         if (serverSell > 0L) {
             player.sendMessage(
@@ -1528,6 +1555,21 @@ public final class AuctionHouseGuiListener implements Listener {
             return;
         }
 
+        if (service.searchRateLimited(
+                player
+        )) {
+            failPath(
+                    player,
+                    "messages.search-cooldown",
+                    "&cPlease wait before searching again"
+            );
+            returnFromPrompt(
+                    player,
+                    prompt
+            );
+            return;
+        }
+
         SoundService.guiSearch(
                 player,
                 core
@@ -1706,6 +1748,18 @@ public final class AuctionHouseGuiListener implements Listener {
                             player,
                             "messages.oversized-item",
                             "&cThat item contains too much data to list safely"
+                    );
+            case APPRAISAL_FAILED ->
+                    failPath(
+                            player,
+                            "messages.appraisal-failed",
+                            "&cCould not verify the current server sell value — try again"
+                    );
+            case MARKET_FULL ->
+                    failPath(
+                            player,
+                            "messages.market-full",
+                            "&cThe Auction House is at its global safety limit — try again later"
                     );
             case STORAGE_ERROR ->
                     failPath(

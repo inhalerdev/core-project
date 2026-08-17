@@ -3,6 +3,7 @@ package net.mineacle.core.auctionhouse.storage;
 import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.model.AuctionHouseListing;
 import net.mineacle.core.common.player.DisplayNames;
+import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -20,7 +21,9 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -37,7 +40,7 @@ public final class AuctionTransactionStorage {
 
     private static final String EXTENSION = ".yml";
     private static final int MINIMUM_ITEM_BYTES = 16_384;
-    private static final int MAXIMUM_ITEM_BYTES = 4_194_304;
+    private static final int MAXIMUM_ITEM_BYTES = 1_048_576;
     private static final long YAML_OVERHEAD_BYTES = 65_536L;
 
     public enum TransactionType {
@@ -98,6 +101,30 @@ public final class AuctionTransactionStorage {
                     sourceSlot,
                     createdAt
             );
+        }
+    }
+
+    public record LoadResult(
+            List<AuctionTransaction> transactions,
+            List<String> problems
+    ) {
+        public LoadResult {
+            transactions =
+                    transactions == null
+                            ? List.of()
+                            : List.copyOf(
+                            transactions
+                    );
+            problems =
+                    problems == null
+                            ? List.of()
+                            : List.copyOf(
+                            problems
+                    );
+        }
+
+        public boolean healthy() {
+            return problems.isEmpty();
         }
     }
 
@@ -166,36 +193,151 @@ public final class AuctionTransactionStorage {
                 : null;
     }
 
-    public List<AuctionTransaction> load() {
-        initialize();
+    public LoadResult load() {
+        List<String> problems =
+                new ArrayList<>();
 
-        File[] files = folder.listFiles(
-                (directory, name) ->
-                        name.endsWith(EXTENSION)
-        );
+        try {
+            initialize();
+        } catch (RuntimeException exception) {
+            core.getLogger().log(
+                    Level.SEVERE,
+                    "Auction House transaction storage is unavailable",
+                    exception
+            );
+            problems.add(
+                    "transactions-v2 directory is unavailable"
+            );
+            return new LoadResult(
+                    List.of(),
+                    problems
+            );
+        }
 
-        if (files == null || files.length == 0) {
-            return List.of();
+        File[] files =
+                folder.listFiles();
+
+        if (files == null) {
+            problems.add(
+                    "transactions-v2 directory could not be read"
+            );
+            return new LoadResult(
+                    List.of(),
+                    problems
+            );
         }
 
         List<File> ordered =
-                new ArrayList<>(List.of(files));
+                new ArrayList<>(
+                        List.of(files)
+                );
         ordered.sort(
-                Comparator.comparing(File::getName)
+                Comparator.comparing(
+                        File::getName
+                )
         );
 
-        List<AuctionTransaction> transactions =
-                new ArrayList<>(ordered.size());
+        Map<UUID, AuctionTransaction> byId =
+                new LinkedHashMap<>();
+        Map<UUID, UUID> listingTransactions =
+                new LinkedHashMap<>();
 
         for (File file : ordered) {
-            AuctionTransaction transaction =
-                    read(file);
+            if (Files.isSymbolicLink(
+                    file.toPath()
+            )
+                    || !file.isFile()) {
+                problems.add(
+                        file.getName()
+                                + " • unexpected non-regular entry in transaction journal"
+                );
+                continue;
+            }
 
-            if (transaction != null) {
-                transactions.add(transaction);
+            if (!file.getName()
+                    .endsWith(
+                            EXTENSION
+                    )) {
+                problems.add(
+                        file.getName()
+                                + " • unexpected file in transaction journal"
+                );
+                continue;
+            }
+
+            try {
+                AuctionTransaction transaction =
+                        readStrict(file);
+                String expectedName =
+                        transaction.transactionId()
+                                + EXTENSION;
+
+                if (!file.getName()
+                        .equals(expectedName)) {
+                    problems.add(
+                            file.getName()
+                                    + " • filename does not match transaction id "
+                                    + transaction.transactionId()
+                    );
+                    continue;
+                }
+
+                AuctionTransaction previous =
+                        byId.putIfAbsent(
+                                transaction.transactionId(),
+                                transaction
+                        );
+
+                if (previous != null) {
+                    problems.add(
+                            file.getName()
+                                    + " • duplicate transaction id "
+                                    + transaction.transactionId()
+                    );
+                    continue;
+                }
+
+                UUID previousTransaction =
+                        listingTransactions.putIfAbsent(
+                                transaction.listing()
+                                        .id(),
+                                transaction.transactionId()
+                        );
+
+                if (previousTransaction != null
+                        && !previousTransaction.equals(
+                        transaction.transactionId()
+                )) {
+                    problems.add(
+                            file.getName()
+                                    + " • listing "
+                                    + transaction.listing()
+                                    .id()
+                                    + " is referenced by multiple transaction journals"
+                    );
+                }
+            } catch (
+                    IOException
+                    | InvalidConfigurationException
+                    | RuntimeException exception
+            ) {
+                core.getLogger().log(
+                        Level.SEVERE,
+                        "Could not safely read Auction House transaction "
+                                + file.getName(),
+                        exception
+                );
+                problems.add(
+                        file.getName()
+                                + " • unreadable or invalid transaction journal"
+                );
             }
         }
 
+        List<AuctionTransaction> transactions =
+                new ArrayList<>(
+                        byId.values()
+                );
         transactions.sort(
                 Comparator.comparingLong(
                                 AuctionTransaction::createdAt
@@ -207,7 +349,10 @@ public final class AuctionTransactionStorage {
                         )
         );
 
-        return List.copyOf(transactions);
+        return new LoadResult(
+                transactions,
+                problems
+        );
     }
 
     public boolean save(
@@ -308,93 +453,137 @@ public final class AuctionTransactionStorage {
         }
     }
 
-    private AuctionTransaction read(File file) {
+    private AuctionTransaction readStrict(
+            File file
+    ) throws IOException, InvalidConfigurationException {
         if (storageFileTooLarge(file)) {
-            core.getLogger().severe(
-                    "Skipped oversized Auction House transaction "
-                            + file.getName()
+            throw new IOException(
+                    "Transaction file exceeds configured safety limit"
             );
-            return null;
         }
 
-        try {
-            YamlConfiguration yaml =
-                    YamlConfiguration.loadConfiguration(file);
+        YamlConfiguration yaml =
+                new YamlConfiguration();
+        yaml.load(file);
 
-            UUID transactionId =
-                    UUID.fromString(
-                            yaml.getString(
-                                    "transaction-id",
-                                    ""
-                            )
-                    );
-            TransactionType type =
-                    TransactionType.valueOf(
-                            yaml.getString(
-                                            "type",
-                                            ""
-                                    )
-                                    .trim()
-                                    .toUpperCase(Locale.ROOT)
-                    );
-            TransactionState state =
-                    TransactionState.valueOf(
-                            yaml.getString(
-                                            "state",
-                                            "PREPARED"
-                                    )
-                                    .trim()
-                                    .toUpperCase(Locale.ROOT)
-                    );
-            UUID actor =
-                    UUID.fromString(
-                            yaml.getString(
-                                    "actor",
-                                    ""
-                            )
-                    );
-            String actorName =
-                    yaml.getString(
-                            "actor-name",
-                            "Unknown"
-                    );
-            int sourceSlot =
-                    yaml.getInt(
-                            "source-slot",
-                            -1
-                    );
-            long createdAt =
-                    yaml.getLong(
-                            "created-at",
-                            System.currentTimeMillis()
-                    );
-            AuctionHouseListing listing =
-                    readListing(yaml);
+        requireTransactionFields(yaml);
 
-            if (listing == null) {
+        UUID transactionId =
+                UUID.fromString(
+                        yaml.getString(
+                                "transaction-id",
+                                ""
+                        )
+                );
+        TransactionType type =
+                TransactionType.valueOf(
+                        yaml.getString(
+                                        "type",
+                                        ""
+                                )
+                                .trim()
+                                .toUpperCase(
+                                        Locale.ROOT
+                                )
+                );
+        TransactionState state =
+                TransactionState.valueOf(
+                        yaml.getString(
+                                        "state",
+                                        "PREPARED"
+                                )
+                                .trim()
+                                .toUpperCase(
+                                        Locale.ROOT
+                                )
+                );
+        UUID actor =
+                UUID.fromString(
+                        yaml.getString(
+                                "actor",
+                                ""
+                        )
+                );
+        String actorName =
+                yaml.getString(
+                        "actor-name",
+                        "Unknown"
+                );
+        int sourceSlot =
+                yaml.getInt(
+                        "source-slot",
+                        -1
+                );
+        long createdAt =
+                yaml.getLong(
+                        "created-at"
+                );
+
+        if (createdAt <= 0L) {
+            throw new IllegalStateException(
+                    "Invalid transaction created-at"
+            );
+        }
+
+        if (type == TransactionType.LIST) {
+            if (sourceSlot < 0
+                    || sourceSlot > 8) {
                 throw new IllegalStateException(
-                        "Missing transaction listing"
+                        "Invalid LIST source slot "
+                                + sourceSlot
                 );
             }
+        } else if (sourceSlot != -1) {
+            throw new IllegalStateException(
+                    "Non-LIST transaction has source slot "
+                            + sourceSlot
+            );
+        }
 
-            return new AuctionTransaction(
-                    transactionId,
-                    type,
-                    state,
-                    listing,
-                    actor,
-                    actorName,
-                    sourceSlot,
-                    createdAt
+        AuctionHouseListing listing =
+                readListing(yaml);
+
+        if (listing == null) {
+            throw new IllegalStateException(
+                    "Missing transaction listing"
             );
-        } catch (RuntimeException exception) {
-            core.getLogger().log(
-                    Level.SEVERE,
-                    "Could not read Auction House transaction "
-                            + file.getName(),
-                    exception
-            );
-            return null;
+        }
+
+        return new AuctionTransaction(
+                transactionId,
+                type,
+                state,
+                listing,
+                actor,
+                actorName,
+                sourceSlot,
+                createdAt
+        );
+    }
+
+    private static void requireTransactionFields(
+            YamlConfiguration yaml
+    ) {
+        for (String path : List.of(
+                "transaction-id",
+                "type",
+                "state",
+                "actor",
+                "source-slot",
+                "created-at",
+                "listing.id",
+                "listing.owner",
+                "listing.owner-name",
+                "listing.price-cents",
+                "listing.created-at",
+                "listing.item-nbt"
+        )) {
+            if (!yaml.contains(path)) {
+                throw new IllegalStateException(
+                        "Missing required transaction field "
+                                + path
+                );
+            }
         }
     }
 
@@ -457,7 +646,8 @@ public final class AuctionTransactionStorage {
 
         if (item.getType().isAir()
                 || item.getAmount() <= 0
-                || priceCents <= 0L) {
+                || priceCents <= 0L
+                || createdAt <= 0L) {
             return null;
         }
 

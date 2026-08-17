@@ -35,10 +35,9 @@ public record AuctionHistoryEntry(
                 "material"
         );
         itemName =
-                itemName == null
-                        || itemName.isBlank()
-                        ? "Item"
-                        : itemName;
+                sanitizeItemName(
+                        itemName
+                );
         amount =
                 Math.max(
                         1,
@@ -54,6 +53,34 @@ public record AuctionHistoryEntry(
                         0L,
                         timestamp
                 );
+    }
+
+    private static String sanitizeItemName(
+            String input
+    ) {
+        String value =
+                input == null
+                        || input.isBlank()
+                        ? "Item"
+                        : input
+                        .replace(
+                                '\n',
+                                ' '
+                        )
+                        .replace(
+                                '\r',
+                                ' '
+                        )
+                        .trim();
+
+        if (value.length() > 128) {
+            return value.substring(
+                    0,
+                    128
+            );
+        }
+
+        return value;
     }
 
     public enum Type {
