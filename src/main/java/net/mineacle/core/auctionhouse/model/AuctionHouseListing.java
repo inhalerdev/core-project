@@ -60,8 +60,9 @@ public final class AuctionHouseListing {
     }
 
     /**
-     * Stable username fallback used for storage and audit recovery.
-     * Player-facing output resolves the current Mineacle display identity.
+     * Public Mineacle identity snapshot used only as a fallback when the
+     * current nickname/display identity cannot be resolved from the UUID.
+     * UUID is always the authoritative seller identity.
      */
     public String ownerName() {
         return ownerName;

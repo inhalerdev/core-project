@@ -157,9 +157,9 @@ public final class AuctionHouseService {
         SUCCESS, NOT_FOUND, NOT_OWNER, INVENTORY_FULL, STORAGE_ERROR
     }
     public enum BuyResult {
-        SUCCESS, NOT_FOUND, EXPIRED, BUSY, OWN_ITEM, BELOW_SERVER_WORTH,
-        NOT_ENOUGH_MONEY, INVENTORY_FULL, ECONOMY_MISSING,
-        PAYMENT_FAILED, STORAGE_ERROR
+        SUCCESS, NOT_FOUND, EXPIRED, BUSY, NO_PERMISSION, OWN_ITEM,
+        BELOW_SERVER_WORTH, NOT_ENOUGH_MONEY, INVENTORY_FULL,
+        ECONOMY_MISSING, PAYMENT_FAILED, STORAGE_ERROR
     }
 
     public record CreateOutcome(CreateResult result, AuctionHouseListing listing) {}
@@ -322,7 +322,7 @@ public final class AuctionHouseService {
             return Math.max(normal, Math.clamp(config.getInt("listing.admin-slots", 999), 1, 999));
         }
         if (hasElevatedListingTier(player)) {
-            return Math.max(normal, Math.clamp(config.getInt("listing.elevated-slots", 27), 1, 999));
+            return Math.max(normal, Math.clamp(config.getInt("listing.elevated-slots", 45), 1, 999));
         }
         return normal;
     }
@@ -337,7 +337,7 @@ public final class AuctionHouseService {
     private boolean hasElevatedListingTier(Player player) {
         if (player == null) return false;
         if (player.hasPermission("mineacleauctionhouse.admin")) return true;
-        String permission = config.getString("listing.elevated-permission", "mineacle.plus");
+        String permission = config.getString("listing.elevated-permission", "mineacleauctionhouse.slots.45");
         return !permission.isBlank() && player.hasPermission(permission.trim());
     }
 
@@ -544,7 +544,10 @@ public final class AuctionHouseService {
         AuctionHouseListing listing = new AuctionHouseListing(
                 UUID.randomUUID(),
                 player.getUniqueId(),
-                DisplayNames.username(player),
+                publicIdentity(
+                        player.getUniqueId(),
+                        DisplayNames.commandDisplayName(player)
+                ),
                 saleItem,
                 priceCents,
                 System.currentTimeMillis()
@@ -667,6 +670,9 @@ public final class AuctionHouseService {
      */
     private BuyOutcome buyLocked(Player buyer, AuctionHouseListing listing) {
         if (buyer == null) return new BuyOutcome(BuyResult.NOT_FOUND, listing);
+        if (!buyer.hasPermission("mineacleauctionhouse.use")) {
+            return new BuyOutcome(BuyResult.NO_PERMISSION, listing);
+        }
         if (listing.owner().equals(buyer.getUniqueId())) {
             return new BuyOutcome(BuyResult.OWN_ITEM, listing);
         }
@@ -869,30 +875,75 @@ public final class AuctionHouseService {
     }
 
     public synchronized List<String> recoverySummaries() {
-        List<String> lines = new ArrayList<>();
+        List<String> lines =
+                new ArrayList<>();
 
-        for (AuctionTransaction transaction : transactions.values()) {
-            AuctionHouseListing listing = transaction.listing();
+        for (AuctionTransaction transaction
+                : transactions.values()) {
+            AuctionHouseListing listing =
+                    transaction.listing();
+
+            String actorLabel =
+                    transaction.type()
+                            == TransactionType.BUY
+                            ? "buyer"
+                            : "seller";
+
             lines.add(
-                    shortId(transaction.transactionId())
-                            + " V2/" + transaction.type().name()
-                            + "/" + transaction.state().name()
-                            + " listing=" + listing.id()
-                            + " actor=" + transaction.actor()
-                            + " seller=" + listing.owner()
-                            + " price=" + format(listing.priceCents())
+                    shortId(
+                            transaction.transactionId()
+                    )
+                            + " "
+                            + transaction.type().name()
+                            + "/"
+                            + transaction.state().name()
+                            + " • "
+                            + actorLabel
+                            + " "
+                            + publicIdentity(
+                            transaction.actor(),
+                            transaction.actorName()
+                    )
+                            + " • listing "
+                            + shortId(
+                            listing.id()
+                    )
+                            + " • "
+                            + format(
+                            listing.priceCents()
+                    )
             );
         }
 
-        for (PurchaseRecovery recovery : quarantinedRecoveries.values()) {
-            AuctionHouseListing listing = recovery.listing();
+        for (PurchaseRecovery recovery
+                : quarantinedRecoveries.values()) {
+            AuctionHouseListing listing =
+                    recovery.listing();
+
             lines.add(
-                    shortId(recovery.transactionId())
-                            + " LEGACY/" + recovery.state().name()
-                            + " listing=" + listing.id()
-                            + " buyer=" + recovery.buyer()
-                            + " seller=" + listing.owner()
-                            + " price=" + format(listing.priceCents())
+                    shortId(
+                            recovery.transactionId()
+                    )
+                            + " LEGACY/"
+                            + recovery.state().name()
+                            + " • buyer "
+                            + publicIdentity(
+                            recovery.buyer(),
+                            recovery.buyerName()
+                    )
+                            + " • seller "
+                            + publicIdentity(
+                            listing.owner(),
+                            listing.ownerName()
+                    )
+                            + " • listing "
+                            + shortId(
+                            listing.id()
+                    )
+                            + " • "
+                            + format(
+                            listing.priceCents()
+                    )
             );
         }
 
@@ -904,12 +955,81 @@ public final class AuctionHouseService {
     }
 
     private void loadDurableTransactions() {
-        for (AuctionTransaction transaction : transactionStorage.load()) {
-            transactions.put(transaction.transactionId(), transaction);
-            if (transaction.state() == TransactionState.QUARANTINED) {
-                runtimeQuarantinedTransactions.add(transaction.transactionId());
+        for (AuctionTransaction loaded : transactionStorage.load()) {
+            AuctionTransaction transaction =
+                    normalizeTransactionIdentity(
+                            loaded
+                    );
+
+            transactions.put(
+                    transaction.transactionId(),
+                    transaction
+            );
+
+            if (!transaction.equals(loaded)
+                    && !transactionStorage.save(
+                    transaction
+            )) {
+                core.getLogger().warning(
+                        "[AuctionHouse] Could not refresh public identities for transaction "
+                                + transaction.transactionId()
+                );
+            }
+
+            if (transaction.state()
+                    == TransactionState.QUARANTINED) {
+                runtimeQuarantinedTransactions.add(
+                        transaction.transactionId()
+                );
             }
         }
+    }
+
+    private AuctionTransaction normalizeTransactionIdentity(
+            AuctionTransaction transaction
+    ) {
+        AuctionHouseListing listing =
+                transaction.listing();
+
+        String sellerName =
+                publicIdentity(
+                        listing.owner(),
+                        listing.ownerName()
+                );
+        String actorName =
+                publicIdentity(
+                        transaction.actor(),
+                        transaction.actorName()
+                );
+
+        if (sellerName.equals(
+                listing.ownerName()
+        ) && actorName.equals(
+                transaction.actorName()
+        )) {
+            return transaction;
+        }
+
+        AuctionHouseListing normalizedListing =
+                new AuctionHouseListing(
+                        listing.id(),
+                        listing.owner(),
+                        sellerName,
+                        listing.item(),
+                        listing.priceCents(),
+                        listing.createdAt()
+                );
+
+        return new AuctionTransaction(
+                transaction.transactionId(),
+                transaction.type(),
+                transaction.state(),
+                normalizedListing,
+                transaction.actor(),
+                actorName,
+                transaction.sourceSlot(),
+                transaction.createdAt()
+        );
     }
 
     /**
@@ -1708,6 +1828,42 @@ public final class AuctionHouseService {
         }
     }
 
+    private String publicIdentity(
+            UUID playerId,
+            String fallback
+    ) {
+        if (playerId == null) {
+            String safeFallback =
+                    safeOutput(fallback);
+
+            return safeFallback.isBlank()
+                    ? "Unknown"
+                    : safeFallback;
+        }
+
+        OfflinePlayer player =
+                Bukkit.getOfflinePlayer(
+                        playerId
+                );
+        String display =
+                safeOutput(
+                        DisplayNames.commandDisplayName(
+                                player
+                        )
+                );
+
+        if (!display.isBlank()) {
+            return display;
+        }
+
+        String safeFallback =
+                safeOutput(fallback);
+
+        return safeFallback.isBlank()
+                ? "Unknown"
+                : safeFallback;
+    }
+
     private String shortId(UUID id) {
         return id == null
                 ? "UNKNOWN"
@@ -1995,14 +2151,34 @@ public final class AuctionHouseService {
     }
 
     private AuctionHouseListing normalizedLoadedListing(AuctionHouseListing listing) {
-        return new AuctionHouseListing(
-                listing.id(),
-                listing.owner(),
-                listing.ownerName(),
-                cleanItem(listing.item()),
-                listing.priceCents(),
-                listing.createdAt()
-        );
+        String publicOwnerName =
+                publicIdentity(
+                        listing.owner(),
+                        listing.ownerName()
+                );
+
+        AuctionHouseListing normalized =
+                new AuctionHouseListing(
+                        listing.id(),
+                        listing.owner(),
+                        publicOwnerName,
+                        cleanItem(listing.item()),
+                        listing.priceCents(),
+                        listing.createdAt()
+                );
+
+        if (!publicOwnerName.equals(
+                listing.ownerName()
+        ) && storage.listingSaveFailed(
+                normalized
+        )) {
+            core.getLogger().warning(
+                    "[AuctionHouse] Could not refresh public seller identity for listing "
+                            + listing.id()
+            );
+        }
+
+        return normalized;
     }
 
     private ItemStack cleanedHeldItem(Player player) {
@@ -2275,7 +2451,22 @@ public final class AuctionHouseService {
      */
 
     private void recoverInterruptedPurchases() {
-        for (PurchaseRecovery recovery : storage.loadRecoveries()) {
+        for (PurchaseRecovery loaded : storage.loadRecoveries()) {
+            PurchaseRecovery recovery =
+                    normalizeLegacyRecoveryIdentity(
+                            loaded
+                    );
+
+            if (!recovery.equals(loaded)
+                    && !storage.saveRecovery(
+                    recovery
+            )) {
+                core.getLogger().warning(
+                        "[AuctionHouse] Could not refresh public identities for legacy recovery "
+                                + recovery.transactionId()
+                );
+            }
+
             switch (recovery.state()) {
                 case PREPARED -> {
                     if (!storage.listingExists(recovery.listing().id())
@@ -2283,12 +2474,12 @@ public final class AuctionHouseService {
                         quarantine(recovery);
                         continue;
                     }
-                    if (!storage.deleteRecovery(recovery.transactionId())) {
+                    if (storage.recoveryDeleteFailed(recovery.transactionId())) {
                         quarantine(recovery);
                     }
                 }
                 case DELIVERED -> {
-                    if (!storage.deleteRecovery(recovery.transactionId())) {
+                    if (storage.recoveryDeleteFailed(recovery.transactionId())) {
                         quarantine(recovery);
                     }
                 }
@@ -2303,6 +2494,51 @@ public final class AuctionHouseService {
                             + recoveryPath()
             );
         }
+    }
+
+    private PurchaseRecovery normalizeLegacyRecoveryIdentity(
+            PurchaseRecovery recovery
+    ) {
+        AuctionHouseListing listing =
+                recovery.listing();
+
+        String sellerName =
+                publicIdentity(
+                        listing.owner(),
+                        listing.ownerName()
+                );
+        String buyerName =
+                publicIdentity(
+                        recovery.buyer(),
+                        recovery.buyerName()
+                );
+
+        if (sellerName.equals(
+                listing.ownerName()
+        ) && buyerName.equals(
+                recovery.buyerName()
+        )) {
+            return recovery;
+        }
+
+        AuctionHouseListing normalizedListing =
+                new AuctionHouseListing(
+                        listing.id(),
+                        listing.owner(),
+                        sellerName,
+                        listing.item(),
+                        listing.priceCents(),
+                        listing.createdAt()
+                );
+
+        return new PurchaseRecovery(
+                recovery.transactionId(),
+                recovery.state(),
+                normalizedListing,
+                recovery.buyer(),
+                buyerName,
+                recovery.createdAt()
+        );
     }
 
     private void quarantine(PurchaseRecovery recovery) {
@@ -2338,14 +2574,14 @@ public final class AuctionHouseService {
         if (receipt.count() == 1) {
             message = text(
                     "messages.sold-offline-single",
-                    "&#bbbbbbWhile you were away, &#B078FF%item% &#bbbbbbsold for &a+%price%",
+                    "&#bbbbbbWhile you were away, &#B078FF%item% &#bbbbbbsold for &#11fc7b+%price%",
                     "%item%", safeOutput(receipt.lastItem()),
                     "%price%", format(receipt.lastPriceCents())
             );
         } else {
             message = text(
                     "messages.sold-offline-multiple",
-                    "&#bbbbbbWhile you were away, &#D0AFFF%count% &#bbbbbbauction listings sold for &a+%price%",
+                    "&#bbbbbbWhile you were away, &#D0AFFF%count% &#bbbbbbauction listings sold for &#11fc7b+%price%",
                     "%count%", String.valueOf(receipt.count()),
                     "%price%", format(receipt.totalCents())
             );
@@ -2382,7 +2618,7 @@ public final class AuctionHouseService {
                 TextColor.color(
                         text(
                                 "messages.sold",
-                                "&#bbbbbbSold &#B078FF%item% &#bbbbbbfor &a+%price%",
+                                "&#bbbbbbSold &#B078FF%item% &#bbbbbbfor &#11fc7b+%price%",
                                 "%item%", safeOutput(itemName(listing.item())),
                                 "%price%", format(listing.priceCents())
                         )

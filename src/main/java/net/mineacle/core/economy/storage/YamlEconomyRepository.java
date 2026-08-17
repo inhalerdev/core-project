@@ -8,13 +8,19 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -29,6 +35,7 @@ public final class YamlEconomyRepository {
 
     private final Core core;
     private final File file;
+    private boolean directorySyncWarningLogged;
 
     public YamlEconomyRepository(Core core) {
         this.core = core;
@@ -234,29 +241,125 @@ public final class YamlEconomyRepository {
             );
         }
 
-        File temporary = new File(
-                folder,
-                file.getName() + ".tmp"
-        );
-
-        configuration.save(temporary);
+        Path target =
+                file.toPath();
+        Path temporary =
+                new File(
+                        folder,
+                        file.getName() + ".tmp"
+                ).toPath();
 
         try {
-            Files.move(
-                    temporary.toPath(),
-                    file.toPath(),
-                    StandardCopyOption.ATOMIC_MOVE,
-                    StandardCopyOption.REPLACE_EXISTING
+            writeAndForce(
+                    temporary,
+                    configuration.saveToString()
             );
-        } catch (AtomicMoveNotSupportedException exception) {
-            Files.move(
-                    temporary.toPath(),
-                    file.toPath(),
-                    StandardCopyOption.REPLACE_EXISTING
+
+            try {
+                Files.move(
+                        temporary,
+                        target,
+                        StandardCopyOption.ATOMIC_MOVE,
+                        StandardCopyOption.REPLACE_EXISTING
+                );
+            } catch (AtomicMoveNotSupportedException exception) {
+                Files.move(
+                        temporary,
+                        target,
+                        StandardCopyOption.REPLACE_EXISTING
+                );
+            }
+
+            forceDirectory(
+                    target.getParent()
             );
         } finally {
-            Files.deleteIfExists(temporary.toPath());
+            Files.deleteIfExists(
+                    temporary
+            );
         }
+    }
+
+    private static void writeAndForce(
+            Path path,
+            String value
+    ) throws IOException {
+        byte[] bytes =
+                value.getBytes(
+                        StandardCharsets.UTF_8
+                );
+
+        try (FileChannel channel =
+                     FileChannel.open(
+                             path,
+                             StandardOpenOption.CREATE,
+                             StandardOpenOption.TRUNCATE_EXISTING,
+                             StandardOpenOption.WRITE
+                     )) {
+            ByteBuffer buffer =
+                    ByteBuffer.wrap(
+                            bytes
+                    );
+
+            while (buffer.hasRemaining()) {
+                int written =
+                        channel.write(
+                                buffer
+                        );
+
+                if (written <= 0) {
+                    throw new IOException(
+                            "Could not make progress writing "
+                                    + path.getFileName()
+                    );
+                }
+            }
+
+            channel.force(true);
+        }
+    }
+
+    private void forceDirectory(
+            Path directory
+    ) {
+        if (directory == null
+                || windows()) {
+            return;
+        }
+
+        try (FileChannel channel =
+                     FileChannel.open(
+                             directory,
+                             StandardOpenOption.READ
+                     )) {
+            channel.force(true);
+        } catch (
+                IOException
+                | UnsupportedOperationException
+                | SecurityException exception
+        ) {
+            if (directorySyncWarningLogged) {
+                return;
+            }
+
+            directorySyncWarningLogged = true;
+            core.getLogger().warning(
+                    "Economy directory sync is unavailable; file contents are "
+                            + "forced but rename durability depends on the filesystem: "
+                            + exception.getClass().getSimpleName()
+            );
+        }
+    }
+
+    private static boolean windows() {
+        return System.getProperty(
+                        "os.name",
+                        ""
+                )
+                .toLowerCase(
+                        Locale.ROOT
+                )
+                .contains("win");
     }
 
     private static Map<UUID, OfflinePaymentNotice> copyNotices(

@@ -2,17 +2,21 @@ package net.mineacle.core.auctionhouse.storage;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.model.AuctionHouseListing;
+import net.mineacle.core.common.player.DisplayNames;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
@@ -97,6 +101,7 @@ public final class AuctionTransactionStorage {
     private final Core core;
     private final File folder;
     private boolean initialized;
+    private boolean directorySyncWarningLogged;
 
     public AuctionTransactionStorage(Core core) {
         this.core = core;
@@ -134,7 +139,9 @@ public final class AuctionTransactionStorage {
                         TransactionState.PREPARED,
                         listing,
                         actor.getUniqueId(),
-                        actor.getName(),
+                        DisplayNames.commandDisplayName(
+                                actor
+                        ),
                         sourceSlot,
                         System.currentTimeMillis()
                 );
@@ -259,10 +266,21 @@ public final class AuctionTransactionStorage {
 
         initialize();
 
+        Path target =
+                file(transactionId).toPath();
+
         try {
-            Files.deleteIfExists(
-                    file(transactionId).toPath()
-            );
+            boolean deleted =
+                    Files.deleteIfExists(
+                            target
+                    );
+
+            if (deleted) {
+                forceDirectory(
+                        target.getParent()
+                );
+            }
+
             return true;
         } catch (IOException exception) {
             core.getLogger().log(
@@ -476,10 +494,9 @@ public final class AuctionTransactionStorage {
                 );
 
         try {
-            Files.writeString(
+            writeAndForce(
                     temporary,
-                    yaml.saveToString(),
-                    StandardCharsets.UTF_8
+                    yaml.saveToString()
             );
 
             try {
@@ -497,6 +514,9 @@ public final class AuctionTransactionStorage {
                 );
             }
 
+            forceDirectory(
+                    targetPath.getParent()
+            );
             return true;
         } catch (IOException exception) {
             core.getLogger().log(
@@ -512,6 +532,90 @@ public final class AuctionTransactionStorage {
 
             return false;
         }
+    }
+
+    private static void writeAndForce(
+            Path path,
+            String value
+    ) throws IOException {
+        byte[] bytes =
+                value.getBytes(
+                        StandardCharsets.UTF_8
+                );
+
+        try (FileChannel channel =
+                     FileChannel.open(
+                             path,
+                             StandardOpenOption.CREATE,
+                             StandardOpenOption.TRUNCATE_EXISTING,
+                             StandardOpenOption.WRITE
+                     )) {
+            ByteBuffer buffer =
+                    ByteBuffer.wrap(
+                            bytes
+                    );
+
+            while (buffer.hasRemaining()) {
+                int written =
+                        channel.write(
+                                buffer
+                        );
+
+                if (written <= 0) {
+                    throw new IOException(
+                            "Could not make progress writing "
+                                    + path.getFileName()
+                    );
+                }
+            }
+
+            channel.force(true);
+        }
+    }
+
+    private void forceDirectory(
+            Path directory
+    ) {
+        if (directory == null
+                || windows()) {
+            return;
+        }
+
+        try (FileChannel channel =
+                     FileChannel.open(
+                             directory,
+                             StandardOpenOption.READ
+                     )) {
+            channel.force(true);
+        } catch (
+                IOException
+                | UnsupportedOperationException
+                | SecurityException exception
+        ) {
+            if (directorySyncWarningLogged) {
+                return;
+            }
+
+            directorySyncWarningLogged = true;
+            core.getLogger().log(
+                    Level.WARNING,
+                    "Auction House transaction directory sync is unavailable; "
+                            + "file contents are forced but rename/delete durability "
+                            + "depends on the filesystem",
+                    exception
+            );
+        }
+    }
+
+    private static boolean windows() {
+        return System.getProperty(
+                        "os.name",
+                        ""
+                )
+                .toLowerCase(
+                        Locale.ROOT
+                )
+                .contains("win");
     }
 
     private File file(UUID transactionId) {

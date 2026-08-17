@@ -4,16 +4,18 @@ import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.model.AuctionHouseListing;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -36,6 +38,7 @@ public final class AuctionHouseStorage {
     private final File receiptsFolder;
 
     private boolean initialized;
+    private boolean directorySyncWarningLogged;
 
     public AuctionHouseStorage(
             Core core
@@ -208,12 +211,23 @@ public final class AuctionHouseStorage {
             return true;
         }
 
+        Path target =
+                listingFile(
+                        listingId
+                ).toPath();
+
         try {
-            Files.deleteIfExists(
-                    listingFile(
-                            listingId
-                    ).toPath()
-            );
+            boolean deleted =
+                    Files.deleteIfExists(
+                            target
+                    );
+
+            if (deleted) {
+                forceDirectory(
+                        target.getParent()
+                );
+            }
+
             return false;
         } catch (IOException exception) {
             core.getLogger().log(
@@ -224,30 +238,6 @@ public final class AuctionHouseStorage {
             );
             return true;
         }
-    }
-
-    public PurchaseRecovery beginRecovery(
-            AuctionHouseListing listing,
-            Player buyer
-    ) {
-        if (listing == null
-                || buyer == null) {
-            return null;
-        }
-
-        PurchaseRecovery recovery =
-                new PurchaseRecovery(
-                        UUID.randomUUID(),
-                        PurchaseState.PREPARED,
-                        listing,
-                        buyer.getUniqueId(),
-                        buyer.getName(),
-                        System.currentTimeMillis()
-                );
-
-        return saveRecovery(recovery)
-                ? recovery
-                : null;
     }
 
     public boolean saveRecovery(
@@ -298,20 +288,31 @@ public final class AuctionHouseStorage {
         );
     }
 
-    public boolean deleteRecovery(
+    public boolean recoveryDeleteFailed(
             UUID transactionId
     ) {
         if (transactionId == null) {
-            return false;
+            return true;
         }
 
+        Path target =
+                recoveryFile(
+                        transactionId
+                ).toPath();
+
         try {
-            Files.deleteIfExists(
-                    recoveryFile(
-                            transactionId
-                    ).toPath()
-            );
-            return true;
+            boolean deleted =
+                    Files.deleteIfExists(
+                            target
+                    );
+
+            if (deleted) {
+                forceDirectory(
+                        target.getParent()
+                );
+            }
+
+            return false;
         } catch (IOException exception) {
             core.getLogger().log(
                     Level.SEVERE,
@@ -319,7 +320,7 @@ public final class AuctionHouseStorage {
                             + transactionId,
                     exception
             );
-            return false;
+            return true;
         }
     }
 
@@ -474,10 +475,6 @@ public final class AuctionHouseStorage {
                 && deleteReceipt(
                 receiptFile(sellerId)
         );
-    }
-
-    public File recoveryFolder() {
-        return recoveryFolder;
     }
 
     private void migrateLegacy() {
@@ -849,10 +846,9 @@ public final class AuctionHouseStorage {
                 );
 
         try {
-            Files.writeString(
+            writeAndForce(
                     temporary,
-                    yaml.saveToString(),
-                    StandardCharsets.UTF_8
+                    yaml.saveToString()
             );
 
             try {
@@ -875,6 +871,9 @@ public final class AuctionHouseStorage {
                 );
             }
 
+            forceDirectory(
+                    targetPath.getParent()
+            );
             return true;
         } catch (IOException exception) {
             core.getLogger().log(
@@ -892,6 +891,90 @@ public final class AuctionHouseStorage {
 
             return false;
         }
+    }
+
+    private static void writeAndForce(
+            Path path,
+            String value
+    ) throws IOException {
+        byte[] bytes =
+                value.getBytes(
+                        StandardCharsets.UTF_8
+                );
+
+        try (FileChannel channel =
+                     FileChannel.open(
+                             path,
+                             StandardOpenOption.CREATE,
+                             StandardOpenOption.TRUNCATE_EXISTING,
+                             StandardOpenOption.WRITE
+                     )) {
+            ByteBuffer buffer =
+                    ByteBuffer.wrap(
+                            bytes
+                    );
+
+            while (buffer.hasRemaining()) {
+                int written =
+                        channel.write(
+                                buffer
+                        );
+
+                if (written <= 0) {
+                    throw new IOException(
+                            "Could not make progress writing "
+                                    + path.getFileName()
+                    );
+                }
+            }
+
+            channel.force(true);
+        }
+    }
+
+    private void forceDirectory(
+            Path directory
+    ) {
+        if (directory == null
+                || windows()) {
+            return;
+        }
+
+        try (FileChannel channel =
+                     FileChannel.open(
+                             directory,
+                             StandardOpenOption.READ
+                     )) {
+            channel.force(true);
+        } catch (
+                IOException
+                | UnsupportedOperationException
+                | SecurityException exception
+        ) {
+            if (directorySyncWarningLogged) {
+                return;
+            }
+
+            directorySyncWarningLogged = true;
+            core.getLogger().log(
+                    Level.WARNING,
+                    "Auction House directory sync is unavailable; file contents "
+                            + "are forced but rename/delete durability depends on "
+                            + "the filesystem",
+                    exception
+            );
+        }
+    }
+
+    private static boolean windows() {
+        return System.getProperty(
+                        "os.name",
+                        ""
+                )
+                .toLowerCase(
+                        Locale.ROOT
+                )
+                .contains("win");
     }
 
     private void archiveLegacy() {
@@ -914,6 +997,9 @@ public final class AuctionHouseStorage {
             Files.move(
                     legacyFile.toPath(),
                     target
+            );
+            forceDirectory(
+                    target.getParent()
             );
         } catch (IOException exception) {
             core.getLogger().log(
@@ -950,10 +1036,21 @@ public final class AuctionHouseStorage {
     private boolean deleteReceipt(
             File file
     ) {
+        Path target =
+                file.toPath();
+
         try {
-            Files.deleteIfExists(
-                    file.toPath()
-            );
+            boolean deleted =
+                    Files.deleteIfExists(
+                            target
+                    );
+
+            if (deleted) {
+                forceDirectory(
+                        target.getParent()
+                );
+            }
+
             return true;
         } catch (IOException exception) {
             core.getLogger().log(
@@ -1056,17 +1153,5 @@ public final class AuctionHouseStorage {
                             : buyerName;
         }
 
-        public PurchaseRecovery withState(
-                PurchaseState nextState
-        ) {
-            return new PurchaseRecovery(
-                    transactionId,
-                    nextState,
-                    listing,
-                    buyer,
-                    buyerName,
-                    createdAt
-            );
-        }
     }
 }

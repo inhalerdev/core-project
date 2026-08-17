@@ -132,12 +132,34 @@ public final class AuctionHouseCommand
             return true;
         }
 
+        String rawQuery =
+                String.join(
+                        " ",
+                        args
+                );
+
+        if (service.searchQueryTooLong(
+                rawQuery
+        )) {
+            fail(
+                    player,
+                    TextColor.color(
+                            service.text(
+                                    "messages.search-too-long",
+                                    "&cSearch cannot exceed %max% characters",
+                                    "%max%",
+                                    String.valueOf(
+                                            service.maxSearchLength()
+                                    )
+                            )
+                    )
+            );
+            return true;
+        }
+
         String query =
                 service.sanitizeSearchQuery(
-                        String.join(
-                                " ",
-                                args
-                        )
+                        rawQuery
                 );
 
         openBrowse(
@@ -290,7 +312,7 @@ public final class AuctionHouseCommand
                         TextColor.color(
                                 service.text(
                                         "messages.listed",
-                                        "&#bbbbbbListed &#B078FF%amount%x %item% &#bbbbbbfor &a%price%",
+                                        "&#bbbbbbListed &#B078FF%amount%x %item% &#bbbbbbfor &#11fc7b%price%",
                                         "%amount%",
                                         String.valueOf(
                                                 listing.amount()
@@ -346,7 +368,7 @@ public final class AuctionHouseCommand
                     failPath(
                             player,
                             "messages.no-slot",
-                            "&cYou do not have an auction slot available"
+                            "&cYour auction slots are full — cancel or reclaim a listing first"
                     );
             case INVALID_PRICE ->
                     failPath(
@@ -360,7 +382,7 @@ public final class AuctionHouseCommand
                             TextColor.color(
                                     service.text(
                                             "messages.below-minimum",
-                                            "&cPrice too low &#bbbbbb— minimum for this listing is &a%price%",
+                                            "&cPrice too low &#bbbbbb— minimum for this listing is &#11fc7b%price%",
                                             "%price%",
                                             service.format(
                                                     minimumPriceForHeldListing(
@@ -377,7 +399,7 @@ public final class AuctionHouseCommand
                             TextColor.color(
                                     service.text(
                                             "messages.above-maximum",
-                                            "&cMaximum auction price is &a%price%",
+                                            "&cMaximum auction price is &#11fc7b%price%",
                                             "%price%",
                                             service.format(
                                                     service.maxPriceCents()
@@ -407,7 +429,7 @@ public final class AuctionHouseCommand
                     failPath(
                             player,
                             "messages.storage-error",
-                            "&cCould not safely save that listing"
+                            "&cCould not safely complete that Auction House action"
                     );
         }
     }
@@ -456,12 +478,6 @@ public final class AuctionHouseCommand
             );
         }
 
-        player.sendMessage(
-                TextColor.color(
-                        "&#bbbbbbRecovery files: &#D0AFFF"
-                                + service.recoveryPath()
-                )
-        );
     }
 
     private long minimumPriceForHeldListing(

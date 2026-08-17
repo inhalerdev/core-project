@@ -215,7 +215,7 @@ public final class AuctionHouseGui {
         inventory.setItem(
                 SLOT_REFRESH,
                 item(
-                        Material.PAPER,
+                        Material.EMERALD,
                         "&#B078FFRefresh",
                         "&#bbbbbbReload current results"
                 )
@@ -301,6 +301,22 @@ public final class AuctionHouseGui {
         int start =
                 effectivePage
                         * service.pageSize();
+        int pageListings =
+                Math.clamp(
+                        listings.size() - start,
+                        0,
+                        service.pageSize()
+                );
+        int listingLimit =
+                service.listingLimit(
+                        player
+                );
+        int visibleListingSlots =
+                Math.clamp(
+                        listingLimit,
+                        pageListings,
+                        service.pageSize()
+                );
 
         for (int slot = 0;
              slot < service.pageSize();
@@ -330,9 +346,23 @@ public final class AuctionHouseGui {
             );
         }
 
-        if (listings.isEmpty()) {
+        for (int slot = visibleListingSlots;
+             slot < service.pageSize();
+             slot++) {
             inventory.setItem(
-                    22,
+                    slot,
+                    lockedListingSlot()
+            );
+        }
+
+        if (listings.isEmpty()) {
+            int noListingsSlot =
+                    listingLimit <= 18
+                            ? 13
+                            : 22;
+
+            inventory.setItem(
+                    noListingsSlot,
                     item(
                             Material.GRAY_DYE,
                             "&#bbbbbbNo Listings",
@@ -362,7 +392,7 @@ public final class AuctionHouseGui {
         inventory.setItem(
                 SLOT_OWN_REFRESH,
                 item(
-                        Material.PAPER,
+                        Material.EMERALD,
                         "&#B078FFRefresh",
                         "&#bbbbbbReload your listings"
                 )
@@ -441,7 +471,7 @@ public final class AuctionHouseGui {
                 item(
                         Material.LIME_STAINED_GLASS_PANE,
                         "&aBuy",
-                        "&#bbbbbbPrice: &a"
+                        "&#bbbbbbPrice: &#11fc7b"
                                 + service.format(
                                 listing.priceCents()
                         ),
@@ -553,7 +583,7 @@ public final class AuctionHouseGui {
 
         lore.add(
                 GuiText.component(
-                        "&#bbbbbbPrice: &a"
+                        "&#bbbbbbPrice: &#11fc7b"
                                 + service.format(
                                 listing.priceCents()
                         )
@@ -563,7 +593,7 @@ public final class AuctionHouseGui {
         if (listing.amount() > 1) {
             lore.add(
                     GuiText.component(
-                            "&#bbbbbbEach: &a"
+                            "&#bbbbbbEach: &#11fc7b"
                                     + service.format(
                                     service.unitPriceCents(
                                             listing
@@ -581,7 +611,7 @@ public final class AuctionHouseGui {
         if (worth > 0L) {
             lore.add(
                     GuiText.component(
-                            "&#bbbbbbWorth: &#D0AFFF"
+                            "&#bbbbbbWorth: &#11fc7b"
                                     + service.format(
                                     worth
                             )
@@ -663,6 +693,14 @@ public final class AuctionHouseGui {
         );
         item.setItemMeta(meta);
         return item;
+    }
+
+    private static ItemStack lockedListingSlot() {
+        return item(
+                Material.PURPLE_STAINED_GLASS_PANE,
+                "&#B078FFExpanded Listing Slot",
+                "&#bbbbbbAvailable with Mineacle+ or Media"
+        );
     }
 
     private static ItemStack sortItem(
@@ -1132,7 +1170,7 @@ public final class AuctionHouseGui {
                     returnSort == null
                             ? AuctionHouseService
                             .SortMode
-                            .LOWEST_PRICE
+                            .LOWEST_UNIT_PRICE
                             : returnSort;
             this.returnFilter =
                     returnFilter == null
