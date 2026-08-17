@@ -22,7 +22,8 @@ public final class YamlEconomyRepository {
 
     public record Snapshot(
             Map<UUID, Long> balances,
-            Map<UUID, OfflinePaymentNotice> offlinePayments
+            Map<UUID, OfflinePaymentNotice> offlinePayments,
+            UUID lastMarketTransactionId
     ) {
     }
 
@@ -103,9 +104,27 @@ public final class YamlEconomyRepository {
             }
         }
 
+        UUID lastMarketTransactionId = null;
+        String rawMarketTransactionId = configuration.getString(
+                "market.last-transaction-id",
+                ""
+        );
+
+        if (!rawMarketTransactionId.isBlank()) {
+            try {
+                lastMarketTransactionId =
+                        UUID.fromString(rawMarketTransactionId.trim());
+            } catch (IllegalArgumentException exception) {
+                core.getLogger().warning(
+                        "Skipped invalid economy market transaction checkpoint"
+                );
+            }
+        }
+
         return new Snapshot(
                 Map.copyOf(balances),
-                copyNotices(notices)
+                copyNotices(notices),
+                lastMarketTransactionId
         );
     }
 
@@ -188,6 +207,16 @@ public final class YamlEconomyRepository {
             configuration.set(
                     path + ".senders",
                     senders
+            );
+        }
+
+        UUID marketTransactionId =
+                snapshot.lastMarketTransactionId();
+
+        if (marketTransactionId != null) {
+            configuration.set(
+                    "market.last-transaction-id",
+                    marketTransactionId.toString()
             );
         }
     }

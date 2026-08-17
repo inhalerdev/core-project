@@ -21,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.RejectedExecutionException;
@@ -50,6 +51,29 @@ public final class EconomyService {
         RESET
     }
 
+    /**
+     * Native market transfers are deliberately separate from the generic Vault
+     * adjustment API. Auction House transactions need an idempotent durable
+     * checkpoint so a hard process kill can never cause the same transfer to
+     * be applied twice.
+     */
+    public enum MarketTransferStatus {
+        SUCCESS,
+        ALREADY_COMMITTED,
+        DISABLED,
+        INVALID,
+        INSUFFICIENT_FUNDS,
+        RECIPIENT_BALANCE_LIMIT,
+        BUSY,
+        PERSISTENCE_PENDING
+    }
+
+    public enum MarketTransactionDurability {
+        COMMITTED,
+        PENDING,
+        UNKNOWN
+    }
+
     public record BulkResult(
             int matched,
             int changed,
@@ -64,6 +88,7 @@ public final class EconomyService {
     private static final long DEFAULT_SAVE_DEBOUNCE_MILLIS = 250L;
     private static final long MAX_SAVE_DEBOUNCE_MILLIS = 5_000L;
     private static final long SHUTDOWN_FLUSH_TIMEOUT_SECONDS = 5L;
+    private static final long MAX_MARKET_WAIT_MILLIS = 10_000L;
 
     private final Core core;
     private final YamlEconomyRepository repository;
@@ -82,6 +107,15 @@ public final class EconomyService {
     private long persistedGeneration;
     private long lastSaveWarningNanos;
     private ScheduledFuture<?> pendingSave;
+
+    /*
+     * Only Auction House replaces this marker. Normal economy writes preserve
+     * it. AH also refuses to cross a second ambiguous payment barrier before
+     * the first recovery is durably advanced, so a single persisted marker is
+     * enough to make market transfers idempotent without an ever-growing WAL.
+     */
+    private UUID lastMarketTransactionId;
+    private UUID persistedMarketTransactionId;
 
     public EconomyService(
             Core core,
@@ -102,6 +136,11 @@ public final class EconomyService {
                     entry.getValue().copy()
             );
         }
+
+        lastMarketTransactionId =
+                snapshot.lastMarketTransactionId();
+        persistedMarketTransactionId =
+                snapshot.lastMarketTransactionId();
 
         saveDebounceMillis = Math.clamp(
                 core.getConfig().getLong(
@@ -152,9 +191,9 @@ public final class EconomyService {
     public boolean payEnabled() {
         return enabled()
                 && core.getConfig().getBoolean(
-                "economy.pay.enabled",
-                true
-        );
+                        "economy.pay.enabled",
+                        true
+                );
     }
 
     public long startingBalanceCents() {
@@ -223,10 +262,6 @@ public final class EconomyService {
         return true;
     }
 
-    public void give(UUID playerId, long cents) {
-        tryGive(playerId, cents);
-    }
-
     public synchronized boolean tryGive(
             UUID playerId,
             long cents
@@ -268,6 +303,164 @@ public final class EconomyService {
         balances.put(playerId, current - cents);
         changed();
         return true;
+    }
+
+    /**
+     * Atomically adjusts both native Mineacle balances and waits, for at most
+     * {@code timeoutMillis}, until an economy.yml snapshot containing both the
+     * balance changes and transaction id is durable.
+     *
+     * <p>If persistence times out or fails, the in-memory transfer is NOT
+     * rolled back. Returning PERSISTENCE_PENDING tells the caller to keep its
+     * own recovery barrier intact. A later retry with the same transaction id
+     * is idempotent: if the checkpoint reached disk it returns
+     * ALREADY_COMMITTED, otherwise the still-pending snapshot is flushed.</p>
+     */
+    public synchronized MarketTransferStatus durableMarketTransfer(
+            UUID transactionId,
+            UUID buyerId,
+            UUID sellerId,
+            long cents,
+            long timeoutMillis
+    ) {
+        if (!enabled()) {
+            return MarketTransferStatus.DISABLED;
+        }
+
+        if (transactionId == null
+                || buyerId == null
+                || sellerId == null
+                || buyerId.equals(sellerId)
+                || cents <= 0L) {
+            return MarketTransferStatus.INVALID;
+        }
+
+        if (transactionId.equals(persistedMarketTransactionId)) {
+            return MarketTransferStatus.ALREADY_COMMITTED;
+        }
+
+        if (transactionId.equals(lastMarketTransactionId)) {
+            schedulePersistenceLocked(0L);
+            return awaitMarketPersistenceLocked(
+                    transactionId,
+                    timeoutMillis
+            );
+        }
+
+        if (hasUnpersistedMarketTransactionLocked()) {
+            return MarketTransferStatus.BUSY;
+        }
+
+        long buyerBalance = getBalanceCents(buyerId);
+        if (buyerBalance < cents) {
+            return MarketTransferStatus.INSUFFICIENT_FUNDS;
+        }
+
+        long sellerBalance;
+        try {
+            sellerBalance = Math.addExact(
+                    getBalanceCents(sellerId),
+                    cents
+            );
+        } catch (ArithmeticException exception) {
+            return MarketTransferStatus.RECIPIENT_BALANCE_LIMIT;
+        }
+
+        balances.put(
+                buyerId,
+                buyerBalance - cents
+        );
+        balances.put(
+                sellerId,
+                sellerBalance
+        );
+        lastMarketTransactionId = transactionId;
+        dirty = true;
+        changeGeneration++;
+        saveFailed = false;
+        schedulePersistenceLocked(0L);
+
+        return awaitMarketPersistenceLocked(
+                transactionId,
+                timeoutMillis
+        );
+    }
+
+    public synchronized MarketTransactionDurability marketTransactionDurability(
+            UUID transactionId
+    ) {
+        if (transactionId == null) {
+            return MarketTransactionDurability.UNKNOWN;
+        }
+
+        if (transactionId.equals(persistedMarketTransactionId)) {
+            return MarketTransactionDurability.COMMITTED;
+        }
+
+        if (transactionId.equals(lastMarketTransactionId)) {
+            return MarketTransactionDurability.PENDING;
+        }
+
+        return MarketTransactionDurability.UNKNOWN;
+    }
+
+    private boolean hasUnpersistedMarketTransactionLocked() {
+        return lastMarketTransactionId != null
+                && !Objects.equals(
+                        lastMarketTransactionId,
+                        persistedMarketTransactionId
+                );
+    }
+
+    private MarketTransferStatus awaitMarketPersistenceLocked(
+            UUID transactionId,
+            long rawTimeoutMillis
+    ) {
+        long timeoutMillis = Math.clamp(
+                rawTimeoutMillis,
+                0L,
+                MAX_MARKET_WAIT_MILLIS
+        );
+
+        if (transactionId.equals(persistedMarketTransactionId)) {
+            return MarketTransferStatus.SUCCESS;
+        }
+
+        if (timeoutMillis <= 0L) {
+            return MarketTransferStatus.PERSISTENCE_PENDING;
+        }
+
+        long deadline = System.nanoTime()
+                + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+
+        while (!transactionId.equals(persistedMarketTransactionId)) {
+            if (!transactionId.equals(lastMarketTransactionId)) {
+                return MarketTransferStatus.BUSY;
+            }
+
+            if (saveFailed || persistenceClosed) {
+                return MarketTransferStatus.PERSISTENCE_PENDING;
+            }
+
+            long remainingNanos = deadline - System.nanoTime();
+            if (remainingNanos <= 0L) {
+                return MarketTransferStatus.PERSISTENCE_PENDING;
+            }
+
+            long waitMillis = Math.max(
+                    1L,
+                    TimeUnit.NANOSECONDS.toMillis(remainingNanos)
+            );
+
+            try {
+                wait(waitMillis);
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                return MarketTransferStatus.PERSISTENCE_PENDING;
+            }
+        }
+
+        return MarketTransferStatus.SUCCESS;
     }
 
     public boolean pay(
@@ -695,6 +888,7 @@ public final class EconomyService {
                     );
                 } catch (RejectedExecutionException exception) {
                     saveFailed = true;
+                    notifyAll();
                     warnSaveFailure(
                             "Could not queue final economy save",
                             exception
@@ -716,6 +910,7 @@ public final class EconomyService {
                     if (dirty) {
                         saveFailed = true;
                     }
+                    notifyAll();
                 }
 
                 core.getLogger().severe(
@@ -732,6 +927,7 @@ public final class EconomyService {
                 if (dirty) {
                     saveFailed = true;
                 }
+                notifyAll();
             }
 
             core.getLogger().log(
@@ -770,6 +966,7 @@ public final class EconomyService {
             );
         } catch (RejectedExecutionException exception) {
             saveFailed = true;
+            notifyAll();
             warnSaveFailure(
                     "Could not queue economy persistence",
                     exception
@@ -785,6 +982,7 @@ public final class EconomyService {
             pendingSave = null;
 
             if (persistenceClosed || !dirty) {
+                notifyAll();
                 return;
             }
 
@@ -804,6 +1002,7 @@ public final class EconomyService {
                             saveRetryMillis
                     );
                 }
+                notifyAll();
             }
 
             warnSaveFailure(
@@ -820,12 +1019,15 @@ public final class EconomyService {
                     persistedGeneration,
                     generation
             );
+            persistedMarketTransactionId =
+                    snapshot.lastMarketTransactionId();
             dirty = changeGeneration > persistedGeneration;
             saveFailed = false;
 
             if (dirty && !persistenceClosed) {
                 schedulePersistenceLocked(0L);
             }
+            notifyAll();
         }
     }
 
@@ -841,13 +1043,17 @@ public final class EconomyService {
                         persistedGeneration,
                         generation
                 );
+                persistedMarketTransactionId =
+                        snapshot.lastMarketTransactionId();
                 dirty = changeGeneration > persistedGeneration;
                 saveFailed = false;
+                notifyAll();
             }
         } catch (IOException exception) {
             synchronized (this) {
                 saveFailed = true;
                 dirty = true;
+                notifyAll();
             }
 
             warnSaveFailure(
@@ -877,7 +1083,8 @@ public final class EconomyService {
 
         return new YamlEconomyRepository.Snapshot(
                 balanceCopy,
-                Map.copyOf(noticeCopy)
+                Map.copyOf(noticeCopy),
+                lastMarketTransactionId
         );
     }
 

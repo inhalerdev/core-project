@@ -3,15 +3,18 @@ package net.mineacle.core.auctionhouse;
 import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.command.AuctionHouseCommand;
 import net.mineacle.core.auctionhouse.gui.AuctionHouseGuiListener;
+import net.mineacle.core.auctionhouse.listener.AuctionTransactionRecoveryListener;
 import net.mineacle.core.auctionhouse.service.AuctionHouseService;
 import net.mineacle.core.bootstrap.Module;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.command.TabCompleter;
 
-public final class AuctionHouseModule
-        extends Module {
+public final class AuctionHouseModule extends Module {
 
     private AuctionHouseService service;
-    private AuctionHouseGuiListener listener;
+    private AuctionHouseGuiListener guiListener;
+    private AuctionTransactionRecoveryListener recoveryListener;
 
     @Override
     public String name() {
@@ -19,11 +22,8 @@ public final class AuctionHouseModule
     }
 
     @Override
-    public void enable(
-            Core core
-    ) {
-        service =
-                new AuctionHouseService(core);
+    public void enable(Core core) {
+        service = new AuctionHouseService(core);
         service.load();
 
         AuctionHouseCommand command =
@@ -31,31 +31,46 @@ public final class AuctionHouseModule
                         core,
                         service
                 );
-
         register(
                 core,
                 command
         );
 
-        listener =
+        recoveryListener =
+                new AuctionTransactionRecoveryListener(
+                        core,
+                        service
+                );
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        recoveryListener,
+                        core
+                );
+
+        guiListener =
                 new AuctionHouseGuiListener(
                         core,
                         service
                 );
-
         core.getServer()
                 .getPluginManager()
                 .registerEvents(
-                        listener,
+                        guiListener,
                         core
                 );
     }
 
     @Override
     public void disable() {
-        if (listener != null) {
-            listener.shutdown();
-            listener = null;
+        if (recoveryListener != null) {
+            recoveryListener.shutdown();
+            recoveryListener = null;
+        }
+
+        if (guiListener != null) {
+            guiListener.shutdown();
+            guiListener = null;
         }
 
         if (service != null) {
@@ -66,12 +81,10 @@ public final class AuctionHouseModule
 
     private void register(
             Core core,
-            AuctionHouseCommand executor
+            CommandExecutor executor
     ) {
         PluginCommand command =
-                core.getCommand(
-                        "auction"
-                );
+                core.getCommand("auction");
 
         if (command == null) {
             throw new IllegalStateException(
@@ -80,6 +93,12 @@ public final class AuctionHouseModule
         }
 
         command.setExecutor(executor);
-        command.setTabCompleter(executor);
+
+        if (executor
+                instanceof TabCompleter completer) {
+            command.setTabCompleter(
+                    completer
+            );
+        }
     }
 }
