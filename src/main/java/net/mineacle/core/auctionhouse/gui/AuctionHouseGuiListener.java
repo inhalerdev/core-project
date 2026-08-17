@@ -123,6 +123,26 @@ public final class AuctionHouseGuiListener implements Listener {
             return;
         }
 
+        if (core.getConfig()
+                .getBoolean(
+                        "shulker-preview.enabled",
+                        true
+                )
+                && event.isRightClick()
+                && empty(
+                event.getCursor()
+        )
+                && isShulkerPreviewItem(
+                event.getCurrentItem()
+        )) {
+            /*
+             * Keep the click cancelled so no item movement is possible. The
+             * ShulkerPreview listener runs after Auction House and is allowed
+             * to consume this cancelled right-click as a read-only preview.
+             */
+            return;
+        }
+
         switch (holder) {
             case AuctionHouseGui.BrowseHolder browse ->
                     handleBrowse(
@@ -726,24 +746,24 @@ public final class AuctionHouseGuiListener implements Listener {
                 outcome.listing();
 
         switch (outcome.result()) {
-            case SUCCESS -> {
+            case SUCCESS -> returnToBrowseAfterAction(
+                    player,
+                    page,
+                    sortMode,
+                    filterMode,
+                    query,
+                    fromConfirm
+            );
+            case PROCESSING -> {
                 player.sendMessage(
                         TextColor.color(
                                 service.text(
-                                        "messages.purchased",
-                                        "&#bbbbbbPurchased &#B078FF%item% &#bbbbbbfor &#11fc7b%price%",
-                                        "%item%",
-                                        service.itemName(
-                                                listing.item()
-                                        ),
-                                        "%price%",
-                                        service.format(
-                                                listing.priceCents()
-                                        )
+                                        "messages.processing",
+                                        "&#bbbbbbPurchase processing &#bbbbbb— your item will be delivered automatically"
                                 )
                         )
                 );
-                SoundService.economyPay(
+                SoundService.guiSelect(
                         player,
                         core
                 );
@@ -1786,6 +1806,25 @@ public final class AuctionHouseGuiListener implements Listener {
                         page
                 )
         );
+    }
+
+    private static boolean empty(
+            ItemStack item
+    ) {
+        return item == null
+                || item.getType().isAir();
+    }
+
+    private static boolean isShulkerPreviewItem(
+            ItemStack item
+    ) {
+        return item != null
+                && !item.getType().isAir()
+                && item.getType()
+                .name()
+                .endsWith(
+                        "SHULKER_BOX"
+                );
     }
 
     private static boolean lacksUsePermission(

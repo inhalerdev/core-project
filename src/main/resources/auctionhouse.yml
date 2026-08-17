@@ -63,7 +63,11 @@ listing:
   # Listings expire after exactly 24 hours. Expired listings remain in their
   # owner's occupied slots until manually reclaimed.
   reject-overstacked: true
+  # Filled shulkers are allowed so players can trade container kits and use
+  # Mineacle's read-only Shulker Preview inside Auction House. Other filled
+  # inventory-bearing block items and filled bundles remain blocked.
   block-filled-containers: true
+  allow-filled-shulkers: true
   max-item-nbt-bytes: 262144
 
   blocked-materials:
@@ -122,13 +126,15 @@ messages:
   above-maximum: '&cMaximum auction price is &#11fc7b%price%'
   listing-below-server-worth: '&cThis listing is below the current server sell value &#bbbbbb— it must be relisted'
   blocked-item: '&cThat item cannot be listed'
-  filled-container: '&cEmpty that container before listing it'
+  filled-container: '&cOnly shulker boxes may be listed with contents — empty that container first'
   oversized-item: '&cThat item contains too much data to list safely'
   storage-error: '&cCould not safely complete that Auction House action'
 
   listed: '&#bbbbbbListed &#B078FF%amount%x %item% &#bbbbbbfor &#11fc7b%price%'
   purchased: '&#bbbbbbPurchased &#B078FF%item% &#bbbbbbfor &#11fc7b%price%'
+  processing: '&#bbbbbbPurchase processing &#bbbbbb— your item will be delivered automatically'
   sold: '&#bbbbbbSold &#B078FF%item% &#bbbbbbfor &#11fc7b+%price%'
+  sold-multiple: '&#bbbbbbSold &#D0AFFF%count% &#bbbbbbauction listings for &#11fc7b+%price%'
   sold-offline-single: '&#bbbbbbWhile you were away, &#B078FF%item% &#bbbbbbsold for &#11fc7b+%price%'
   sold-offline-multiple: '&#bbbbbbWhile you were away, &#D0AFFF%count% &#bbbbbbauction listings sold for &#11fc7b+%price%'
   cancelled: '&#bbbbbbCancelled listing for &#B078FF%item%'

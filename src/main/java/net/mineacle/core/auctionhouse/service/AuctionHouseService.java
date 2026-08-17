@@ -1,5 +1,6 @@
 package net.mineacle.core.auctionhouse.service;
 
+import io.papermc.paper.block.TileStateInventoryHolder;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.mineacle.core.Core;
@@ -68,7 +69,6 @@ public final class AuctionHouseService {
     private static final long DEFAULT_BROWSE_CACHE_MILLIS = 750L;
     private static final int MAX_BROWSE_CACHE_ENTRIES = 128;
     private static final long LISTING_LIFETIME_MILLIS = TimeUnit.HOURS.toMillis(24L);
-    private static final long MARKET_PERSIST_WAIT_MILLIS = 5_000L;
     private static final String CREATE_PHASE_MARKED = "MARKED";
     private static final String CREATE_PHASE_REMOVED = "REMOVED";
 
@@ -157,7 +157,7 @@ public final class AuctionHouseService {
         SUCCESS, NOT_FOUND, NOT_OWNER, INVENTORY_FULL, STORAGE_ERROR
     }
     public enum BuyResult {
-        SUCCESS, NOT_FOUND, EXPIRED, BUSY, NO_PERMISSION, OWN_ITEM,
+        SUCCESS, PROCESSING, NOT_FOUND, EXPIRED, BUSY, NO_PERMISSION, OWN_ITEM,
         BELOW_SERVER_WORTH, NOT_ENOUGH_MONEY, INVENTORY_FULL,
         ECONOMY_MISSING, PAYMENT_FAILED, STORAGE_ERROR
     }
@@ -185,6 +185,7 @@ public final class AuctionHouseService {
 
     private AuctionHouseDatabaseMirror databaseMirror;
     private BukkitTask databaseMirrorTask;
+    private BukkitTask paymentRecoveryTask;
 
     private final Map<UUID, AuctionHouseListing> listings = new LinkedHashMap<>();
     private final Map<UUID, LinkedHashSet<UUID>> ownerIndex = new HashMap<>();
@@ -196,6 +197,7 @@ public final class AuctionHouseService {
     private final Map<UUID, PurchaseRecovery> quarantinedRecoveries = new LinkedHashMap<>();
     private final Map<UUID, AuctionTransaction> transactions = new LinkedHashMap<>();
     private final Set<UUID> runtimeQuarantinedTransactions = new HashSet<>();
+    private final Set<UUID> restrictedListings = new HashSet<>();
     private final LinkedHashMap<SearchCacheKey, SearchSnapshot> searchCache =
             new LinkedHashMap<>(16, 0.75F, true);
 
@@ -217,6 +219,7 @@ public final class AuctionHouseService {
     }
 
     public synchronized void load() {
+        stopPaymentRecoveryTask();
         stopDatabaseMirror();
         ensureConfigFile();
         config = YamlConfiguration.loadConfiguration(configFile);
@@ -227,6 +230,10 @@ public final class AuctionHouseService {
                 config.getLong("browse.cache-millis", DEFAULT_BROWSE_CACHE_MILLIS),
                 0L, 5_000L
         );
+
+        int maximumItemBytes = maximumListingItemBytes();
+        storage.configureMaximumItemBytes(maximumItemBytes);
+        transactionStorage.configureMaximumItemBytes(maximumItemBytes);
 
         clearInMemoryState();
         storage.initialize();
@@ -243,7 +250,22 @@ public final class AuctionHouseService {
                 );
                 continue;
             }
-            addInMemory(normalizedLoadedListing(stored));
+
+            AuctionHouseListing normalized =
+                    normalizedLoadedListing(stored);
+            CreateResult storedPolicy =
+                    validateListingItem(normalized.item());
+
+            if (storedPolicy != CreateResult.SUCCESS) {
+                restrictedListings.add(normalized.id());
+                core.getLogger().warning(
+                        "[AuctionHouse] Listing " + normalized.id()
+                                + " is restricted from public browsing until its owner reclaims it"
+                                + " | reason=" + storedPolicy
+                );
+            }
+
+            addInMemory(normalized);
         }
 
         for (Player online : Bukkit.getOnlinePlayers()) {
@@ -258,6 +280,7 @@ public final class AuctionHouseService {
     }
 
     public synchronized void shutdown() {
+        stopPaymentRecoveryTask();
         stopDatabaseMirror();
         clearInMemoryState();
     }
@@ -278,6 +301,7 @@ public final class AuctionHouseService {
         quarantinedRecoveries.clear();
         transactions.clear();
         runtimeQuarantinedTransactions.clear();
+        restrictedListings.clear();
         searchCache.clear();
         listingGeneration = 0L;
     }
@@ -418,7 +442,10 @@ public final class AuctionHouseService {
             List<AuctionHouseListing> result, long now, long validUntil
     ) {
         long expiresAt = expiresAt(listing);
-        if (expiresAt <= now) return validUntil;
+        if (restrictedListings.contains(listing.id())
+                || expiresAt <= now) {
+            return validUntil;
+        }
         SearchDocument document = searchIndex.get(listing.id());
         if (document == null || !document.matches(tokens)) return validUntil;
         result.add(listing);
@@ -479,7 +506,9 @@ public final class AuctionHouseService {
 
         for (UUID id : ids) {
             AuctionHouseListing listing = listings.get(id);
-            if (listing == null || expiredAt(listing, now)
+            if (listing == null
+                    || restrictedListings.contains(id)
+                    || expiredAt(listing, now)
                     || (sellerId != null && sellerId.equals(listing.owner()))
                     || differentIgnoringAmount(item, listing.item())) {
                 continue;
@@ -642,7 +671,10 @@ public final class AuctionHouseService {
 
     public synchronized BuyOutcome buy(Player buyer, UUID id) {
         AuctionHouseListing listing = listings.get(id);
-        if (listing == null) return new BuyOutcome(BuyResult.NOT_FOUND, null);
+        if (listing == null
+                || restrictedListings.contains(id)) {
+            return new BuyOutcome(BuyResult.NOT_FOUND, null);
+        }
         if (isExpired(listing)) return new BuyOutcome(BuyResult.EXPIRED, listing);
 
         /*
@@ -727,7 +759,7 @@ public final class AuctionHouseService {
                 buyer.getUniqueId(),
                 listing.owner(),
                 listing.priceCents(),
-                MARKET_PERSIST_WAIT_MILLIS
+                0L
         );
 
         return switch (payment) {
@@ -746,8 +778,13 @@ public final class AuctionHouseService {
                     case PENDING -> new BuyOutcome(BuyResult.STORAGE_ERROR, listing);
                 };
             }
-            case PERSISTENCE_PENDING ->
-                    new BuyOutcome(BuyResult.STORAGE_ERROR, listing);
+            case PERSISTENCE_PENDING -> {
+                schedulePaymentRecovery();
+                yield new BuyOutcome(
+                        BuyResult.PROCESSING,
+                        listing
+                );
+            }
             case INSUFFICIENT_FUNDS -> {
                 boolean restored = abortUnpaidTransaction(paymentStarted);
                 yield new BuyOutcome(
@@ -950,10 +987,6 @@ public final class AuctionHouseService {
         return List.copyOf(lines);
     }
 
-    public String recoveryPath() {
-        return transactionStorage.folder().getParentFile().getAbsolutePath();
-    }
-
     private void loadDurableTransactions() {
         for (AuctionTransaction loaded : transactionStorage.load()) {
             AuctionTransaction transaction =
@@ -1073,25 +1106,155 @@ public final class AuctionHouseService {
         }
     }
 
-    private void reconcileRemovalBeforeLoad(AuctionTransaction transaction) {
+    private void reconcileRemovalBeforeLoad(
+            AuctionTransaction transaction
+    ) {
+        switch (transaction.type()) {
+            case BUY ->
+                    reconcileBuyBeforeLoad(
+                            transaction
+                    );
+            case RETURN ->
+                    reconcileReturnBeforeLoad(
+                            transaction
+                    );
+            case LIST ->
+                    quarantineTransaction(
+                            transaction,
+                            "invalid-removal-reconciliation-for-list"
+                    );
+        }
+    }
+
+    private void reconcileBuyBeforeLoad(
+            AuctionTransaction transaction
+    ) {
+        boolean listingExists =
+                storage.listingExists(
+                        transaction.listing()
+                                .id()
+                );
+
         switch (transaction.state()) {
             case PREPARED -> {
-                if (storage.listingExists(transaction.listing().id())) {
-                    // Durable listing-removal boundary was never crossed.
-                    deleteTransaction(transaction);
+                if (listingExists) {
+                    deleteTransaction(
+                            transaction
+                    );
                 } else {
-                    advanceTransaction(transaction, TransactionState.LISTING_REMOVED);
+                    advanceTransaction(
+                            transaction,
+                            TransactionState.LISTING_REMOVED
+                    );
                 }
             }
-            case ABORTED -> finalizeAbortedTransaction(transaction);
-            case DELIVERED -> deleteTransaction(transaction);
-            case LISTING_REMOVED, PAYMENT_STARTED, PAID,
-                    DELIVERY_STARTED, QUARANTINED -> {
-                // Economy/player recovery is required.
+            case LISTING_REMOVED -> {
+                if (listingExists) {
+                    AuctionTransaction aborted =
+                            advanceTransaction(
+                                    transaction,
+                                    TransactionState.ABORTED
+                            );
+
+                    if (aborted != null) {
+                        finalizeAbortedTransaction(
+                                aborted
+                        );
+                    }
+                }
             }
-            default -> quarantineTransaction(
-                    transaction, "invalid-removal-state-" + transaction.state()
-            );
+            case PAYMENT_STARTED -> {
+                /*
+                 * recoverPayment() owns this ambiguity because the economy
+                 * checkpoint determines whether restoring the listing is safe.
+                 */
+            }
+            case PAID, DELIVERY_STARTED, DELIVERED -> {
+                if (listingExists) {
+                    quarantineTransaction(
+                            transaction,
+                            "listing-present-after-paid-buy-state-"
+                                    + transaction.state()
+                    );
+                }
+                /*
+                 * DELIVERED without a conflicting listing is intentionally
+                 * retained until seller receipt finalization.
+                 */
+            }
+            case ABORTED ->
+                    finalizeAbortedTransaction(
+                            transaction
+                    );
+            case QUARANTINED -> {
+            }
+            case LISTING_SAVED, SOURCE_REMOVED ->
+                    quarantineTransaction(
+                            transaction,
+                            "invalid-buy-state-"
+                                    + transaction.state()
+                    );
+        }
+    }
+
+    private void reconcileReturnBeforeLoad(
+            AuctionTransaction transaction
+    ) {
+        boolean listingExists =
+                storage.listingExists(
+                        transaction.listing()
+                                .id()
+                );
+
+        switch (transaction.state()) {
+            case PREPARED -> {
+                if (listingExists) {
+                    deleteTransaction(
+                            transaction
+                    );
+                } else {
+                    advanceTransaction(
+                            transaction,
+                            TransactionState.LISTING_REMOVED
+                    );
+                }
+            }
+            case LISTING_REMOVED -> {
+                if (listingExists) {
+                    AuctionTransaction aborted =
+                            advanceTransaction(
+                                    transaction,
+                                    TransactionState.ABORTED
+                            );
+
+                    if (aborted != null) {
+                        finalizeAbortedTransaction(
+                                aborted
+                        );
+                    }
+                }
+            }
+            case DELIVERY_STARTED, DELIVERED -> {
+                if (listingExists) {
+                    quarantineTransaction(
+                            transaction,
+                            "listing-present-after-return-delivery-state-"
+                                    + transaction.state()
+                    );
+                }
+            }
+            case ABORTED ->
+                    finalizeAbortedTransaction(
+                            transaction
+                    );
+            case QUARANTINED -> {
+            }
+            case PAYMENT_STARTED, PAID, LISTING_SAVED, SOURCE_REMOVED ->
+                    quarantineTransaction(
+                            transaction,
+                            "invalid-return-state-"
+                                    + transaction.state()
+                    );
         }
     }
 
@@ -1556,24 +1719,72 @@ public final class AuctionHouseService {
             return;
         }
 
+        if (transaction.type() == TransactionType.BUY
+                && !ensureSaleReceipt(transaction)) {
+            return;
+        }
+
         boolean deleted = deleteTransaction(transaction);
 
         if (actor != null && actor.isOnline()) {
             clearDeliveryMarker(actor, transaction.transactionId(), true);
         }
 
-        if (!deleted || actor == null) return;
+        if (!deleted) {
+            return;
+        }
 
         switch (transaction.type()) {
             case BUY -> {
-                notifySeller(transaction.listing());
-                auditPurchase(actor, transaction.listing(), transaction.transactionId());
+                if (actor != null && actor.isOnline()) {
+                    notifyBuyer(actor, transaction.listing());
+                }
+
+                Player seller = Bukkit.getPlayer(
+                        transaction.listing().owner()
+                );
+                if (seller != null && seller.isOnline()) {
+                    deliverLiveSaleNotice(seller);
+                }
+
+                auditPurchase(
+                        transaction.actor(),
+                        transaction.listing(),
+                        transaction.transactionId()
+                );
             }
-            case RETURN -> auditCancel(actor, transaction.listing());
+            case RETURN -> {
+                if (actor != null) {
+                    auditCancel(actor, transaction.listing());
+                }
+            }
             case LIST -> {
                 // LIST never uses delivery states.
             }
         }
+    }
+
+    private boolean ensureSaleReceipt(
+            AuctionTransaction transaction
+    ) {
+        AuctionHouseListing listing = transaction.listing();
+
+        boolean saved = storage.recordSaleReceipt(
+                transaction.transactionId(),
+                listing.owner(),
+                safeOutput(itemName(listing.item())),
+                listing.priceCents()
+        );
+
+        if (!saved) {
+            core.getLogger().severe(
+                    "[AuctionHouse] Could not durably record completed sale "
+                            + transaction.transactionId()
+                            + "; transaction retained for retry"
+            );
+        }
+
+        return saved;
     }
 
     private void recoverPayment(AuctionTransaction original) {
@@ -1623,6 +1834,7 @@ public final class AuctionHouseService {
 
         if (durability == MarketTransactionDurability.PENDING) {
             economy.flushIfDirty();
+            schedulePaymentRecovery();
             return;
         }
 
@@ -1637,9 +1849,100 @@ public final class AuctionHouseService {
         switch (result) {
             case SUCCESS, ALREADY_COMMITTED ->
                     advanceTransaction(transaction, TransactionState.PAID);
-            case PERSISTENCE_PENDING -> economy.flushIfDirty();
+            case PERSISTENCE_PENDING -> {
+                economy.flushIfDirty();
+                schedulePaymentRecovery();
+            }
             case INSUFFICIENT_FUNDS, RECIPIENT_BALANCE_LIMIT,
                     DISABLED, INVALID, BUSY -> abortUnpaidTransaction(transaction);
+        }
+    }
+
+    private void schedulePaymentRecovery() {
+        if (paymentRecoveryTask != null) {
+            return;
+        }
+
+        paymentRecoveryTask =
+                core.getServer()
+                        .getScheduler()
+                        .runTaskTimer(
+                                core,
+                                this::retryPaymentBarrierFast,
+                                1L,
+                                1L
+                        );
+    }
+
+    private synchronized void retryPaymentBarrierFast() {
+        List<AuctionTransaction> barriers =
+                transactions.values()
+                        .stream()
+                        .filter(
+                                transaction ->
+                                        transaction.type()
+                                                == TransactionType.BUY
+                                                && transaction.state()
+                                                == TransactionState.PAYMENT_STARTED
+                        )
+                        .toList();
+
+        if (barriers.isEmpty()) {
+            stopPaymentRecoveryTask();
+            return;
+        }
+
+        for (AuctionTransaction barrier : barriers) {
+            AuctionTransaction current =
+                    transactions.get(
+                            barrier.transactionId()
+                    );
+
+            if (current == null
+                    || current.state()
+                    != TransactionState.PAYMENT_STARTED) {
+                continue;
+            }
+
+            recoverPayment(current);
+
+            AuctionTransaction recovered =
+                    transactions.get(
+                            current.transactionId()
+                    );
+
+            if (recovered == null
+                    || recovered.state()
+                    != TransactionState.PAID) {
+                continue;
+            }
+
+            Player buyer =
+                    Bukkit.getPlayer(
+                            recovered.actor()
+                    );
+
+            if (buyer != null
+                    && buyer.isOnline()) {
+                deliverTransaction(
+                        recovered,
+                        buyer
+                );
+            }
+        }
+
+        if (!hasAmbiguousPaymentBarrier()) {
+            stopPaymentRecoveryTask();
+        }
+    }
+
+    private void stopPaymentRecoveryTask() {
+        BukkitTask task =
+                paymentRecoveryTask;
+
+        if (task != null) {
+            task.cancel();
+            paymentRecoveryTask = null;
         }
     }
 
@@ -1914,7 +2217,7 @@ public final class AuctionHouseService {
                         .replace('\n', ' ')
                         .replace('\r', ' ')
                         .trim();
-                if (!display.isBlank()) return display;
+                if (!display.isBlank()) return safeOutput(display);
             }
         }
 
@@ -1970,20 +2273,124 @@ public final class AuctionHouseService {
         }
     }
 
-    public long serverSellCents(Player player, ItemStack item) {
-        if (item == null || item.getType().isAir()) return 0L;
+    public long serverSellCents(
+            Player player,
+            ItemStack item
+    ) {
+        if (item == null
+                || item.getType().isAir()) {
+            return 0L;
+        }
 
-        SellService current = currentSellService();
-        if (current == null) return 0L;
+        SellService current =
+                currentSellService();
+        if (current == null) {
+            return 0L;
+        }
 
         try {
-            return Math.max(0L, current.stackWorthCents(player, cleanItem(item)));
+            ItemStack cleaned =
+                    cleanItem(item);
+            long directWorth =
+                    Math.max(
+                            0L,
+                            current.stackWorthCents(
+                                    player,
+                                    cleaned
+                            )
+                    );
+            long shulkerWorth =
+                    shulkerServerSellCents(
+                            player,
+                            cleaned,
+                            current
+                    );
+
+            return Math.max(
+                    directWorth,
+                    shulkerWorth
+            );
         } catch (RuntimeException exception) {
             core.getLogger().log(
-                    Level.FINE, "Could not resolve Auction House server-sell floor", exception
+                    Level.FINE,
+                    "Could not resolve Auction House server-sell floor",
+                    exception
             );
             return 0L;
         }
+    }
+
+    private long shulkerServerSellCents(
+            Player player,
+            ItemStack item,
+            SellService sell
+    ) {
+        ItemMeta meta =
+                item.getItemMeta();
+
+        if (!(meta instanceof BlockStateMeta state)
+                || !(state.getBlockState()
+                instanceof ShulkerBox shulker)) {
+            return 0L;
+        }
+
+        long contentsWorth = 0L;
+
+        for (ItemStack content
+                : shulker.getSnapshotInventory()
+                .getContents()) {
+            if (content == null
+                    || content.getType().isAir()) {
+                continue;
+            }
+
+            long worth =
+                    Math.max(
+                            0L,
+                            sell.stackWorthCents(
+                                    player,
+                                    cleanItem(content)
+                            )
+                    );
+            contentsWorth =
+                    safeAdd(
+                            contentsWorth,
+                            worth
+                    );
+        }
+
+        ItemStack emptyShell =
+                item.clone();
+        ItemMeta shellMeta =
+                emptyShell.getItemMeta();
+
+        if (shellMeta
+                instanceof BlockStateMeta shellState
+                && shellState.getBlockState()
+                instanceof ShulkerBox emptyShulker) {
+            emptyShulker.getSnapshotInventory()
+                    .clear();
+            shellState.setBlockState(
+                    emptyShulker
+            );
+            emptyShell.setItemMeta(
+                    shellState
+            );
+        }
+
+        long shellWorth =
+                Math.max(
+                        0L,
+                        sell.stackWorthCents(
+                                player,
+                                emptyShell
+                        )
+                );
+
+        return safeAdd(
+                shellWorth,
+                contentsWorth
+        );
     }
 
     public long minimumListingPriceCents(Player player, ItemStack item) {
@@ -2113,15 +2520,31 @@ public final class AuctionHouseService {
                 && item.getAmount() > item.getMaxStackSize()) {
             return CreateResult.BLOCKED_ITEM;
         }
-        if (config.getBoolean("listing.block-filled-containers", true)
-                && hasContainerContents(item)) {
-            return CreateResult.FILLED_CONTAINER;
+        try {
+            if (config.getBoolean(
+                    "listing.block-filled-containers",
+                    true
+            )
+                    && hasContainerContents(item)) {
+                return CreateResult.FILLED_CONTAINER;
+            }
+
+            CreateResult shulkerContents =
+                    validateAllowedShulkerContents(item);
+            if (shulkerContents
+                    != CreateResult.SUCCESS) {
+                return shulkerContents;
+            }
+        } catch (RuntimeException exception) {
+            core.getLogger().log(
+                    Level.WARNING,
+                    "Rejected malformed auction container item",
+                    exception
+            );
+            return CreateResult.BLOCKED_ITEM;
         }
 
-        int maximumBytes = Math.clamp(
-                config.getInt("listing.max-item-nbt-bytes", 262_144),
-                16_384, 4_194_304
-        );
+        int maximumBytes = maximumListingItemBytes();
 
         try {
             if (item.serializeAsBytes().length > maximumBytes) {
@@ -2139,15 +2562,129 @@ public final class AuctionHouseService {
 
     private boolean hasContainerContents(ItemStack item) {
         ItemMeta meta = item.getItemMeta();
-        if (meta instanceof BundleMeta bundle && !bundle.getItems().isEmpty()) return true;
 
-        if (meta instanceof BlockStateMeta state
-                && state.getBlockState() instanceof ShulkerBox shulker) {
-            for (ItemStack content : shulker.getInventory().getContents()) {
-                if (content != null && !content.getType().isAir()) return true;
+        if (meta instanceof BundleMeta bundle
+                && !bundle.getItems().isEmpty()) {
+            return true;
+        }
+
+        if (!(meta instanceof BlockStateMeta state)) {
+            return false;
+        }
+
+        var blockState =
+                state.getBlockState();
+
+        if (!(blockState
+                instanceof TileStateInventoryHolder inventoryHolder)
+                || !snapshotHasContents(
+                inventoryHolder
+        )) {
+            return false;
+        }
+
+        return !(blockState instanceof ShulkerBox)
+                || !config.getBoolean(
+                "listing.allow-filled-shulkers",
+                true
+        );
+    }
+
+    private CreateResult validateAllowedShulkerContents(
+            ItemStack item
+    ) {
+        if (!config.getBoolean(
+                "listing.allow-filled-shulkers",
+                true
+        )) {
+            return CreateResult.SUCCESS;
+        }
+
+        ItemMeta meta =
+                item.getItemMeta();
+
+        if (!(meta instanceof BlockStateMeta state)
+                || !(state.getBlockState()
+                instanceof ShulkerBox shulker)) {
+            return CreateResult.SUCCESS;
+        }
+
+        for (ItemStack content
+                : shulker.getSnapshotInventory()
+                .getContents()) {
+            if (content == null
+                    || content.getType().isAir()) {
+                continue;
+            }
+
+            if (blockedMaterials.contains(
+                    content.getType()
+            )) {
+                return CreateResult.BLOCKED_ITEM;
+            }
+
+            if (config.getBoolean(
+                    "listing.reject-overstacked",
+                    true
+            )
+                    && content.getAmount()
+                    > content.getMaxStackSize()) {
+                return CreateResult.BLOCKED_ITEM;
+            }
+
+            if (hasAnyNestedContainerContents(
+                    content
+            )) {
+                return CreateResult.FILLED_CONTAINER;
             }
         }
+
+        return CreateResult.SUCCESS;
+    }
+
+    private boolean hasAnyNestedContainerContents(
+            ItemStack item
+    ) {
+        ItemMeta meta =
+                item.getItemMeta();
+
+        if (meta instanceof BundleMeta bundle
+                && !bundle.getItems().isEmpty()) {
+            return true;
+        }
+
+        if (!(meta instanceof BlockStateMeta state)
+                || !(state.getBlockState()
+                instanceof TileStateInventoryHolder inventoryHolder)) {
+            return false;
+        }
+
+        return snapshotHasContents(
+                inventoryHolder
+        );
+    }
+
+    private boolean snapshotHasContents(
+            TileStateInventoryHolder holder
+    ) {
+        for (ItemStack content
+                : holder.getSnapshotInventory()
+                .getContents()) {
+            if (content != null
+                    && !content.getType().isAir()) {
+                return true;
+            }
+        }
+
         return false;
+    }
+
+    private int maximumListingItemBytes() {
+        return Math.clamp(
+                config.getInt("listing.max-item-nbt-bytes", 262_144),
+                16_384,
+                4_194_304
+        );
     }
 
     private AuctionHouseListing normalizedLoadedListing(AuctionHouseListing listing) {
@@ -2251,11 +2788,15 @@ public final class AuctionHouseService {
         invalidateSearchCache();
 
         AuctionHouseDatabaseMirror mirror = databaseMirror;
-        if (mirror != null) mirror.upsert(listing, LISTING_LIFETIME_MILLIS);
+        if (mirror != null
+                && !restrictedListings.contains(listing.id())) {
+            mirror.upsert(listing, LISTING_LIFETIME_MILLIS);
+        }
     }
 
     private void removeInMemory(AuctionHouseListing listing) {
         listings.remove(listing.id());
+        restrictedListings.remove(listing.id());
         searchIndex.remove(listing.id());
         worthCache.remove(listing.id());
         removeIndexed(ownerIndex, listing.owner(), listing.id());
@@ -2490,8 +3031,8 @@ public final class AuctionHouseService {
         if (!quarantinedRecoveries.isEmpty()) {
             core.getLogger().severe(
                     "[AuctionHouse] " + quarantinedRecoveries.size()
-                            + " legacy interrupted transaction(s) require manual review at "
-                            + recoveryPath()
+                            + " legacy interrupted transaction(s) require manual review "
+                            + "in auctionhouse/recovery"
             );
         }
     }
@@ -2565,66 +3106,102 @@ public final class AuctionHouseService {
     }
 
     public void deliverPendingSaleNotice(Player seller) {
-        if (seller == null || !seller.isOnline()) return;
+        deliverSaleReceipt(
+                seller,
+                true
+        );
+    }
 
-        SaleReceipt receipt = storage.loadSaleReceipt(seller.getUniqueId());
-        if (receipt == null) return;
+    private void deliverLiveSaleNotice(
+            Player seller
+    ) {
+        deliverSaleReceipt(
+                seller,
+                false
+        );
+    }
+
+    private void deliverSaleReceipt(
+            Player seller,
+            boolean joinedAfterSale
+    ) {
+        if (seller == null || !seller.isOnline()) {
+            return;
+        }
+
+        SaleReceipt receipt =
+                storage.loadSaleReceipt(
+                        seller.getUniqueId()
+                );
+        if (receipt == null) {
+            return;
+        }
 
         String message;
         if (receipt.count() == 1) {
-            message = text(
+            message = joinedAfterSale
+                    ? text(
                     "messages.sold-offline-single",
                     "&#bbbbbbWhile you were away, &#B078FF%item% &#bbbbbbsold for &#11fc7b+%price%",
                     "%item%", safeOutput(receipt.lastItem()),
                     "%price%", format(receipt.lastPriceCents())
+            )
+                    : text(
+                    "messages.sold",
+                    "&#bbbbbbSold &#B078FF%item% &#bbbbbbfor &#11fc7b+%price%",
+                    "%item%", safeOutput(receipt.lastItem()),
+                    "%price%", format(receipt.lastPriceCents())
             );
         } else {
-            message = text(
+            message = joinedAfterSale
+                    ? text(
                     "messages.sold-offline-multiple",
                     "&#bbbbbbWhile you were away, &#D0AFFF%count% &#bbbbbbauction listings sold for &#11fc7b+%price%",
+                    "%count%", String.valueOf(receipt.count()),
+                    "%price%", format(receipt.totalCents())
+            )
+                    : text(
+                    "messages.sold-multiple",
+                    "&#bbbbbbSold &#D0AFFF%count% &#bbbbbbauction listings for &#11fc7b+%price%",
                     "%count%", String.valueOf(receipt.count()),
                     "%price%", format(receipt.totalCents())
             );
         }
 
-        seller.sendMessage(TextColor.color(message));
-        SoundService.economyReceive(seller, core);
+        seller.sendMessage(
+                TextColor.color(message)
+        );
+        SoundService.economyReceive(
+                seller,
+                core
+        );
 
-        if (!storage.clearSaleReceipt(seller.getUniqueId())) {
+        if (!storage.clearSaleReceipt(
+                seller.getUniqueId()
+        )) {
             core.getLogger().warning(
                     "[AuctionHouse] Could not clear delivered sale notice for "
-                            + seller.getUniqueId() + "; it may repeat on next join"
+                            + seller.getUniqueId()
+                            + "; it may repeat on next join"
             );
         }
     }
 
-    private void notifySeller(AuctionHouseListing listing) {
-        Player seller = Bukkit.getPlayer(listing.owner());
-        if (seller == null || !seller.isOnline()) {
-            if (!storage.recordSaleReceipt(
-                    listing.owner(),
-                    safeOutput(itemName(listing.item())),
-                    listing.priceCents()
-            )) {
-                core.getLogger().warning(
-                        "[AuctionHouse] Could not persist offline sale notice for "
-                                + listing.owner()
-                );
-            }
-            return;
-        }
-
-        seller.sendMessage(
+    private void notifyBuyer(
+            Player buyer,
+            AuctionHouseListing listing
+    ) {
+        buyer.sendMessage(
                 TextColor.color(
                         text(
-                                "messages.sold",
-                                "&#bbbbbbSold &#B078FF%item% &#bbbbbbfor &#11fc7b+%price%",
+                                "messages.purchased",
+                                "&#bbbbbbPurchased &#B078FF%item% &#bbbbbbfor &#11fc7b%price%",
                                 "%item%", safeOutput(itemName(listing.item())),
                                 "%price%", format(listing.priceCents())
                         )
                 )
         );
-        SoundService.economyReceive(seller, core);
+        SoundService.economyPay(buyer, core);
     }
 
     private void auditList(Player seller, AuctionHouseListing listing) {
@@ -2648,13 +3225,13 @@ public final class AuctionHouseService {
     }
 
     private void auditPurchase(
-            Player buyer, AuctionHouseListing listing, UUID transactionId
+            UUID buyerId, AuctionHouseListing listing, UUID transactionId
     ) {
         if (auditDisabled()) return;
         core.getLogger().info(
                 "[AuctionHouse] BUY transaction=" + transactionId
                         + " listing=" + listing.id()
-                        + " buyer=" + buyer.getUniqueId()
+                        + " buyer=" + buyerId
                         + " seller=" + listing.owner()
                         + " item=" + listing.material()
                         + " amount=" + listing.amount()
@@ -2673,7 +3250,7 @@ public final class AuctionHouseService {
 
         if (!mirror.enabled()) return;
 
-        mirror.reconcile(List.copyOf(listings.values()), LISTING_LIFETIME_MILLIS);
+        mirror.reconcile(publicMirrorListings(), LISTING_LIFETIME_MILLIS);
 
         long syncSeconds = Math.clamp(
                 config.getLong("database.mirror.sync-seconds", 60L),
@@ -2692,7 +3269,24 @@ public final class AuctionHouseService {
         AuctionHouseDatabaseMirror mirror = databaseMirror;
         if (mirror == null || !mirror.enabled()) return;
 
-        mirror.reconcile(List.copyOf(listings.values()), LISTING_LIFETIME_MILLIS);
+        mirror.reconcile(publicMirrorListings(), LISTING_LIFETIME_MILLIS);
+    }
+
+    private synchronized List<AuctionHouseListing> publicMirrorListings() {
+        if (restrictedListings.isEmpty()) {
+            return List.copyOf(listings.values());
+        }
+
+        List<AuctionHouseListing> visible =
+                new ArrayList<>(listings.size());
+
+        for (AuctionHouseListing listing : listings.values()) {
+            if (!restrictedListings.contains(listing.id())) {
+                visible.add(listing);
+            }
+        }
+
+        return List.copyOf(visible);
     }
 
     private void stopDatabaseMirror() {

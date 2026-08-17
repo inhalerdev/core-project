@@ -1,7 +1,9 @@
 package net.mineacle.core.shulkerpreview;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.auctionhouse.gui.AuctionHouseGui;
 import net.mineacle.core.common.gui.GuiText;
+import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.sound.SoundService;
 import org.bukkit.Bukkit;
 import org.bukkit.block.Container;
@@ -64,10 +66,28 @@ public final class ShulkerPreviewListener implements Listener {
         if (!(event.getWhoClicked()
                 instanceof Player player)
                 || !enabled()
-                || event.isCancelled()
                 || !event.isRightClick()
-                || !empty(event.getCursor())
-                || !isAllowedView(
+                || !empty(event.getCursor())) {
+            return;
+        }
+
+        boolean auctionHouseView =
+                isAuctionHouseView(
+                        event.getView()
+                );
+
+        /*
+         * Auction House deliberately cancels every inventory click before this
+         * listener runs. A cancelled AH right-click is still eligible for this
+         * read-only preview path; cancelled clicks from every other GUI remain
+         * blocked exactly as before.
+         */
+        if (event.isCancelled()
+                && !auctionHouseView) {
+            return;
+        }
+
+        if (!isAllowedView(
                 player,
                 event.getView()
         )) {
@@ -82,9 +102,10 @@ public final class ShulkerPreviewListener implements Listener {
                 player,
                 clickedInventory
         )
-                || isBlockedView(
+                || (!auctionHouseView
+                && isBlockedView(
                 event.getView()
-        )) {
+        ))) {
             return;
         }
 
@@ -253,6 +274,22 @@ public final class ShulkerPreviewListener implements Listener {
             );
         }
 
+        if (isAuctionHouseHolder(
+                expectedTopInventory.getHolder()
+        )) {
+            MenuHistory.openChild(
+                    core,
+                    player,
+                    () -> player.openInventory(
+                            expectedTopInventory
+                    ),
+                    () -> player.openInventory(
+                            preview
+                    )
+            );
+            return;
+        }
+
         player.openInventory(preview);
     }
 
@@ -299,36 +336,29 @@ public final class ShulkerPreviewListener implements Listener {
         } catch (RuntimeException ignored) {
             /*
              * Malformed or incompatible block-state item data must never
-             * escape the inventory event or produce a partial preview. The
-             * original click remains untouched because cancellation happens
-             * only after a valid snapshot has been created.
+             * escape the inventory event or produce a partial preview.
              */
             return null;
         }
     }
 
     /**
-     * The current view must itself be a real player/container view.
-     * <p>
-     * This blocks right-click preview hijacking while Auction House, Orders,
-     * Bounty, crates, or any other virtual plugin inventory is open, even
-     * when the player clicks a shulker in their own bottom inventory.
+     * Normal previews are limited to real player/container views. Auction
+     * House is the one intentional virtual-GUI exception: AH itself freezes
+     * item movement and hands only cancelled right-click shulker interactions
+     * to this read-only preview listener.
      */
     private boolean isAllowedView(
             Player player,
             InventoryView view
     ) {
-        return isAllowedInventory(
+        return isAuctionHouseView(view)
+                || isAllowedInventory(
                 player,
                 view.getTopInventory()
         );
     }
 
-    /**
-     * Only inventories with a real Minecraft owner are preview sources.
-     * Custom/virtual Bukkit inventories generally have a null or custom
-     * holder and are rejected without relying only on a title blacklist.
-     */
     private boolean isAllowedInventory(
             Player player,
             Inventory inventory
@@ -342,6 +372,10 @@ public final class ShulkerPreviewListener implements Listener {
         InventoryHolder holder =
                 inventory.getHolder();
 
+        if (isAuctionHouseHolder(holder)) {
+            return true;
+        }
+
         if (holder
                 instanceof Player owner) {
             return owner.getUniqueId()
@@ -352,6 +386,29 @@ public final class ShulkerPreviewListener implements Listener {
 
         return holder instanceof Container
                 || holder instanceof DoubleChest;
+    }
+
+    private boolean isAuctionHouseView(
+            InventoryView view
+    ) {
+        return view != null
+                && isAuctionHouseHolder(
+                view.getTopInventory()
+                        .getHolder()
+        );
+    }
+
+    private boolean isAuctionHouseHolder(
+            InventoryHolder holder
+    ) {
+        return holder
+                instanceof AuctionHouseGui.BrowseHolder
+                || holder
+                instanceof AuctionHouseGui.OwnHolder
+                || holder
+                instanceof AuctionHouseGui.ConfirmBuyHolder
+                || holder
+                instanceof AuctionHouseGui.ConfirmCancelHolder;
     }
 
     private boolean isBlockedView(
@@ -507,7 +564,7 @@ public final class ShulkerPreviewListener implements Listener {
         return output;
     }
 
-    private boolean empty(
+    private static boolean empty(
             ItemStack item
     ) {
         return item == null
@@ -515,7 +572,7 @@ public final class ShulkerPreviewListener implements Listener {
                 .isAir();
     }
 
-    private void deny(
+    private static void deny(
             InventoryClickEvent event
     ) {
         event.setCancelled(true);

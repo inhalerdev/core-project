@@ -636,6 +636,12 @@ public final class AuctionHouseGui {
                 service.isExpired(
                         listing
                 );
+        boolean previewShulker =
+                item.getType()
+                        .name()
+                        .endsWith(
+                                "SHULKER_BOX"
+                        );
 
         lore.add(
                 GuiText.component(
@@ -655,15 +661,27 @@ public final class AuctionHouseGui {
             );
             lore.add(
                     GuiText.component(
-                            "&#bbbbbbClick to review"
+                            previewShulker
+                                    ? "&#bbbbbbLeft-click to review"
+                                    : "&#bbbbbbClick to review"
                     )
             );
+
+            if (previewShulker) {
+                lore.add(
+                        GuiText.component(
+                                "&#D0AFFFRight-click to preview"
+                        )
+                );
+            }
 
             if (service
                     .quickBuyEnabled()) {
                 lore.add(
                         GuiText.component(
-                                "&#D0AFFFShift-click to buy now"
+                                previewShulker
+                                        ? "&#D0AFFFShift-left-click to buy now"
+                                        : "&#D0AFFFShift-click to buy now"
                         )
                 );
             }
@@ -675,15 +693,24 @@ public final class AuctionHouseGui {
             lore.add(
                     GuiText.component(
                             expired
-                                    ? "&aClick to reclaim"
-                                    : "&cClick to cancel"
+                                    ? "&aLeft-click to reclaim"
+                                    : "&cLeft-click to cancel"
                     )
             );
+
+            if (previewShulker) {
+                lore.add(
+                        GuiText.component(
+                                "&#D0AFFFRight-click to preview"
+                        )
+                );
+            }
+
             lore.add(
                     GuiText.component(
                             expired
-                                    ? "&#D0AFFFShift-click to reclaim now"
-                                    : "&#D0AFFFShift-click to cancel now"
+                                    ? "&#D0AFFFShift-left-click to reclaim now"
+                                    : "&#D0AFFFShift-left-click to cancel now"
                     )
             );
         }

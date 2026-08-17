@@ -17,6 +17,7 @@ import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -48,6 +49,10 @@ public final class AuctionHouseDatabaseMirror {
     private static final long DEFAULT_FAILURE_BACKOFF_MILLIS = 15_000L;
     private static final long DEFAULT_PAYLOAD_CACHE_MAX_BYTES = 33_554_432L;
     private static final long SHUTDOWN_WAIT_MILLIS = 100L;
+    private static final AtomicLong INSTANCE_SEQUENCE = new AtomicLong();
+    private static final AtomicLong ACTIVE_INSTANCE = new AtomicLong();
+    private static final AtomicLong GLOBAL_GENERATION =
+            new AtomicLong(System.currentTimeMillis());
 
     private final Core core;
     private final boolean enabled;
@@ -58,12 +63,12 @@ public final class AuctionHouseDatabaseMirror {
     private final int socketTimeoutMillis;
     private final long failureBackoffMillis;
     private final long payloadCacheMaxBytes;
+    private final long instanceId = INSTANCE_SEQUENCE.incrementAndGet();
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final AtomicBoolean readyLogged = new AtomicBoolean(false);
     private final AtomicLong lastErrorLogAt = new AtomicLong(0L);
     private final AtomicLong nextConnectionAttemptAt = new AtomicLong(0L);
-    private final AtomicLong generation = new AtomicLong(System.currentTimeMillis());
 
     /*
      * Listing item payloads are immutable for the life of a listing. Caching
@@ -160,6 +165,8 @@ public final class AuctionHouseDatabaseMirror {
             return;
         }
 
+        ACTIVE_INSTANCE.set(instanceId);
+
         worker = new ThreadPoolExecutor(
                 1,
                 1,
@@ -184,48 +191,108 @@ public final class AuctionHouseDatabaseMirror {
             AuctionHouseListing listing,
             long lifetimeMillis
     ) {
-        if (!enabled || listing == null || closed.get()) {
+        if (!active() || listing == null) {
             return;
         }
 
         try {
-            MirrorListing snapshot = snapshot(listing, lifetimeMillis);
-            submit(() -> upsertNow(snapshot));
+            MirrorSeed seed =
+                    seed(
+                            listing,
+                            lifetimeMillis
+                    );
+            submit(
+                    () -> {
+                        if (!active()) {
+                            return;
+                        }
+
+                        long syncGeneration =
+                                nextGeneration();
+
+                        try {
+                            upsertNow(
+                                    snapshot(seed),
+                                    syncGeneration
+                            );
+                        } catch (RuntimeException exception) {
+                            snapshotFailure(
+                                    "Could not serialize auction listing for MariaDB mirror",
+                                    exception
+                            );
+                        }
+                    }
+            );
         } catch (RuntimeException exception) {
             snapshotFailure(
-                    "Could not snapshot auction listing for MariaDB mirror",
+                    "Could not prepare auction listing for MariaDB mirror",
                     exception
             );
         }
     }
 
     public void delete(UUID listingId) {
-        if (!enabled || listingId == null || closed.get()) {
+        if (!active() || listingId == null) {
             return;
         }
 
-        removeCachedPayload(listingId);
-        submit(() -> deleteNow(listingId));
+        submit(
+                () -> {
+                    if (!active()) {
+                        return;
+                    }
+
+                    long syncGeneration =
+                            nextGeneration();
+
+                    removeCachedPayload(listingId);
+                    deleteNow(
+                            listingId,
+                            syncGeneration
+                    );
+                }
+        );
     }
 
     public void reconcile(
             Collection<AuctionHouseListing> listings,
             long lifetimeMillis
     ) {
-        if (!enabled || closed.get()) {
+        if (!active()) {
             return;
         }
 
         try {
-            List<MirrorListing> snapshots = snapshots(
-                    listings,
-                    lifetimeMillis
+            List<MirrorSeed> seeds =
+                    seeds(
+                            listings,
+                            lifetimeMillis
+                    );
+            submit(
+                    () -> {
+                        if (!active()) {
+                            return;
+                        }
+
+                        long syncGeneration =
+                                nextGeneration();
+
+                        try {
+                            reconcileNow(
+                                    snapshots(seeds),
+                                    syncGeneration
+                            );
+                        } catch (RuntimeException exception) {
+                            snapshotFailure(
+                                    "Could not serialize Auction House for MariaDB reconciliation",
+                                    exception
+                            );
+                        }
+                    }
             );
-            long syncGeneration = generation.incrementAndGet();
-            submit(() -> reconcileNow(snapshots, syncGeneration));
         } catch (RuntimeException exception) {
             snapshotFailure(
-                    "Could not snapshot Auction House for MariaDB reconciliation",
+                    "Could not prepare Auction House for MariaDB reconciliation",
                     exception
             );
         }
@@ -235,6 +302,11 @@ public final class AuctionHouseDatabaseMirror {
         if (!enabled || !closed.compareAndSet(false, true)) {
             return;
         }
+
+        ACTIVE_INSTANCE.compareAndSet(
+                instanceId,
+                0L
+        );
 
         ThreadPoolExecutor current = worker;
         worker = null;
@@ -266,7 +338,7 @@ public final class AuctionHouseDatabaseMirror {
         }
     }
 
-    private List<MirrorListing> snapshots(
+    private List<MirrorSeed> seeds(
             Collection<AuctionHouseListing> listings,
             long lifetimeMillis
     ) {
@@ -274,15 +346,82 @@ public final class AuctionHouseDatabaseMirror {
             return List.of();
         }
 
-        List<MirrorListing> snapshots = new ArrayList<>(listings.size());
-        Set<UUID> liveIds = new HashSet<>(listings.size());
+        List<MirrorSeed> seeds =
+                new ArrayList<>(
+                        listings.size()
+                );
 
         for (AuctionHouseListing listing : listings) {
-            if (listing == null) {
-                continue;
+            if (listing != null) {
+                seeds.add(
+                        seed(
+                                listing,
+                                lifetimeMillis
+                        )
+                );
             }
-            liveIds.add(listing.id());
-            snapshots.add(snapshot(listing, lifetimeMillis));
+        }
+
+        return List.copyOf(seeds);
+    }
+
+    private MirrorSeed seed(
+            AuctionHouseListing listing,
+            long lifetimeMillis
+    ) {
+        long expiresAt = safeAdd(
+                listing.createdAt(),
+                Math.max(
+                        0L,
+                        lifetimeMillis
+                )
+        );
+        String status =
+                System.currentTimeMillis()
+                        >= expiresAt
+                        ? "EXPIRED"
+                        : "ACTIVE";
+
+        ItemStack item =
+                listing.item();
+
+        return new MirrorSeed(
+                listing,
+                publicSellerName(listing),
+                item.getType(),
+                itemDisplayName(item),
+                expiresAt,
+                status
+        );
+    }
+
+    private List<MirrorListing> snapshots(
+            List<MirrorSeed> seeds
+    ) {
+        if (seeds == null || seeds.isEmpty()) {
+            retainCachedPayloads(
+                    Set.of()
+            );
+            return List.of();
+        }
+
+        List<MirrorListing> snapshots =
+                new ArrayList<>(
+                        seeds.size()
+                );
+        Set<UUID> liveIds =
+                new HashSet<>(
+                        seeds.size()
+                );
+
+        for (MirrorSeed seed : seeds) {
+            liveIds.add(
+                    seed.listing()
+                            .id()
+            );
+            snapshots.add(
+                    snapshot(seed)
+            );
         }
 
         retainCachedPayloads(liveIds);
@@ -290,29 +429,23 @@ public final class AuctionHouseDatabaseMirror {
     }
 
     private MirrorListing snapshot(
-            AuctionHouseListing listing,
-            long lifetimeMillis
+            MirrorSeed seed
     ) {
-        MirrorPayload payload = cachedPayload(listing);
-        String sellerName = publicSellerName(listing);
-        long expiresAt = safeAdd(
-                listing.createdAt(),
-                Math.max(0L, lifetimeMillis)
-        );
-        String status = System.currentTimeMillis() >= expiresAt
-                ? "EXPIRED"
-                : "ACTIVE";
-
         return new MirrorListing(
-                payload,
-                sellerName,
-                expiresAt,
-                status
+                cachedPayload(seed),
+                seed.sellerName(),
+                seed.expiresAt(),
+                seed.status()
         );
     }
 
-    private MirrorPayload cachedPayload(AuctionHouseListing listing) {
-        UUID listingId = listing.id();
+    private MirrorPayload cachedPayload(
+            MirrorSeed seed
+    ) {
+        AuctionHouseListing listing =
+                seed.listing();
+        UUID listingId =
+                listing.id();
 
         synchronized (payloadCacheLock) {
             MirrorPayload cached = payloadCache.get(listingId);
@@ -321,7 +454,7 @@ public final class AuctionHouseDatabaseMirror {
             }
         }
 
-        MirrorPayload created = createPayload(listing);
+        MirrorPayload created = createPayload(seed);
         long createdBytes = created.itemNbtLength();
 
         if (createdBytes > payloadCacheMaxBytes) {
@@ -411,15 +544,19 @@ public final class AuctionHouseDatabaseMirror {
         }
     }
 
-    private MirrorPayload createPayload(AuctionHouseListing listing) {
-        ItemStack item = listing.item();
+    private MirrorPayload createPayload(
+            MirrorSeed seed
+    ) {
+        AuctionHouseListing listing =
+                seed.listing();
+
         return new MirrorPayload(
                 listing.id(),
                 listing.owner(),
-                item.getType(),
-                itemDisplayName(item),
+                seed.material(),
+                seed.itemName(),
                 listing.amount(),
-                item.serializeAsBytes(),
+                listing.serializedItemBytes(),
                 listing.priceCents(),
                 listing.createdAt()
         );
@@ -455,7 +592,7 @@ public final class AuctionHouseDatabaseMirror {
         ThreadPoolExecutor current = worker;
         if (current == null
                 || current.isShutdown()
-                || closed.get()) {
+                || !active()) {
             return;
         }
 
@@ -474,13 +611,28 @@ public final class AuctionHouseDatabaseMirror {
         }
     }
 
-    private void upsertNow(MirrorListing listing) {
+    private void upsertNow(
+            MirrorListing listing,
+            long syncGeneration
+    ) {
+        if (!active()) {
+            return;
+        }
+
         try {
             withConnection(
                     connection -> {
+                        if (!active()) {
+                            return;
+                        }
+
                         try (PreparedStatement statement =
                                      connection.prepareStatement(upsertSql())) {
-                            bind(statement, listing, 0L);
+                            bind(
+                                    statement,
+                                    listing,
+                                    syncGeneration
+                            );
                             statement.executeUpdate();
                         }
                     }
@@ -490,14 +642,34 @@ public final class AuctionHouseDatabaseMirror {
         }
     }
 
-    private void deleteNow(UUID listingId) {
+    private void deleteNow(
+            UUID listingId,
+            long syncGeneration
+    ) {
+        if (!active()) {
+            return;
+        }
+
         try {
             withConnection(
                     connection -> {
+                        if (!active()) {
+                            return;
+                        }
+
                         try (PreparedStatement statement = connection.prepareStatement(
-                                "DELETE FROM " + table + " WHERE listing_id = ?"
+                                "DELETE FROM " + table
+                                        + " WHERE listing_id = ?"
+                                        + " AND sync_generation <= ?"
                         )) {
-                            statement.setString(1, listingId.toString());
+                            statement.setString(
+                                    1,
+                                    listingId.toString()
+                            );
+                            statement.setLong(
+                                    2,
+                                    syncGeneration
+                            );
                             statement.executeUpdate();
                         }
                     }
@@ -511,28 +683,54 @@ public final class AuctionHouseDatabaseMirror {
             List<MirrorListing> listings,
             long syncGeneration
     ) {
+        if (!active()) {
+            return;
+        }
+
         try {
             withConnection(
                     connection -> {
-                        boolean originalAutoCommit = connection.getAutoCommit();
+                        if (!active()) {
+                            return;
+                        }
+
+                        boolean originalAutoCommit =
+                                connection.getAutoCommit();
                         connection.setAutoCommit(false);
 
                         try {
                             try (PreparedStatement statement =
                                          connection.prepareStatement(upsertSql())) {
                                 for (MirrorListing listing : listings) {
-                                    bind(statement, listing, syncGeneration);
+                                    bind(
+                                            statement,
+                                            listing,
+                                            syncGeneration
+                                    );
                                     statement.addBatch();
                                 }
                                 statement.executeBatch();
                             }
 
+                            if (!active()) {
+                                connection.rollback();
+                                return;
+                            }
+
                             try (PreparedStatement statement = connection.prepareStatement(
                                     "DELETE FROM " + table
-                                            + " WHERE sync_generation <> ?"
+                                            + " WHERE sync_generation < ?"
                             )) {
-                                statement.setLong(1, syncGeneration);
+                                statement.setLong(
+                                        1,
+                                        syncGeneration
+                                );
                                 statement.executeUpdate();
+                            }
+
+                            if (!active()) {
+                                connection.rollback();
+                                return;
                             }
 
                             connection.commit();
@@ -552,6 +750,10 @@ public final class AuctionHouseDatabaseMirror {
     private void withConnection(
             SqlWork work
     ) throws Exception {
+        if (!active()) {
+            return;
+        }
+
         long now = System.currentTimeMillis();
         if (now < nextConnectionAttemptAt.get()) {
             return;
@@ -581,9 +783,21 @@ public final class AuctionHouseDatabaseMirror {
                 currentSettings.jdbcUrl(),
                 properties
         )) {
+            if (!active()) {
+                return;
+            }
+
             ensureSchema(connection);
+
+            if (!active()) {
+                return;
+            }
+
             work.run(connection);
-            mirrorSuccess();
+
+            if (active()) {
+                mirrorSuccess();
+            }
         }
     }
 
@@ -659,6 +873,20 @@ public final class AuctionHouseDatabaseMirror {
                     COLLATE=utf8mb4_unicode_ci
                     """.formatted(table)
             );
+
+            try (ResultSet result = statement.executeQuery(
+                    "SELECT COALESCE(MAX(sync_generation), 0) FROM " + table
+            )) {
+                if (result.next()) {
+                    GLOBAL_GENERATION.accumulateAndGet(
+                            Math.max(
+                                    0L,
+                                    result.getLong(1)
+                            ),
+                            Math::max
+                    );
+                }
+            }
         }
         schemaReady = true;
     }
@@ -681,10 +909,65 @@ public final class AuctionHouseDatabaseMirror {
                     sync_generation
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
-                    seller_name = VALUES(seller_name),
-                    status = VALUES(status),
-                    updated_at = VALUES(updated_at),
-                    sync_generation = VALUES(sync_generation)
+                    seller_uuid = IF(
+                        VALUES(sync_generation) >= sync_generation,
+                        VALUES(seller_uuid),
+                        seller_uuid
+                    ),
+                    seller_name = IF(
+                        VALUES(sync_generation) >= sync_generation,
+                        VALUES(seller_name),
+                        seller_name
+                    ),
+                    item_material = IF(
+                        VALUES(sync_generation) >= sync_generation,
+                        VALUES(item_material),
+                        item_material
+                    ),
+                    item_name = IF(
+                        VALUES(sync_generation) >= sync_generation,
+                        VALUES(item_name),
+                        item_name
+                    ),
+                    item_amount = IF(
+                        VALUES(sync_generation) >= sync_generation,
+                        VALUES(item_amount),
+                        item_amount
+                    ),
+                    item_nbt = IF(
+                        VALUES(sync_generation) >= sync_generation,
+                        VALUES(item_nbt),
+                        item_nbt
+                    ),
+                    price_cents = IF(
+                        VALUES(sync_generation) >= sync_generation,
+                        VALUES(price_cents),
+                        price_cents
+                    ),
+                    created_at = IF(
+                        VALUES(sync_generation) >= sync_generation,
+                        VALUES(created_at),
+                        created_at
+                    ),
+                    expires_at = IF(
+                        VALUES(sync_generation) >= sync_generation,
+                        VALUES(expires_at),
+                        expires_at
+                    ),
+                    status = IF(
+                        VALUES(sync_generation) >= sync_generation,
+                        VALUES(status),
+                        status
+                    ),
+                    updated_at = IF(
+                        VALUES(sync_generation) >= sync_generation,
+                        VALUES(updated_at),
+                        updated_at
+                    ),
+                    sync_generation = GREATEST(
+                        sync_generation,
+                        VALUES(sync_generation)
+                    )
                 """.formatted(table);
     }
 
@@ -707,6 +990,31 @@ public final class AuctionHouseDatabaseMirror {
         statement.setString(11, listing.status());
         statement.setLong(12, System.currentTimeMillis());
         statement.setLong(13, syncGeneration);
+    }
+
+    private boolean active() {
+        return enabled
+                && !closed.get()
+                && ACTIVE_INSTANCE.get()
+                == instanceId;
+    }
+
+    private long nextGeneration() {
+        long now =
+                System.currentTimeMillis();
+
+        return GLOBAL_GENERATION.updateAndGet(
+                current -> {
+                    if (current == Long.MAX_VALUE) {
+                        return Long.MAX_VALUE;
+                    }
+
+                    return Math.max(
+                            current + 1L,
+                            now
+                    );
+                }
+        );
     }
 
     private String itemDisplayName(ItemStack item) {
@@ -872,6 +1180,43 @@ public final class AuctionHouseDatabaseMirror {
             if (username.isBlank()) {
                 throw new IllegalArgumentException("database.username is blank");
             }
+        }
+    }
+
+    private record MirrorSeed(
+            AuctionHouseListing listing,
+            String sellerName,
+            Material material,
+            String itemName,
+            long expiresAt,
+            String status
+    ) {
+        private MirrorSeed {
+            if (listing == null) {
+                throw new IllegalArgumentException(
+                        "Mirror listing cannot be null"
+                );
+            }
+
+            sellerName =
+                    sellerName == null
+                            || sellerName.isBlank()
+                            ? "Unknown"
+                            : sellerName;
+            if (material == null) {
+                throw new IllegalArgumentException(
+                        "Mirror material cannot be null"
+                );
+            }
+            itemName =
+                    itemName == null
+                            ? ""
+                            : itemName;
+            status =
+                    status == null
+                            || status.isBlank()
+                            ? "ACTIVE"
+                            : status;
         }
     }
 

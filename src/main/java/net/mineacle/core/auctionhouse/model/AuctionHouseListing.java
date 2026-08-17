@@ -14,6 +14,7 @@ public final class AuctionHouseListing {
     private final ItemStack item;
     private final Material material;
     private final int amount;
+    private final byte[] serializedItem;
     private final long priceCents;
     private final long createdAt;
 
@@ -47,6 +48,8 @@ public final class AuctionHouseListing {
                 1,
                 this.item.getAmount()
         );
+        this.serializedItem =
+                this.item.serializeAsBytes();
         this.priceCents = priceCents;
         this.createdAt = createdAt;
     }
@@ -78,6 +81,15 @@ public final class AuctionHouseListing {
 
     public int amount() {
         return amount;
+    }
+
+    /**
+     * Detached immutable listing payload. Auction House persistence and the
+     * website mirror reuse this cached byte representation instead of invoking
+     * Bukkit ItemStack serialization from asynchronous workers.
+     */
+    public byte[] serializedItemBytes() {
+        return serializedItem.clone();
     }
 
     public long priceCents() {

@@ -29,6 +29,10 @@ public final class AuctionHouseStorage {
 
     private static final String EXTENSION =
             ".yml";
+    private static final int MINIMUM_ITEM_BYTES = 16_384;
+    private static final int MAXIMUM_ITEM_BYTES = 4_194_304;
+    private static final long YAML_OVERHEAD_BYTES = 65_536L;
+    private static final long MAXIMUM_RECEIPT_BYTES = 262_144L;
 
     private final Core core;
     private final File legacyFile;
@@ -39,6 +43,7 @@ public final class AuctionHouseStorage {
 
     private boolean initialized;
     private boolean directorySyncWarningLogged;
+    private int maximumItemBytes = 262_144;
 
     public AuctionHouseStorage(
             Core core
@@ -64,6 +69,17 @@ public final class AuctionHouseStorage {
                 rootFolder,
                 "receipts"
         );
+    }
+
+    public void configureMaximumItemBytes(
+            int maximumItemBytes
+    ) {
+        this.maximumItemBytes =
+                Math.clamp(
+                        maximumItemBytes,
+                        MINIMUM_ITEM_BYTES,
+                        MAXIMUM_ITEM_BYTES
+                );
     }
 
     public void initialize() {
@@ -186,22 +202,32 @@ public final class AuctionHouseStorage {
             return true;
         }
 
-        YamlConfiguration yaml =
-                new YamlConfiguration();
+        try {
+            YamlConfiguration yaml =
+                    new YamlConfiguration();
 
-        writeListing(
-                yaml,
-                listing
-        );
+            writeListing(
+                    yaml,
+                    listing
+            );
 
-        return !atomicSave(
-                yaml,
-                listingFile(
-                        listing.id()
-                ),
-                "auction listing "
-                        + listing.id()
-        );
+            return !atomicSave(
+                    yaml,
+                    listingFile(
+                            listing.id()
+                    ),
+                    "auction listing "
+                            + listing.id()
+            );
+        } catch (RuntimeException exception) {
+            core.getLogger().log(
+                    Level.SEVERE,
+                    "Could not serialize auction listing "
+                            + listing.id(),
+                    exception
+            );
+            return true;
+        }
     }
 
     public boolean listingDeleteFailed(
@@ -247,45 +273,55 @@ public final class AuctionHouseStorage {
             return false;
         }
 
-        YamlConfiguration yaml =
-                new YamlConfiguration();
+        try {
+            YamlConfiguration yaml =
+                    new YamlConfiguration();
 
-        yaml.set(
-                "transaction-id",
-                recovery.transactionId()
-                        .toString()
-        );
-        yaml.set(
-                "state",
-                recovery.state().name()
-        );
-        yaml.set(
-                "buyer",
-                recovery.buyer()
-                        .toString()
-        );
-        yaml.set(
-                "buyer-name",
-                recovery.buyerName()
-        );
-        yaml.set(
-                "created-at",
-                recovery.createdAt()
-        );
+            yaml.set(
+                    "transaction-id",
+                    recovery.transactionId()
+                            .toString()
+            );
+            yaml.set(
+                    "state",
+                    recovery.state().name()
+            );
+            yaml.set(
+                    "buyer",
+                    recovery.buyer()
+                            .toString()
+            );
+            yaml.set(
+                    "buyer-name",
+                    recovery.buyerName()
+            );
+            yaml.set(
+                    "created-at",
+                    recovery.createdAt()
+            );
 
-        writeListing(
-                yaml,
-                recovery.listing()
-        );
+            writeListing(
+                    yaml,
+                    recovery.listing()
+            );
 
-        return atomicSave(
-                yaml,
-                recoveryFile(
-                        recovery.transactionId()
-                ),
-                "auction recovery "
-                        + recovery.transactionId()
-        );
+            return atomicSave(
+                    yaml,
+                    recoveryFile(
+                            recovery.transactionId()
+                    ),
+                    "auction recovery "
+                            + recovery.transactionId()
+            );
+        } catch (RuntimeException exception) {
+            core.getLogger().log(
+                    Level.SEVERE,
+                    "Could not serialize auction recovery "
+                            + recovery.transactionId(),
+                    exception
+            );
+            return false;
+        }
     }
 
     public boolean recoveryDeleteFailed(
@@ -325,22 +361,49 @@ public final class AuctionHouseStorage {
     }
 
     public boolean recordSaleReceipt(
+            UUID transactionId,
             UUID sellerId,
             String itemName,
             long priceCents
     ) {
-        if (sellerId == null
+        if (transactionId == null
+                || sellerId == null
                 || priceCents <= 0L) {
             return false;
         }
 
         File file =
                 receiptFile(sellerId);
+
+        if (file.isFile()
+                && receiptFileTooLarge(file)) {
+            core.getLogger().severe(
+                    "Refused oversized Auction House sale receipt "
+                            + file.getName()
+            );
+            return false;
+        }
+
         YamlConfiguration yaml =
                 file.isFile()
                         ? YamlConfiguration
                         .loadConfiguration(file)
                         : new YamlConfiguration();
+
+        List<String> transactionIds =
+                new ArrayList<>(
+                        yaml.getStringList(
+                                "transaction-ids"
+                        )
+                );
+        String rawTransactionId =
+                transactionId.toString();
+
+        if (transactionIds.contains(
+                rawTransactionId
+        )) {
+            return true;
+        }
 
         int previousCount =
                 Math.max(
@@ -379,6 +442,16 @@ public final class AuctionHouseStorage {
                     Long.MAX_VALUE;
         }
 
+        transactionIds.add(
+                rawTransactionId
+        );
+
+        yaml.set(
+                "transaction-ids",
+                List.copyOf(
+                        transactionIds
+                )
+        );
         yaml.set(
                 "count",
                 updatedCount
@@ -418,6 +491,14 @@ public final class AuctionHouseStorage {
                 receiptFile(sellerId);
 
         if (!file.isFile()) {
+            return null;
+        }
+
+        if (receiptFileTooLarge(file)) {
+            core.getLogger().severe(
+                    "Skipped oversized Auction House sale receipt "
+                            + file.getName()
+            );
             return null;
         }
 
@@ -615,6 +696,14 @@ public final class AuctionHouseStorage {
     readListingFile(
             File file
     ) {
+        if (storageFileTooLarge(file)) {
+            core.getLogger().severe(
+                    "Skipped oversized auction listing file "
+                            + file.getName()
+            );
+            return null;
+        }
+
         try {
             YamlConfiguration yaml =
                     YamlConfiguration
@@ -647,6 +736,14 @@ public final class AuctionHouseStorage {
     private PurchaseRecovery readRecovery(
             File file
     ) {
+        if (storageFileTooLarge(file)) {
+            core.getLogger().severe(
+                    "Skipped oversized auction recovery file "
+                            + file.getName()
+            );
+            return null;
+        }
+
         try {
             YamlConfiguration yaml =
                     YamlConfiguration
@@ -756,14 +853,23 @@ public final class AuctionHouseStorage {
                         ""
                 );
 
-        if (encoded.isBlank()) {
+        if (encoded.isBlank()
+                || encoded.length()
+                > maximumEncodedItemCharacters()) {
+            return null;
+        }
+
+        byte[] decoded =
+                Base64.getDecoder()
+                        .decode(encoded);
+
+        if (decoded.length > maximumItemBytes) {
             return null;
         }
 
         ItemStack item =
                 ItemStack.deserializeBytes(
-                        Base64.getDecoder()
-                                .decode(encoded)
+                        decoded
                 );
 
         if (invalidListing(
@@ -808,14 +914,63 @@ public final class AuctionHouseStorage {
                 path + ".created-at",
                 listing.createdAt()
         );
+        byte[] serialized =
+                listing.serializedItemBytes();
+
+        if (serialized.length > maximumItemBytes) {
+            throw new IllegalArgumentException(
+                    "Auction listing item exceeds configured storage limit"
+            );
+        }
+
         yaml.set(
                 path + ".item-nbt",
                 Base64.getEncoder()
                         .encodeToString(
-                                listing.item()
-                                        .serializeAsBytes()
+                                serialized
                         )
         );
+    }
+
+    private boolean storageFileTooLarge(
+            File file
+    ) {
+        if (file == null || !file.isFile()) {
+            return true;
+        }
+
+        try {
+            return Files.size(
+                    file.toPath()
+            ) > maximumStorageFileBytes();
+        } catch (IOException exception) {
+            core.getLogger().log(
+                    Level.WARNING,
+                    "Could not inspect Auction House storage file size "
+                            + file.getName(),
+                    exception
+            );
+            return true;
+        }
+    }
+
+    private long maximumStorageFileBytes() {
+        return maximumEncodedItemCharacters()
+                + YAML_OVERHEAD_BYTES;
+    }
+
+    private int maximumEncodedItemCharacters() {
+        long groups =
+                Math.ceilDiv(
+                        maximumItemBytes,
+                        3
+                );
+        long encoded =
+                groups * 4L;
+
+        return encoded >= Integer.MAX_VALUE
+                ? Integer.MAX_VALUE
+                : (int) encoded;
     }
 
     private boolean invalidListing(
@@ -1030,6 +1185,24 @@ public final class AuctionHouseStorage {
                     "Could not create "
                             + directory
             );
+        }
+    }
+
+    private boolean receiptFileTooLarge(
+            File file
+    ) {
+        try {
+            return Files.size(
+                    file.toPath()
+            ) > MAXIMUM_RECEIPT_BYTES;
+        } catch (IOException exception) {
+            core.getLogger().log(
+                    Level.WARNING,
+                    "Could not inspect Auction House sale receipt size "
+                            + file.getName(),
+                    exception
+            );
+            return true;
         }
     }
 

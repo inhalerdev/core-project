@@ -36,6 +36,9 @@ import java.util.logging.Level;
 public final class AuctionTransactionStorage {
 
     private static final String EXTENSION = ".yml";
+    private static final int MINIMUM_ITEM_BYTES = 16_384;
+    private static final int MAXIMUM_ITEM_BYTES = 4_194_304;
+    private static final long YAML_OVERHEAD_BYTES = 65_536L;
 
     public enum TransactionType {
         LIST,
@@ -102,6 +105,7 @@ public final class AuctionTransactionStorage {
     private final File folder;
     private boolean initialized;
     private boolean directorySyncWarningLogged;
+    private int maximumItemBytes = 262_144;
 
     public AuctionTransactionStorage(Core core) {
         this.core = core;
@@ -109,6 +113,17 @@ public final class AuctionTransactionStorage {
                 new File(core.getDataFolder(), "auctionhouse"),
                 "transactions-v2"
         );
+    }
+
+    public void configureMaximumItemBytes(
+            int maximumItemBytes
+    ) {
+        this.maximumItemBytes =
+                Math.clamp(
+                        maximumItemBytes,
+                        MINIMUM_ITEM_BYTES,
+                        MAXIMUM_ITEM_BYTES
+                );
     }
 
     public void initialize() {
@@ -293,12 +308,15 @@ public final class AuctionTransactionStorage {
         }
     }
 
-    public File folder() {
-        initialize();
-        return folder;
-    }
-
     private AuctionTransaction read(File file) {
+        if (storageFileTooLarge(file)) {
+            core.getLogger().severe(
+                    "Skipped oversized Auction House transaction "
+                            + file.getName()
+            );
+            return null;
+        }
+
         try {
             YamlConfiguration yaml =
                     YamlConfiguration.loadConfiguration(file);
@@ -418,14 +436,23 @@ public final class AuctionTransactionStorage {
                         ""
                 );
 
-        if (encoded.isBlank()) {
+        if (encoded.isBlank()
+                || encoded.length()
+                > maximumEncodedItemCharacters()) {
+            return null;
+        }
+
+        byte[] decoded =
+                Base64.getDecoder()
+                        .decode(encoded);
+
+        if (decoded.length > maximumItemBytes) {
             return null;
         }
 
         ItemStack item =
                 ItemStack.deserializeBytes(
-                        Base64.getDecoder()
-                                .decode(encoded)
+                        decoded
                 );
 
         if (item.getType().isAir()
@@ -470,14 +497,63 @@ public final class AuctionTransactionStorage {
                 path + ".created-at",
                 listing.createdAt()
         );
+        byte[] serialized =
+                listing.serializedItemBytes();
+
+        if (serialized.length > maximumItemBytes) {
+            throw new IllegalArgumentException(
+                    "Auction transaction item exceeds configured storage limit"
+            );
+        }
+
         yaml.set(
                 path + ".item-nbt",
                 Base64.getEncoder()
                         .encodeToString(
-                                listing.item()
-                                        .serializeAsBytes()
+                                serialized
                         )
         );
+    }
+
+    private boolean storageFileTooLarge(
+            File file
+    ) {
+        if (file == null || !file.isFile()) {
+            return true;
+        }
+
+        try {
+            return Files.size(
+                    file.toPath()
+            ) > maximumStorageFileBytes();
+        } catch (IOException exception) {
+            core.getLogger().log(
+                    Level.WARNING,
+                    "Could not inspect Auction House transaction file size "
+                            + file.getName(),
+                    exception
+            );
+            return true;
+        }
+    }
+
+    private long maximumStorageFileBytes() {
+        return maximumEncodedItemCharacters()
+                + YAML_OVERHEAD_BYTES;
+    }
+
+    private int maximumEncodedItemCharacters() {
+        long groups =
+                Math.ceilDiv(
+                        maximumItemBytes,
+                        3
+                );
+        long encoded =
+                groups * 4L;
+
+        return encoded >= Integer.MAX_VALUE
+                ? Integer.MAX_VALUE
+                : (int) encoded;
     }
 
     private boolean atomicSave(
