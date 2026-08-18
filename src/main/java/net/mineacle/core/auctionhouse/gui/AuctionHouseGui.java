@@ -41,9 +41,8 @@ public final class AuctionHouseGui {
                     );
     private static final int[] HISTORY_TOOLBAR =
             CenteredToolbar
-                    .interiorSlotsCenteredOn(
+                    .interiorSlots(
                             SIZE,
-                            2,
                             1
                     );
 
@@ -80,15 +79,12 @@ public final class AuctionHouseGui {
     private static final int SLOT_HISTORY_PREVIOUS =
             CenteredToolbar
                     .previousSlot(SIZE);
-    private static final int SLOT_HISTORY_BACK =
-            HISTORY_TOOLBAR[0];
     private static final int SLOT_HISTORY_REFRESH =
-            HISTORY_TOOLBAR[1];
+            HISTORY_TOOLBAR[0];
     private static final int SLOT_HISTORY_NEXT =
             CenteredToolbar
                     .nextSlot(SIZE);
 
-    private static final int SLOT_CONFIRM_BACK = 11;
     private static final int SLOT_CONFIRM_ITEM = 13;
     private static final int SLOT_CONFIRM_ACTION = 15;
 
@@ -529,14 +525,6 @@ public final class AuctionHouseGui {
         }
 
         inventory.setItem(
-                SLOT_HISTORY_BACK,
-                item(
-                        Material.ARROW,
-                        "&#B078FFBack",
-                        "&#bbbbbbReturn to Your Listings"
-                )
-        );
-        inventory.setItem(
                 SLOT_HISTORY_REFRESH,
                 item(
                         Material.EMERALD,
@@ -590,14 +578,6 @@ public final class AuctionHouseGui {
                 );
         holder.inventory = inventory;
 
-        inventory.setItem(
-                SLOT_CONFIRM_BACK,
-                item(
-                        Material.ARROW,
-                        "&#B078FFBack",
-                        "&#bbbbbbReturn without buying"
-                )
-        );
         inventory.setItem(
                 SLOT_CONFIRM_ITEM,
                 listingItem(
@@ -653,14 +633,6 @@ public final class AuctionHouseGui {
                 );
         holder.inventory = inventory;
 
-        inventory.setItem(
-                SLOT_CONFIRM_BACK,
-                item(
-                        Material.ARROW,
-                        "&#B078FFBack",
-                        "&#bbbbbbReturn without changes"
-                )
-        );
         inventory.setItem(
                 SLOT_CONFIRM_ITEM,
                 listingItem(
@@ -787,7 +759,10 @@ public final class AuctionHouseGui {
                 GuiText.component(
                         expired
                                 ? "&cExpired"
-                                : "&#bbbbbbExpires: &#D0AFFF"
+                                : "&#bbbbbbExpires: "
+                                + service.expiryColor(
+                                listing
+                        )
                                 + service.expiryText(
                                 listing
                         )
@@ -1313,20 +1288,12 @@ public final class AuctionHouseGui {
         return SLOT_HISTORY_PREVIOUS;
     }
 
-    public static int historyBackSlot() {
-        return SLOT_HISTORY_BACK;
-    }
-
     public static int historyRefreshSlot() {
         return SLOT_HISTORY_REFRESH;
     }
 
     public static int historyNextSlot() {
         return SLOT_HISTORY_NEXT;
-    }
-
-    public static int confirmBackSlot() {
-        return SLOT_CONFIRM_BACK;
     }
 
     public static int confirmActionSlot() {

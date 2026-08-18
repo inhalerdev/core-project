@@ -3203,6 +3203,30 @@ public final class AuctionHouseService {
         return safeAdd(listing.createdAt(), listingLifetimeMillis());
     }
 
+    public String expiryColor(
+            AuctionHouseListing listing
+    ) {
+        if (listing == null) {
+            return "&c";
+        }
+
+        long remaining =
+                expiresAt(listing)
+                        - System.currentTimeMillis();
+
+        if (remaining
+                >= TimeUnit.HOURS.toMillis(12L)) {
+            return "&a";
+        }
+
+        if (remaining
+                >= TimeUnit.HOURS.toMillis(2L)) {
+            return "&e";
+        }
+
+        return "&c";
+    }
+
     public String expiryText(AuctionHouseListing listing) {
         if (listing == null) return "Expired";
 
