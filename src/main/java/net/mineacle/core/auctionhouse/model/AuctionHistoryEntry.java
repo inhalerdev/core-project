@@ -84,20 +84,11 @@ public record AuctionHistoryEntry(
     }
 
     public enum Type {
-        LISTED("Listed"),
-        PURCHASED("Purchased"),
-        SOLD("Sold"),
-        CANCELLED("Cancelled"),
-        RECLAIMED("Reclaimed");
+        LISTED,
+        PURCHASED,
+        SOLD,
+        CANCELLED,
+        RECLAIMED
 
-        private final String label;
-
-        Type(String label) {
-            this.label = label;
-        }
-
-        public String label() {
-            return label;
-        }
     }
 }

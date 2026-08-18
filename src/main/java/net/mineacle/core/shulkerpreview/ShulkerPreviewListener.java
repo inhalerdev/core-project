@@ -4,12 +4,10 @@ import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.gui.AuctionHouseGui;
 import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.common.gui.MenuHistory;
-import net.mineacle.core.common.sound.SoundService;
 import org.bukkit.Bukkit;
 import org.bukkit.block.Container;
 import org.bukkit.block.DoubleChest;
 import org.bukkit.block.ShulkerBox;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
@@ -27,8 +25,6 @@ import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 
 public final class ShulkerPreviewListener implements Listener {
@@ -36,8 +32,6 @@ public final class ShulkerPreviewListener implements Listener {
     private static final int SHULKER_SIZE = 27;
     private static final String DEFAULT_GUI_TITLE =
             "Shulker Box";
-    private static final String DEFAULT_NO_PERMISSION =
-            "&cThis is a Mineacle+ feature";
 
     private final Core core;
 
@@ -45,19 +39,20 @@ public final class ShulkerPreviewListener implements Listener {
         this.core = core;
     }
 
+    /**
+     * Right-click preview is a global Mineacle interaction.
+     * It is intentionally not permission-gated and it accepts already-cancelled
+     * inventory clicks so shulkers can be previewed from normal inventories and
+     * from virtual/plugin GUIs. Cancelling at LOWEST also gives every later GUI
+     * listener a clear signal that this right-click belongs to preview.
+     */
     @SuppressWarnings("unused")
     @EventHandler(
-            priority = EventPriority.HIGHEST
+            priority = EventPriority.LOWEST
     )
     public void onInventoryClick(
             InventoryClickEvent event
     ) {
-        /*
-         * A preview is a completely frozen view. Cancelling every inventory
-         * click also freezes the player's bottom inventory while the preview
-         * is open, covering shift-click, number keys, Q/Ctrl-Q, offhand swap,
-         * double-click collection and creative inventory click subclasses.
-         */
         if (isPreview(event.getView())) {
             deny(event);
             return;
@@ -65,47 +60,26 @@ public final class ShulkerPreviewListener implements Listener {
 
         if (!(event.getWhoClicked()
                 instanceof Player player)
-                || !enabled()
                 || !event.isRightClick()
-                || !empty(event.getCursor())) {
+                || hasItem(event.getCursor())
+                || event.getClickedInventory()
+                == null) {
             return;
         }
-
-        boolean auctionHouseView =
-                isAuctionHouseView(
-                        event.getView()
-                );
 
         /*
-         * Auction House deliberately cancels every inventory click before this
-         * listener runs. A cancelled AH right-click is still eligible for this
-         * read-only preview path; cancelled clicks from every other GUI remain
-         * blocked exactly as before.
+         * Auction transaction-history rows are display snapshots, not the real
+         * sold/bought ItemStack. A shulker material used there must not open an
+         * empty fake preview. Real shulkers in the player's bottom inventory
+         * still preview while this GUI is open.
          */
-        if (event.isCancelled()
-                && !auctionHouseView) {
-            return;
-        }
-
-        if (!isAllowedView(
-                player,
-                event.getView()
-        )) {
-            return;
-        }
-
-        Inventory clickedInventory =
-                event.getClickedInventory();
-
-        if (clickedInventory == null
-                || !isAllowedInventory(
-                player,
-                clickedInventory
-        )
-                || (!auctionHouseView
-                && isBlockedView(
-                event.getView()
-        ))) {
+        if (event.getClickedInventory()
+                == event.getView()
+                .getTopInventory()
+                && event.getView()
+                .getTopInventory()
+                .getHolder()
+                instanceof AuctionHouseGui.HistoryHolder) {
             return;
         }
 
@@ -116,20 +90,6 @@ public final class ShulkerPreviewListener implements Listener {
             return;
         }
 
-        if (!canUse(player)) {
-            deny(event);
-            player.sendActionBar(
-                    GuiText.component(
-                            noPermissionMessage()
-                    )
-            );
-            SoundService.mineaclePlus(
-                    player,
-                    core
-            );
-            return;
-        }
-
         PreviewSnapshot snapshot =
                 snapshot(clicked);
 
@@ -137,14 +97,7 @@ public final class ShulkerPreviewListener implements Listener {
             return;
         }
 
-        /*
-         * Capture the exact real source view before leaving this event. The
-         * next-tick task will only open if the player is still looking at this
-         * exact inventory and still has an empty cursor. This prevents rapid
-         * repeated right-clicks or another plugin changing the view between
-         * the cancelled click and the scheduled preview open.
-         */
-        Inventory expectedTopInventory =
+        Inventory sourceTop =
                 event.getView()
                         .getTopInventory();
 
@@ -155,7 +108,7 @@ public final class ShulkerPreviewListener implements Listener {
                 () -> openPreview(
                         player,
                         snapshot,
-                        expectedTopInventory
+                        sourceTop
                 )
         );
     }
@@ -177,11 +130,6 @@ public final class ShulkerPreviewListener implements Listener {
         );
     }
 
-    /**
-     * Defensive fallbacks for clients/plugins that surface these actions as
-     * player events in addition to inventory click semantics. Normal Paper
-     * inventory handling is already frozen by onInventoryClick.
-     */
     @SuppressWarnings("unused")
     @EventHandler(
             priority = EventPriority.HIGHEST,
@@ -217,20 +165,13 @@ public final class ShulkerPreviewListener implements Listener {
     private void openPreview(
             Player player,
             PreviewSnapshot snapshot,
-            Inventory expectedTopInventory
+            Inventory sourceTop
     ) {
         if (!player.isOnline()
-                || !core.isEnabled()) {
-            return;
-        }
-
-        InventoryView currentView =
-                player.getOpenInventory();
-
-        if (currentView.getTopInventory()
-                != expectedTopInventory
-                || !empty(
-                currentView.getCursor()
+                || !core.isEnabled()
+                || hasItem(
+                player.getOpenInventory()
+                        .getCursor()
         )) {
             return;
         }
@@ -259,29 +200,22 @@ public final class ShulkerPreviewListener implements Listener {
             ItemStack item =
                     contents[slot];
 
-            if (empty(item)) {
-                continue;
+            if (hasItem(item)) {
+                preview.setItem(
+                        slot,
+                        item.clone()
+                );
             }
-
-            /*
-             * Snapshot data is already detached from the real shulker. Clone
-             * once more at the GUI boundary so the displayed inventory never
-             * shares an ItemStack object with the captured snapshot.
-             */
-            preview.setItem(
-                    slot,
-                    item.clone()
-            );
         }
 
-        if (isAuctionHouseHolder(
-                expectedTopInventory.getHolder()
+        if (shouldRestoreSource(
+                sourceTop
         )) {
             MenuHistory.openChild(
                     core,
                     player,
                     () -> player.openInventory(
-                            expectedTopInventory
+                            sourceTop
                     ),
                     () -> player.openInventory(
                             preview
@@ -324,7 +258,7 @@ public final class ShulkerPreviewListener implements Listener {
                 ItemStack item =
                         source[slot];
 
-                if (!empty(item)) {
+                if (hasItem(item)) {
                     copy[slot] =
                             item.clone();
                 }
@@ -334,117 +268,29 @@ public final class ShulkerPreviewListener implements Listener {
                     copy
             );
         } catch (RuntimeException ignored) {
-            /*
-             * Malformed or incompatible block-state item data must never
-             * escape the inventory event or produce a partial preview.
-             */
             return null;
         }
     }
 
     /**
-     * Normal previews are limited to real player/container views. Auction
-     * House is the one intentional virtual-GUI exception: AH itself freezes
-     * item movement and hands only cancelled right-click shulker interactions
-     * to this read-only preview listener.
+     * Virtual GUIs get an ESC/back path to the exact inventory instance they
+     * came from. Normal block/player inventories simply close the preview.
      */
-    private boolean isAllowedView(
-            Player player,
-            InventoryView view
-    ) {
-        return isAuctionHouseView(view)
-                || isAllowedInventory(
-                player,
-                view.getTopInventory()
-        );
-    }
-
-    private boolean isAllowedInventory(
-            Player player,
+    private boolean shouldRestoreSource(
             Inventory inventory
     ) {
-        if (inventory == player.getInventory()
-                || inventory
-                == player.getEnderChest()) {
-            return true;
+        if (inventory == null) {
+            return false;
         }
 
         InventoryHolder holder =
                 inventory.getHolder();
 
-        if (isAuctionHouseHolder(holder)) {
-            return true;
-        }
-
-        if (holder
-                instanceof Player owner) {
-            return owner.getUniqueId()
-                    .equals(
-                            player.getUniqueId()
-                    );
-        }
-
-        return holder instanceof Container
-                || holder instanceof DoubleChest;
-    }
-
-    private boolean isAuctionHouseView(
-            InventoryView view
-    ) {
-        return view != null
-                && isAuctionHouseHolder(
-                view.getTopInventory()
-                        .getHolder()
-        );
-    }
-
-    private boolean isAuctionHouseHolder(
-            InventoryHolder holder
-    ) {
-        return holder
-                instanceof AuctionHouseGui.BrowseHolder
-                || holder
-                instanceof AuctionHouseGui.OwnHolder
-                || holder
-                instanceof AuctionHouseGui.ConfirmBuyHolder
-                || holder
-                instanceof AuctionHouseGui.ConfirmCancelHolder;
-    }
-
-    private boolean isBlockedView(
-            InventoryView view
-    ) {
-        String title =
-                GuiText.plain(
-                                view.title()
-                        )
-                        .toLowerCase(
-                                Locale.ROOT
-                        );
-        List<String> blocked =
-                core.getConfig()
-                        .getStringList(
-                                "shulker-preview."
-                                        + "blocked-title-contains"
-                        );
-
-        for (String entry : blocked) {
-            if (entry == null
-                    || entry.isBlank()) {
-                continue;
-            }
-
-            if (title.contains(
-                    entry.trim()
-                            .toLowerCase(
-                                    Locale.ROOT
-                            )
-            )) {
-                return true;
-            }
-        }
-
-        return false;
+        return holder != null
+                && !(holder instanceof Player)
+                && !(holder instanceof Container)
+                && !(holder instanceof DoubleChest)
+                && !(holder instanceof PreviewHolder);
     }
 
     private boolean isPreview(
@@ -458,7 +304,7 @@ public final class ShulkerPreviewListener implements Listener {
     private boolean isShulkerBox(
             ItemStack item
     ) {
-        return !empty(item)
+        return hasItem(item)
                 && item.getType()
                 .name()
                 .endsWith(
@@ -466,59 +312,6 @@ public final class ShulkerPreviewListener implements Listener {
                 )
                 && item.getItemMeta()
                 instanceof BlockStateMeta;
-    }
-
-    private boolean enabled() {
-        return core.getConfig()
-                .getBoolean(
-                        "shulker-preview.enabled",
-                        true
-                );
-    }
-
-    private boolean canUse(
-            Player player
-    ) {
-        FileConfiguration config =
-                core.getConfig();
-
-        if (config.getBoolean(
-                "shulker-preview.allow-default",
-                false
-        )) {
-            return true;
-        }
-
-        String plusPermission =
-                config.getString(
-                        "shulker-preview.plus-permission",
-                        "mineacle.plus"
-                );
-        String permission =
-                config.getString(
-                        "shulker-preview.permission",
-                        "mineacleshulkerpreview.use"
-                );
-
-        return hasPermission(
-                player,
-                plusPermission
-        )
-                || hasPermission(
-                player,
-                permission
-        );
-    }
-
-    private boolean hasPermission(
-            Player player,
-            String permission
-    ) {
-        return permission != null
-                && !permission.isBlank()
-                && player.hasPermission(
-                permission
-        );
     }
 
     private String guiTitle() {
@@ -534,41 +327,11 @@ public final class ShulkerPreviewListener implements Listener {
                 : configured;
     }
 
-    private String noPermissionMessage() {
-        String configured =
-                core.getConfig()
-                        .getString(
-                                "shulker-preview.messages.no-permission",
-                                DEFAULT_NO_PERMISSION
-                        );
-
-        return configured.isBlank()
-                ? DEFAULT_NO_PERMISSION
-                : stripTrailingPeriod(
-                        configured
-                );
-    }
-
-    private String stripTrailingPeriod(
-            String input
-    ) {
-        String output = input;
-
-        while (output.endsWith(".")) {
-            output = output.substring(
-                    0,
-                    output.length() - 1
-            );
-        }
-
-        return output;
-    }
-
-    private static boolean empty(
+    private static boolean hasItem(
             ItemStack item
     ) {
-        return item == null
-                || item.getType()
+        return item != null
+                && !item.getType()
                 .isAir();
     }
 

@@ -35,10 +35,9 @@ public final class AuctionHouseGui {
                     );
     private static final int[] OWN_TOOLBAR =
             CenteredToolbar
-                    .interiorSlotsCenteredOn(
+                    .interiorSlots(
                             SIZE,
-                            4,
-                            2
+                            3
                     );
     private static final int[] HISTORY_TOOLBAR =
             CenteredToolbar
@@ -68,14 +67,12 @@ public final class AuctionHouseGui {
     private static final int SLOT_OWN_PREVIOUS =
             CenteredToolbar
                     .previousSlot(SIZE);
-    private static final int SLOT_OWN_BACK =
-            OWN_TOOLBAR[0];
     private static final int SLOT_OWN_HISTORY =
-            OWN_TOOLBAR[1];
+            OWN_TOOLBAR[0];
     private static final int SLOT_OWN_REFRESH =
-            OWN_TOOLBAR[2];
+            OWN_TOOLBAR[1];
     private static final int SLOT_OWN_LIST_ITEM =
-            OWN_TOOLBAR[3];
+            OWN_TOOLBAR[2];
     private static final int SLOT_OWN_NEXT =
             CenteredToolbar
                     .nextSlot(SIZE);
@@ -404,14 +401,6 @@ public final class AuctionHouseGui {
         }
 
         inventory.setItem(
-                SLOT_OWN_BACK,
-                item(
-                        Material.ARROW,
-                        "&#B078FFBack",
-                        "&#bbbbbbReturn to Auction House"
-                )
-        );
-        inventory.setItem(
                 SLOT_OWN_HISTORY,
                 transactionHistoryButton()
         );
@@ -480,7 +469,7 @@ public final class AuctionHouseGui {
                         holder,
                         SIZE,
                         GuiText.title(
-                                "Transaction History (Page "
+                                "Transactions (Page "
                                         + (
                                         effectivePage
                                                 + 1
@@ -524,7 +513,7 @@ public final class AuctionHouseGui {
                     item(
                             Material.WRITABLE_BOOK,
                             "&#bbbbbbNo Transactions",
-                            "&#bbbbbbYour Auction House activity will appear here"
+                            "&#bbbbbbBought and sold items appear here"
                     )
             );
         }
@@ -552,7 +541,7 @@ public final class AuctionHouseGui {
                 item(
                         Material.EMERALD,
                         "&#B078FFRefresh",
-                        "&#bbbbbbReload transaction history"
+                        "&#bbbbbbReload transactions"
                 )
         );
 
@@ -876,32 +865,13 @@ public final class AuctionHouseGui {
     private static ItemStack lockedListingSlot(
             AuctionHouseService service
     ) {
-        int normal =
-                service.defaultListingLimit();
-        int expanded =
-                service.elevatedListingLimit();
-        int extra =
-                Math.max(
-                        0,
-                        expanded - normal
-                );
-
         return item(
                 Material.PURPLE_STAINED_GLASS_PANE,
-                "&#B078FFUnlock "
-                        + expanded
-                        + " Auction Slots",
-                "&#bbbbbbYou're limited to &#D0AFFF"
-                        + normal
-                        + " &#bbbbbbactive listings",
+                "&cLocked",
                 "&#bbbbbbMineacle+ unlocks &#B078FF"
-                        + expanded
+                        + service.elevatedListingLimit()
                         + " &#bbbbbbslots",
-                "&#D0AFFF"
-                        + extra
-                        + " more listings at once",
-                "",
-                "&#B078FFClick to view Mineacle+"
+                "&#B078FFClick to upgrade"
         );
     }
 
@@ -1050,9 +1020,9 @@ public final class AuctionHouseGui {
         if (limit
                 < service.elevatedListingLimit()) {
             lore.add(
-                    "&#B078FFMineacle+ unlocks "
+                    "&#B078FFMineacle+: "
                             + service.elevatedListingLimit()
-                            + " Auction slots"
+                            + " slots"
             );
         }
 
@@ -1079,8 +1049,8 @@ public final class AuctionHouseGui {
     private static ItemStack transactionHistoryButton() {
         return item(
                 Material.WRITABLE_BOOK,
-                "&#B078FFTransaction History",
-                "&#bbbbbbPurchases, sales and listing activity",
+                "&#B078FFTransactions",
+                "&#bbbbbbBought and sold items",
                 "",
                 "&#bbbbbbClick to view"
         );
@@ -1115,20 +1085,12 @@ public final class AuctionHouseGui {
                 return item(
                         Material.BARRIER,
                         "&cAuction Slots Full",
-                        "&#bbbbbbYou've reached your &#D0AFFF"
-                                + limit
-                                + "&#bbbbbb-slot limit",
-                        "",
+                        "&#bbbbbbSlots: &c"
+                                + occupied
+                                + "/"
+                                + limit,
                         "&#B078FFMineacle+ unlocks "
-                                + service.elevatedListingLimit()
-                                + " Auction slots",
-                        "&#D0AFFFList "
-                                + (
-                                service.elevatedListingLimit()
-                                        - limit
-                        )
-                                + " more items at once",
-                        "",
+                                + service.elevatedListingLimit(),
                         "&#bbbbbbClick a locked slot to upgrade"
                 );
             }
@@ -1162,49 +1124,35 @@ public final class AuctionHouseGui {
             AuctionHouseService service,
             AuctionHistoryEntry entry
     ) {
-        String typeColor =
-                switch (entry.type()) {
-                    case SOLD -> "&#11fc7b";
-                    case PURCHASED, LISTED -> "&#B078FF";
-                    case RECLAIMED -> "&a";
-                    case CANCELLED -> "&c";
-                };
-
         List<String> lore =
                 new ArrayList<>();
 
         lore.add(
-                "&#bbbbbbType: "
-                        + typeColor
-                        + entry.type().label()
+                entry.type()
+                        == AuctionHistoryEntry.Type.SOLD
+                        ? "&#11fc7bSold"
+                        : "&#B078FFBought"
         );
         lore.add(
                 "&#bbbbbbAmount: &#D0AFFF"
                         + entry.amount()
         );
 
-        switch (entry.type()) {
-            case SOLD ->
-                    lore.add(
-                            "&#bbbbbbReceived: &#11fc7b+"
-                                    + service.format(
-                                    entry.priceCents()
-                            )
-                    );
-            case PURCHASED ->
-                    lore.add(
-                            "&#bbbbbbPaid: &#11fc7b"
-                                    + service.format(
-                                    entry.priceCents()
-                            )
-                    );
-            case LISTED, CANCELLED, RECLAIMED ->
-                    lore.add(
-                            "&#bbbbbbListing Price: &#11fc7b"
-                                    + service.format(
-                                    entry.priceCents()
-                            )
-                    );
+        if (entry.type()
+                == AuctionHistoryEntry.Type.SOLD) {
+            lore.add(
+                    "&#bbbbbbReceived: &#11fc7b+"
+                            + service.format(
+                            entry.priceCents()
+                    )
+            );
+        } else {
+            lore.add(
+                    "&#bbbbbbPaid: &#11fc7b"
+                            + service.format(
+                            entry.priceCents()
+                    )
+            );
         }
 
         if (entry.counterpartId() != null) {
@@ -1228,15 +1176,6 @@ public final class AuctionHouseGui {
                         + service.historyTime(
                         entry.timestamp()
                 )
-        );
-        lore.add(
-                "&#bbbbbbID: &#D0AFFF"
-                        + entry.transactionId()
-                        .toString()
-                        .substring(
-                                0,
-                                8
-                        )
         );
 
         return item(
@@ -1352,10 +1291,6 @@ public final class AuctionHouseGui {
 
     public static int ownPreviousSlot() {
         return SLOT_OWN_PREVIOUS;
-    }
-
-    public static int ownBackSlot() {
-        return SLOT_OWN_BACK;
     }
 
     public static int ownHistorySlot() {

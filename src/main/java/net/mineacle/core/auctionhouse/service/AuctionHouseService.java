@@ -66,7 +66,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BooleanSupplier;
 import java.util.logging.Level;
 
 public final class AuctionHouseService {
@@ -181,7 +180,6 @@ public final class AuctionHouseService {
     }
 
     private enum DeliveryResult { COMPLETED, INVENTORY_FULL, PENDING }
-    private enum HistoryCompletion { LIST, DELIVERED }
 
     private final Core core;
     private final File configFile;
@@ -703,8 +701,17 @@ public final class AuctionHouseService {
             UUID playerId
     ) {
         return historyStorage.snapshot(
-                playerId
-        );
+                        playerId
+                )
+                .stream()
+                .filter(
+                        entry ->
+                                entry.type()
+                                        == AuctionHistoryEntry.Type.PURCHASED
+                                        || entry.type()
+                                        == AuctionHistoryEntry.Type.SOLD
+                )
+                .toList();
     }
 
     public void loadHistoryAsync(
@@ -2060,17 +2067,8 @@ public final class AuctionHouseService {
             return;
         }
 
-        persistHistoryThen(
-                transaction,
-                List.of(
-                        historyEntry(
-                                transaction,
-                                AuctionHistoryEntry.Type.LISTED,
-                                transaction.actor(),
-                                null
-                        )
-                ),
-                HistoryCompletion.LIST
+        completeListFinalization(
+                transaction.transactionId()
         );
     }
 
@@ -2342,53 +2340,32 @@ public final class AuctionHouseService {
             return;
         }
 
-        List<AuctionHistoryEntry> entries =
-                new ArrayList<>();
-
         if (transaction.type()
-                == TransactionType.BUY) {
-            entries.add(
-                    historyEntry(
-                            transaction,
-                            AuctionHistoryEntry.Type.PURCHASED,
-                            transaction.actor(),
-                            transaction.listing()
-                                    .owner()
-                    )
+                != TransactionType.BUY) {
+            completeDeliveredFinalization(
+                    transaction.transactionId()
             );
-            entries.add(
-                    historyEntry(
-                            transaction,
-                            AuctionHistoryEntry.Type.SOLD,
-                            transaction.listing()
-                                    .owner(),
-                            transaction.actor()
-                    )
-            );
-        } else if (transaction.type()
-                == TransactionType.RETURN) {
-            AuctionHistoryEntry.Type returnType =
-                    transaction.createdAt()
-                            >= expiresAt(
-                            transaction.listing()
-                    )
-                            ? AuctionHistoryEntry.Type.RECLAIMED
-                            : AuctionHistoryEntry.Type.CANCELLED;
-
-            entries.add(
-                    historyEntry(
-                            transaction,
-                            returnType,
-                            transaction.actor(),
-                            null
-                    )
-            );
+            return;
         }
 
-        persistHistoryThen(
+        persistBuyHistoryThenFinalize(
                 transaction,
-                List.copyOf(entries),
-                HistoryCompletion.DELIVERED
+                List.of(
+                        historyEntry(
+                                transaction,
+                                AuctionHistoryEntry.Type.PURCHASED,
+                                transaction.actor(),
+                                transaction.listing()
+                                        .owner()
+                        ),
+                        historyEntry(
+                                transaction,
+                                AuctionHistoryEntry.Type.SOLD,
+                                transaction.listing()
+                                        .owner(),
+                                transaction.actor()
+                        )
+                )
         );
     }
 
@@ -2418,10 +2395,9 @@ public final class AuctionHouseService {
         );
     }
 
-    private void persistHistoryThen(
+    private void persistBuyHistoryThenFinalize(
             AuctionTransaction transaction,
-            List<AuctionHistoryEntry> entries,
-            HistoryCompletion completion
+            List<AuctionHistoryEntry> entries
     ) {
         UUID transactionId =
                 transaction.transactionId();
@@ -2434,39 +2410,28 @@ public final class AuctionHouseService {
 
         long generation =
                 lifecycleGeneration;
-        BooleanSupplier prerequisite =
-                null;
-
-        if (transaction.type()
-                == TransactionType.BUY
-                && transaction.state()
-                == TransactionState.DELIVERED) {
-            UUID sellerId =
-                    transaction.listing()
-                            .owner();
-            String receiptItemName =
-                    safeOutput(
-                            itemName(
-                                    transaction.listing()
-                                            .item()
-                            )
-                    );
-            long receiptPrice =
-                    transaction.listing()
-                            .priceCents();
-
-            prerequisite =
-                    () -> storage.recordSaleReceipt(
-                            transactionId,
-                            sellerId,
-                            receiptItemName,
-                            receiptPrice
-                    );
-        }
+        UUID sellerId =
+                transaction.listing()
+                        .owner();
+        String receiptItemName =
+                safeOutput(
+                        itemName(
+                                transaction.listing()
+                                        .item()
+                        )
+                );
+        long receiptPrice =
+                transaction.listing()
+                        .priceCents();
 
         historyStorage.appendAllAsync(
                 entries,
-                prerequisite,
+                () -> storage.recordSaleReceipt(
+                        transactionId,
+                        sellerId,
+                        receiptItemName,
+                        receiptPrice
+                ),
                 success ->
                         core.getServer()
                                 .getScheduler()
@@ -2492,16 +2457,9 @@ public final class AuctionHouseService {
                                                     return;
                                                 }
 
-                                                switch (completion) {
-                                                    case LIST ->
-                                                            completeListFinalization(
-                                                                    transactionId
-                                                            );
-                                                    case DELIVERED ->
-                                                            completeDeliveredFinalization(
-                                                                    transactionId
-                                                            );
-                                                }
+                                                completeDeliveredFinalization(
+                                                        transactionId
+                                                );
                                             }
                                         }
                                 )

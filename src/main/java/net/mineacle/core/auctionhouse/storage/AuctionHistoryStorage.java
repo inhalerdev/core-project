@@ -351,7 +351,7 @@ public final class AuctionHistoryStorage {
                 new LinkedHashMap<>();
 
         for (AuctionHistoryEntry entry : additions) {
-            if (entry == null) {
+            if (!tradeEntry(entry)) {
                 return false;
             }
 
@@ -507,6 +507,18 @@ public final class AuctionHistoryStorage {
         }
     }
 
+    private boolean tradeEntry(
+            AuctionHistoryEntry entry
+    ) {
+        return entry != null
+                && (
+                entry.type()
+                        == AuctionHistoryEntry.Type.PURCHASED
+                        || entry.type()
+                        == AuctionHistoryEntry.Type.SOLD
+        );
+    }
+
     private boolean contains(
             List<AuctionHistoryEntry> entries,
             AuctionHistoryEntry candidate
@@ -569,13 +581,16 @@ public final class AuctionHistoryStorage {
 
             for (String rawId
                     : section.getKeys(false)) {
-                entries.add(
+                AuctionHistoryEntry entry =
                         readEntry(
                                 playerId,
                                 section,
                                 rawId
-                        )
-                );
+                        );
+
+                if (tradeEntry(entry)) {
+                    entries.add(entry);
+                }
             }
 
             entries.sort(

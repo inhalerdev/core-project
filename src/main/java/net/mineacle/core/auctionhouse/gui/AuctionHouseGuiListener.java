@@ -125,12 +125,7 @@ public final class AuctionHouseGuiListener implements Listener {
             return;
         }
 
-        if (core.getConfig()
-                .getBoolean(
-                        "shulker-preview.enabled",
-                        true
-                )
-                && !(holder
+        if (!(holder
                 instanceof AuctionHouseGui.HistoryHolder)
                 && event.isRightClick()
                 && empty(
@@ -571,9 +566,9 @@ public final class AuctionHouseGuiListener implements Listener {
                     GuiText.component(
                             service.text(
                                     "messages.plus-slots-cta",
-                                    "&#bbbbbbUnlock all &#B078FF"
+                                    "&#B078FFMineacle+ &#bbbbbbunlocks &#B078FF"
                                             + service.elevatedListingLimit()
-                                            + " &#bbbbbbAuction slots with &#B078FFMineacle+"
+                                            + " &#bbbbbbAuction slots"
                             )
                     )
             );
@@ -597,23 +592,6 @@ public final class AuctionHouseGuiListener implements Listener {
             replaceOwn(
                     player,
                     holder.page() - 1
-            );
-            return;
-        }
-
-        if (slot
-                == AuctionHouseGui.ownBackSlot()) {
-            SoundService.guiBack(
-                    player,
-                    core
-            );
-            backToBrowse(
-                    player,
-                    0,
-                    service.defaultSort(),
-                    AuctionHouseService
-                            .FilterMode.ALL,
-                    ""
             );
             return;
         }
