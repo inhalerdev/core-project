@@ -1,6 +1,5 @@
 package net.mineacle.core.common.gui;
 
-import net.mineacle.core.Core;
 import net.mineacle.core.common.sound.SoundService;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -19,6 +18,7 @@ public final class MenuCloseListener implements Listener {
         this.plugin = plugin;
     }
 
+    @SuppressWarnings("unused")
     @EventHandler(priority = EventPriority.MONITOR)
     public void onInventoryClose(InventoryCloseEvent event) {
         if (!(event.getPlayer() instanceof Player player)
@@ -26,23 +26,28 @@ public final class MenuCloseListener implements Listener {
             return;
         }
 
-        boolean reopenedPrevious = MenuHistory.handleClose(
+        /*
+         * ESC is structural GUI navigation, not a player action.
+         * MenuHistory may reopen the tracked parent on the next tick, but that
+         * automatic restoration is intentionally silent. Explicit clicks,
+         * Previous/Next page actions and all other semantic GUI interactions
+         * continue to own their sounds in their respective listeners.
+         */
+        MenuHistory.handleClose(
                 plugin,
                 player,
                 event.getInventory()
         );
-
-        if (reopenedPrevious && plugin instanceof Core core) {
-            SoundService.guiBack(player, core);
-        }
     }
 
+    @SuppressWarnings("unused")
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerQuit(PlayerQuitEvent event) {
         MenuHistory.clear(event.getPlayer());
         SoundService.clearPlayer(event.getPlayer());
     }
 
+    @SuppressWarnings("unused")
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPluginDisable(PluginDisableEvent event) {
         if (event.getPlugin().equals(plugin)) {
