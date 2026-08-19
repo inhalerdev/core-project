@@ -154,18 +154,49 @@ public final class WarpTeleportService {
 
         /*
          * Spawn1-3 are intentionally the fast path:
-         * no admission queue and no countdown. The shared TeleportService still
-         * owns overlap prevention, chunk preparation and final execution.
+         * no admission queue and no countdown.
+         *
+         * Use the reserved-location entry point because the generic
+         * beginLocation(..., WARP, 0, ...) path normalizes a zero-second Warp
+         * back to the standard 5s/3s countdown. A reservation preserves normal
+         * overlap protection while beginReservedLocation() honors the explicit
+         * zero delay for this intentional spawn-only fast path.
          */
         if (warpService.isSpawnWorld(player)) {
-            teleportService.beginLocation(
+            if (!teleportService.reserve(
                     player,
-                    targetName,
-                    target,
-                    TeleportService.TeleportKind.WARP,
-                    0,
-                    false
-            );
+                    TeleportService.TeleportKind.WARP
+            )) {
+                fail(
+                        player,
+                        warpService.queueMessage(
+                                "already-active",
+                                ERROR
+                                        + "You already have a teleport in progress",
+                                targetName
+                        )
+                );
+                return;
+            }
+
+            boolean started =
+                    teleportService.beginReservedLocation(
+                            player,
+                            targetName,
+                            target::clone,
+                            TeleportService.TeleportKind.WARP,
+                            0,
+                            false,
+                            null,
+                            null
+                    );
+
+            if (!started) {
+                teleportService.releaseReservation(
+                        player.getUniqueId(),
+                        TeleportService.TeleportKind.WARP
+                );
+            }
             return;
         }
 
