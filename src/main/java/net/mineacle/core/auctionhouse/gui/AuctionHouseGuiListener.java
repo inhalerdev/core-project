@@ -703,25 +703,6 @@ public final class AuctionHouseGuiListener implements Listener {
         }
 
         if (slot
-                == AuctionHouseGui.historyBackSlot()) {
-            SoundService.guiBack(
-                    player,
-                    core
-            );
-
-            if (!MenuHistory.back(
-                    core,
-                    player
-            )) {
-                replaceOwn(
-                        player,
-                        0
-                );
-            }
-            return;
-        }
-
-        if (slot
                 == AuctionHouseGui.historyRefreshSlot()) {
             SoundService.guiRefresh(
                     player,
@@ -756,22 +737,6 @@ public final class AuctionHouseGuiListener implements Listener {
                 event.getRawSlot();
 
         if (slot
-                == AuctionHouseGui.confirmBackSlot()) {
-            SoundService.guiBack(
-                    player,
-                    core
-            );
-            backToBrowse(
-                    player,
-                    holder.returnPage(),
-                    holder.returnSort(),
-                    holder.returnFilter(),
-                    holder.returnQuery()
-            );
-            return;
-        }
-
-        if (slot
                 == AuctionHouseGui.confirmActionSlot()) {
             buy(
                     player,
@@ -788,19 +753,6 @@ public final class AuctionHouseGuiListener implements Listener {
     ) {
         int slot =
                 event.getRawSlot();
-
-        if (slot
-                == AuctionHouseGui.confirmBackSlot()) {
-            SoundService.guiBack(
-                    player,
-                    core
-            );
-            backToOwn(
-                    player,
-                    holder.returnPage()
-            );
-            return;
-        }
 
         if (slot
                 == AuctionHouseGui.confirmActionSlot()) {
