@@ -24,12 +24,20 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public final class SellWorthPacketListener
         extends PacketAdapter {
+
+    private static final String PHOENIX_CRATES =
+            "phoenixcrates";
+    private static final String PHOENIX_CRATES_LITE =
+            "phoenixcrateslite";
 
     private final SellService sellService;
 
@@ -57,8 +65,10 @@ public final class SellWorthPacketListener
         DisplayContext context = displayContext(player);
 
         /*
-         * Default-deny before touching packet items. External/plugin GUIs and
-         * Mineacle workflow menus should cost essentially nothing here.
+         * Default-deny before touching packet items. Mineacle workflow menus
+         * and unrelated external/plugin GUIs should cost essentially nothing
+         * here. PhoenixCrates reward displays are the deliberate third-party
+         * exception and remain packet-only.
          */
         if (context == DisplayContext.DENIED
                 || context == DisplayContext.WORTH) {
@@ -354,9 +364,21 @@ public final class SellWorthPacketListener
             return DisplayContext.PLAYER_INVENTORY;
         }
 
-        return isRealStorageTop(top)
-                ? DisplayContext.REAL_STORAGE
-                : DisplayContext.DENIED;
+        if (isRealStorageTop(top)) {
+            return DisplayContext.REAL_STORAGE;
+        }
+
+        /*
+         * PhoenixCrates preview/reward menus may use fully customized titles,
+         * so title matching is intentionally not used. Resolve the JavaPlugin
+         * that provided the inventory holder class instead. This keeps all
+         * unrelated third-party GUIs default-denied.
+         */
+        if (isPhoenixCratesTop(top)) {
+            return DisplayContext.PHOENIX_CRATES;
+        }
+
+        return DisplayContext.DENIED;
     }
 
     private boolean contextAllowsWorth(
@@ -368,7 +390,8 @@ public final class SellWorthPacketListener
         }
 
         return context == DisplayContext.PLAYER_INVENTORY
-                || context == DisplayContext.REAL_STORAGE;
+                || context == DisplayContext.REAL_STORAGE
+                || context == DisplayContext.PHOENIX_CRATES;
     }
 
     private boolean isRealStorageTop(
@@ -396,6 +419,64 @@ public final class SellWorthPacketListener
         }
 
         return false;
+    }
+
+    private boolean isPhoenixCratesTop(
+            Inventory inventory
+    ) {
+        if (inventory == null) {
+            return false;
+        }
+
+        InventoryHolder holder =
+                inventory.getHolder(false);
+
+        if (holder == null) {
+            return false;
+        }
+
+        Class<?> holderClass =
+                holder.getClass();
+
+        try {
+            Plugin provider =
+                    JavaPlugin.getProvidingPlugin(
+                            holderClass
+                    );
+            String pluginName =
+                    provider.getName()
+                            .toLowerCase(
+                                    Locale.ROOT
+                            );
+
+            if (pluginName.equals(
+                    PHOENIX_CRATES
+            )
+                    || pluginName.equals(
+                    PHOENIX_CRATES_LITE
+            )) {
+                return true;
+            }
+        } catch (IllegalArgumentException ignored) {
+            /*
+             * Some menu frameworks can expose an InventoryHolder class that
+             * JavaPlugin cannot resolve directly. Fall through to the narrow
+             * class-name check below rather than widening external GUI access.
+             */
+        }
+
+        String className =
+                holderClass.getName()
+                        .toLowerCase(
+                                Locale.ROOT
+                        );
+
+        return className.contains(
+                "phoenix"
+        )
+                && className.contains(
+                "crate"
+        );
     }
 
     private Component component(
@@ -437,6 +518,7 @@ public final class SellWorthPacketListener
         WORTH,
         PLAYER_INVENTORY,
         REAL_STORAGE,
+        PHOENIX_CRATES,
         DENIED
     }
 }
