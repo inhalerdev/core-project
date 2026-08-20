@@ -8,18 +8,15 @@ import com.comphenix.protocol.reflect.StructureModifier;
 import net.kyori.adventure.text.Component;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.GuiText;
+import net.mineacle.core.orders.gui.OrdersGuiHolder;
 import net.mineacle.core.sell.gui.SellGui;
 import net.mineacle.core.sell.gui.WorthGui;
 import net.mineacle.core.sell.model.ItemValuation;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
-import org.bukkit.block.DoubleChest;
 import org.bukkit.block.ShulkerBox;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.minecart.StorageMinecart;
-import org.bukkit.event.inventory.InventoryType;
-import org.bukkit.inventory.BlockInventoryHolder;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.InventoryView;
@@ -27,23 +24,22 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.BundleMeta;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 public final class SellWorthPacketListener
         extends PacketAdapter {
 
     private static final int MAX_CONTAINER_DEPTH = 3;
 
-    private static final String PHOENIX_CRATES =
-            "phoenixcrates";
-    private static final String PHOENIX_CRATES_LITE =
-            "phoenixcrateslite";
+    private static final String MINEACLE_PACKAGE_PREFIX =
+            "net.mineacle.core.";
+    private static final String SHULKER_PREVIEW_HOLDER =
+            "net.mineacle.core.shulkerpreview.ShulkerPreviewListener$PreviewHolder";
 
+    private final Core core;
     private final SellService sellService;
 
     public SellWorthPacketListener(
@@ -56,6 +52,7 @@ public final class SellWorthPacketListener
                 PacketType.Play.Server.SET_SLOT,
                 PacketType.Play.Server.WINDOW_ITEMS
         );
+        this.core = core;
         this.sellService = sellService;
     }
 
@@ -67,25 +64,14 @@ public final class SellWorthPacketListener
             return;
         }
 
-        DisplayContext context = displayContext(player);
-
-        /*
-         * Default-deny before touching packet items. Mineacle workflow menus
-         * and unrelated external/plugin GUIs should cost essentially nothing
-         * here. PhoenixCrates reward displays are the deliberate third-party
-         * exception and remain packet-only.
-         */
-        if (context == DisplayContext.DENIED
-                || context == DisplayContext.WORTH) {
-            return;
-        }
+        DisplayPolicy policy = displayPolicy(player);
 
         if (event.getPacketType()
                 == PacketType.Play.Server.SET_SLOT) {
             handleSetSlot(
                     event,
                     player,
-                    context
+                    policy
             );
             return;
         }
@@ -95,7 +81,7 @@ public final class SellWorthPacketListener
             handleWindowItems(
                     event,
                     player,
-                    context
+                    policy
             );
         }
     }
@@ -103,7 +89,7 @@ public final class SellWorthPacketListener
     private void handleSetSlot(
             PacketEvent event,
             Player player,
-            DisplayContext context
+            DisplayPolicy policy
     ) {
         StructureModifier<ItemStack> modifier =
                 event.getPacket().getItemModifier();
@@ -125,7 +111,7 @@ public final class SellWorthPacketListener
                             player,
                             original,
                             rawSlot,
-                            context
+                            policy
                     );
 
             if (displayed != original) {
@@ -140,7 +126,7 @@ public final class SellWorthPacketListener
     private void handleWindowItems(
             PacketEvent event,
             Player player,
-            DisplayContext context
+            DisplayPolicy policy
     ) {
         StructureModifier<List<ItemStack>> listModifier =
                 event.getPacket()
@@ -175,7 +161,7 @@ public final class SellWorthPacketListener
                                 player,
                                 source,
                                 rawSlot,
-                                context
+                                policy
                         );
 
                 if (displayed == source) {
@@ -234,7 +220,7 @@ public final class SellWorthPacketListener
                                 player,
                                 source,
                                 rawSlot,
-                                context
+                                policy
                         );
 
                 if (displayed == source) {
@@ -261,10 +247,10 @@ public final class SellWorthPacketListener
             Player player,
             ItemStack original,
             int rawSlot,
-            DisplayContext context
+            DisplayPolicy policy
     ) {
-        if (!contextAllowsWorth(
-                context,
+        if (!policyAllowsWorth(
+                policy,
                 rawSlot
         )) {
             return original;
@@ -467,144 +453,170 @@ public final class SellWorthPacketListener
         }
     }
 
-    private DisplayContext displayContext(
+    private DisplayPolicy displayPolicy(
             Player player
     ) {
         InventoryView view =
                 player.getOpenInventory();
         Inventory top =
                 view.getTopInventory();
+        InventoryHolder holder =
+                top.getHolder(false);
+        int topSize =
+                Math.max(
+                        0,
+                        top.getSize()
+                );
 
         /*
-         * /worth authors its own catalog content. Do not clone or rebuild any
-         * packet items while that menu is open.
+         * Mineacle owns the top inventory policy only. The player inventory
+         * beneath every GUI remains eligible for packet-only Worth display.
          */
         if (WorthGui.isInventory(top)) {
-            return DisplayContext.WORTH;
+            return new DisplayPolicy(
+                    DisplayContext.MINEACLE_WORTH,
+                    topSize,
+                    null
+            );
         }
 
         if (SellGui.isInventory(top)) {
-            return DisplayContext.DENIED;
+            return new DisplayPolicy(
+                    DisplayContext.MINEACLE_SELL,
+                    topSize,
+                    null
+            );
         }
 
-        if (top.getType()
-                == InventoryType.CRAFTING) {
-            return DisplayContext.PLAYER_INVENTORY;
+        if (holder instanceof OrdersGuiHolder ordersHolder) {
+            return new DisplayPolicy(
+                    DisplayContext.MINEACLE_ORDERS,
+                    topSize,
+                    ordersHolder
+            );
         }
 
-        if (isRealStorageTop(top)) {
-            return DisplayContext.REAL_STORAGE;
+        if (isMineacleShulkerPreview(holder)) {
+            return new DisplayPolicy(
+                    DisplayContext.MINEACLE_SHULKER_PREVIEW,
+                    topSize,
+                    null
+            );
+        }
+
+        if (isMineacleHolder(holder)) {
+            return new DisplayPolicy(
+                    DisplayContext.MINEACLE_BLOCKED,
+                    topSize,
+                    null
+            );
         }
 
         /*
-         * PhoenixCrates preview/reward menus may use fully customized titles,
-         * so title matching is intentionally not used. Resolve the JavaPlugin
-         * that provided the inventory holder class instead. This keeps all
-         * unrelated third-party GUIs default-denied.
+         * Vanilla containers/workstations and every third-party plugin GUI are
+         * allowed by default. This is deliberately future-proof: installing a
+         * new external plugin does not require another Mineacle whitelist.
          */
-        if (isPhoenixCratesTop(top)) {
-            return DisplayContext.PHOENIX_CRATES;
-        }
-
-        return DisplayContext.DENIED;
+        return new DisplayPolicy(
+                DisplayContext.EXTERNAL_OR_VANILLA,
+                topSize,
+                null
+        );
     }
 
-    private boolean contextAllowsWorth(
-            DisplayContext context,
+    private boolean policyAllowsWorth(
+            DisplayPolicy policy,
             int rawSlot
     ) {
-        if (rawSlot < 0) {
+        if (policy == null
+                || rawSlot < 0) {
             return false;
         }
 
-        return context == DisplayContext.PLAYER_INVENTORY
-                || context == DisplayContext.REAL_STORAGE
-                || context == DisplayContext.PHOENIX_CRATES;
-    }
-
-    private boolean isRealStorageTop(
-            Inventory inventory
-    ) {
-        InventoryType type =
-                inventory.getType();
-
-        if (type == InventoryType.ENDER_CHEST) {
+        /*
+         * Raw slots at/after the top size are the player's own inventory.
+         * Mineacle top-menu restrictions must never suppress those items.
+         */
+        if (rawSlot >= policy.topSize()) {
             return true;
         }
 
-        InventoryHolder holder =
-                inventory.getHolder(false);
-
-        if (holder instanceof BlockInventoryHolder
-                || holder instanceof DoubleChest
-                || holder instanceof StorageMinecart) {
-            return type == InventoryType.CHEST
-                    || type == InventoryType.BARREL
-                    || type == InventoryType.SHULKER_BOX
-                    || type == InventoryType.HOPPER
-                    || type == InventoryType.DROPPER
-                    || type == InventoryType.DISPENSER;
-        }
-
-        return false;
+        return switch (policy.context()) {
+            case EXTERNAL_OR_VANILLA,
+                 MINEACLE_SHULKER_PREVIEW -> true;
+            case MINEACLE_SELL ->
+                    rawSlot != SellGui.SUMMARY_SLOT;
+            case MINEACLE_ORDERS ->
+                    ordersContentSlot(
+                            policy.ordersHolder(),
+                            rawSlot
+                    );
+            case MINEACLE_WORTH,
+                 MINEACLE_BLOCKED -> false;
+        };
     }
 
-    private boolean isPhoenixCratesTop(
-            Inventory inventory
+    private boolean ordersContentSlot(
+            OrdersGuiHolder holder,
+            int rawSlot
     ) {
-        if (inventory == null) {
+        if (holder == null
+                || rawSlot < 0
+                || rawSlot >= 45) {
             return false;
         }
 
-        InventoryHolder holder =
-                inventory.getHolder(false);
+        return switch (holder.view()) {
+            case MAIN, YOUR_ORDERS ->
+                    holder.orderIdAt(rawSlot) != null;
+            case CREATE ->
+                    holder.materialAt(rawSlot) != null;
+            case CONFIRM -> false;
+        };
+    }
 
+    private boolean isMineacleShulkerPreview(
+            InventoryHolder holder
+    ) {
+        return holder != null
+                && holder.getClass()
+                .getName()
+                .equals(
+                        SHULKER_PREVIEW_HOLDER
+                );
+    }
+
+    private boolean isMineacleHolder(
+            InventoryHolder holder
+    ) {
         if (holder == null) {
             return false;
         }
 
         Class<?> holderClass =
                 holder.getClass();
+        String className =
+                holderClass.getName();
+
+        if (className.startsWith(
+                MINEACLE_PACKAGE_PREFIX
+        )) {
+            return true;
+        }
 
         try {
-            Plugin provider =
+            JavaPlugin provider =
                     JavaPlugin.getProvidingPlugin(
                             holderClass
                     );
-            String pluginName =
-                    provider.getName()
-                            .toLowerCase(
-                                    Locale.ROOT
-                            );
-
-            if (pluginName.equals(
-                    PHOENIX_CRATES
-            )
-                    || pluginName.equals(
-                    PHOENIX_CRATES_LITE
-            )) {
-                return true;
-            }
+            return provider == core
+                    || provider.getName()
+                    .equalsIgnoreCase(
+                            core.getName()
+                    );
         } catch (IllegalArgumentException ignored) {
-            /*
-             * Some menu frameworks can expose an InventoryHolder class that
-             * JavaPlugin cannot resolve directly. Fall through to the narrow
-             * class-name check below rather than widening external GUI access.
-             */
+            return false;
         }
-
-        String className =
-                holderClass.getName()
-                        .toLowerCase(
-                                Locale.ROOT
-                        );
-
-        return className.contains(
-                "phoenix"
-        )
-                && className.contains(
-                "crate"
-        );
     }
 
     private Component component(
@@ -643,10 +655,18 @@ public final class SellWorthPacketListener
     }
 
     private enum DisplayContext {
-        WORTH,
-        PLAYER_INVENTORY,
-        REAL_STORAGE,
-        PHOENIX_CRATES,
-        DENIED
+        EXTERNAL_OR_VANILLA,
+        MINEACLE_WORTH,
+        MINEACLE_SELL,
+        MINEACLE_ORDERS,
+        MINEACLE_SHULKER_PREVIEW,
+        MINEACLE_BLOCKED
+    }
+
+    private record DisplayPolicy(
+            DisplayContext context,
+            int topSize,
+            OrdersGuiHolder ordersHolder
+    ) {
     }
 }
