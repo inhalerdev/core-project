@@ -66,6 +66,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 
 public final class AuctionHouseService {
@@ -206,6 +207,7 @@ public final class AuctionHouseService {
     private final Set<UUID> runtimeQuarantinedTransactions = new HashSet<>();
     private final Set<UUID> restrictedListings = new HashSet<>();
     private final Set<UUID> historyFinalizationInFlight = new HashSet<>();
+    private final Set<UUID> saleReceiptLoadsInFlight = new HashSet<>();
     private final Map<UUID, Long> searchCooldownUntil = new HashMap<>();
     private final LinkedHashMap<SearchCacheKey, SearchSnapshot> searchCache =
             new LinkedHashMap<>(16, 0.75F, true);
@@ -220,9 +222,11 @@ public final class AuctionHouseService {
     private long browseCacheMillis = DEFAULT_BROWSE_CACHE_MILLIS;
     private boolean configHealthy = true;
     private boolean transactionStorageHealthy = true;
+    private boolean listingStorageHealthy = true;
     private boolean historyStorageHealthy = true;
     private boolean marketCapacityHealthy = true;
     private List<String> transactionStorageProblems = List.of();
+    private List<String> listingStorageProblems = List.of();
     private String historyStorageProblem = "";
     private String marketCapacityProblem = "";
     private DateTimeFormatter historyFormatter =
@@ -279,7 +283,22 @@ public final class AuctionHouseService {
                 createHistoryFormatter();
 
         clearInMemoryState();
-        storage.initialize();
+
+        try {
+            storage.initialize();
+            listingStorageHealthy = true;
+        } catch (RuntimeException exception) {
+            listingStorageHealthy = false;
+            listingStorageProblems =
+                    List.of(
+                            "Auction House listing storage is unavailable"
+                    );
+            core.getLogger().log(
+                    Level.SEVERE,
+                    "[AuctionHouse] Listing storage initialization failed; public Auction House access is disabled",
+                    exception
+            );
+        }
 
         try {
             historyStorage.initialize();
@@ -298,54 +317,94 @@ public final class AuctionHouseService {
 
         loadDurableTransactions();
 
-        if (transactionStorageHealthy) {
+        if (transactionStorageHealthy
+                && listingStorageHealthy) {
             recoverInterruptedPurchases();
         }
 
-        if (transactionStorageHealthy) {
+        if (transactionStorageHealthy
+                && listingStorageHealthy) {
             reconcileTransactionsBeforeListingLoad();
         }
 
-        if (transactionStorageHealthy) {
-            for (AuctionHouseListing stored : storage.loadListings()) {
-            if (isQuarantined(stored.id()) || isListingBlockedByTransaction(stored.id())) {
-                core.getLogger().warning(
-                        "[AuctionHouse] Listing " + stored.id()
-                                + " is hidden while a recovery transaction is unresolved"
-                );
-                continue;
-            }
+        if (transactionStorageHealthy
+                && listingStorageHealthy) {
+            AuctionHouseStorage.ListingLoadResult listingLoad =
+                    storage.loadListings();
 
-            AuctionHouseListing normalized =
-                    normalizedLoadedListing(stored);
-            CreateResult storedPolicy =
-                    validateListingItem(normalized.item());
+            listingStorageHealthy =
+                    listingLoad.healthy();
+            listingStorageProblems =
+                    listingLoad.problems();
 
-            if (storedPolicy != CreateResult.SUCCESS) {
-                restrictedListings.add(normalized.id());
-                core.getLogger().warning(
-                        "[AuctionHouse] Listing " + normalized.id()
-                                + " is restricted from public browsing until its owner reclaims it"
-                                + " | reason=" + storedPolicy
-                );
-            }
-
-            if (marketCapacityExceeded(normalized)) {
-                marketCapacityHealthy = false;
-                marketCapacityProblem =
-                        "Stored market exceeds configured global listing/serialized-byte safety limits";
+            if (!listingStorageHealthy) {
                 core.getLogger().severe(
-                        "[AuctionHouse] " + marketCapacityProblem
-                                + "; public Auction House access is disabled until the limit is raised or listings are reduced"
+                        "[AuctionHouse] Stable listing storage health check failed; public Auction House access is disabled until /ah reload succeeds with clean listing files"
                 );
-                break;
+            } else {
+                for (AuctionHouseListing stored
+                        : listingLoad.listings()) {
+                    if (isQuarantined(
+                            stored.id()
+                    )
+                            || isListingBlockedByTransaction(
+                            stored.id()
+                    )) {
+                        core.getLogger().warning(
+                                "[AuctionHouse] Listing "
+                                        + stored.id()
+                                        + " is hidden while a recovery transaction is unresolved"
+                        );
+                        continue;
+                    }
+
+                    AuctionHouseListing normalized =
+                            normalizedLoadedListing(
+                                    stored
+                            );
+                    CreateResult storedPolicy =
+                            validateListingItem(
+                                    normalized.item()
+                            );
+
+                    if (storedPolicy
+                            != CreateResult.SUCCESS) {
+                        restrictedListings.add(
+                                normalized.id()
+                        );
+                        core.getLogger().warning(
+                                "[AuctionHouse] Listing "
+                                        + normalized.id()
+                                        + " is restricted from public browsing until its owner reclaims it"
+                                        + " | reason="
+                                        + storedPolicy
+                        );
+                    }
+
+                    if (marketCapacityExceeded(
+                            normalized
+                    )) {
+                        marketCapacityHealthy =
+                                false;
+                        marketCapacityProblem =
+                                "Stored market exceeds configured global listing/serialized-byte safety limits";
+                        core.getLogger().severe(
+                                "[AuctionHouse] "
+                                        + marketCapacityProblem
+                                        + "; public Auction House access is disabled until the limit is raised or listings are reduced"
+                        );
+                        break;
+                    }
+
+                    addInMemory(
+                            normalized
+                    );
+                }
             }
-
-            addInMemory(normalized);
-        }
         }
 
-        if (transactionStorageHealthy) {
+        if (transactionStorageHealthy
+                && listingStorageHealthy) {
             for (Player online : Bukkit.getOnlinePlayers()) {
                 recoverPlayerTransactions(online);
             }
@@ -387,12 +446,15 @@ public final class AuctionHouseService {
         runtimeQuarantinedTransactions.clear();
         restrictedListings.clear();
         historyFinalizationInFlight.clear();
+        saleReceiptLoadsInFlight.clear();
         searchCooldownUntil.clear();
         searchCache.clear();
         listingGeneration = 0L;
         totalListingBytes = 0L;
         transactionStorageHealthy = true;
         transactionStorageProblems = List.of();
+        listingStorageHealthy = true;
+        listingStorageProblems = List.of();
         historyStorageHealthy = true;
         historyStorageProblem = "";
         marketCapacityHealthy = true;
@@ -402,6 +464,7 @@ public final class AuctionHouseService {
     public boolean healthy() {
         return configHealthy
                 && transactionStorageHealthy
+                && listingStorageHealthy
                 && historyStorageHealthy
                 && marketCapacityHealthy;
     }
@@ -1030,7 +1093,14 @@ public final class AuctionHouseService {
         AuctionTransaction transaction = transactionStorage.begin(
                 TransactionType.LIST, listing, player, sourceSlot
         );
-        if (transaction == null) return outcome(CreateResult.STORAGE_ERROR);
+        if (transaction == null) {
+            blockTransactionStorage(
+                    "Could not create LIST transaction journal"
+            );
+            return outcome(
+                    CreateResult.STORAGE_ERROR
+            );
+        }
         transactions.put(transaction.transactionId(), transaction);
 
         if (!prepareCreateMarker(player, transaction)) {
@@ -1038,8 +1108,16 @@ public final class AuctionHouseService {
         }
 
         if (storage.listingSaveFailed(listing)) {
-            abortUncreatedListing(transaction, player);
-            return outcome(CreateResult.STORAGE_ERROR);
+            blockListingStorage(
+                    "Could not durably save a new listing"
+            );
+            abortUncreatedListing(
+                    transaction,
+                    player
+            );
+            return outcome(
+                    CreateResult.STORAGE_ERROR
+            );
         }
 
         AuctionTransaction listingSaved = advanceTransaction(
@@ -1084,11 +1162,21 @@ public final class AuctionHouseService {
         AuctionTransaction transaction = transactionStorage.begin(
                 TransactionType.RETURN, listing, player, -1
         );
-        if (transaction == null) return CancelResult.STORAGE_ERROR;
+        if (transaction == null) {
+            blockTransactionStorage(
+                    "Could not create RETURN transaction journal"
+            );
+            return CancelResult.STORAGE_ERROR;
+        }
         transactions.put(transaction.transactionId(), transaction);
 
         if (storage.listingDeleteFailed(id)) {
-            deleteTransaction(transaction);
+            blockListingStorage(
+                    "Could not durably remove a listing for return"
+            );
+            deleteTransaction(
+                    transaction
+            );
             return CancelResult.STORAGE_ERROR;
         }
 
@@ -1187,13 +1275,27 @@ public final class AuctionHouseService {
                 TransactionType.BUY, listing, buyer, -1
         );
         if (transaction == null) {
-            return new BuyOutcome(BuyResult.STORAGE_ERROR, listing);
+            blockTransactionStorage(
+                    "Could not create BUY transaction journal"
+            );
+            return new BuyOutcome(
+                    BuyResult.STORAGE_ERROR,
+                    listing
+            );
         }
         transactions.put(transaction.transactionId(), transaction);
 
         if (storage.listingDeleteFailed(listing.id())) {
-            deleteTransaction(transaction);
-            return new BuyOutcome(BuyResult.STORAGE_ERROR, listing);
+            blockListingStorage(
+                    "Could not durably remove a purchased listing"
+            );
+            deleteTransaction(
+                    transaction
+            );
+            return new BuyOutcome(
+                    BuyResult.STORAGE_ERROR,
+                    listing
+            );
         }
 
         removeInMemory(listing);
@@ -1281,6 +1383,7 @@ public final class AuctionHouseService {
      */
     public synchronized void recoverPlayerTransactions(Player player) {
         if (!transactionStorageHealthy
+                || !listingStorageHealthy
                 || player == null
                 || !player.isOnline()) {
             return;
@@ -1324,7 +1427,8 @@ public final class AuctionHouseService {
      * lets a later tick observe the durable checkpoint rather than waiting.
      */
     public synchronized void retryPendingTransactions() {
-        if (!transactionStorageHealthy) {
+        if (!transactionStorageHealthy
+                || !listingStorageHealthy) {
             return;
         }
 
@@ -1415,6 +1519,37 @@ public final class AuctionHouseService {
                                     - problemLimit
                     )
                             + " additional journal problem(s)"
+            );
+        }
+
+        int listingProblemLimit =
+                Math.min(
+                        25,
+                        listingStorageProblems.size()
+                );
+
+        for (int index = 0;
+             index < listingProblemLimit;
+             index++) {
+            lines.add(
+                    "LISTINGS BLOCKED • "
+                            + safeOutput(
+                            listingStorageProblems.get(
+                                    index
+                            )
+                    )
+            );
+        }
+
+        if (listingStorageProblems.size()
+                > listingProblemLimit) {
+            lines.add(
+                    "LISTINGS BLOCKED • +"
+                            + (
+                            listingStorageProblems.size()
+                                    - listingProblemLimit
+                    )
+                            + " additional listing storage problem(s)"
             );
         }
 
@@ -2154,7 +2289,13 @@ public final class AuctionHouseService {
         }
 
         if (storage.listingSaveFailed(transaction.listing())) {
-            quarantineTransaction(transaction, "return-abort-listing-restore-failed");
+            blockListingStorage(
+                    "Could not restore a RETURN listing during recovery"
+            );
+            quarantineTransaction(
+                    transaction,
+                    "return-abort-listing-restore-failed"
+            );
             return false;
         }
 
@@ -2190,7 +2331,13 @@ public final class AuctionHouseService {
         }
 
         if (storage.listingSaveFailed(transaction.listing())) {
-            quarantineTransaction(transaction, "unpaid-abort-listing-restore-failed");
+            blockListingStorage(
+                    "Could not restore an unpaid BUY listing during recovery"
+            );
+            quarantineTransaction(
+                    transaction,
+                    "unpaid-abort-listing-restore-failed"
+            );
             return false;
         }
 
@@ -2221,7 +2368,13 @@ public final class AuctionHouseService {
 
         if (!storage.listingExists(transaction.listing().id())
                 && storage.listingSaveFailed(transaction.listing())) {
-            quarantineTransaction(transaction, "aborted-transaction-listing-restore-failed");
+            blockListingStorage(
+                    "Could not restore an aborted transaction listing"
+            );
+            quarantineTransaction(
+                    transaction,
+                    "aborted-transaction-listing-restore-failed"
+            );
             return;
         }
 
@@ -2348,6 +2501,10 @@ public final class AuctionHouseService {
             return;
         }
 
+        if (!historyStorageHealthy) {
+            return;
+        }
+
         persistBuyHistoryThenFinalize(
                 transaction,
                 List.of(
@@ -2449,10 +2606,18 @@ public final class AuctionHouseService {
                                                 );
 
                                                 if (!success) {
-                                                    core.getLogger().warning(
-                                                            "[AuctionHouse] Transaction history persistence failed for "
+                                                    historyStorageHealthy =
+                                                            false;
+                                                    historyStorageProblem =
+                                                            "Transaction history persistence failed; check auctionhouse/history storage";
+                                                    stopDatabaseMirror();
+
+                                                    core.getLogger().severe(
+                                                            "[AuctionHouse] "
+                                                                    + historyStorageProblem
+                                                                    + "; public Auction House access is disabled and transaction "
                                                                     + transactionId
-                                                                    + "; durable transaction retained for retry"
+                                                                    + " remains durably journaled for recovery"
                                                     );
                                                     return;
                                                 }
@@ -2767,10 +2932,15 @@ public final class AuctionHouseService {
         AuctionTransaction updated = transaction.withState(state);
 
         if (!transactionStorage.save(updated)) {
-            core.getLogger().severe(
-                    "[AuctionHouse] Could not advance transaction "
-                            + transaction.transactionId() + " from "
-                            + transaction.state() + " to " + state
+            blockTransactionStorage(
+                    "Could not advance transaction "
+                            + shortId(
+                            transaction.transactionId()
+                    )
+                            + " from "
+                            + transaction.state()
+                            + " to "
+                            + state
             );
             return null;
         }
@@ -2782,11 +2952,31 @@ public final class AuctionHouseService {
         return updated;
     }
 
-    private boolean deleteTransaction(AuctionTransaction transaction) {
-        if (transaction == null) return false;
-        if (!transactionStorage.delete(transaction.transactionId())) return false;
-        transactions.remove(transaction.transactionId());
-        runtimeQuarantinedTransactions.remove(transaction.transactionId());
+    private boolean deleteTransaction(
+            AuctionTransaction transaction
+    ) {
+        if (transaction == null) {
+            return false;
+        }
+
+        if (!transactionStorage.delete(
+                transaction.transactionId()
+        )) {
+            blockTransactionStorage(
+                    "Could not delete completed transaction "
+                            + shortId(
+                            transaction.transactionId()
+                    )
+            );
+            return false;
+        }
+
+        transactions.remove(
+                transaction.transactionId()
+        );
+        runtimeQuarantinedTransactions.remove(
+                transaction.transactionId()
+        );
         return true;
     }
 
@@ -2797,7 +2987,17 @@ public final class AuctionHouseService {
         AuctionTransaction quarantined = transaction.withState(TransactionState.QUARANTINED);
 
         if (transactionStorage.save(quarantined)) {
-            transactions.put(quarantined.transactionId(), quarantined);
+            transactions.put(
+                    quarantined.transactionId(),
+                    quarantined
+            );
+        } else {
+            blockTransactionStorage(
+                    "Could not persist quarantine state for transaction "
+                            + shortId(
+                            transaction.transactionId()
+                    )
+            );
         }
 
         core.getLogger().severe(
@@ -2807,6 +3007,111 @@ public final class AuctionHouseService {
                         + " | state=" + transaction.state()
                         + " | listing=" + transaction.listing().id()
                         + " | reason=" + reason
+        );
+    }
+
+    private void blockTransactionStorage(
+            String problem
+    ) {
+        transactionStorageHealthy =
+                false;
+        transactionStorageProblems =
+                appendStorageProblem(
+                        transactionStorageProblems,
+                        problem
+                );
+        stopDatabaseMirror();
+
+        core.getLogger().severe(
+                "[AuctionHouse] Transaction storage failure; public Auction House access is safety-blocked until /ah reload"
+                        + (
+                        problem == null
+                                || problem.isBlank()
+                                ? ""
+                                : " • "
+                                + safeOutput(
+                                problem
+                        )
+                )
+        );
+    }
+
+    private void blockListingStorage(
+            String problem
+    ) {
+        listingStorageHealthy =
+                false;
+        listingStorageProblems =
+                appendStorageProblem(
+                        listingStorageProblems,
+                        problem
+                );
+        stopDatabaseMirror();
+
+        core.getLogger().severe(
+                "[AuctionHouse] Listing storage failure; public Auction House access is safety-blocked until /ah reload"
+                        + (
+                        problem == null
+                                || problem.isBlank()
+                                ? ""
+                                : " • "
+                                + safeOutput(
+                                problem
+                        )
+                )
+        );
+    }
+
+    private List<String> appendStorageProblem(
+            List<String> current,
+            String problem
+    ) {
+        String cleaned =
+                safeOutput(
+                        problem
+                );
+
+        if (cleaned.isBlank()) {
+            cleaned =
+                    "Unknown storage failure";
+        }
+
+        List<String> safeCurrent =
+                current == null
+                        ? List.of()
+                        : current;
+
+        if (safeCurrent.contains(
+                cleaned
+        )) {
+            return safeCurrent;
+        }
+
+        List<String> updated =
+                new ArrayList<>(
+                        Math.min(
+                                25,
+                                safeCurrent.size()
+                                        + 1
+                        )
+                );
+
+        for (String existing
+                : safeCurrent) {
+            if (updated.size()
+                    >= 24) {
+                break;
+            }
+            updated.add(
+                    existing
+            );
+        }
+
+        updated.add(
+                cleaned
+        );
+        return List.copyOf(
+                updated
         );
     }
 
@@ -3018,11 +3323,14 @@ public final class AuctionHouseService {
             return 0L;
         }
 
-        SellService current = currentSellService();
-        if (current == null) return 0L;
-
         try {
-            return Math.max(0L, current.visualWorthCents(null, cleanItem(item)));
+            return Math.max(
+                    0L,
+                    serverSellCents(
+                            null,
+                            cleanItem(item)
+                    )
+            );
         } catch (RuntimeException exception) {
             core.getLogger().log(
                     Level.FINE, "Could not resolve Auction House worth reference", exception
@@ -3961,8 +4269,10 @@ public final class AuctionHouseService {
         return false;
     }
 
-    public void deliverPendingSaleNotice(Player seller) {
-        deliverSaleReceipt(
+    public void deliverPendingSaleNotice(
+            Player seller
+    ) {
+        deliverSaleReceiptAsync(
                 seller,
                 true
         );
@@ -3971,76 +4281,188 @@ public final class AuctionHouseService {
     private void deliverLiveSaleNotice(
             Player seller
     ) {
-        deliverSaleReceipt(
+        deliverSaleReceiptAsync(
                 seller,
                 false
         );
     }
 
-    private void deliverSaleReceipt(
+    private synchronized void deliverSaleReceiptAsync(
             Player seller,
             boolean joinedAfterSale
     ) {
-        if (seller == null || !seller.isOnline()) {
+        if (seller == null
+                || !seller.isOnline()
+                || !historyStorageHealthy) {
             return;
         }
 
-        SaleReceipt receipt =
-                storage.loadSaleReceipt(
-                        seller.getUniqueId()
-                );
-        if (receipt == null) {
+        UUID sellerId =
+                seller.getUniqueId();
+
+        if (!saleReceiptLoadsInFlight.add(
+                sellerId
+        )) {
             return;
         }
 
+        long generation =
+                lifecycleGeneration;
+        AtomicReference<SaleReceipt> snapshot =
+                new AtomicReference<>();
+
+        historyStorage.runAuxiliaryIoAsync(
+                () -> {
+                    snapshot.set(
+                            storage.loadSaleReceipt(
+                                    sellerId
+                            )
+                    );
+                    return true;
+                },
+                loaded ->
+                        core.getServer()
+                                .getScheduler()
+                                .runTask(
+                                        core,
+                                        () -> handleLoadedSaleReceipt(
+                                                seller,
+                                                sellerId,
+                                                joinedAfterSale,
+                                                generation,
+                                                loaded,
+                                                snapshot.get()
+                                        )
+                                )
+        );
+    }
+
+    private synchronized void handleLoadedSaleReceipt(
+            Player seller,
+            UUID sellerId,
+            boolean joinedAfterSale,
+            long generation,
+            boolean loaded,
+            SaleReceipt receipt
+    ) {
+        if (generation
+                != lifecycleGeneration) {
+            saleReceiptLoadsInFlight.remove(
+                    sellerId
+            );
+            return;
+        }
+
+        if (!loaded
+                || receipt == null
+                || seller == null
+                || !seller.isOnline()) {
+            saleReceiptLoadsInFlight.remove(
+                    sellerId
+            );
+            return;
+        }
+
+        sendSaleReceiptMessage(
+                seller,
+                receipt,
+                joinedAfterSale
+        );
+
+        historyStorage.runAuxiliaryIoAsync(
+                () -> storage.clearSaleReceiptIfUnchanged(
+                        sellerId,
+                        receipt.transactionIds()
+                ),
+                ignored ->
+                        core.getServer()
+                                .getScheduler()
+                                .runTask(
+                                        core,
+                                        () -> finishSaleReceiptDelivery(
+                                                sellerId,
+                                                generation
+                                        )
+                                )
+        );
+    }
+
+    private synchronized void finishSaleReceiptDelivery(
+            UUID sellerId,
+            long generation
+    ) {
+        if (generation
+                != lifecycleGeneration) {
+            return;
+        }
+
+        saleReceiptLoadsInFlight.remove(
+                sellerId
+        );
+    }
+
+    private void sendSaleReceiptMessage(
+            Player seller,
+            SaleReceipt receipt,
+            boolean joinedAfterSale
+    ) {
         String message;
+
         if (receipt.count() == 1) {
             message = joinedAfterSale
                     ? text(
                     "messages.sold-offline-single",
                     "&#bbbbbbWhile you were away, &#B078FF%item% &#bbbbbbsold for &#11fc7b+%price%",
-                    "%item%", safeOutput(receipt.lastItem()),
-                    "%price%", format(receipt.lastPriceCents())
+                    "%item%", safeOutput(
+                            receipt.lastItem()
+                    ),
+                    "%price%", format(
+                            receipt.lastPriceCents()
+                    )
             )
                     : text(
                     "messages.sold",
                     "&#bbbbbbSold &#B078FF%item% &#bbbbbbfor &#11fc7b+%price%",
-                    "%item%", safeOutput(receipt.lastItem()),
-                    "%price%", format(receipt.lastPriceCents())
+                    "%item%", safeOutput(
+                            receipt.lastItem()
+                    ),
+                    "%price%", format(
+                            receipt.lastPriceCents()
+                    )
             );
         } else {
             message = joinedAfterSale
                     ? text(
                     "messages.sold-offline-multiple",
                     "&#bbbbbbWhile you were away, &#D0AFFF%count% &#bbbbbbauction listings sold for &#11fc7b+%price%",
-                    "%count%", String.valueOf(receipt.count()),
-                    "%price%", format(receipt.totalCents())
+                    "%count%", String.valueOf(
+                            receipt.count()
+                    ),
+                    "%price%", format(
+                            receipt.totalCents()
+                    )
             )
                     : text(
                     "messages.sold-multiple",
                     "&#bbbbbbSold &#D0AFFF%count% &#bbbbbbauction listings for &#11fc7b+%price%",
-                    "%count%", String.valueOf(receipt.count()),
-                    "%price%", format(receipt.totalCents())
+                    "%count%", String.valueOf(
+                            receipt.count()
+                    ),
+                    "%price%", format(
+                            receipt.totalCents()
+                    )
             );
         }
 
         seller.sendMessage(
-                TextColor.color(message)
+                TextColor.color(
+                        message
+                )
         );
         SoundService.economyReceive(
                 seller,
                 core
         );
-
-        if (!storage.clearSaleReceipt(
-                seller.getUniqueId()
-        )) {
-            core.getLogger().warning(
-                    "[AuctionHouse] Could not clear delivered sale notice for "
-                            + seller.getUniqueId()
-                            + "; it may repeat on next join"
-            );
-        }
     }
 
     private void notifyBuyer(

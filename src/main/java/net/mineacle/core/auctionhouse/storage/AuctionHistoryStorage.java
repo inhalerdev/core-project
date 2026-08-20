@@ -844,6 +844,77 @@ public final class AuctionHistoryStorage {
         }
     }
 
+    public void runAuxiliaryIoAsync(
+            BooleanSupplier task,
+            Consumer<Boolean> callback
+    ) {
+        if (task == null) {
+            complete(
+                    callback,
+                    false
+            );
+            return;
+        }
+
+        try {
+            initialize();
+        } catch (RuntimeException exception) {
+            core.getLogger().log(
+                    Level.SEVERE,
+                    "[AuctionHouse] Auxiliary Auction House storage worker is unavailable",
+                    exception
+            );
+            complete(
+                    callback,
+                    false
+            );
+            return;
+        }
+
+        long taskGeneration =
+                generation;
+
+        submit(
+                () -> {
+                    synchronized (ioLock) {
+                        if (taskGeneration
+                                != generation) {
+                            complete(
+                                    callback,
+                                    false
+                            );
+                            return;
+                        }
+
+                        boolean success;
+
+                        try {
+                            success =
+                                    task.getAsBoolean();
+                        } catch (
+                                RuntimeException exception
+                        ) {
+                            core.getLogger().log(
+                                    Level.SEVERE,
+                                    "[AuctionHouse] Auxiliary Auction House storage task failed",
+                                    exception
+                            );
+                            success =
+                                    false;
+                        }
+
+                        complete(
+                                callback,
+                                success
+                                        && taskGeneration
+                                        == generation
+                        );
+                    }
+                },
+                callback
+        );
+    }
+
     private void submit(
             Runnable task,
             Consumer<Boolean> callback

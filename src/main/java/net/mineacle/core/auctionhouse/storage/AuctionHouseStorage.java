@@ -101,9 +101,22 @@ public final class AuctionHouseStorage {
         initialized = true;
     }
 
-    public List<AuctionHouseListing>
-    loadListings() {
-        initialize();
+    public ListingLoadResult loadListings() {
+        try {
+            initialize();
+        } catch (RuntimeException exception) {
+            core.getLogger().log(
+                    Level.SEVERE,
+                    "Auction House listing storage is unavailable",
+                    exception
+            );
+            return new ListingLoadResult(
+                    List.of(),
+                    List.of(
+                            "listings directory is unavailable"
+                    )
+            );
+        }
 
         File[] files =
                 listingsFolder.listFiles(
@@ -113,9 +126,20 @@ public final class AuctionHouseStorage {
                                 )
                 );
 
-        if (files == null
-                || files.length == 0) {
-            return List.of();
+        if (files == null) {
+            return new ListingLoadResult(
+                    List.of(),
+                    List.of(
+                            "listings directory could not be read"
+                    )
+            );
+        }
+
+        if (files.length == 0) {
+            return new ListingLoadResult(
+                    List.of(),
+                    List.of()
+            );
         }
 
         List<File> ordered =
@@ -132,17 +156,28 @@ public final class AuctionHouseStorage {
                 new ArrayList<>(
                         ordered.size()
                 );
+        List<String> problems =
+                new ArrayList<>();
 
         for (File file : ordered) {
             AuctionHouseListing listing =
                     readListingFile(file);
 
-            if (listing != null) {
-                result.add(listing);
+            if (listing == null) {
+                problems.add(
+                        file.getName()
+                                + " • unreadable or invalid listing file"
+                );
+                continue;
             }
+
+            result.add(listing);
         }
 
-        return List.copyOf(result);
+        return new ListingLoadResult(
+                result,
+                problems
+        );
     }
 
     public LegacyRecoveryLoadResult loadRecoveries() {
@@ -663,16 +698,79 @@ public final class AuctionHouseStorage {
                 count,
                 totalCents,
                 lastItem,
-                lastPriceCents
+                lastPriceCents,
+                List.copyOf(
+                        yaml.getStringList(
+                                "transaction-ids"
+                        )
+                )
         );
     }
 
-    public synchronized boolean clearSaleReceipt(
-            UUID sellerId
+    public synchronized boolean clearSaleReceiptIfUnchanged(
+            UUID sellerId,
+            List<String> expectedTransactionIds
     ) {
-        return sellerId != null
-                && deleteReceipt(
-                receiptFile(sellerId)
+        if (sellerId == null
+                || expectedTransactionIds == null) {
+            return false;
+        }
+
+        File file =
+                receiptFile(
+                        sellerId
+                );
+
+        if (!file.exists()) {
+            return true;
+        }
+
+        if (!file.isFile()
+                || receiptFileTooLarge(
+                file
+        )) {
+            return false;
+        }
+
+        YamlConfiguration yaml =
+                new YamlConfiguration();
+
+        try {
+            yaml.load(
+                    file
+            );
+        } catch (
+                IOException
+                | InvalidConfigurationException
+                | RuntimeException exception
+        ) {
+            core.getLogger().log(
+                    Level.SEVERE,
+                    "Could not safely verify Auction House sale receipt "
+                            + file.getName(),
+                    exception
+            );
+            return false;
+        }
+
+        List<String> currentTransactionIds =
+                yaml.getStringList(
+                        "transaction-ids"
+                );
+
+        if (!currentTransactionIds.equals(
+                expectedTransactionIds
+        )) {
+            /*
+             * A newer sale was recorded after this notice snapshot was read.
+             * Leave the aggregate receipt intact. The next notice can include
+             * the new sale; at worst an older aggregate notice repeats.
+             */
+            return true;
+        }
+
+        return deleteReceipt(
+                file
         );
     }
 
@@ -682,10 +780,22 @@ public final class AuctionHouseStorage {
         }
 
         YamlConfiguration legacy =
-                YamlConfiguration
-                        .loadConfiguration(
-                                legacyFile
-                        );
+                new YamlConfiguration();
+
+        try {
+            legacy.load(
+                    legacyFile
+            );
+        } catch (
+                IOException
+                | InvalidConfigurationException
+                | RuntimeException exception
+        ) {
+            throw new IllegalStateException(
+                    "Could not safely read legacy auctionhouse-data.yml",
+                    exception
+            );
+        }
         ConfigurationSection section =
                 legacy
                         .getConfigurationSection(
@@ -815,6 +925,17 @@ public final class AuctionHouseStorage {
     readListingFile(
             File file
     ) {
+        if (Files.isSymbolicLink(
+                file.toPath()
+        )
+                || !file.isFile()) {
+            core.getLogger().severe(
+                    "Skipped non-regular auction listing storage entry "
+                            + file.getName()
+            );
+            return null;
+        }
+
         if (storageFileTooLarge(file)) {
             core.getLogger().severe(
                     "Skipped oversized auction listing file "
@@ -825,30 +946,70 @@ public final class AuctionHouseStorage {
 
         try {
             YamlConfiguration yaml =
-                    YamlConfiguration
-                            .loadConfiguration(
-                                    file
-                            );
+                    new YamlConfiguration();
+            yaml.load(file);
+            requireListingFields(yaml);
 
             AuctionHouseListing listing =
                     readListing(yaml);
 
             if (listing == null) {
-                core.getLogger().warning(
+                core.getLogger().severe(
                         "Skipped invalid auction listing file "
                                 + file.getName()
                 );
+                return null;
+            }
+
+            String expectedName =
+                    listing.id()
+                            + EXTENSION;
+
+            if (!file.getName()
+                    .equals(
+                            expectedName
+                    )) {
+                core.getLogger().severe(
+                        "Skipped auction listing file "
+                                + file.getName()
+                                + " because its filename does not match listing id "
+                                + listing.id()
+                );
+                return null;
             }
 
             return listing;
-        } catch (RuntimeException exception) {
+        } catch (
+                IOException
+                | InvalidConfigurationException
+                | RuntimeException exception
+        ) {
             core.getLogger().log(
-                    Level.WARNING,
-                    "Skipped broken auction listing file "
+                    Level.SEVERE,
+                    "Skipped unreadable or invalid auction listing file "
                             + file.getName(),
                     exception
             );
             return null;
+        }
+    }
+
+    private static void requireListingFields(
+            YamlConfiguration yaml
+    ) {
+        for (String path : List.of(
+                "listing.id",
+                "listing.owner",
+                "listing.price-cents",
+                "listing.created-at",
+                "listing.item-nbt"
+        )) {
+            if (!yaml.contains(path)) {
+                throw new IllegalStateException(
+                        "Missing required listing field "
+                                + path
+                );
+            }
         }
     }
 
@@ -1435,6 +1596,30 @@ public final class AuctionHouseStorage {
         );
     }
 
+    public record ListingLoadResult(
+            List<AuctionHouseListing> listings,
+            List<String> problems
+    ) {
+        public ListingLoadResult {
+            listings =
+                    listings == null
+                            ? List.of()
+                            : List.copyOf(
+                            listings
+                    );
+            problems =
+                    problems == null
+                            ? List.of()
+                            : List.copyOf(
+                            problems
+                    );
+        }
+
+        public boolean healthy() {
+            return problems.isEmpty();
+        }
+    }
+
     public record LegacyRecoveryLoadResult(
             List<PurchaseRecovery> recoveries,
             List<String> problems
@@ -1463,7 +1648,8 @@ public final class AuctionHouseStorage {
             int count,
             long totalCents,
             String lastItem,
-            long lastPriceCents
+            long lastPriceCents,
+            List<String> transactionIds
     ) {
         public SaleReceipt {
             count = Math.max(
@@ -1484,6 +1670,12 @@ public final class AuctionHouseStorage {
                     Math.max(
                             0L,
                             lastPriceCents
+                    );
+            transactionIds =
+                    transactionIds == null
+                            ? List.of()
+                            : List.copyOf(
+                            transactionIds
                     );
         }
     }

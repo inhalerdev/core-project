@@ -15,6 +15,7 @@ import net.mineacle.core.sell.service.SellService;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.block.DoubleChest;
+import org.bukkit.block.ShulkerBox;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.minecart.StorageMinecart;
 import org.bukkit.event.inventory.InventoryType;
@@ -23,6 +24,8 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.BlockStateMeta;
+import org.bukkit.inventory.meta.BundleMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -33,6 +36,8 @@ import java.util.Locale;
 
 public final class SellWorthPacketListener
         extends PacketAdapter {
+
+    private static final int MAX_CONTAINER_DEPTH = 3;
 
     private static final String PHOENIX_CRATES =
             "phoenixcrates";
@@ -292,8 +297,17 @@ public final class SellWorthPacketListener
                         player,
                         clean
                 );
+        long displayedWorth =
+                valuation.sellable()
+                        ? valuation.serverSellCents()
+                        : containerLiquidationReference(
+                        player,
+                        clean,
+                        0
+                );
 
-        if (!valuation.priced()) {
+        if (!valuation.priced()
+                && displayedWorth <= 0L) {
             return stripped
                     ? clean
                     : original;
@@ -320,13 +334,13 @@ public final class SellWorthPacketListener
 
         lore.addFirst(
                 component(
-                        valuation.sellable()
+                        displayedWorth > 0L
                                 ? "&#bbbbbbWorth: "
                                 + "&#11fc7b"
                                 + sellService.format(
-                                        valuation.serverSellCents()
+                                        displayedWorth
                                 )
-                                : "&cPlayer Market Only"
+                                : "&cServer sell unavailable"
                 )
         );
 
@@ -337,6 +351,120 @@ public final class SellWorthPacketListener
         );
         item.setItemMeta(meta);
         return item;
+    }
+
+    private long containerLiquidationReference(
+            Player player,
+            ItemStack item,
+            int depth
+    ) {
+        if (item == null
+                || item.getType().isAir()
+                || depth > MAX_CONTAINER_DEPTH) {
+            return 0L;
+        }
+
+        ItemMeta rawMeta = item.getItemMeta();
+        List<ItemStack> contents = new ArrayList<>();
+        ItemStack shell = item.clone();
+        boolean container = false;
+
+        if (rawMeta instanceof BundleMeta bundleMeta
+                && bundleMeta.hasItems()) {
+            contents.addAll(bundleMeta.getItems());
+
+            ItemMeta shellRaw = shell.getItemMeta();
+            if (shellRaw instanceof BundleMeta shellMeta) {
+                shellMeta.setItems(null);
+                shell.setItemMeta(shellMeta);
+                container = true;
+            }
+        } else if (rawMeta instanceof BlockStateMeta stateMeta
+                && stateMeta.getBlockState()
+                instanceof ShulkerBox shulker) {
+            boolean hasContents = false;
+
+            for (ItemStack content
+                    : shulker.getSnapshotInventory()
+                    .getContents()) {
+                if (content == null
+                        || content.getType().isAir()) {
+                    continue;
+                }
+
+                hasContents = true;
+                contents.add(content.clone());
+            }
+
+            if (hasContents) {
+                ItemMeta shellRaw = shell.getItemMeta();
+
+                if (shellRaw instanceof BlockStateMeta shellState
+                        && shellState.getBlockState()
+                        instanceof ShulkerBox emptyShulker) {
+                    emptyShulker.getSnapshotInventory().clear();
+                    shellState.setBlockState(emptyShulker);
+                    shell.setItemMeta(shellState);
+                    container = true;
+                }
+            }
+        }
+
+        if (!container) {
+            return 0L;
+        }
+
+        long total = 0L;
+        ItemValuation shellValuation =
+                sellService.appraise(
+                        player,
+                        shell
+                );
+
+        if (shellValuation.sellable()) {
+            total = safeAdd(
+                    total,
+                    shellValuation.serverSellCents()
+            );
+        }
+
+        for (ItemStack content : contents) {
+            ItemStack cleanContent =
+                    sellService.stripWorthLore(
+                            content
+                    );
+            ItemValuation contentValuation =
+                    sellService.appraise(
+                            player,
+                            cleanContent
+                    );
+
+            long value = contentValuation.sellable()
+                    ? contentValuation.serverSellCents()
+                    : containerLiquidationReference(
+                    player,
+                    cleanContent,
+                    depth + 1
+            );
+
+            total = safeAdd(total, value);
+        }
+
+        return total;
+    }
+
+    private long safeAdd(
+            long first,
+            long second
+    ) {
+        try {
+            return Math.addExact(
+                    Math.max(0L, first),
+                    Math.max(0L, second)
+            );
+        } catch (ArithmeticException exception) {
+            return Long.MAX_VALUE;
+        }
     }
 
     private DisplayContext displayContext(
