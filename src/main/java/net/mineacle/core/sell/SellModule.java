@@ -11,7 +11,7 @@ import net.mineacle.core.sell.listener.WorthGuiListener;
 import net.mineacle.core.sell.service.SellLearningService;
 import net.mineacle.core.sell.service.SellRuntimeIntegrityAudit;
 import net.mineacle.core.sell.service.SellService;
-import net.mineacle.core.sell.storage.SellCatalogBootstrapService;
+import net.mineacle.core.sell.storage.SellCatalogV10BootstrapService;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.TabCompleter;
@@ -44,10 +44,8 @@ public final class SellModule extends Module {
         sellService.start();
 
         /*
-         * v10 starts in shadow mode. The learner reads completed Sell payouts
-         * from the existing durable transaction ledger and never participates
-         * in the live payout path. This keeps v9 gameplay authority isolated
-         * while v10 accumulates population-normalized economic evidence.
+         * v10 learning remains shadow-only. It observes completed Sell payouts
+         * and population-normalized supply but cannot move live prices yet.
          */
         learningService = new SellLearningService(
                 core,
@@ -56,13 +54,13 @@ public final class SellModule extends Module {
         learningService.start();
 
         /*
-         * The catalog bootstrap snapshots the server recipe registry on the
-         * main thread, performs JDBC asynchronously, and atomically promotes
-         * only a fully audited READY snapshot. Operator-locked catalog rows
-         * remain authoritative across generated catalog revisions.
+         * Revision 10 is the live static reference authority. It compiles only
+         * forward from primary references, preserves exact commodity ratios,
+         * clamps crafted outputs against their cheapest trusted recipe, and
+         * freezes the retired v9 demand/featured multipliers at 1.0x.
          */
-        SellCatalogBootstrapService catalogBootstrapService =
-                new SellCatalogBootstrapService(
+        SellCatalogV10BootstrapService catalogBootstrapService =
+                new SellCatalogV10BootstrapService(
                         core,
                         sellService
                 );
@@ -76,67 +74,99 @@ public final class SellModule extends Module {
         integrityAudit.start();
 
         SellCommand command =
-                new SellCommand(core, sellService);
-
-        register(core, "sell", command);
-        register(core, "worth", command);
-
-        core.getServer().getPluginManager().registerEvents(
-                new SellGuiListener(core, sellService),
-                core
-        );
-        worthGuiListener = new WorthGuiListener(
-                core,
-                sellService
-        );
-        core.getServer().getPluginManager().registerEvents(
-                worthGuiListener,
-                core
-        );
-        core.getServer().getPluginManager().registerEvents(
-                new ItemStackNormalizeListener(
+                new SellCommand(
                         core,
                         sellService
-                ),
-                core
+                );
+
+        register(
+                core,
+                "sell",
+                command
+        );
+        register(
+                core,
+                "worth",
+                command
         );
 
-        marketTask = core.getServer()
-                .getScheduler()
-                .runTaskTimer(
-                        core,
-                        sellService::tick,
-                        20L,
-                        20L * 20L
-                );
-        learningTask = core.getServer()
-                .getScheduler()
-                .runTaskTimer(
-                        core,
-                        learningService::tick,
-                        20L,
-                        20L * 20L
-                );
-
-        Plugin protocolLib = core.getServer()
+        core.getServer()
                 .getPluginManager()
-                .getPlugin("ProtocolLib");
+                .registerEvents(
+                        new SellGuiListener(
+                                core,
+                                sellService
+                        ),
+                        core
+                );
 
-        if (protocolLib != null && protocolLib.isEnabled()) {
-            packetListener = new SellWorthPacketListener(
-                    core,
-                    sellService
-            );
-            ProtocolLibrary.getProtocolManager()
-                    .addPacketListener(packetListener);
+        worthGuiListener =
+                new WorthGuiListener(
+                        core,
+                        sellService
+                );
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        worthGuiListener,
+                        core
+                );
+
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new ItemStackNormalizeListener(
+                                core,
+                                sellService
+                        ),
+                        core
+                );
+
+        marketTask =
+                core.getServer()
+                        .getScheduler()
+                        .runTaskTimer(
+                                core,
+                                sellService::tick,
+                                20L,
+                                20L * 20L
+                        );
+
+        learningTask =
+                core.getServer()
+                        .getScheduler()
+                        .runTaskTimer(
+                                core,
+                                learningService::tick,
+                                20L,
+                                20L * 20L
+                        );
+
+        Plugin protocolLib =
+                core.getServer()
+                        .getPluginManager()
+                        .getPlugin(
+                                "ProtocolLib"
+                        );
+
+        if (protocolLib != null
+                && protocolLib.isEnabled()) {
+            packetListener =
+                    new SellWorthPacketListener(
+                            core,
+                            sellService
+                    );
+            ProtocolLibrary
+                    .getProtocolManager()
+                    .addPacketListener(
+                            packetListener
+                    );
             core.getLogger().info(
-                    "Sell worth hover display enabled for "
-                            + "explicitly allowed inventory contexts"
+                    "Sell worth hover display enabled for explicitly allowed inventory contexts"
             );
         } else {
             core.getLogger().warning(
-                    "ProtocolLib not found — packet-only "
-                            + "Worth display is disabled"
+                    "ProtocolLib not found — packet-only Worth display is disabled"
             );
         }
     }
@@ -154,8 +184,11 @@ public final class SellModule extends Module {
         }
 
         if (packetListener != null) {
-            ProtocolLibrary.getProtocolManager()
-                    .removePacketListener(packetListener);
+            ProtocolLibrary
+                    .getProtocolManager()
+                    .removePacketListener(
+                            packetListener
+                    );
             packetListener = null;
         }
 
@@ -185,18 +218,27 @@ public final class SellModule extends Module {
             String commandName,
             CommandExecutor executor
     ) {
-        PluginCommand command = core.getCommand(commandName);
+        PluginCommand command =
+                core.getCommand(
+                        commandName
+                );
 
         if (command == null) {
             throw new IllegalStateException(
-                    "Missing command in plugin.yml: " + commandName
+                    "Missing command in plugin.yml: "
+                            + commandName
             );
         }
 
-        command.setExecutor(executor);
+        command.setExecutor(
+                executor
+        );
 
-        if (executor instanceof TabCompleter completer) {
-            command.setTabCompleter(completer);
+        if (executor
+                instanceof TabCompleter completer) {
+            command.setTabCompleter(
+                    completer
+            );
         }
     }
 }

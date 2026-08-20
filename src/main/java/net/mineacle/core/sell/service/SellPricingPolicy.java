@@ -6,69 +6,68 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Deterministic economy policy for Sell/Worth catalog revision 9.
+ * Deterministic bootstrap policy for Sell/Worth catalog revision 10.
  *
- * <p>Worth is the server's guaranteed liquidation value.  The catalog may
- * move selected primary commodities with demand, but every generated price is
- * constructed against the cheapest valid crafting path and the worst allowed
- * market state so crafting cannot manufacture server cash.</p>
+ * <p>Revision 10 separates the server's static reference catalog from live
+ * market learning. The bootstrap catalog is conservative and recipe-safe;
+ * adaptive movement is intentionally disabled here until the v10 learner has
+ * enough durable evidence to publish a later live market snapshot.</p>
+ *
+ * <p>Configured item prices are reference values, not hidden appraisal values.
+ * Revision 10 therefore does not apply category liquidation haircuts or
+ * category price caps to an explicitly configured reference.</p>
  */
 public final class SellPricingPolicy {
 
-    public static final int CATALOG_REVISION = 9;
+    public static final int CATALOG_REVISION = 10;
     public static final long MINIMUM_UNIT_CENTS = 1L;
     public static final double ONE_WAY_RECIPE_RETENTION = 0.82D;
 
     private static final Map<String, CategoryPolicy> POLICIES =
             Map.ofEntries(
-                    Map.entry("blocks", new CategoryPolicy(10L, 100L, true, 0.55D, 1.35D, 1.00D)),
-                    Map.entry("ores", new CategoryPolicy(50L, 500L, true, 0.55D, 1.40D, 1.00D)),
-                    Map.entry("wood", new CategoryPolicy(25L, 200L, true, 0.55D, 1.35D, 1.00D)),
-                    Map.entry("farming", new CategoryPolicy(10L, 100L, true, 0.35D, 1.45D, 1.00D)),
-                    Map.entry("mob_drops", new CategoryPolicy(25L, 300L, true, 0.40D, 1.45D, 1.00D)),
-                    Map.entry("nether", new CategoryPolicy(50L, 500L, true, 0.50D, 1.40D, 0.95D)),
-                    Map.entry("end", new CategoryPolicy(100L, 1_000L, true, 0.60D, 1.35D, 0.90D)),
-                    Map.entry("combat", new CategoryPolicy(50L, 500L, false, 1.00D, 1.00D, 0.45D)),
-                    Map.entry("equipment", new CategoryPolicy(100L, 1_000L, false, 1.00D, 1.00D, 0.30D)),
-                    Map.entry("consumables", new CategoryPolicy(50L, 500L, false, 1.00D, 1.00D, 0.75D)),
-                    Map.entry("utility", new CategoryPolicy(100L, 1_500L, false, 1.00D, 1.00D, 0.45D)),
-                    Map.entry("rare", new CategoryPolicy(500L, 10_000L, false, 1.00D, 1.00D, 0.20D)),
-                    Map.entry("misc", new CategoryPolicy(25L, 300L, false, 1.00D, 1.00D, 0.50D))
+                    Map.entry("blocks", new CategoryPolicy(10L, 100L, false, 1.0D, 1.0D, 1.0D)),
+                    Map.entry("ores", new CategoryPolicy(50L, 500L, false, 1.0D, 1.0D, 1.0D)),
+                    Map.entry("wood", new CategoryPolicy(25L, 200L, false, 1.0D, 1.0D, 1.0D)),
+                    Map.entry("farming", new CategoryPolicy(10L, 100L, false, 1.0D, 1.0D, 1.0D)),
+                    Map.entry("mob_drops", new CategoryPolicy(25L, 300L, false, 1.0D, 1.0D, 1.0D)),
+                    Map.entry("nether", new CategoryPolicy(50L, 500L, false, 1.0D, 1.0D, 1.0D)),
+                    Map.entry("end", new CategoryPolicy(100L, 1_000L, false, 1.0D, 1.0D, 1.0D)),
+                    Map.entry("combat", new CategoryPolicy(50L, 500L, false, 1.0D, 1.0D, 1.0D)),
+                    Map.entry("equipment", new CategoryPolicy(100L, 1_000L, false, 1.0D, 1.0D, 1.0D)),
+                    Map.entry("consumables", new CategoryPolicy(50L, 500L, false, 1.0D, 1.0D, 1.0D)),
+                    Map.entry("utility", new CategoryPolicy(100L, 1_500L, false, 1.0D, 1.0D, 1.0D)),
+                    Map.entry("rare", new CategoryPolicy(500L, 10_000L, false, 1.0D, 1.0D, 1.0D)),
+                    Map.entry("misc", new CategoryPolicy(25L, 300L, false, 1.0D, 1.0D, 1.0D))
             );
 
     private static final CategoryPolicy DEFAULT_POLICY =
-            new CategoryPolicy(25L, 300L, false, 1.00D, 1.00D, 0.50D);
+            new CategoryPolicy(25L, 300L, false, 1.0D, 1.0D, 1.0D);
 
     private SellPricingPolicy() {
     }
 
     /**
-     * Safe automatic value for a material without a curated anchor.
-     * Legacy category fallbacks are treated as hints and capped so a future
-     * Minecraft material cannot inherit an unexpectedly huge payout.
+     * Returns the bootstrap reference for an unconfigured material.
+     *
+     * <p>The configured category fallback is treated as an actual reference,
+     * not silently capped. Craftable outputs are subsequently constrained by
+     * the forward recipe compiler.</p>
      */
     public static long automaticSeedCents(
             String category,
             long configuredFallbackCents
     ) {
-        CategoryPolicy policy = categoryPolicy(category);
-        long configured = Math.max(0L, configuredFallbackCents);
-
-        if (configured <= 0L) {
-            return policy.defaultSeedCents();
+        if (configuredFallbackCents > 0L) {
+            return configuredFallbackCents;
         }
 
-        return Math.clamp(
-                configured,
-                MINIMUM_UNIT_CENTS,
-                policy.maximumAutomaticSeedCents()
-        );
+        return categoryPolicy(category).defaultSeedCents();
     }
 
     /**
-     * Converts the old appraisal-oriented curated price into a liquidation
-     * anchor.  Resource categories remain 1:1 while gear/utility/rare values
-     * are intentionally discounted before recipe ceilings are applied.
+     * Revision 10 treats an explicitly configured price as an exact reference.
+     * Recipe safety may later cap a craftable output, but there is no hidden
+     * category liquidation discount here.
      */
     public static long curatedLiquidationCents(
             String category,
@@ -78,98 +77,132 @@ public final class SellPricingPolicy {
             return 0L;
         }
 
-        long liquidation = Math.max(
-                MINIMUM_UNIT_CENTS,
-                multiplyDown(
-                        configuredBaseCents,
-                        categoryPolicy(category).curatedLiquidationFactor()
-                )
-        );
+        CategoryPolicy policy =
+                categoryPolicy(category);
 
-        return Math.min(
-                liquidation,
-                maximumCuratedLiquidationCents(category)
-        );
-    }
-
-    private static long maximumCuratedLiquidationCents(String category) {
-        return switch (normalizeCategory(category)) {
-            case "rare" -> 10_000_000L;       // $100,000
-            case "equipment" -> 5_000_000L;  // $50,000
-            case "utility" -> 2_000_000L;    // $20,000
-            case "combat" -> 1_000_000L;     // $10,000
-            case "consumables" -> 500_000L;  // $5,000
-            case "misc" -> 100_000L;         // $1,000
-            default -> 100_000_000L;          // resource anchors: $1,000,000
-        };
-    }
-
-    public static boolean automaticMarketEnabled(String category) {
-        return categoryPolicy(category).dynamicMarket();
+        try {
+            return BigDecimal.valueOf(
+                    configuredBaseCents
+            )
+                    .multiply(
+                            BigDecimal.valueOf(
+                                    policy.curatedLiquidationFactor()
+                            )
+                    )
+                    .setScale(
+                            0,
+                            RoundingMode.DOWN
+                    )
+                    .max(BigDecimal.ZERO)
+                    .longValueExact();
+        } catch (ArithmeticException exception) {
+            return Long.MAX_VALUE;
+        }
     }
 
     /**
-     * Narrows legacy market bounds rather than widening them.  Primary
-     * commodities still move aggressively enough to react to farms and
-     * shortages, but low-population noise cannot collapse a normal value to
-     * 0.15x or spike it to 1.75x.
+     * The legacy v9 demand engine must not move a revision-10 bootstrap row.
+     * Live movement is reserved for the v10 learning authority.
+     */
+    public static boolean automaticMarketEnabled(
+            String category
+    ) {
+        return categoryPolicy(
+                category
+        ).dynamicMarket();
+    }
+
+    /**
+     * Revision-10 bootstrap rows are static. This method remains for source
+     * compatibility with the retired v9 bootstrap class.
      */
     public static MarketBounds marketBounds(
             String category,
             double configuredMinimum,
             double configuredMaximum
     ) {
-        CategoryPolicy policy = categoryPolicy(category);
+        CategoryPolicy policy =
+                categoryPolicy(category);
 
         if (!policy.dynamicMarket()) {
             return MarketBounds.STATIC;
         }
 
-        double minimum = finitePositive(
-                configuredMinimum,
-                policy.defaultMinimumMultiplier()
-        );
-        minimum = Math.clamp(
+        double minimum =
+                Math.clamp(
+                        finitePositive(
+                                configuredMinimum,
+                                policy.defaultMinimumMultiplier()
+                        ),
+                        policy.defaultMinimumMultiplier(),
+                        1.0D
+                );
+        double maximum =
+                Math.clamp(
+                        finitePositive(
+                                configuredMaximum,
+                                policy.maximumMultiplier()
+                        ),
+                        1.0D,
+                        policy.maximumMultiplier()
+                );
+
+        return new MarketBounds(
                 minimum,
-                policy.defaultMinimumMultiplier(),
-                1.0D
+                Math.max(
+                        minimum,
+                        maximum
+                )
         );
-
-        double maximum = finitePositive(
-                configuredMaximum,
-                policy.maximumMultiplier()
-        );
-        maximum = Math.clamp(
-                maximum,
-                1.0D,
-                policy.maximumMultiplier()
-        );
-
-        return new MarketBounds(minimum, Math.max(minimum, maximum));
     }
 
-    /**
-     * Base-price ceiling for a static or dynamic output when ingredients are
-     * evaluated at their minimum reachable server payout.
-     */
     public static long outputBaseCeilingCents(
-            long ingredientMinimumPayoutCents,
+            long ingredientPayoutCents,
             int outputAmount,
             double outputMaximumMultiplier
     ) {
-        if (ingredientMinimumPayoutCents <= 0L
+        return outputBaseCeilingCents(
+                ingredientPayoutCents,
+                outputAmount,
+                outputMaximumMultiplier,
+                ONE_WAY_RECIPE_RETENTION
+        );
+    }
+
+    /**
+     * Maximum safe unit value for a recipe output.
+     *
+     * <p>The caller supplies the retention. Normal one-way recipes use 82%.
+     * Non-commodity recipe cycles use 100% because applying a strict haircut
+     * around every edge of a positive cycle has no non-zero fixed point. A
+     * 100% cyclic boundary still guarantees that crafting cannot create money.</p>
+     */
+    public static long outputBaseCeilingCents(
+            long ingredientPayoutCents,
+            int outputAmount,
+            double outputMaximumMultiplier,
+            double retention
+    ) {
+        if (ingredientPayoutCents <= 0L
                 || outputAmount <= 0
                 || !Double.isFinite(outputMaximumMultiplier)
-                || outputMaximumMultiplier <= 0.0D) {
+                || outputMaximumMultiplier <= 0.0D
+                || !Double.isFinite(retention)
+                || retention <= 0.0D
+                || retention > 1.0D) {
             return 0L;
         }
 
         try {
-            return BigDecimal.valueOf(ingredientMinimumPayoutCents)
-                    .multiply(BigDecimal.valueOf(ONE_WAY_RECIPE_RETENTION))
+            return BigDecimal.valueOf(ingredientPayoutCents)
+                    .multiply(BigDecimal.valueOf(retention))
                     .divide(
                             BigDecimal.valueOf(outputAmount)
-                                    .multiply(BigDecimal.valueOf(outputMaximumMultiplier)),
+                                    .multiply(
+                                            BigDecimal.valueOf(
+                                                    outputMaximumMultiplier
+                                            )
+                                    ),
                             0,
                             RoundingMode.DOWN
                     )
@@ -181,23 +214,18 @@ public final class SellPricingPolicy {
     }
 
     public static CategoryPolicy categoryPolicy(String category) {
-        return POLICIES.getOrDefault(normalizeCategory(category), DEFAULT_POLICY);
+        return POLICIES.getOrDefault(
+                normalizeCategory(category),
+                DEFAULT_POLICY
+        );
     }
 
-    private static long multiplyDown(long cents, double multiplier) {
-        try {
-            return BigDecimal.valueOf(cents)
-                    .multiply(BigDecimal.valueOf(multiplier))
-                    .setScale(0, RoundingMode.DOWN)
-                    .max(BigDecimal.ZERO)
-                    .longValueExact();
-        } catch (ArithmeticException exception) {
-            return Long.MAX_VALUE;
-        }
-    }
-
-    private static double finitePositive(double value, double fallback) {
-        return Double.isFinite(value) && value > 0.0D
+    private static double finitePositive(
+            double value,
+            double fallback
+    ) {
+        return Double.isFinite(value)
+                && value > 0.0D
                 ? value
                 : fallback;
     }
@@ -206,12 +234,17 @@ public final class SellPricingPolicy {
         if (raw == null || raw.isBlank()) {
             return "misc";
         }
+
         return raw.trim()
                 .toLowerCase(Locale.ROOT)
                 .replace('-', '_')
                 .replace(' ', '_');
     }
 
+    /**
+     * Kept source-compatible with revision 9. Revision 10 intentionally sets
+     * dynamicMarket=false and curatedLiquidationFactor=1 for every category.
+     */
     public record CategoryPolicy(
             long defaultSeedCents,
             long maximumAutomaticSeedCents,
@@ -221,15 +254,13 @@ public final class SellPricingPolicy {
             double curatedLiquidationFactor
     ) {
         public CategoryPolicy {
-            defaultSeedCents = Math.max(MINIMUM_UNIT_CENTS, defaultSeedCents);
+            defaultSeedCents = Math.max(
+                    MINIMUM_UNIT_CENTS,
+                    defaultSeedCents
+            );
             maximumAutomaticSeedCents = Math.max(
                     defaultSeedCents,
                     maximumAutomaticSeedCents
-            );
-            curatedLiquidationFactor = Math.clamp(
-                    finitePositive(curatedLiquidationFactor, 1.0D),
-                    0.01D,
-                    1.0D
             );
 
             if (!dynamicMarket) {
@@ -237,15 +268,23 @@ public final class SellPricingPolicy {
                 maximumMultiplier = 1.0D;
             } else {
                 defaultMinimumMultiplier = Math.clamp(
-                        finitePositive(defaultMinimumMultiplier, 0.5D),
+                        finitePositive(
+                                defaultMinimumMultiplier,
+                                0.5D
+                        ),
                         0.05D,
                         1.0D
                 );
                 maximumMultiplier = Math.max(
                         1.0D,
-                        finitePositive(maximumMultiplier, 1.0D)
+                        finitePositive(
+                                maximumMultiplier,
+                                1.0D
+                        )
                 );
             }
+
+            curatedLiquidationFactor = 1.0D;
         }
     }
 
@@ -253,13 +292,20 @@ public final class SellPricingPolicy {
             double minimumMultiplier,
             double maximumMultiplier
     ) {
-        private static final MarketBounds STATIC = new MarketBounds(1.0D, 1.0D);
+        private static final MarketBounds STATIC =
+                new MarketBounds(1.0D, 1.0D);
 
         public MarketBounds {
-            minimumMultiplier = finitePositive(minimumMultiplier, 1.0D);
+            minimumMultiplier = finitePositive(
+                    minimumMultiplier,
+                    1.0D
+            );
             maximumMultiplier = Math.max(
                     minimumMultiplier,
-                    finitePositive(maximumMultiplier, minimumMultiplier)
+                    finitePositive(
+                            maximumMultiplier,
+                            minimumMultiplier
+                    )
             );
         }
     }
