@@ -30,6 +30,7 @@ import java.util.UUID;
  * Mineacle's existing append-only transaction ledger, then coalesced into
  * hourly population/market/seller evidence for the shadow learner.</p>
  */
+@SuppressWarnings("SqlNoDataSourceInspection")
 public final class SellLearningStorage {
 
     public record ActivityDelta(
