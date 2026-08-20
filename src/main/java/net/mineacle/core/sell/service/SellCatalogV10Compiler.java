@@ -148,6 +148,18 @@ public final class SellCatalogV10Compiler {
                 commodities
         );
 
+        /*
+         * A filled/consumed container must always be worth at least the
+         * returned empty container plus one cent. This is an intrinsic
+         * material invariant, not backwards recipe propagation. Without it,
+         * HONEY_BOTTLE -> SUGAR and MILK_BUCKET -> CAKE can appear to have a
+         * zero net input because the generic fallback priced the filled
+         * container at or below its reusable remainder.
+         */
+        normalizeContainerRemainderFloors(
+                drafts
+        );
+
         Map<Material, List<RecipeSeed>> byOutput =
                 trustedOneWayRecipes(
                         recipes,
@@ -229,8 +241,7 @@ public final class SellCatalogV10Compiler {
 
                 if (output == null
                         || !output.derivedCandidate
-                        || output.baseCents > 0L
-                        || !output.safe) {
+                        || output.baseCents > 0L) {
                     continue;
                 }
 
@@ -308,7 +319,6 @@ public final class SellCatalogV10Compiler {
                 );
 
                 if (output == null
-                        || !output.safe
                         || output.variant) {
                     continue;
                 }
@@ -324,23 +334,13 @@ public final class SellCatalogV10Compiler {
                 }
 
                 if (ceiling <= 0L) {
-                    CommodityInfo commodity =
-                            commodities.info().get(
-                                    outputMaterial
-                            );
-
-                    if (commodity == null) {
-                        if (output.safe) {
-                            output.safe = false;
-                            changed = true;
-                        }
-                    } else if (markCommodityUnsafe(
-                            drafts,
-                            commodities,
-                            commodity.marketKey()
-                    )) {
-                        changed = true;
-                    }
+                    /*
+                     * Do not poison the output or its entire commodity family.
+                     * The immutable candidate is validated before publication,
+                     * so an unsatisfied zero-cent constraint remains an exact
+                     * recipe failure instead of cascading into dozens of
+                     * "input unavailable" errors.
+                     */
                     continue;
                 }
 
@@ -358,13 +358,12 @@ public final class SellCatalogV10Compiler {
                             );
 
                     if (unitCeiling <= 0L) {
-                        if (markCommodityUnsafe(
-                                drafts,
-                                commodities,
-                                commodity.marketKey()
-                        )) {
-                            changed = true;
-                        }
+                        /*
+                         * Same atomic-candidate rule as above: preserve the
+                         * family for diagnostics and let validation reject the
+                         * exact impossible recipe rather than cascading an
+                         * unsafe state through every family member.
+                         */
                         continue;
                     }
 
@@ -477,7 +476,6 @@ public final class SellCatalogV10Compiler {
                         drafts.get(material);
 
                 if (input == null
-                        || !input.safe
                         || input.baseCents <= 0L) {
                     continue;
                 }
@@ -496,7 +494,6 @@ public final class SellCatalogV10Compiler {
                                 drafts.get(remainder);
 
                         if (returned != null
-                                && returned.safe
                                 && returned.baseCents > 0L) {
                             net = Math.max(
                                     0L,
@@ -934,6 +931,12 @@ public final class SellCatalogV10Compiler {
             }
         }
 
+        includeEquivalentFamilyRecipes(
+                recipes,
+                info,
+                equivalentRecipes
+        );
+
         return new CommodityBuild(
                 Map.copyOf(info),
                 Set.copyOf(
@@ -941,6 +944,69 @@ public final class SellCatalogV10Compiler {
                 ),
                 groups
         );
+    }
+
+    private void includeEquivalentFamilyRecipes(
+            List<RecipeSeed> recipes,
+            Map<Material, CommodityInfo> info,
+            Set<Integer> equivalentRecipes
+    ) {
+        for (int index = 0;
+             index < recipes.size();
+             index++) {
+            if (equivalentRecipes.contains(index)) {
+                continue;
+            }
+
+            RecipeSeed recipe =
+                    recipes.get(index);
+
+            if (untrustedCatalogRecipe(recipe)) {
+                continue;
+            }
+
+            SimpleConversion conversion =
+                    simpleConversion(recipe);
+
+            if (conversion == null) {
+                continue;
+            }
+
+            CommodityInfo input =
+                    info.get(
+                            conversion.input()
+                    );
+            CommodityInfo output =
+                    info.get(
+                            conversion.output()
+                    );
+
+            if (input == null
+                    || output == null
+                    || !input.marketKey()
+                    .equals(
+                            output.marketKey()
+                    )) {
+                continue;
+            }
+
+            long inputUnits =
+                    safeMultiply(
+                            conversion.inputAmount(),
+                            input.marketUnits()
+                    );
+            long outputUnits =
+                    safeMultiply(
+                            conversion.outputAmount(),
+                            output.marketUnits()
+                    );
+
+            if (inputUnits > 0L
+                    && inputUnits != Long.MAX_VALUE
+                    && inputUnits == outputUnits) {
+                equivalentRecipes.add(index);
+            }
+        }
     }
 
     private void applyCommodityAuthority(
@@ -1100,8 +1166,7 @@ public final class SellCatalogV10Compiler {
                             entry.getKey()
                     );
 
-            if (draft == null
-                    || !draft.safe) {
+            if (draft == null) {
                 continue;
             }
 
@@ -1125,36 +1190,41 @@ public final class SellCatalogV10Compiler {
         return changed;
     }
 
-    private boolean markCommodityUnsafe(
-            Map<Material, Draft> drafts,
-            CommodityBuild commodities,
-            String marketKey
+    private void normalizeContainerRemainderFloors(
+            Map<Material, Draft> drafts
     ) {
-        boolean changed = false;
+        for (Draft draft : drafts.values()) {
+            Material remainder =
+                    draft.material
+                            .getCraftingRemainingItem();
 
-        for (Map.Entry<Material, CommodityInfo>
-                entry : commodities
-                .info()
-                .entrySet()) {
-            if (!entry.getValue()
-                    .marketKey()
-                    .equals(marketKey)) {
+            if (remainder == null
+                    || remainder == Material.AIR) {
                 continue;
             }
 
-            Draft draft =
-                    drafts.get(
-                            entry.getKey()
+            Draft returned =
+                    drafts.get(remainder);
+
+            if (returned == null
+                    || returned.baseCents <= 0L) {
+                continue;
+            }
+
+            long structuralFloor =
+                    safeAdd(
+                            returned.baseCents,
+                            SellPricingPolicy.MINIMUM_UNIT_CENTS
                     );
 
-            if (draft != null
-                    && draft.safe) {
-                draft.safe = false;
-                changed = true;
+            if (structuralFloor == Long.MAX_VALUE
+                    || draft.baseCents >= structuralFloor) {
+                continue;
             }
-        }
 
-        return changed;
+            draft.baseCents = structuralFloor;
+            draft.structuralFloorAdjusted = true;
+        }
     }
 
     private boolean processingCommodityEligible(
@@ -1466,8 +1536,7 @@ public final class SellCatalogV10Compiler {
             }
 
             boolean serverSellEnabled =
-                    draft.safe
-                            && draft.baseCents > 0L;
+                    draft.baseCents > 0L;
 
             if (serverSellEnabled) {
                 sellable++;
@@ -1645,7 +1714,6 @@ public final class SellCatalogV10Compiler {
                     );
 
             if (output == null
-                    || !output.safe
                     || output.baseCents <= 0L) {
                 recipeFailures++;
                 addValidationFailure(
@@ -1730,6 +1798,12 @@ public final class SellCatalogV10Compiler {
 
         if (draft.variant) {
             return "V10_VARIANT";
+        }
+
+        if (draft.structuralFloorAdjusted) {
+            return draft.explicit
+                    ? "V10_REFERENCE_CONTAINER_FLOOR"
+                    : "V10_CONTAINER_FLOOR";
         }
 
         if (draft.source
@@ -2270,15 +2344,16 @@ public final class SellCatalogV10Compiler {
     }
 
     private static final class Draft {
+        private final Material material;
         private final String category;
         private long baseCents;
         private final boolean explicit;
         private PriceSource source;
-        private boolean safe = true;
         private boolean recipeCapped;
         private boolean variant;
         private boolean derivedCandidate;
         private boolean fallbackAfterDerivation;
+        private boolean structuralFloorAdjusted;
         private String marketKey;
         private long marketUnits = 1L;
 
@@ -2289,6 +2364,7 @@ public final class SellCatalogV10Compiler {
                 boolean explicit,
                 PriceSource source
         ) {
+            this.material = material;
             this.category = category;
             this.baseCents = baseCents;
             this.explicit = explicit;

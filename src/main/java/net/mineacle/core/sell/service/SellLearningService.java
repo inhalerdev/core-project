@@ -129,7 +129,7 @@ public final class SellLearningService {
         initializeSqlAsync();
 
         core.getLogger().info(
-                "Sell v10 shadow learning enabled — live payouts remain v9 authority"
+                "Sell v10 shadow learning enabled — learning remains non-authoritative until a validated v10 catalog is active"
         );
     }
 
