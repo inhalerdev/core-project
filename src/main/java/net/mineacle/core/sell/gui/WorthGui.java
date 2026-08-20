@@ -278,12 +278,23 @@ public final class WorthGui {
             );
             boolean sellable = unitSell > 0L
                     && sellService.isServerSellableMaterial(material);
+
+            /*
+             * /worth is the server liquidation catalog. Do not show technical,
+             * blocked, or mechanically unavailable rows as if they had a
+             * player-market appraisal. Every visible entry must be a value the
+             * server will actually pay right now.
+             */
+            if (!sellable) {
+                continue;
+            }
+
             rebuilt.add(
                     new MarketEntry(
                             material,
                             sellService.pretty(material),
                             sellService.category(material),
-                            sellable,
+                            true,
                             unitSell
                     )
             );
@@ -305,14 +316,10 @@ public final class WorthGui {
         }
 
         List<String> lore = new ArrayList<>();
-        if (entry.sellable() && entry.unitSellCents() > 0L) {
-            lore.add(
-                    "&#bbbbbbWorth: &#11fc7b"
-                            + sellService.format(entry.unitSellCents())
-            );
-        } else {
-            lore.add("&cServer sell unavailable");
-        }
+        lore.add(
+                "&#bbbbbbWorth: &#11fc7b"
+                        + sellService.format(entry.unitSellCents())
+        );
 
         meta.displayName(uiComponent("&#bbbbbb" + entry.displayName()));
         meta.lore(uiLore(lore));

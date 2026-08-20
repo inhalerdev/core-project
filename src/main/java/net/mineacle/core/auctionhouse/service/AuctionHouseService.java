@@ -903,10 +903,22 @@ public final class AuctionHouseService {
         FilterMode effectiveFilter = filterMode == null ? FilterMode.ALL : filterMode;
         SearchCacheKey cacheKey = new SearchCacheKey(tokens, effectiveSort, effectiveFilter);
         long now = System.currentTimeMillis();
+        SellService sell = currentSellService();
+        long sellCatalogGeneration =
+                sell == null
+                        ? 0L
+                        : sell.catalogGeneration();
+        long sellPriceRevision =
+                sell == null
+                        ? 0L
+                        : sell.marketPriceRevision();
 
         if (browseCacheMillis > 0L) {
             SearchSnapshot cached = searchCache.get(cacheKey);
-            if (cached != null && cached.generation() == listingGeneration
+            if (cached != null
+                    && cached.generation() == listingGeneration
+                    && cached.sellCatalogGeneration() == sellCatalogGeneration
+                    && cached.sellPriceRevision() == sellPriceRevision
                     && now < cached.validUntilMillis()) {
                 return cached.listings();
             }
@@ -934,7 +946,16 @@ public final class AuctionHouseService {
         result.sort(comparator(effectiveSort));
         List<AuctionHouseListing> immutable = List.copyOf(result);
         if (browseCacheMillis > 0L) {
-            searchCache.put(cacheKey, new SearchSnapshot(listingGeneration, validUntil, immutable));
+            searchCache.put(
+                    cacheKey,
+                    new SearchSnapshot(
+                            listingGeneration,
+                            sellCatalogGeneration,
+                            sellPriceRevision,
+                            validUntil,
+                            immutable
+                    )
+            );
             trimSearchCache();
         }
         return immutable;
@@ -949,6 +970,24 @@ public final class AuctionHouseService {
                 || expiresAt <= now) {
             return validUntil;
         }
+
+        /*
+         * Public AH browse is never allowed to advertise a listing below the
+         * server's current liquidation floor. The owner can still see/cancel
+         * the listing from Your Listings, and buyLocked() repeats this check at
+         * the transaction boundary for stale-client/quick-buy safety.
+         */
+        long currentFloor =
+                minimumListingPriceCents(
+                        null,
+                        listing.item()
+                );
+
+        if (currentFloor < 0L
+                || listing.priceCents() < currentFloor) {
+            return validUntil;
+        }
+
         SearchDocument document = searchIndex.get(listing.id());
         if (document == null || !document.matches(tokens)) return validUntil;
         result.add(listing);
@@ -3355,26 +3394,17 @@ public final class AuctionHouseService {
         }
 
         try {
-            ItemStack cleaned =
-                    cleanItem(item);
-            long directWorth =
-                    Math.max(
-                            0L,
-                            current.stackWorthCents(
-                                    player,
-                                    cleaned
-                            )
-                    );
-            long shulkerWorth =
-                    shulkerServerSellCents(
-                            player,
-                            cleaned,
-                            current
-                    );
-
+            /*
+             * Auction House server Worth is the exact /sell liquidation quote
+             * for this stack at this moment. Do not synthesize a container
+             * contents value for stacks that /sell itself would reject.
+             */
             return Math.max(
-                    directWorth,
-                    shulkerWorth
+                    0L,
+                    current.stackWorthCents(
+                            player,
+                            cleanItem(item)
+                    )
             );
         } catch (RuntimeException exception) {
             core.getLogger().log(
@@ -3384,79 +3414,6 @@ public final class AuctionHouseService {
             );
             return -1L;
         }
-    }
-
-    private long shulkerServerSellCents(
-            Player player,
-            ItemStack item,
-            SellService sell
-    ) {
-        ItemMeta meta =
-                item.getItemMeta();
-
-        if (!(meta instanceof BlockStateMeta state)
-                || !(state.getBlockState()
-                instanceof ShulkerBox shulker)) {
-            return 0L;
-        }
-
-        long contentsWorth = 0L;
-
-        for (ItemStack content
-                : shulker.getSnapshotInventory()
-                .getContents()) {
-            if (content == null
-                    || content.getType().isAir()) {
-                continue;
-            }
-
-            long worth =
-                    Math.max(
-                            0L,
-                            sell.stackWorthCents(
-                                    player,
-                                    cleanItem(content)
-                            )
-                    );
-            contentsWorth =
-                    safeAdd(
-                            contentsWorth,
-                            worth
-                    );
-        }
-
-        ItemStack emptyShell =
-                item.clone();
-        ItemMeta shellMeta =
-                emptyShell.getItemMeta();
-
-        if (shellMeta
-                instanceof BlockStateMeta shellState
-                && shellState.getBlockState()
-                instanceof ShulkerBox emptyShulker) {
-            emptyShulker.getSnapshotInventory()
-                    .clear();
-            shellState.setBlockState(
-                    emptyShulker
-            );
-            emptyShell.setItemMeta(
-                    shellState
-            );
-        }
-
-        long shellWorth =
-                Math.max(
-                        0L,
-                        sell.stackWorthCents(
-                                player,
-                                emptyShell
-                        )
-                );
-
-        return safeAdd(
-                shellWorth,
-                contentsWorth
-        );
     }
 
     public long minimumListingPriceCents(Player player, ItemStack item) {
@@ -3488,14 +3445,34 @@ public final class AuctionHouseService {
                 config.getLong("worth.cache-millis", DEFAULT_WORTH_CACHE_MILLIS),
                 250L, 60_000L
         );
+        SellService sell = currentSellService();
+        long catalogGeneration =
+                sell == null
+                        ? 0L
+                        : sell.catalogGeneration();
+        long priceRevision =
+                sell == null
+                        ? 0L
+                        : sell.marketPriceRevision();
 
         WorthSnapshot cached = worthCache.get(listing.id());
-        if (cached != null && now - cached.createdAt() <= cacheMillis) {
+        if (cached != null
+                && cached.catalogGeneration() == catalogGeneration
+                && cached.priceRevision() == priceRevision
+                && now - cached.createdAt() <= cacheMillis) {
             return cached.cents();
         }
 
         long cents = worthCents(listing.item());
-        worthCache.put(listing.id(), new WorthSnapshot(cents, now));
+        worthCache.put(
+                listing.id(),
+                new WorthSnapshot(
+                        cents,
+                        now,
+                        catalogGeneration,
+                        priceRevision
+                )
+        );
         return cents;
     }
 
@@ -4682,8 +4659,17 @@ public final class AuctionHouseService {
     }
 
     private record SearchSnapshot(
-            long generation, long validUntilMillis, List<AuctionHouseListing> listings
+            long generation,
+            long sellCatalogGeneration,
+            long sellPriceRevision,
+            long validUntilMillis,
+            List<AuctionHouseListing> listings
     ) {}
 
-    private record WorthSnapshot(long cents, long createdAt) {}
+    private record WorthSnapshot(
+            long cents,
+            long createdAt,
+            long catalogGeneration,
+            long priceRevision
+    ) {}
 }

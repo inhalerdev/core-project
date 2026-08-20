@@ -299,9 +299,11 @@ public final class SellRuntimeIntegrityAudit {
 
             long input = 0L;
             boolean complete = true;
+            boolean customRecipe = false;
+
             for (IngredientChoice choice : recipe.ingredients()) {
                 if (choice.untrusted()) {
-                    complete = false;
+                    customRecipe = true;
                     break;
                 }
 
@@ -320,6 +322,16 @@ public final class SellRuntimeIntegrityAudit {
                     break;
                 }
                 input = safeAdd(input, cheapest);
+            }
+
+            /*
+             * Exact metadata-bound recipes belong to the plugin/custom-item
+             * economy boundary. They are intentionally excluded from the
+             * automatic vanilla liquidation graph rather than disabling the
+             * ordinary output Material.
+             */
+            if (customRecipe) {
+                continue;
             }
 
             if (!complete || input <= 0L) {
@@ -382,7 +394,7 @@ public final class SellRuntimeIntegrityAudit {
         );
 
         if (returned <= 0L) {
-            return -1L;
+            return input;
         }
 
         return Math.max(0L, input - returned);

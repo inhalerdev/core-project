@@ -49,13 +49,16 @@ import java.util.logging.Level;
 /**
  * Sell/Worth catalog revision 9.
  *
- * <p>Revision 9 makes the mechanically generated catalog the immediate runtime
- * authority and treats SQL as durable/operator-editable persistence rather than
- * an availability dependency.  Every ordinary vanilla item receives a
- * liquidation candidate.  Reversible/processing commodities conserve value,
- * one-way recipe outputs are capped against the cheapest reachable ingredient
- * payout, and only rows that cannot pay even one cent without a real crafting
- * gain remain disabled.</p>
+ * <p>The generated catalog is the immediate runtime pricing authority while
+ * SQL remains durable/operator-editable persistence. Normal survival-obtainable
+ * materials receive a positive liquidation floor. Reversible commodity groups
+ * conserve value exactly, one-way recipes preserve the configured crafting
+ * haircut, and cent-floor requirements propagate backward through recipe inputs
+ * before final anti-arbitrage caps are applied.</p>
+ *
+ * <p>Recipes that depend on exact/custom metadata are intentionally isolated
+ * from the automatic Material graph. They must never disable or distort the
+ * normal vanilla-material catalog.</p>
  */
 @SuppressWarnings("SqlNoDataSourceInspection")
 public final class SellCatalogBootstrapService {
@@ -80,15 +83,9 @@ public final class SellCatalogBootstrapService {
         FileConfiguration config = YamlConfiguration.loadConfiguration(
                 new File(core.getDataFolder(), "sell.yml")
         );
-        Set<Material> blocked = configuredBlockedMaterials(
-                config
-        );
+        Set<Material> blocked = configuredBlockedMaterials(config);
         List<RecipeSeed> recipes = snapshotRecipes();
-        CatalogBuild build = buildCatalog(
-                config,
-                blocked,
-                recipes
-        );
+        CatalogBuild build = buildCatalog(config, blocked, recipes);
         this.seeds = build.seeds();
         this.summary = build.summary();
     }
@@ -98,11 +95,6 @@ public final class SellCatalogBootstrapService {
             return;
         }
 
-        /*
-         * SQL availability must never decide whether ordinary vanilla items
-         * have liquidity.  Activate the exact same mechanically audited seed
-         * snapshot immediately; SQL may later apply only graph-safe operator overrides.
-         */
         SellCatalogSnapshot builtIn = seedSnapshot();
         if (!sellService.activateCatalogSnapshot(builtIn)) {
             core.getLogger().severe(
@@ -228,7 +220,7 @@ public final class SellCatalogBootstrapService {
                             + audit.operatorLockedRows() + " operator-locked — "
                             + summary.curated() + " curated anchors, "
                             + summary.commodity() + " commodity-normalized, "
-                            + summary.recipe() + " recipe-capped, "
+                            + summary.recipe() + " recipe-derived, "
                             + summary.fallback() + " fallback-derived, "
                             + summary.variant() + " variant families, "
                             + summary.oneCent() + " one-cent values, "
@@ -345,7 +337,9 @@ public final class SellCatalogBootstrapService {
                             material.name(),
                             1L,
                             target,
-                            curated ? PriceSource.CURATED : PriceSource.GENERATED_CATEGORY,
+                            curated
+                                    ? PriceSource.CURATED
+                                    : PriceSource.GENERATED_CATEGORY,
                             curated,
                             enchantBuyback
                     )
@@ -360,39 +354,68 @@ public final class SellCatalogBootstrapService {
         applyCommodityAuthority(drafts, commodities);
         normalizeDynamicCentFloors(drafts, commodities);
 
-        Map<Material, List<IndexedRecipe>> byOutput = new EnumMap<>(Material.class);
+        Map<Material, List<RecipeSeed>> byOutput = new EnumMap<>(Material.class);
         for (int index = 0; index < recipes.size(); index++) {
             if (commodities.equivalentRecipeIndexes().contains(index)) {
                 continue;
             }
+
             RecipeSeed recipe = recipes.get(index);
+            if (untrustedCatalogRecipe(recipe)
+                    || SellVariantValuationService.supportsMaterial(recipe.output())) {
+                continue;
+            }
+
             byOutput.computeIfAbsent(
                     recipe.output(),
                     ignored -> new ArrayList<>()
-            ).add(new IndexedRecipe(index, recipe));
+            ).add(recipe);
         }
 
         /*
-         * Recipe caps are monotonic-decreasing.  Every pass can only reduce an
-         * output, so cyclic one-way graphs converge without ever temporarily
-         * authorizing an unsafe higher price.
+         * Crafted outputs are intentionally static. Demand motion belongs on
+         * primary commodities/resources; letting both sides of a recipe move
+         * independently would create a moving arbitrage boundary.
+         */
+        for (Material output : byOutput.keySet()) {
+            if (commodities.info().containsKey(output)) {
+                continue;
+            }
+            Draft draft = drafts.get(output);
+            if (draft != null) {
+                draft.marketEnabled = false;
+                draft.minimumMultiplier = 1.0D;
+                draft.maximumMultiplier = 1.0D;
+            }
+        }
+
+        Map<Material, Long> minimumPayoutRequirements =
+                propagateMinimumCentFloors(
+                        drafts,
+                        byOutput,
+                        commodities
+                );
+
+        /*
+         * Final anti-arbitrage caps are monotonic-decreasing. The floor pass
+         * above has already increased upstream opportunity cost enough to make
+         * ordinary outputs positively liquid. These passes only clamp values
+         * that remain above their cheapest reachable input boundary.
          */
         for (int pass = 0; pass < DERIVATION_PASSES; pass++) {
             boolean changed = false;
 
-            for (Map.Entry<Material, List<IndexedRecipe>> entry : byOutput.entrySet()) {
+            for (Map.Entry<Material, List<RecipeSeed>> entry
+                    : byOutput.entrySet()) {
                 Material output = entry.getKey();
                 Draft draft = drafts.get(output);
 
-                if (draft == null
-                        || SellVariantValuationService.supportsMaterial(output)) {
+                if (draft == null) {
                     continue;
                 }
 
-                CommodityInfo commodityInfo =
-                        commodities.info().get(output);
-                boolean commodityOutput =
-                        commodityInfo != null;
+                CommodityInfo commodityInfo = commodities.info().get(output);
+                boolean commodityOutput = commodityInfo != null;
                 double outputMaximum =
                         commodityOutput && draft.marketEnabled
                                 ? draft.maximumMultiplier
@@ -400,48 +423,64 @@ public final class SellCatalogBootstrapService {
                 long safeCeiling = Long.MAX_VALUE;
                 boolean auditedRecipe = false;
 
-                for (IndexedRecipe indexed : entry.getValue()) {
-                    long inputBudget = ingredientMinimumBudget(
-                            indexed.recipe(),
-                            drafts
-                    );
+                for (RecipeSeed recipe : entry.getValue()) {
+                    long inputBudget = ingredientMinimumBudget(recipe, drafts);
 
+                    /*
+                     * A custom/metadata recipe never reaches this collection.
+                     * A negative budget here means a runtime-unsafe remainder or
+                     * overflow path; ignore that recipe for automatic Material
+                     * pricing instead of disabling an otherwise normal item.
+                     */
                     if (inputBudget < 0L) {
-                        auditedRecipe = true;
-                        safeCeiling = 0L;
-                        break;
+                        continue;
                     }
 
                     auditedRecipe = true;
                     long retainedCeiling =
                             SellPricingPolicy.outputBaseCeilingCents(
                                     inputBudget,
-                                    indexed.recipe().outputAmount(),
+                                    recipe.outputAmount(),
                                     outputMaximum
                             );
 
-                    if (retainedCeiling <= 0L) {
+                    long requiredPayout = minimumPayoutRequirements.getOrDefault(
+                            output,
+                            1L
+                    );
+                    long requiredBase = requiredBaseForPayout(
+                            draft,
+                            requiredPayout
+                    );
+
+                    if (retainedCeiling < requiredBase) {
                         /*
-                         * Preserve a cent only when direct 100% conservation
-                         * still proves that cent cannot create server cash.
+                         * Integer-cent edge case: permit equality with the
+                         * direct input liquidation boundary, but never profit.
                          */
-                        retainedCeiling = hardNoProfitUnitCeiling(
+                        long hardCeiling = hardNoProfitUnitCeiling(
                                 inputBudget,
-                                indexed.recipe().outputAmount()
+                                recipe.outputAmount()
                         );
+                        if (hardCeiling >= requiredBase) {
+                            retainedCeiling = hardCeiling;
+                        }
                     }
 
-                    safeCeiling = Math.min(
-                            safeCeiling,
-                            retainedCeiling
-                    );
+                    safeCeiling = Math.min(safeCeiling, retainedCeiling);
                 }
 
                 if (!auditedRecipe) {
                     continue;
                 }
 
-                if (safeCeiling <= 0L) {
+                long requiredPayout = minimumPayoutRequirements.getOrDefault(
+                        output,
+                        1L
+                );
+                long requiredBase = requiredBaseForPayout(draft, requiredPayout);
+
+                if (safeCeiling <= 0L || safeCeiling < requiredBase) {
                     if (commodityOutput) {
                         markCommodityUnsafe(
                                 drafts,
@@ -455,12 +494,8 @@ public final class SellCatalogBootstrapService {
                 }
 
                 if (commodityOutput) {
-                    long unitCeiling =
-                            safeCeiling
-                                    / Math.max(
-                                    1L,
-                                    commodityInfo.marketUnits()
-                            );
+                    long unitCeiling = safeCeiling
+                            / Math.max(1L, commodityInfo.marketUnits());
 
                     if (unitCeiling <= 0L) {
                         markCommodityUnsafe(
@@ -480,27 +515,25 @@ public final class SellCatalogBootstrapService {
                         changed = true;
                     }
                 } else {
-                    draft.marketEnabled = false;
-                    draft.minimumMultiplier = 1.0D;
-                    draft.maximumMultiplier = 1.0D;
-
                     long next = draft.curated
                             ? Math.clamp(
                             draft.baseCents,
-                            1L,
+                            requiredBase,
                             safeCeiling
                     )
                             : safeCeiling;
 
                     if (next != draft.baseCents) {
                         draft.baseCents = next;
+                        draft.recipeCapped = true;
                         changed = true;
                     }
                 }
 
-                if (draft.source != PriceSource.CURATED) {
+                if (draft.source != PriceSource.CURATED
+                        && draft.source != PriceSource.GENERATED_COMMODITY) {
                     draft.source = PriceSource.GENERATED_RECIPE;
-                } else {
+                } else if (draft.source == PriceSource.CURATED) {
                     draft.recipeCapped = true;
                 }
             }
@@ -576,8 +609,12 @@ public final class SellCatalogBootstrapService {
                             draft.marketKey,
                             Math.max(1L, draft.marketUnits),
                             draft.targetUnitsPerDay,
-                            draft.marketEnabled ? draft.minimumMultiplier : 1.0D,
-                            draft.marketEnabled ? draft.maximumMultiplier : 1.0D,
+                            draft.marketEnabled
+                                    ? draft.minimumMultiplier
+                                    : 1.0D,
+                            draft.marketEnabled
+                                    ? draft.maximumMultiplier
+                                    : 1.0D,
                             1.0D,
                             draft.enchantBuybackMultiplier,
                             draft.source.name(),
@@ -604,6 +641,311 @@ public final class SellCatalogBootstrapService {
                         commodities.groupCount()
                 )
         );
+    }
+
+    /**
+     * Positive-name predicate used directly by every caller. Metadata-exact
+     * recipes are outside the automatic Material graph and are therefore
+     * ignored rather than inverted into a catalog-disable condition.
+     */
+    private boolean untrustedCatalogRecipe(RecipeSeed recipe) {
+        if (recipe == null
+                || recipe.output() == null
+                || recipe.output() == Material.AIR
+                || recipe.outputAmount() <= 0
+                || recipe.ingredients().isEmpty()) {
+            return true;
+        }
+
+        for (IngredientChoice choice : recipe.ingredients()) {
+            if (choice == null
+                    || choice.untrusted()
+                    || choice.materials().isEmpty()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Solves the one-cent liquidity requirement backward through trusted
+     * recipes. Every ordinary catalog material starts with a one-cent minimum.
+     * If an output needs more input opportunity cost to preserve the crafting
+     * haircut, that minimum is propagated into every usable alternative for the
+     * relevant ingredient slots. The pass is bounded and monotonic-increasing.
+     */
+    private Map<Material, Long> propagateMinimumCentFloors(
+            Map<Material, Draft> drafts,
+            Map<Material, List<RecipeSeed>> byOutput,
+            CommodityBuild commodities
+    ) {
+        Map<Material, Long> required = new EnumMap<>(Material.class);
+
+        for (Draft draft : drafts.values()) {
+            if (draft.safe && draft.baseCents > 0L) {
+                required.put(draft.material, 1L);
+            }
+        }
+
+        for (int pass = 0; pass < DERIVATION_PASSES; pass++) {
+            boolean changed = false;
+
+            for (Map.Entry<Material, List<RecipeSeed>> entry
+                    : byOutput.entrySet()) {
+                long outputMinimum = required.getOrDefault(entry.getKey(), 1L);
+
+                for (RecipeSeed recipe : entry.getValue()) {
+                    long requiredBudget = requiredIngredientBudget(
+                            outputMinimum,
+                            recipe.outputAmount()
+                    );
+
+                    if (requiredBudget <= 0L
+                            || requiredBudget == Long.MAX_VALUE) {
+                        continue;
+                    }
+
+                    int slots = recipe.ingredients().size();
+                    long perSlotNet = divideCeiling(requiredBudget, slots);
+
+                    for (IngredientChoice choice : recipe.ingredients()) {
+                        for (Material material : choice.materials()) {
+                            long grossRequired = grossIngredientRequirement(
+                                    material,
+                                    perSlotNet,
+                                    recipe.craftingRemainders(),
+                                    drafts,
+                                    required
+                            );
+
+                            if (raiseRequirement(
+                                    required,
+                                    material,
+                                    grossRequired
+                            )) {
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!changed) {
+                break;
+            }
+        }
+
+        applyMinimumRequirements(drafts, commodities, required);
+        return Map.copyOf(required);
+    }
+
+    private long requiredIngredientBudget(
+            long outputMinimumCents,
+            int outputAmount
+    ) {
+        long syntheticOneCentOutputs = safeMultiply(
+                Math.max(1L, outputMinimumCents),
+                Math.max(1L, outputAmount)
+        );
+
+        if (syntheticOneCentOutputs <= 0L
+                || syntheticOneCentOutputs == Long.MAX_VALUE) {
+            return Long.MAX_VALUE;
+        }
+
+        try {
+            return BigDecimal.valueOf(syntheticOneCentOutputs)
+                    .divide(
+                            BigDecimal.valueOf(
+                                    SellPricingPolicy.ONE_WAY_RECIPE_RETENTION
+                            ),
+                            0,
+                            RoundingMode.CEILING
+                    )
+                    .longValueExact();
+        } catch (ArithmeticException exception) {
+            return Long.MAX_VALUE;
+        }
+    }
+
+    private long grossIngredientRequirement(
+            Material material,
+            long netRequired,
+            boolean craftingRemainders,
+            Map<Material, Draft> drafts,
+            Map<Material, Long> requirements
+    ) {
+        long safeNet = Math.max(1L, netRequired);
+
+        if (!craftingRemainders) {
+            return safeNet;
+        }
+
+        Material remainder = material.getCraftingRemainingItem();
+        if (remainder == null || remainder == Material.AIR) {
+            return safeNet;
+        }
+
+        Draft remainderDraft = drafts.get(remainder);
+        long remainderMinimum = requirements.getOrDefault(remainder, 0L);
+
+        if (remainderDraft != null && remainderDraft.safe) {
+            remainderMinimum = Math.max(
+                    remainderMinimum,
+                    minimumUnitPayout(remainderDraft)
+            );
+        }
+
+        return safeAdd(safeNet, Math.max(0L, remainderMinimum));
+    }
+
+    private boolean raiseRequirement(
+            Map<Material, Long> requirements,
+            Material material,
+            long requiredPayout
+    ) {
+        if (material == null
+                || requiredPayout <= 0L
+                || requiredPayout == Long.MAX_VALUE) {
+            return false;
+        }
+
+        long current = requirements.getOrDefault(material, 0L);
+        if (requiredPayout <= current) {
+            return false;
+        }
+
+        requirements.put(material, requiredPayout);
+        return true;
+    }
+
+    private void applyMinimumRequirements(
+            Map<Material, Draft> drafts,
+            CommodityBuild commodities,
+            Map<Material, Long> requirements
+    ) {
+        Map<String, Long> commodityUnitFloors = new HashMap<>();
+
+        for (Map.Entry<Material, Long> entry : requirements.entrySet()) {
+            CommodityInfo info = commodities.info().get(entry.getKey());
+            if (info == null) {
+                continue;
+            }
+
+            long requiredUnit = divideCeiling(
+                    entry.getValue(),
+                    Math.max(1L, info.marketUnits())
+            );
+            commodityUnitFloors.merge(
+                    info.marketKey(),
+                    Math.max(1L, requiredUnit),
+                    Math::max
+            );
+        }
+
+        for (Map.Entry<String, Long> floor : commodityUnitFloors.entrySet()) {
+            raiseCommodityUnitFloor(
+                    drafts,
+                    commodities,
+                    floor.getKey(),
+                    floor.getValue()
+            );
+        }
+
+        for (Map.Entry<Material, Long> entry : requirements.entrySet()) {
+            if (commodities.info().containsKey(entry.getKey())) {
+                continue;
+            }
+
+            Draft draft = drafts.get(entry.getKey());
+            if (draft == null || !draft.safe) {
+                continue;
+            }
+
+            long requiredBase = requiredBaseForPayout(
+                    draft,
+                    entry.getValue()
+            );
+            if (requiredBase <= draft.baseCents) {
+                continue;
+            }
+
+            draft.baseCents = requiredBase;
+            draft.recipeCapped = true;
+            if (!draft.curated) {
+                draft.source = PriceSource.GENERATED_RECIPE;
+            }
+        }
+    }
+
+    private void raiseCommodityUnitFloor(
+            Map<Material, Draft> drafts,
+            CommodityBuild commodities,
+            String marketKey,
+            long requiredUnitCents
+    ) {
+        long unitFloor = Math.max(1L, requiredUnitCents);
+
+        for (Map.Entry<Material, CommodityInfo> entry
+                : commodities.info().entrySet()) {
+            CommodityInfo info = entry.getValue();
+            if (!info.marketKey().equals(marketKey)) {
+                continue;
+            }
+
+            Draft member = drafts.get(entry.getKey());
+            if (member == null || !member.safe) {
+                continue;
+            }
+
+            long requiredBase = safeMultiply(
+                    unitFloor,
+                    Math.max(1L, info.marketUnits())
+            );
+            if (requiredBase > member.baseCents) {
+                member.baseCents = requiredBase;
+                member.recipeCapped = true;
+            }
+        }
+    }
+
+    private long requiredBaseForPayout(
+            Draft draft,
+            long requiredPayout
+    ) {
+        long safeRequired = Math.max(1L, requiredPayout);
+        double multiplier = draft.marketEnabled
+                ? draft.minimumMultiplier
+                : 1.0D;
+
+        if (!Double.isFinite(multiplier) || multiplier <= 0.0D) {
+            multiplier = 1.0D;
+        }
+
+        try {
+            return BigDecimal.valueOf(safeRequired)
+                    .divide(
+                            BigDecimal.valueOf(multiplier),
+                            0,
+                            RoundingMode.CEILING
+                    )
+                    .max(BigDecimal.ONE)
+                    .longValueExact();
+        } catch (ArithmeticException exception) {
+            return Long.MAX_VALUE;
+        }
+    }
+
+    private long divideCeiling(long numerator, long denominator) {
+        if (numerator <= 0L || denominator <= 0L) {
+            return 0L;
+        }
+        long quotient = numerator / denominator;
+        long remainder = numerator % denominator;
+        return remainder == 0L
+                ? quotient
+                : safeAdd(quotient, 1L);
     }
 
     private String activationState(
@@ -636,10 +978,6 @@ public final class SellCatalogBootstrapService {
         long total = 0L;
 
         for (IngredientChoice choice : recipe.ingredients()) {
-            if (choice.untrusted()) {
-                return -1L;
-            }
-
             long cheapest = Long.MAX_VALUE;
 
             for (Material material : choice.materials()) {
@@ -690,12 +1028,6 @@ public final class SellCatalogBootstrapService {
         Draft remainderDraft = drafts.get(remainder);
 
         if (remainderDraft == null || !remainderDraft.safe) {
-            /*
-             * A returned crafting container that does not have a verified
-             * liquidation value makes the net ingredient cost unknowable.
-             * Fail this recipe path closed instead of pretending the returned
-             * item was consumed.
-             */
             return -1L;
         }
 
@@ -736,7 +1068,11 @@ public final class SellCatalogBootstrapService {
         Map<Integer, SimpleConversion> simple = new HashMap<>();
 
         for (int index = 0; index < recipes.size(); index++) {
-            SimpleConversion conversion = simpleConversion(recipes.get(index));
+            RecipeSeed recipe = recipes.get(index);
+            if (untrustedCatalogRecipe(recipe)) {
+                continue;
+            }
+            SimpleConversion conversion = simpleConversion(recipe);
             if (conversion != null) {
                 simple.put(index, conversion);
             }
@@ -745,7 +1081,6 @@ public final class SellCatalogBootstrapService {
         Set<Integer> equivalentRecipes = new HashSet<>();
         Map<Material, List<RatioEdge>> graph = new EnumMap<>(Material.class);
 
-        /* Exact reversible crafting pairs. */
         for (Map.Entry<Integer, SimpleConversion> left : simple.entrySet()) {
             for (Map.Entry<Integer, SimpleConversion> right : simple.entrySet()) {
                 if (left.getKey() >= right.getKey()) {
@@ -791,14 +1126,10 @@ public final class SellCatalogBootstrapService {
             }
         }
 
-        /*
-         * Ore/raw-material smelting is one-way but should not create value.
-         * Link 1:1 processing forms to the same commodity so market movement
-         * cancels out exactly and smelting cannot become a price multiplier.
-         */
         for (int index = 0; index < recipes.size(); index++) {
             RecipeSeed recipe = recipes.get(index);
-            if (!recipe.cooking()
+            if (untrustedCatalogRecipe(recipe)
+                    || !recipe.cooking()
                     || recipe.outputAmount() != 1
                     || recipe.ingredients().size() != 1) {
                 continue;
@@ -843,7 +1174,10 @@ public final class SellCatalogBootstrapService {
             Material keyMaterial = units.entrySet().stream()
                     .min(
                             Comparator
-                                    .comparingLong((Map.Entry<Material, Long> entry) -> entry.getValue())
+                                    .comparingLong(
+                                            (Map.Entry<Material, Long> entry) ->
+                                                    entry.getValue()
+                                    )
                                     .thenComparing(entry -> entry.getKey().name())
                     )
                     .map(Map.Entry::getKey)
@@ -853,7 +1187,10 @@ public final class SellCatalogBootstrapService {
             for (Map.Entry<Material, Long> entry : units.entrySet()) {
                 info.put(
                         entry.getKey(),
-                        new CommodityInfo(key, Math.max(1L, entry.getValue()))
+                        new CommodityInfo(
+                                key,
+                                Math.max(1L, entry.getValue())
+                        )
                 );
             }
         }
@@ -898,7 +1235,8 @@ public final class SellCatalogBootstrapService {
     ) {
         Map<String, List<Material>> groups = new LinkedHashMap<>();
 
-        for (Map.Entry<Material, CommodityInfo> entry : commodities.info().entrySet()) {
+        for (Map.Entry<Material, CommodityInfo> entry
+                : commodities.info().entrySet()) {
             groups.computeIfAbsent(
                     entry.getValue().marketKey(),
                     ignored -> new ArrayList<>()
@@ -922,15 +1260,10 @@ public final class SellCatalogBootstrapService {
                 if (foundCurated && !draft.curated) {
                     continue;
                 }
-                long perUnit =
-                        draft.baseCents
-                                / Math.max(
-                                1L,
-                                info.marketUnits()
-                        );
+                long perUnit = draft.baseCents
+                        / Math.max(1L, info.marketUnits());
                 perUnit = Math.max(1L, perUnit);
-                if (anchorUnitCents == null
-                        || perUnit < anchorUnitCents) {
+                if (anchorUnitCents == null || perUnit < anchorUnitCents) {
                     anchorUnitCents = perUnit;
                 }
             }
@@ -950,8 +1283,14 @@ public final class SellCatalogBootstrapService {
                 }
                 groupDynamic |= draft.marketEnabled;
                 if (draft.marketEnabled) {
-                    groupMinimum = Math.max(groupMinimum, draft.minimumMultiplier);
-                    groupMaximum = Math.min(groupMaximum, draft.maximumMultiplier);
+                    groupMinimum = Math.max(
+                            groupMinimum,
+                            draft.minimumMultiplier
+                    );
+                    groupMaximum = Math.min(
+                            groupMaximum,
+                            draft.maximumMultiplier
+                    );
                 }
             }
 
@@ -963,7 +1302,10 @@ public final class SellCatalogBootstrapService {
                 groupMaximum = 1.0D;
             } else {
                 groupMinimum = Math.clamp(groupMinimum, 0.05D, 1.0D);
-                groupMaximum = Math.max(1.0D, Math.max(groupMinimum, groupMaximum));
+                groupMaximum = Math.max(
+                        1.0D,
+                        Math.max(groupMinimum, groupMaximum)
+                );
             }
 
             String marketKey = commodities.info()
@@ -984,8 +1326,12 @@ public final class SellCatalogBootstrapService {
                 draft.marketKey = marketKey;
                 draft.marketUnits = info.marketUnits();
                 draft.marketEnabled = groupDynamic;
-                draft.minimumMultiplier = groupDynamic ? groupMinimum : 1.0D;
-                draft.maximumMultiplier = groupDynamic ? groupMaximum : 1.0D;
+                draft.minimumMultiplier = groupDynamic
+                        ? groupMinimum
+                        : 1.0D;
+                draft.maximumMultiplier = groupDynamic
+                        ? groupMaximum
+                        : 1.0D;
                 if (!draft.curated) {
                     draft.source = PriceSource.GENERATED_COMMODITY;
                 }
@@ -993,20 +1339,6 @@ public final class SellCatalogBootstrapService {
         }
     }
 
-    /**
-     * A moving multiplier is only useful when the lowest allowed market state
-     * still pays at least one cent.  Do not raise individual commodity members
-     * to achieve that: doing so would destroy exact reversible ratios.  Instead
-     * make the entire reversible family static.  Non-commodity rows are made
-     * static independently.
-     *
-     * <p>Reversible commodity families are also intentionally static in v9.
-     * SellService currently rounds each Material payout independently after the
-     * shared multiplier.  Independent cent rounding can otherwise make a
-     * nugget -> ingot -> nugget cycle gain a few cents even when base values are
-     * perfectly proportional. Static family pricing is exact and fail-closed;
-     * primary non-reversible farm/resource commodities remain dynamic.</p>
-     */
     private void normalizeDynamicCentFloors(
             Map<Material, Draft> drafts,
             CommodityBuild commodities
@@ -1032,16 +1364,9 @@ public final class SellCatalogBootstrapService {
                 }
             }
 
-            if (!moving) {
-                continue;
+            if (moving) {
+                setCommodityStatic(drafts, commodities, key);
             }
-
-            /*
-             * See method Javadoc: exact reversible value takes precedence over
-             * market motion until runtime pricing operates on shared commodity
-             * units rather than independently rounded Material prices.
-             */
-            setCommodityStatic(drafts, commodities, key);
         }
 
         for (Draft draft : drafts.values()) {
@@ -1159,7 +1484,10 @@ public final class SellCatalogBootstrapService {
             Map<Material, List<RatioEdge>> graph
     ) {
         for (Map.Entry<Material, Fraction> entry : ratios.entrySet()) {
-            for (RatioEdge edge : graph.getOrDefault(entry.getKey(), List.of())) {
+            for (RatioEdge edge : graph.getOrDefault(
+                    entry.getKey(),
+                    List.of()
+            )) {
                 Fraction target = ratios.get(edge.to());
                 if (target == null) {
                     continue;
@@ -1176,11 +1504,17 @@ public final class SellCatalogBootstrapService {
         return true;
     }
 
-    private Map<Material, Long> integerUnits(Map<Material, Fraction> ratios) {
+    private Map<Material, Long> integerUnits(
+            Map<Material, Fraction> ratios
+    ) {
         long commonDenominator = 1L;
         for (Fraction fraction : ratios.values()) {
-            commonDenominator = lcm(commonDenominator, fraction.denominator());
-            if (commonDenominator <= 0L || commonDenominator == Long.MAX_VALUE) {
+            commonDenominator = lcm(
+                    commonDenominator,
+                    fraction.denominator()
+            );
+            if (commonDenominator <= 0L
+                    || commonDenominator == Long.MAX_VALUE) {
                 return Map.of();
             }
         }
@@ -1195,13 +1529,18 @@ public final class SellCatalogBootstrapService {
                 return Map.of();
             }
             raw.put(entry.getKey(), units);
-            divisor = divisor == 0L ? units : gcd(divisor, units);
+            divisor = divisor == 0L
+                    ? units
+                    : gcd(divisor, units);
         }
 
-        long gcd = Math.max(1L, divisor);
+        long commonDivisor = Math.max(1L, divisor);
         Map<Material, Long> normalized = new EnumMap<>(Material.class);
         for (Map.Entry<Material, Long> entry : raw.entrySet()) {
-            normalized.put(entry.getKey(), Math.max(1L, entry.getValue() / gcd));
+            normalized.put(
+                    entry.getKey(),
+                    Math.max(1L, entry.getValue() / commonDivisor)
+            );
         }
         return Map.copyOf(normalized);
     }
@@ -1222,19 +1561,13 @@ public final class SellCatalogBootstrapService {
         long inputAmount = 0L;
 
         for (IngredientChoice choice : recipe.ingredients()) {
-            if (choice.untrusted() || choice.materials().size() != 1) {
+            if (choice.materials().size() != 1) {
                 return null;
             }
             Material current = choice.materials().getFirst();
 
             if (recipe.craftingRemainders()
                     && current.getCraftingRemainingItem() != null) {
-                /*
-                 * A conversion that returns a crafting container is not an
-                 * exact reversible value edge even if another recipe points
-                 * back to the input Material. Keep it in the one-way recipe
-                 * audit where the remainder is explicitly subtracted.
-                 */
                 return null;
             }
 
@@ -1310,14 +1643,18 @@ public final class SellCatalogBootstrapService {
                 ingredients.add(choice);
             }
         } else if (recipe instanceof CookingRecipe<?> cookingRecipe) {
-            IngredientChoice choice = ingredientChoice(cookingRecipe.getInputChoice());
+            IngredientChoice choice = ingredientChoice(
+                    cookingRecipe.getInputChoice()
+            );
             if (choice == null) {
                 return null;
             }
             ingredients.add(choice);
             cooking = true;
         } else if (recipe instanceof StonecuttingRecipe stonecutting) {
-            IngredientChoice choice = ingredientChoice(stonecutting.getInputChoice());
+            IngredientChoice choice = ingredientChoice(
+                    stonecutting.getInputChoice()
+            );
             if (choice == null) {
                 return null;
             }
@@ -1618,10 +1955,7 @@ public final class SellCatalogBootstrapService {
         return rows;
     }
 
-    private boolean invalidRow(
-            CatalogRow row,
-            CatalogSeed seed
-    ) {
+    private boolean invalidRow(CatalogRow row, CatalogSeed seed) {
         if (row == null
                 || row.basePriceCents() <= 0L
                 || row.category() == null
@@ -1644,36 +1978,16 @@ public final class SellCatalogBootstrapService {
         }
 
         if (!row.operatorLocked()) {
-            return row.catalogRevision()
-                    != SellPricingPolicy.CATALOG_REVISION
-                    || !sameGeneratedAuthority(
-                    row,
-                    seed
-            );
+            return row.catalogRevision() != SellPricingPolicy.CATALOG_REVISION
+                    || !sameGeneratedAuthority(row, seed);
         }
 
-        /*
-         * A locked row cannot alter clean-item liquidation authority in
-         * isolation. Lowering or disabling an ingredient while leaving its
-         * crafted outputs unchanged can create a server-cash conversion path.
-         * Operator locks may only make market movement more conservative,
-         * alter the demand target, or lower enchant liquidation.
-         */
         return row.serverSellEnabled() != seed.serverSellEnabled()
                 || row.basePriceCents() != seed.basePriceCents()
                 || !row.category().equalsIgnoreCase(seed.category())
-                || !close(
-                row.minimumMultiplier(),
-                seed.minimumMultiplier()
-        )
-                || !close(
-                row.maximumMultiplier(),
-                seed.maximumMultiplier()
-        )
-                || !close(
-                row.buybackMultiplier(),
-                seed.buybackMultiplier()
-        )
+                || !close(row.minimumMultiplier(), seed.minimumMultiplier())
+                || !close(row.maximumMultiplier(), seed.maximumMultiplier())
+                || !close(row.buybackMultiplier(), seed.buybackMultiplier())
                 || row.enchantBuybackMultiplier()
                 > seed.enchantBuybackMultiplier() + 0.0001D
                 || !row.marketKey().equalsIgnoreCase(seed.marketKey())
@@ -1684,7 +1998,10 @@ public final class SellCatalogBootstrapService {
                 || (row.marketEnabled() && !seed.marketEnabled());
     }
 
-    private boolean sameGeneratedAuthority(CatalogRow row, CatalogSeed seed) {
+    private boolean sameGeneratedAuthority(
+            CatalogRow row,
+            CatalogSeed seed
+    ) {
         return row.category().equalsIgnoreCase(seed.category())
                 && row.basePriceCents() == seed.basePriceCents()
                 && row.serverSellEnabled() == seed.serverSellEnabled()
@@ -1695,7 +2012,10 @@ public final class SellCatalogBootstrapService {
                 && close(row.minimumMultiplier(), seed.minimumMultiplier())
                 && close(row.maximumMultiplier(), seed.maximumMultiplier())
                 && close(row.buybackMultiplier(), seed.buybackMultiplier())
-                && close(row.enchantBuybackMultiplier(), seed.enchantBuybackMultiplier())
+                && close(
+                row.enchantBuybackMultiplier(),
+                seed.enchantBuybackMultiplier()
+        )
                 && row.priceSource().equalsIgnoreCase(seed.priceSource())
                 && row.autoSellApproved() == seed.autoSellApproved()
                 && row.activationState().equalsIgnoreCase(seed.activationState());
@@ -1793,7 +2113,10 @@ public final class SellCatalogBootstrapService {
         }
     }
 
-    private boolean eligibleMaterial(Material material, Set<Material> blocked) {
+    private boolean eligibleMaterial(
+            Material material,
+            Set<Material> blocked
+    ) {
         if (material == null
                 || material == Material.AIR
                 || !material.isItem()
@@ -1814,9 +2137,7 @@ public final class SellCatalogBootstrapService {
             FileConfiguration config
     ) {
         Set<Material> result = EnumSet.noneOf(Material.class);
-        for (String raw : config.getStringList(
-                "settings.blocked-items"
-        )) {
+        for (String raw : config.getStringList("settings.blocked-items")) {
             Material material = Material.matchMaterial(raw);
             if (material != null) {
                 result.add(material);
@@ -1854,7 +2175,9 @@ public final class SellCatalogBootstrapService {
     }
 
     private String nonBlank(String value, String fallback) {
-        return value == null || value.isBlank() ? fallback : value.trim();
+        return value == null || value.isBlank()
+                ? fallback
+                : value.trim();
     }
 
     private String safeIdentifier(String raw) {
@@ -1986,9 +2309,6 @@ public final class SellCatalogBootstrapService {
         }
     }
 
-    private record IndexedRecipe(int index, RecipeSeed recipe) {
-    }
-
     private record IngredientChoice(
             List<Material> materials,
             boolean untrusted
@@ -2013,7 +2333,10 @@ public final class SellCatalogBootstrapService {
     ) {
     }
 
-    private record CommodityInfo(String marketKey, long marketUnits) {
+    private record CommodityInfo(
+            String marketKey,
+            long marketUnits
+    ) {
     }
 
     private record CommodityBuild(
@@ -2038,12 +2361,15 @@ public final class SellCatalogBootstrapService {
                 numerator = -numerator;
                 denominator = -denominator;
             }
-            long gcd = gcdStatic(Math.abs(numerator), denominator);
-            numerator /= gcd;
-            denominator /= gcd;
+            long commonDivisor = gcdStatic(Math.abs(numerator), denominator);
+            numerator /= commonDivisor;
+            denominator /= commonDivisor;
         }
 
-        private Fraction multiply(long otherNumerator, long otherDenominator) {
+        private Fraction multiply(
+                long otherNumerator,
+                long otherDenominator
+        ) {
             if (otherDenominator <= 0L || otherNumerator <= 0L) {
                 return this;
             }
