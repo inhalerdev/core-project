@@ -8,6 +8,7 @@ import net.mineacle.core.sell.listener.ItemStackNormalizeListener;
 import net.mineacle.core.sell.listener.SellGuiListener;
 import net.mineacle.core.sell.listener.SellWorthPacketListener;
 import net.mineacle.core.sell.listener.WorthGuiListener;
+import net.mineacle.core.sell.service.SellLearningService;
 import net.mineacle.core.sell.service.SellRuntimeIntegrityAudit;
 import net.mineacle.core.sell.service.SellService;
 import net.mineacle.core.sell.storage.SellCatalogBootstrapService;
@@ -20,11 +21,13 @@ import org.bukkit.scheduler.BukkitTask;
 public final class SellModule extends Module {
 
     private static SellService sellService;
+    private SellLearningService learningService;
 
     private SellWorthPacketListener packetListener;
     private WorthGuiListener worthGuiListener;
     private SellRuntimeIntegrityAudit integrityAudit;
     private BukkitTask marketTask;
+    private BukkitTask learningTask;
 
     public static SellService sellService() {
         return sellService;
@@ -39,6 +42,18 @@ public final class SellModule extends Module {
     public void enable(Core core) {
         sellService = new SellService(core);
         sellService.start();
+
+        /*
+         * v10 starts in shadow mode. The learner reads completed Sell payouts
+         * from the existing durable transaction ledger and never participates
+         * in the live payout path. This keeps v9 gameplay authority isolated
+         * while v10 accumulates population-normalized economic evidence.
+         */
+        learningService = new SellLearningService(
+                core,
+                sellService
+        );
+        learningService.start();
 
         /*
          * The catalog bootstrap snapshots the server recipe registry on the
@@ -94,6 +109,14 @@ public final class SellModule extends Module {
                         20L,
                         20L * 20L
                 );
+        learningTask = core.getServer()
+                .getScheduler()
+                .runTaskTimer(
+                        core,
+                        learningService::tick,
+                        20L,
+                        20L * 20L
+                );
 
         Plugin protocolLib = core.getServer()
                 .getPluginManager()
@@ -120,6 +143,11 @@ public final class SellModule extends Module {
 
     @Override
     public void disable() {
+        if (learningTask != null) {
+            learningTask.cancel();
+            learningTask = null;
+        }
+
         if (marketTask != null) {
             marketTask.cancel();
             marketTask = null;
@@ -139,6 +167,11 @@ public final class SellModule extends Module {
         if (integrityAudit != null) {
             integrityAudit.shutdown();
             integrityAudit = null;
+        }
+
+        if (learningService != null) {
+            learningService.shutdown();
+            learningService = null;
         }
 
         if (sellService != null) {

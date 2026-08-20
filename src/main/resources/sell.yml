@@ -970,3 +970,63 @@ valuation:
     misc:
       base: 0.5
       enchants: 0.5
+# Sell/Worth v10 shadow-learning settings
+#
+# This first v10 phase NEVER changes live /sell or /worth payouts. It records
+# economic evidence in MySQL/MariaDB, learns supply behavior, and reports what
+# v10 would treat as a meta once its evidence gates are satisfied.
+learning:
+  enabled: true
+
+  # Runtime sales are coalesced in memory and written asynchronously.
+  flush-seconds: 30
+
+  # The learner evaluates market evidence this often. Evaluation does not mean
+  # a price/meta change; evidence and completion gates still have to pass.
+  evaluation-minutes: 15
+
+  # Fast trend window vs historical learned baseline window.
+  recent-hours: 6
+  baseline-days: 7
+  retention-days: 30
+
+  # If SQL is temporarily unavailable, bounded aggregate deltas are retained
+  # in memory. Live Sell stays operational while learning/rotation is frozen.
+  database-outage-buffer-hours: 72
+
+  evidence:
+    minimum-recent-player-hours: 8.0
+    minimum-baseline-player-hours: 24.0
+    full-confidence-player-hours: 168.0
+    minimum-baseline-transactions: 4
+    full-confidence-transactions: 32
+
+  shadow:
+    # A recommendation is diagnostic only in this phase. Future v10 authority
+    # can move toward it gradually after the shadow learner proves stable.
+    maximum-recommendation-change-percent: 20.0
+    minimum-recommended-multiplier: 0.70
+
+  # Oversupply is tracked even when an item is not a current meta.
+  oversupply-ratio: 1.50
+
+  meta:
+    # No hand-picked material pool. Any learned server-sell market can qualify.
+    slots: 6
+    shortage-ratio: 0.65
+    minimum-confidence: 0.75
+    minimum-shadow-boost-percent: 15.0
+
+    # The completion threshold is learned from that market's historical units
+    # per active-player-hour and current population. If the threshold is not
+    # met, the current meta does not rotate merely because time passed.
+    target-hours: 6.0
+    completion-factor: 1.25
+    cooldown-hours: 24
+
+  alerts:
+    seller-concentration:
+      enabled: true
+      minimum-transactions: 8
+      share: 0.75
+      cooldown-hours: 6
