@@ -30,7 +30,6 @@ import java.util.UUID;
  * Mineacle's existing append-only transaction ledger, then coalesced into
  * hourly population/market/seller evidence for the shadow learner.</p>
  */
-@SuppressWarnings({"SqlNoDataSourceInspection", "SqlSourceToSinkFlow"})
 public final class SellLearningStorage {
 
     public record ActivityDelta(
@@ -376,11 +375,9 @@ public final class SellLearningStorage {
                     COLLATE=utf8mb4_unicode_ci
                     """.formatted(syncTable));
 
-            ensureColumn(
+            ensureTrackingStartedAtColumn(
                     connection,
-                    syncTable,
-                    "tracking_started_at",
-                    "BIGINT NOT NULL DEFAULT 0"
+                    syncTable
             );
 
             statement.executeUpdate("""
@@ -631,11 +628,10 @@ public final class SellLearningStorage {
                                                     "confidence"
                                             )
                                     ),
-                                    positiveFinite(
+                                    positiveFiniteOrOne(
                                             rows.getDouble(
                                                     "recommended_multiplier"
-                                            ),
-                                            1.0D
+                                            )
                                     ),
                                     nonBlank(
                                             rows.getString(
@@ -851,11 +847,9 @@ public final class SellLearningStorage {
         }
     }
 
-    private void ensureColumn(
+    private void ensureTrackingStartedAtColumn(
             Connection connection,
-            String table,
-            String column,
-            String definition
+            String table
     ) throws Exception {
         DatabaseMetaData metadata = connection.getMetaData();
         String catalog = connection.getCatalog();
@@ -864,7 +858,7 @@ public final class SellLearningStorage {
                 catalog,
                 null,
                 table,
-                column
+                "tracking_started_at"
         )) {
             if (result.next()) {
                 return;
@@ -876,10 +870,8 @@ public final class SellLearningStorage {
             statement.executeUpdate(
                     "ALTER TABLE "
                             + table
-                            + " ADD COLUMN "
-                            + column
-                            + " "
-                            + definition
+                            + " ADD COLUMN tracking_started_at "
+                            + "BIGINT NOT NULL DEFAULT 0"
             );
         }
     }
@@ -954,7 +946,7 @@ public final class SellLearningStorage {
                                  ON v10.sale_id = t.sale_id
                               WHERE t.created_at >= ?
                                 AND v10.sale_id IS NULL
-                              ORDER BY t.created_at ASC, t.sale_id ASC
+                              ORDER BY t.created_at, t.sale_id
                               LIMIT ?
                              """.formatted(
                              sourceTransactionTable,
@@ -1036,7 +1028,7 @@ public final class SellLearningStorage {
                        market_units
                   FROM %s
                  WHERE sale_id IN (%s)
-                 ORDER BY sale_id ASC, line_index ASC
+                 ORDER BY sale_id, line_index
                 """.formatted(sourceItemTable, placeholders);
         Map<String, List<LedgerItem>> result = new HashMap<>();
 
@@ -1498,9 +1490,8 @@ public final class SellLearningStorage {
                 );
                 statement.setDouble(
                         8,
-                        positiveFinite(
-                                row.recommendedMultiplier(),
-                                1.0D
+                        positiveFiniteOrOne(
+                                row.recommendedMultiplier()
                         )
                 );
                 statement.setString(
@@ -1931,14 +1922,13 @@ public final class SellLearningStorage {
                 : 0.0D;
     }
 
-    private double positiveFinite(
-            double value,
-            double fallback
+    private double positiveFiniteOrOne(
+            double value
     ) {
         return Double.isFinite(value)
                 && value > 0.0D
                 ? value
-                : fallback;
+                : 1.0D;
     }
 
     private double unitInterval(

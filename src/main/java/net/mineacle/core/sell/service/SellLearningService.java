@@ -372,8 +372,7 @@ public final class SellLearningService {
                 Bukkit.getOnlinePlayers()
                         .size();
 
-        if (online <= 0
-                || elapsed <= 0L) {
+        if (online <= 0) {
             return;
         }
 
@@ -555,8 +554,6 @@ public final class SellLearningService {
                 now - config.recentMillis();
         long baselineStart =
                 now - config.baselineMillis();
-        long baselineEnd =
-                recentStart;
 
         WindowSnapshot recent =
                 currentStorage.loadWindow(
@@ -567,7 +564,7 @@ public final class SellLearningService {
         WindowSnapshot baseline =
                 currentStorage.loadWindow(
                         baselineStart,
-                        baselineEnd,
+                        recentStart,
                         false
                 );
 
@@ -723,19 +720,15 @@ public final class SellLearningService {
                     state = STATE_META_READY;
                     occupiedMetaSlots++;
 
-                    if (!STATE_META_READY.equals(
-                            old.state()
-                    )) {
-                        alerts.add(
-                                metaCompletedAlert(
-                                        reference,
-                                        metaProgressUnits,
-                                        metaTargetUnits,
-                                        confidence
-                                )
-                        );
-                        lastAlertAt = now;
-                    }
+                    alerts.add(
+                            metaCompletedAlert(
+                                    reference,
+                                    metaProgressUnits,
+                                    metaTargetUnits,
+                                    confidence
+                            )
+                    );
+                    lastAlertAt = now;
                 } else {
                     state = STATE_META;
                     occupiedMetaSlots++;
@@ -974,8 +967,7 @@ public final class SellLearningService {
 
         for (Material material
                 : sellService.worthCatalogMaterials()) {
-            if (material == null
-                    || !sellService.isServerSellableMaterial(
+            if (!sellService.isServerSellableMaterial(
                     material
             )) {
                 continue;
