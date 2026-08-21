@@ -7,6 +7,7 @@ import net.mineacle.core.sell.service.SellCatalogV10Compiler;
 import net.mineacle.core.sell.service.SellCatalogV10Compiler.Compilation;
 import net.mineacle.core.sell.service.SellCatalogV10Compiler.Summary;
 import net.mineacle.core.sell.service.SellPricingPolicy;
+import net.mineacle.core.sell.service.SellLivePricingService;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -36,15 +37,18 @@ public final class SellCatalogV10BootstrapService {
 
     private final Core core;
     private final SellService sellService;
+    private final SellLivePricingService livePricingService;
     private final AtomicBoolean started =
             new AtomicBoolean();
 
     public SellCatalogV10BootstrapService(
             Core core,
-            SellService sellService
+            SellService sellService,
+            SellLivePricingService livePricingService
     ) {
         this.core = core;
         this.sellService = sellService;
+        this.livePricingService = livePricingService;
     }
 
     public void start() {
@@ -114,6 +118,15 @@ public final class SellCatalogV10BootstrapService {
                 return;
             }
 
+            if (livePricingService != null) {
+                livePricingService.installReference(
+                        snapshot,
+                        compiler.createLiveAuthority(
+                                snapshot
+                        )
+                );
+            }
+
             Summary summary =
                     compilation.summary();
 
@@ -146,7 +159,7 @@ public final class SellCatalogV10BootstrapService {
             );
 
             core.getLogger().info(
-                    "Sell catalog v10 live market movement is frozen at 1.0x — shadow learning remains non-authoritative"
+                    "Sell catalog v10 reference authority active — live governor publishes only validated evidence-backed generations"
             );
 
             core.getServer()

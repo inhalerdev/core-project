@@ -43,9 +43,11 @@ import java.util.Set;
  * trusted recipes derive or cap outputs against their cheapest liquidatable
  * input path.</p>
  *
- * <p>Live market movement is intentionally disabled in the compiled bootstrap
- * snapshot. The v10 learner runs separately in shadow mode and will become the
- * only component allowed to publish evidence-backed movement later.</p>
+ * <p>The compiled bootstrap snapshot is the frozen reference authority. Live
+ * movement is produced separately through {@link LiveAuthority}, which always
+ * reprices from that immutable reference, re-applies structural cent/container
+ * floors, propagates recipe ceilings forward, and refuses publication unless
+ * the full candidate passes the same recipe-safety audit.</p>
  */
 public final class SellCatalogV10Compiler {
 
@@ -58,6 +60,32 @@ public final class SellCatalogV10Compiler {
 
     public SellCatalogV10Compiler(SellService sellService) {
         this.sellService = sellService;
+    }
+
+    /**
+     * Captures the immutable recipe graph used by the live v10 pricing
+     * governor. Call this on the server thread after the reference catalog has
+     * activated; the returned authority performs no Bukkit registry access and
+     * is therefore safe to evaluate on the governor's dedicated worker.
+     */
+    public LiveAuthority createLiveAuthority(
+            SellCatalogSnapshot referenceSnapshot
+    ) {
+        if (referenceSnapshot == null
+                || referenceSnapshot.revision()
+                != SellPricingPolicy.CATALOG_REVISION
+                || referenceSnapshot.entries().isEmpty()
+                || referenceSnapshot.expectedRows()
+                != referenceSnapshot.entries().size()) {
+            throw new IllegalArgumentException(
+                    "referenceSnapshot"
+            );
+        }
+
+        return new LiveAuthority(
+                referenceSnapshot,
+                snapshotRecipes()
+        );
     }
 
     public Compilation compile(FileConfiguration config) {
@@ -2586,6 +2614,786 @@ public final class SellCatalogV10Compiler {
                 first / divisor,
                 second
         );
+    }
+
+
+    private void captureContainerRemainderMinimums(
+            Map<Material, Draft> drafts
+    ) {
+        for (Draft draft : drafts.values()) {
+            Material remainder =
+                    draft.material
+                            .getCraftingRemainingItem();
+
+            if (remainder == null
+                    || remainder == Material.AIR) {
+                continue;
+            }
+
+            Draft returned =
+                    drafts.get(remainder);
+
+            if (returned == null
+                    || returned.baseCents <= 0L) {
+                continue;
+            }
+
+            long structuralFloor =
+                    safeAdd(
+                            returned.baseCents,
+                            SellPricingPolicy.MINIMUM_UNIT_CENTS
+                    );
+
+            if (structuralFloor == Long.MAX_VALUE) {
+                continue;
+            }
+
+            draft.minimumBaseCents = Math.max(
+                    draft.minimumBaseCents,
+                    structuralFloor
+            );
+        }
+    }
+
+
+    /**
+     * Immutable, restart-stable authority for evidence-backed live repricing.
+     *
+     * <p>Every call starts from the frozen revision-10 reference snapshot.
+     * Requested multipliers can never compound from the previous live
+     * generation. Commodity ratios are kept exact, structural floors are
+     * restored, and one-way recipe safety is propagated forward before the
+     * candidate is audited.</p>
+     */
+    public final class LiveAuthority {
+
+        private static final double MINIMUM_DEFENSIVE_MULTIPLIER =
+                0.10D;
+        private static final double MAXIMUM_DEFENSIVE_MULTIPLIER =
+                4.00D;
+
+        private final SellCatalogSnapshot referenceSnapshot;
+        private final List<RecipeSeed> recipes;
+        private final List<Material> eligible;
+        private final CommodityBuild commodities;
+        private final Map<Material, List<RecipeSeed>> byOutput;
+        private final Set<RecipeSeed> cyclicRecipes;
+        private final Map<String, BigDecimal> referenceUnitCents;
+
+        private LiveAuthority(
+                SellCatalogSnapshot referenceSnapshot,
+                List<RecipeSeed> recipes
+        ) {
+            this.referenceSnapshot =
+                    referenceSnapshot;
+            this.recipes =
+                    List.copyOf(recipes);
+
+            List<Material> materials =
+                    new ArrayList<>(
+                            referenceSnapshot
+                                    .entries()
+                                    .keySet()
+                    );
+            materials.sort(
+                    Comparator.comparing(
+                            Material::name
+                    )
+            );
+            this.eligible =
+                    List.copyOf(materials);
+
+            this.commodities =
+                    commodityBuildFromReference(
+                            referenceSnapshot,
+                            this.recipes
+                    );
+            this.byOutput =
+                    trustedOneWayRecipes(
+                            this.recipes,
+                            this.commodities
+                    );
+            this.cyclicRecipes =
+                    cyclicRecipes(
+                            this.byOutput
+                    );
+            this.referenceUnitCents =
+                    SellCatalogV10Compiler.this.referenceUnitCents(
+                            referenceSnapshot
+                    );
+        }
+
+        public LiveCompilation reprice(
+                Map<String, Double> requestedMultipliers
+        ) {
+            Map<String, Double> requested =
+                    sanitizeRequestedMultipliers(
+                            requestedMultipliers
+                    );
+            Map<Material, Draft> drafts =
+                    draftsFromReference(
+                            referenceSnapshot
+                    );
+
+            applyLiveMultipliers(
+                    drafts,
+                    requested
+            );
+
+            /*
+             * Re-establish all intrinsic integer-cent/container constraints
+             * after applying market pressure. These floors are structural;
+             * they are never demand-driven backwards price propagation.
+             */
+            captureContainerRemainderMinimums(
+                    drafts
+            );
+            normalizeContainerRemainderFloors(
+                    drafts
+            );
+            normalizeSimpleConversionCentFloors(
+                    recipes,
+                    drafts
+            );
+            normalizeContainerPackingFloors(
+                    recipes,
+                    drafts
+            );
+
+            safetyClamp(
+                    drafts,
+                    byOutput,
+                    commodities,
+                    cyclicRecipes
+            );
+
+            Compilation validation =
+                    buildSnapshot(
+                            eligible,
+                            drafts,
+                            recipes,
+                            commodities.groupCount(),
+                            cyclicRecipes.size()
+                    );
+
+            if (!validation.ready()) {
+                return new LiveCompilation(
+                        null,
+                        Map.of(),
+                        validation.failures()
+                );
+            }
+
+            SellCatalogSnapshot liveSnapshot =
+                    buildLiveSnapshot(
+                            drafts
+                    );
+
+            return new LiveCompilation(
+                    liveSnapshot,
+                    effectiveMultipliers(
+                            requested,
+                            liveSnapshot
+                    ),
+                    List.of()
+            );
+        }
+
+        private Map<String, Double>
+        sanitizeRequestedMultipliers(
+                Map<String, Double> raw
+        ) {
+            if (raw == null
+                    || raw.isEmpty()) {
+                return Map.of();
+            }
+
+            Map<String, Double> result =
+                    new LinkedHashMap<>();
+
+            for (Map.Entry<String, Double>
+                    entry : raw.entrySet()) {
+                String key =
+                        normalizeMarketKey(
+                                entry.getKey()
+                        );
+                Double value =
+                        entry.getValue();
+
+                if (key.isBlank()
+                        || value == null
+                        || !Double.isFinite(value)
+                        || value <= 0.0D) {
+                    continue;
+                }
+
+                result.put(
+                        key,
+                        Math.clamp(
+                                value,
+                                MINIMUM_DEFENSIVE_MULTIPLIER,
+                                MAXIMUM_DEFENSIVE_MULTIPLIER
+                        )
+                );
+            }
+
+            return Map.copyOf(result);
+        }
+
+        private void applyLiveMultipliers(
+                Map<Material, Draft> drafts,
+                Map<String, Double> requested
+        ) {
+            for (Map.Entry<Material, Draft>
+                    draftEntry : drafts.entrySet()) {
+                Material material =
+                        draftEntry.getKey();
+                Draft draft =
+                        draftEntry.getValue();
+                SellCatalogEntry reference =
+                        referenceSnapshot
+                                .entries()
+                                .get(material);
+
+                if (reference == null
+                        || draft.variant) {
+                    continue;
+                }
+
+                String marketKey =
+                        normalizeMarketKey(
+                                reference.marketKey()
+                        );
+                double multiplier =
+                        requested.getOrDefault(
+                                marketKey,
+                                1.0D
+                        );
+                long scaled;
+
+                CommodityInfo commodity =
+                        commodities.info()
+                                .get(material);
+
+                if (commodity != null) {
+                    BigDecimal unitReference =
+                            referenceUnitCents
+                                    .get(
+                                            commodity
+                                                    .marketKey()
+                                    );
+
+                    if (unitReference == null
+                            || unitReference.signum()
+                            <= 0) {
+                        scaled =
+                                reference.baseCents();
+                    } else {
+                        long unit =
+                                scaleCents(
+                                        unitReference,
+                                        multiplier
+                                );
+                        scaled =
+                                safeMultiply(
+                                        unit,
+                                        Math.max(
+                                                1L,
+                                                commodity
+                                                        .marketUnits()
+                                        )
+                                );
+                    }
+                } else {
+                    scaled =
+                            scaleCents(
+                                    BigDecimal.valueOf(
+                                            reference
+                                                    .baseCents()
+                                    ),
+                                    multiplier
+                            );
+                }
+
+                if (scaled <= 0L
+                        || scaled == Long.MAX_VALUE) {
+                    scaled =
+                            reference.baseCents();
+                }
+
+                draft.baseCents =
+                        Math.max(
+                                SellPricingPolicy
+                                        .MINIMUM_UNIT_CENTS,
+                                scaled
+                        );
+            }
+        }
+
+        private long scaleCents(
+                BigDecimal reference,
+                double multiplier
+        ) {
+            if (reference == null
+                    || reference.signum() <= 0
+                    || !Double.isFinite(multiplier)
+                    || multiplier <= 0.0D) {
+                return SellPricingPolicy
+                        .MINIMUM_UNIT_CENTS;
+            }
+
+            try {
+                return reference
+                        .multiply(
+                                BigDecimal.valueOf(
+                                        multiplier
+                                )
+                        )
+                        .setScale(
+                                0,
+                                RoundingMode.HALF_UP
+                        )
+                        .max(
+                                BigDecimal.valueOf(
+                                        SellPricingPolicy
+                                                .MINIMUM_UNIT_CENTS
+                                )
+                        )
+                        .longValueExact();
+            } catch (ArithmeticException exception) {
+                return Long.MAX_VALUE;
+            }
+        }
+
+        private SellCatalogSnapshot buildLiveSnapshot(
+                Map<Material, Draft> drafts
+        ) {
+            Map<Material, SellCatalogEntry> entries =
+                    new EnumMap<>(
+                            Material.class
+                    );
+
+            for (Material material : eligible) {
+                SellCatalogEntry reference =
+                        referenceSnapshot
+                                .entries()
+                                .get(material);
+                Draft draft =
+                        drafts.get(material);
+
+                if (reference == null
+                        || draft == null) {
+                    continue;
+                }
+
+                long base =
+                        Math.max(
+                                SellPricingPolicy
+                                        .MINIMUM_UNIT_CENTS,
+                                draft.baseCents
+                        );
+                boolean changed =
+                        base != reference.baseCents();
+                String activation;
+
+                if (!changed) {
+                    activation =
+                            reference.activationState();
+                } else if (draft.recipeCapped) {
+                    activation =
+                            "V10_LIVE_RECIPE_SAFE";
+                } else if (draft.centFeasibilityAdjusted
+                        || draft.structuralFloorAdjusted) {
+                    activation =
+                            "V10_LIVE_FLOOR";
+                } else {
+                    activation =
+                            "V10_LIVE";
+                }
+
+                entries.put(
+                        material,
+                        new SellCatalogEntry(
+                                material,
+                                base,
+                                reference.category(),
+                                reference
+                                        .serverSellEnabled(),
+                                false,
+                                normalizeMarketKey(
+                                        reference
+                                                .marketKey()
+                                ),
+                                Math.max(
+                                        1L,
+                                        reference
+                                                .marketUnits()
+                                ),
+                                1L,
+                                1.0D,
+                                1.0D,
+                                reference
+                                        .buybackMultiplier(),
+                                reference
+                                        .enchantBuybackMultiplier(),
+                                reference
+                                        .priceSource(),
+                                reference
+                                        .autoSellApproved(),
+                                activation,
+                                reference
+                                        .operatorLocked(),
+                                SellPricingPolicy
+                                        .CATALOG_REVISION
+                        )
+                );
+            }
+
+            return new SellCatalogSnapshot(
+                    SellPricingPolicy
+                            .CATALOG_REVISION,
+                    entries.size(),
+                    System.currentTimeMillis(),
+                    Map.copyOf(entries)
+            );
+        }
+
+        private Map<String, Double>
+        effectiveMultipliers(
+                Map<String, Double> requested,
+                SellCatalogSnapshot liveSnapshot
+        ) {
+            if (requested.isEmpty()) {
+                return Map.of();
+            }
+
+            Map<String, BigDecimal> liveUnits =
+                    SellCatalogV10Compiler.this.referenceUnitCents(
+                            liveSnapshot
+                    );
+            Map<String, Double> result =
+                    new LinkedHashMap<>();
+
+            for (String key : requested.keySet()) {
+                BigDecimal reference =
+                        referenceUnitCents.get(key);
+                BigDecimal live =
+                        liveUnits.get(key);
+
+                if (reference == null
+                        || live == null
+                        || reference.signum() <= 0
+                        || live.signum() <= 0) {
+                    continue;
+                }
+
+                try {
+                    double value =
+                            live.divide(
+                                            reference,
+                                            8,
+                                            RoundingMode.HALF_UP
+                                    )
+                                    .doubleValue();
+
+                    if (Double.isFinite(value)
+                            && value > 0.0D) {
+                        result.put(
+                                key,
+                                value
+                        );
+                    }
+                } catch (ArithmeticException ignored) {
+                }
+            }
+
+            return Map.copyOf(result);
+        }
+    }
+
+    private Map<Material, Draft>
+    draftsFromReference(
+            SellCatalogSnapshot reference
+    ) {
+        Map<Material, Draft> drafts =
+                new EnumMap<>(
+                        Material.class
+                );
+
+        for (SellCatalogEntry entry
+                : reference.entries().values()) {
+            PriceSource source =
+                    parsePriceSource(
+                            entry.priceSource()
+                    );
+            Draft draft =
+                    new Draft(
+                            entry.material(),
+                            normalizeCategory(
+                                    entry.category()
+                            ),
+                            Math.max(
+                                    SellPricingPolicy
+                                            .MINIMUM_UNIT_CENTS,
+                                    entry.baseCents()
+                            ),
+                            source
+                                    == PriceSource.CURATED,
+                            source
+                    );
+            draft.variant =
+                    source
+                            == PriceSource
+                            .VARIANT_REQUIRED;
+            draft.marketKey =
+                    normalizeMarketKey(
+                            entry.marketKey()
+                    );
+            draft.marketUnits =
+                    Math.max(
+                            1L,
+                            entry.marketUnits()
+                    );
+            drafts.put(
+                    entry.material(),
+                    draft
+            );
+        }
+
+        return drafts;
+    }
+
+    private PriceSource parsePriceSource(
+            String raw
+    ) {
+        if (raw == null
+                || raw.isBlank()) {
+            return PriceSource
+                    .GENERATED_CATEGORY;
+        }
+
+        try {
+            return PriceSource.valueOf(
+                    raw.trim()
+                            .toUpperCase(
+                                    Locale.ROOT
+                            )
+            );
+        } catch (IllegalArgumentException exception) {
+            return PriceSource
+                    .GENERATED_CATEGORY;
+        }
+    }
+
+    private CommodityBuild commodityBuildFromReference(
+            SellCatalogSnapshot reference,
+            List<RecipeSeed> recipes
+    ) {
+        Map<String, List<SellCatalogEntry>> groups =
+                new LinkedHashMap<>();
+
+        for (SellCatalogEntry entry
+                : reference.entries().values()) {
+            groups.computeIfAbsent(
+                    normalizeMarketKey(
+                            entry.marketKey()
+                    ),
+                    ignored ->
+                            new ArrayList<>()
+            ).add(entry);
+        }
+
+        Map<Material, CommodityInfo> info =
+                new EnumMap<>(
+                        Material.class
+                );
+        int groupCount = 0;
+
+        for (Map.Entry<String, List<SellCatalogEntry>>
+                group : groups.entrySet()) {
+            boolean commodity =
+                    group.getValue().size() > 1
+                            || group.getValue()
+                            .stream()
+                            .anyMatch(
+                                    entry ->
+                                            entry.marketUnits()
+                                                    != 1L
+                            );
+
+            if (!commodity) {
+                continue;
+            }
+
+            groupCount++;
+
+            for (SellCatalogEntry entry
+                    : group.getValue()) {
+                info.put(
+                        entry.material(),
+                        new CommodityInfo(
+                                group.getKey(),
+                                Math.max(
+                                        1L,
+                                        entry.marketUnits()
+                                )
+                        )
+                );
+            }
+        }
+
+        Set<Integer> equivalent =
+                new HashSet<>();
+
+        for (int index = 0;
+             index < recipes.size();
+             index++) {
+            RecipeSeed recipe =
+                    recipes.get(index);
+
+            if (untrustedCatalogRecipe(recipe)) {
+                continue;
+            }
+
+            SimpleConversion conversion =
+                    simpleConversion(recipe);
+
+            if (conversion == null) {
+                continue;
+            }
+
+            CommodityInfo input =
+                    info.get(
+                            conversion.input()
+                    );
+            CommodityInfo output =
+                    info.get(
+                            conversion.output()
+                    );
+
+            if (input == null
+                    || output == null
+                    || !input.marketKey()
+                    .equals(
+                            output.marketKey()
+                    )) {
+                continue;
+            }
+
+            long inputUnits =
+                    safeMultiply(
+                            conversion.inputAmount(),
+                            input.marketUnits()
+                    );
+            long outputUnits =
+                    safeMultiply(
+                            conversion.outputAmount(),
+                            output.marketUnits()
+                    );
+
+            if (inputUnits > 0L
+                    && inputUnits
+                    != Long.MAX_VALUE
+                    && inputUnits
+                    == outputUnits) {
+                equivalent.add(index);
+            }
+        }
+
+        return new CommodityBuild(
+                Map.copyOf(info),
+                Set.copyOf(equivalent),
+                groupCount
+        );
+    }
+
+    private Map<String, BigDecimal>
+    referenceUnitCents(
+            SellCatalogSnapshot snapshot
+    ) {
+        Map<String, BigDecimal> result =
+                new LinkedHashMap<>();
+
+        for (SellCatalogEntry entry
+                : snapshot.entries().values()) {
+            if (entry.baseCents() <= 0L
+                    || entry.marketUnits() <= 0L) {
+                continue;
+            }
+
+            String key =
+                    normalizeMarketKey(
+                            entry.marketKey()
+                    );
+
+            if (key.isBlank()) {
+                continue;
+            }
+
+            BigDecimal unit =
+                    BigDecimal.valueOf(
+                                    entry.baseCents()
+                            )
+                            .divide(
+                                    BigDecimal.valueOf(
+                                            entry.marketUnits()
+                                    ),
+                                    8,
+                                    RoundingMode.HALF_UP
+                            );
+            BigDecimal current =
+                    result.get(key);
+
+            if (current == null
+                    || unit.compareTo(current) < 0) {
+                result.put(
+                        key,
+                        unit
+                );
+            }
+        }
+
+        return Map.copyOf(result);
+    }
+
+    private String normalizeMarketKey(
+            String raw
+    ) {
+        if (raw == null
+                || raw.isBlank()) {
+            return "";
+        }
+
+        return raw.trim()
+                .toUpperCase(
+                        Locale.ROOT
+                )
+                .replace('-', '_')
+                .replace(' ', '_');
+    }
+
+    public record LiveCompilation(
+            SellCatalogSnapshot snapshot,
+            Map<String, Double> effectiveMultipliers,
+            List<String> failures
+    ) {
+        public LiveCompilation {
+            effectiveMultipliers =
+                    effectiveMultipliers == null
+                            ? Map.of()
+                            : Map.copyOf(
+                            effectiveMultipliers
+                    );
+            failures =
+                    failures == null
+                            ? List.of()
+                            : List.copyOf(failures);
+        }
+
+        public boolean ready() {
+            return snapshot != null
+                    && failures.isEmpty();
+        }
     }
 
     public record Compilation(

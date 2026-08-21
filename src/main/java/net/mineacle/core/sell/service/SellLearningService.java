@@ -32,13 +32,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 /**
- * Sell/Worth v10 economic telemetry and shadow-learning engine.
+ * Sell/Worth v10 economic telemetry and evidence engine.
  *
- * <p>The service never changes a live payout. It records aggregate economic
- * evidence, learns supply rates per active-player-hour, manages shadow meta
- * state behind evidence/completion gates, and emits permission-gated admin
- * notices. Once the learner proves stable, the same persisted state can become
- * the authority for a later v10 pricing snapshot.</p>
+ * <p>The service records aggregate economic evidence, learns supply rates per
+ * active-player-hour, manages evidence-gated meta state, and emits
+ * permission-gated admin notices. It never mutates pricing directly; completed
+ * evaluations are handed to {@link SellLivePricingService}, which stages and
+ * validates a full immutable price generation before runtime publication.</p>
  */
 public final class SellLearningService {
 
@@ -64,6 +64,7 @@ public final class SellLearningService {
 
     private final Core core;
     private final SellService sellService;
+    private final SellLivePricingService livePricingService;
     private final ScheduledThreadPoolExecutor executor;
 
     private final Map<Long, MutableActivity> pendingActivity =
@@ -90,10 +91,12 @@ public final class SellLearningService {
 
     public SellLearningService(
             Core core,
-            SellService sellService
+            SellService sellService,
+            SellLivePricingService livePricingService
     ) {
         this.core = core;
         this.sellService = sellService;
+        this.livePricingService = livePricingService;
         this.executor =
                 new ScheduledThreadPoolExecutor(
                         1,
@@ -129,7 +132,7 @@ public final class SellLearningService {
         initializeSqlAsync();
 
         core.getLogger().info(
-                "Sell v10 shadow learning enabled — learning remains non-authoritative until a validated v10 catalog is active"
+                "Sell v10 learning enabled — evidence remains non-authoritative until the live governor publishes a validated generation"
         );
     }
 
@@ -203,7 +206,7 @@ public final class SellLearningService {
                             } catch (Exception exception) {
                                 core.getLogger().log(
                                         Level.WARNING,
-                                        "Could not persist final Sell v10 shadow-learning batch",
+                                        "Could not persist final Sell v10 learning batch",
                                         exception
                                 );
                             }
@@ -212,7 +215,7 @@ public final class SellLearningService {
             } catch (RejectedExecutionException exception) {
                 core.getLogger().log(
                         Level.WARNING,
-                        "Sell v10 shadow-learning final persistence task was rejected",
+                        "Sell v10 learning final persistence task was rejected",
                         exception
                 );
             }
@@ -265,7 +268,7 @@ public final class SellLearningService {
         if (!storage.sqlConfigured()) {
             nextSqlRetryAt = Long.MAX_VALUE;
             core.getLogger().warning(
-                    "Sell v10 shadow learning requires MySQL/MariaDB — learning is frozen"
+                    "Sell v10 learning requires MySQL/MariaDB — learning and live repricing are frozen"
             );
             return;
         }
@@ -330,7 +333,7 @@ public final class SellLearningService {
                             + SQL_RETRY_MILLIS;
             core.getLogger().log(
                     Level.WARNING,
-                    "Sell v10 shadow-learning database unavailable — learning and meta rotation are frozen; live payouts are unaffected",
+                    "Sell v10 learning database unavailable — learning, meta rotation, and live repricing are frozen; current payouts are unaffected",
                     failure
             );
             return;
@@ -344,7 +347,7 @@ public final class SellLearningService {
         nextSqlRetryAt = 0L;
 
         core.getLogger().info(
-                "Sell v10 shadow-learning database connected — "
+                "Sell v10 learning database connected — "
                         + learningState.size()
                         + " learned market state(s) loaded"
         );
@@ -485,7 +488,7 @@ public final class SellLearningService {
 
                             if (importedSales >= 50_000) {
                                 core.getLogger().info(
-                                        "Sell v10 shadow learner imported 50,000 ledger sales this pass — additional history will continue syncing on later evaluations"
+                                        "Sell v10 learner imported 50,000 ledger sales this pass — additional history will continue syncing on later evaluations"
                                 );
                             }
 
@@ -653,17 +656,19 @@ public final class SellLearningService {
                             : 1.0D;
             double recommendation =
                     evidenceReady
+                            && reference.dynamicEligible()
                             ? recommendedMultiplier(
                             ratio,
                             confidence
                     )
                             : 1.0D;
+            /*
+             * Persist the frozen v10 reference, never the current live price.
+             * This deliberately breaks any feedback/compounding path from a
+             * prior live generation back into the learner's reference state.
+             */
             BigDecimal shadowReference =
-                    old != null
-                            && old.shadowReferenceUnitCents()
-                            .signum() > 0
-                            ? old.shadowReferenceUnitCents()
-                            : reference.unitCents();
+                    reference.unitCents();
             String state =
                     evidenceReady
                             ? ratio >= config.oversupplyRatio()
@@ -682,7 +687,8 @@ public final class SellLearningService {
                             ? 0L
                             : old.lastAlertAt();
 
-            if (old != null
+            if (reference.dynamicEligible()
+                    && old != null
                     && STATE_META_READY.equals(
                     old.state()
             )) {
@@ -692,7 +698,8 @@ public final class SellLearningService {
                  * as a distinct state and prevents same-tick churn.
                  */
                 lastMetaAt = now;
-            } else if (old != null
+            } else if (reference.dynamicEligible()
+                    && old != null
                     && STATE_META.equals(
                     old.state()
             )) {
@@ -758,7 +765,8 @@ public final class SellLearningService {
                     row
             );
 
-            if (evidenceReady
+            if (reference.dynamicEligible()
+                    && evidenceReady
                     && !STATE_META.equals(state)
                     && !STATE_META_READY.equals(state)
                     && ratio <= config.shortageRatio()
@@ -867,6 +875,20 @@ public final class SellLearningService {
                 alerts
         );
 
+        Map<String, Long> recentMarketPayouts =
+                new HashMap<>();
+
+        for (MarketTotals market
+                : recent.markets().values()) {
+            if (market != null
+                    && market.sellPayoutCents() > 0L) {
+                recentMarketPayouts.put(
+                        market.marketKey(),
+                        market.sellPayoutCents()
+                );
+            }
+        }
+
         return new EvaluationResult(
                 List.copyOf(
                         next.values()
@@ -875,6 +897,9 @@ public final class SellLearningService {
                 Map.copyOf(next),
                 recentPlayerHours,
                 baselinePlayerHours,
+                recent.activity().sellPayoutCents(),
+                baseline.activity().sellPayoutCents(),
+                Map.copyOf(recentMarketPayouts),
                 newMetaCount
         );
     }
@@ -906,7 +931,7 @@ public final class SellLearningService {
 
             core.getLogger().log(
                     Level.WARNING,
-                    "Sell v10 shadow evaluation failed — learning is frozen and live payouts remain unchanged",
+                    "Sell v10 evaluation failed — learning and repricing are frozen; current payouts remain unchanged",
                     failure
             );
             return;
@@ -921,8 +946,22 @@ public final class SellLearningService {
                 result.alerts()
         );
 
+        if (livePricingService != null) {
+            livePricingService.acceptEvaluation(
+                    new EvaluationSnapshot(
+                            result.state(),
+                            result.recentPlayerHours(),
+                            result.baselinePlayerHours(),
+                            result.recentSellPayoutCents(),
+                            result.baselineSellPayoutCents(),
+                            result.recentMarketSellPayoutCents(),
+                            evaluatedAt
+                    )
+            );
+        }
+
         core.getLogger().info(
-                "Sell v10 shadow evaluation complete — "
+                "Sell v10 evaluation complete — "
                         + learningState.size()
                         + " market(s), "
                         + formatOneDecimal(
@@ -934,7 +973,7 @@ public final class SellLearningService {
                 )
                         + " baseline player-hour(s), "
                         + result.newMetaCount()
-                        + " new shadow meta(s)"
+                        + " new v10 meta(s)"
         );
     }
 
@@ -956,74 +995,55 @@ public final class SellLearningService {
 
         core.getLogger().log(
                 Level.WARNING,
-                "Sell v10 shadow telemetry persistence failed — learning is frozen and live payouts remain unchanged",
+                "Sell v10 telemetry persistence failed — learning and repricing are frozen; current payouts remain unchanged",
                 exception
         );
     }
 
     private Map<String, MarketReference> captureReferences() {
+        if (livePricingService == null) {
+            return Map.of();
+        }
+
+        Map<String, SellLivePricingService.ReferenceMarket> liveReferences =
+                livePricingService.referenceMarkets();
+
+        if (liveReferences.isEmpty()) {
+            return Map.of();
+        }
+
         Map<String, MarketReference> references =
-                new HashMap<>();
+                new HashMap<>(
+                        liveReferences.size()
+                );
 
-        for (Material material
-                : sellService.worthCatalogMaterials()) {
-            if (!sellService.isServerSellableMaterial(
-                    material
-            )) {
-                continue;
-            }
-
-            long payout =
-                    sellService.serverUnitSellCents(
-                            (UUID) null,
-                            material
-                    );
-
-            if (payout <= 0L) {
+        for (SellLivePricingService.ReferenceMarket reference
+                : liveReferences.values()) {
+            if (reference == null
+                    || reference.material() == null
+                    || reference.unitCents() == null
+                    || reference.unitCents().signum() <= 0) {
                 continue;
             }
 
             String marketKey =
                     normalizeKey(
-                            sellService.marketKey(
-                                    material
-                            )
-                    );
-            long units =
-                    sellService.marketUnits(
-                            material
+                            reference.marketKey()
                     );
 
-            if (marketKey.isBlank()
-                    || units <= 0L) {
+            if (marketKey.isBlank()) {
                 continue;
             }
 
-            BigDecimal unitCents =
-                    BigDecimal.valueOf(payout)
-                            .divide(
-                                    BigDecimal.valueOf(units),
-                                    8,
-                                    RoundingMode.HALF_UP
-                            );
-            MarketReference current =
-                    references.get(
-                            marketKey
-                    );
-
-            if (current == null
-                    || unitCents.compareTo(
-                    current.unitCents()
-            ) < 0) {
-                references.put(
-                        marketKey,
-                        new MarketReference(
-                                marketKey,
-                                material,
-                                unitCents
-                        )
-                );
-            }
+            references.put(
+                    marketKey,
+                    new MarketReference(
+                            marketKey,
+                            reference.material(),
+                            reference.unitCents(),
+                            reference.dynamicEligible()
+                    )
+            );
         }
 
         return Map.copyOf(references);
@@ -1144,7 +1164,7 @@ public final class SellLearningService {
             double recommendation
     ) {
         return new Alert(
-                "&#8436FEMineacle Sell &#bbbbbb» New shadow meta: &#D0AFFF"
+                "&#8436FEMineacle Sell &#bbbbbb» New v10 meta: &#D0AFFF"
                         + pretty(
                         candidate.reference()
                                 .material()
@@ -1159,7 +1179,7 @@ public final class SellLearningService {
                 )
                         + " • completion threshold "
                         + target
-                        + " normalized units • shadow recommendation "
+                        + " normalized units • live recommendation "
                         + multiplier(
                         recommendation
                 )
@@ -1173,7 +1193,7 @@ public final class SellLearningService {
             double confidence
     ) {
         return new Alert(
-                "&#8436FEMineacle Sell &#bbbbbb» Shadow meta threshold reached: &#D0AFFF"
+                "&#8436FEMineacle Sell &#bbbbbb» V10 meta threshold reached: &#D0AFFF"
                         + pretty(
                         reference.material()
                 ),
@@ -1642,7 +1662,8 @@ public final class SellLearningService {
     private record MarketReference(
             String marketKey,
             Material material,
-            BigDecimal unitCents
+            BigDecimal unitCents,
+            boolean dynamicEligible
     ) {
     }
 
@@ -1669,8 +1690,62 @@ public final class SellLearningService {
             Map<String, LearningRow> state,
             double recentPlayerHours,
             double baselinePlayerHours,
+            long recentSellPayoutCents,
+            long baselineSellPayoutCents,
+            Map<String, Long> recentMarketSellPayoutCents,
             int newMetaCount
     ) {
+    }
+
+    /**
+     * Immutable evidence handoff consumed by the live pricing governor.
+     */
+    public record EvaluationSnapshot(
+            Map<String, LearningRow> markets,
+            double recentPlayerHours,
+            double baselinePlayerHours,
+            long recentSellPayoutCents,
+            long baselineSellPayoutCents,
+            Map<String, Long> recentMarketSellPayoutCents,
+            long evaluatedAt
+    ) {
+        public EvaluationSnapshot {
+            markets =
+                    markets == null
+                            ? Map.of()
+                            : Map.copyOf(markets);
+            recentPlayerHours =
+                    Math.max(
+                            0.0D,
+                            recentPlayerHours
+                    );
+            baselinePlayerHours =
+                    Math.max(
+                            0.0D,
+                            baselinePlayerHours
+                    );
+            recentSellPayoutCents =
+                    Math.max(
+                            0L,
+                            recentSellPayoutCents
+                    );
+            baselineSellPayoutCents =
+                    Math.max(
+                            0L,
+                            baselineSellPayoutCents
+                    );
+            recentMarketSellPayoutCents =
+                    recentMarketSellPayoutCents == null
+                            ? Map.of()
+                            : Map.copyOf(
+                            recentMarketSellPayoutCents
+                    );
+            evaluatedAt =
+                    Math.max(
+                            0L,
+                            evaluatedAt
+                    );
+        }
     }
 
     private static final class MutableActivity {

@@ -9,6 +9,7 @@ import net.mineacle.core.sell.listener.SellGuiListener;
 import net.mineacle.core.sell.listener.SellWorthPacketListener;
 import net.mineacle.core.sell.listener.WorthGuiListener;
 import net.mineacle.core.sell.service.SellLearningService;
+import net.mineacle.core.sell.service.SellLivePricingService;
 import net.mineacle.core.sell.service.SellRuntimeIntegrityAudit;
 import net.mineacle.core.sell.service.SellService;
 import net.mineacle.core.sell.storage.SellCatalogV10BootstrapService;
@@ -22,6 +23,7 @@ public final class SellModule extends Module {
 
     private static SellService sellService;
     private SellLearningService learningService;
+    private SellLivePricingService livePricingService;
 
     private SellWorthPacketListener packetListener;
     private WorthGuiListener worthGuiListener;
@@ -44,17 +46,25 @@ public final class SellModule extends Module {
         sellService.start();
 
         /*
-         * v10 learning remains shadow-only. It observes completed Sell payouts
-         * and population-normalized supply but cannot move live prices yet.
+         * The live governor owns evidence-backed publication. It is installed
+         * before the learner so the learner can always resolve frozen static
+         * reference markets rather than feeding back the current live price.
          */
-        learningService = new SellLearningService(
+        livePricingService = new SellLivePricingService(
                 core,
                 sellService
+        );
+        livePricingService.start();
+
+        learningService = new SellLearningService(
+                core,
+                sellService,
+                livePricingService
         );
         learningService.start();
 
         /*
-         * Revision 10 is the live static reference authority. It compiles only
+         * Revision 10 is the static reference authority. It compiles only
          * forward from primary references, preserves exact commodity ratios,
          * clamps crafted outputs against their cheapest trusted recipe, and
          * freezes the retired v9 demand/featured multipliers at 1.0x.
@@ -62,7 +72,8 @@ public final class SellModule extends Module {
         SellCatalogV10BootstrapService catalogBootstrapService =
                 new SellCatalogV10BootstrapService(
                         core,
-                        sellService
+                        sellService,
+                        livePricingService
                 );
         catalogBootstrapService.start();
 
@@ -137,7 +148,10 @@ public final class SellModule extends Module {
                         .getScheduler()
                         .runTaskTimer(
                                 core,
-                                learningService::tick,
+                                () -> {
+                                    learningService.tick();
+                                    livePricingService.tick();
+                                },
                                 20L,
                                 20L * 20L
                         );
@@ -205,6 +219,11 @@ public final class SellModule extends Module {
         if (learningService != null) {
             learningService.shutdown();
             learningService = null;
+        }
+
+        if (livePricingService != null) {
+            livePricingService.shutdown();
+            livePricingService = null;
         }
 
         if (sellService != null) {
