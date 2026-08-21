@@ -160,6 +160,35 @@ public final class SellCatalogV10Compiler {
                 drafts
         );
 
+        /*
+         * Integer cents create one unavoidable feasibility constraint: a
+         * simple conversion that produces N sellable output items must carry
+         * at least N cents of net input value. Apply only the minimum floor
+         * required for one-material conversions. This is currency-precision
+         * normalization, not economic backwards pricing: it never preserves a
+         * configured output price and never raises multi-input recipe chains.
+         */
+        normalizeSimpleConversionCentFloors(
+                recipes,
+                drafts
+        );
+
+        /*
+         * Container-packed reversible conversions need one additional affine
+         * constraint. Example:
+         *
+         * HONEY_BLOCK + 4 GLASS_BOTTLE -> 4 HONEY_BOTTLE
+         *
+         * If HONEY_BOTTLE must retain a positive net value above its returned
+         * GLASS_BOTTLE, the non-container payload must carry exactly that net
+         * value. This keeps reversible container cycles representable without
+         * raising arbitrary multi-input ingredients.
+         */
+        normalizeContainerPackingFloors(
+                recipes,
+                drafts
+        );
+
         Map<Material, List<RecipeSeed>> byOutput =
                 trustedOneWayRecipes(
                         recipes,
@@ -248,7 +277,8 @@ public final class SellCatalogV10Compiler {
                 long ceiling = cheapestRecipeCeiling(
                         entry.getValue(),
                         drafts,
-                        cyclicRecipes
+                        cyclicRecipes,
+                        output.minimumBaseCents
                 );
 
                 if (ceiling <= 0L
@@ -286,7 +316,7 @@ public final class SellCatalogV10Compiler {
             );
 
             draft.baseCents = Math.max(
-                    SellPricingPolicy.MINIMUM_UNIT_CENTS,
+                    draft.minimumBaseCents,
                     SellPricingPolicy
                             .automaticSeedCents(
                                     draft.category,
@@ -326,7 +356,8 @@ public final class SellCatalogV10Compiler {
                 long ceiling = cheapestRecipeCeiling(
                         entry.getValue(),
                         drafts,
-                        cyclicRecipes
+                        cyclicRecipes,
+                        output.minimumBaseCents
                 );
 
                 if (ceiling == Long.MAX_VALUE) {
@@ -401,7 +432,8 @@ public final class SellCatalogV10Compiler {
     private long cheapestRecipeCeiling(
             List<RecipeSeed> recipes,
             Map<Material, Draft> drafts,
-            Set<RecipeSeed> cyclicRecipes
+            Set<RecipeSeed> cyclicRecipes,
+            long minimumFloor
     ) {
         long cheapest = Long.MAX_VALUE;
         boolean complete = false;
@@ -434,18 +466,40 @@ public final class SellCatalogV10Compiler {
                                     1.0D,
                                     retention
                             );
+            long hardCeiling =
+                    hardNoProfitUnitCeiling(
+                            inputBudget,
+                            recipe.outputAmount()
+                    );
 
             /*
-             * If the normal haircut rounds below one cent, allow the strict
-             * no-profit cent boundary. This handles precision only; it never
-             * permits an output stack to exceed its inputs.
+             * Retention is a pacing preference; the hard no-profit ceiling is
+             * the safety boundary. If integer-cent feasibility requires a
+             * slightly higher unit value, allow it only when it still fits
+             * beneath that hard boundary. This is what makes conversions such
+             * as 3 low-value blocks -> 6 slabs representable without ever
+             * permitting craft-to-Sell profit.
              */
-            if (retained <= 0L) {
-                retained =
-                        hardNoProfitUnitCeiling(
-                                inputBudget,
-                                recipe.outputAmount()
-                        );
+            long requiredFloor = Math.max(
+                    SellPricingPolicy.MINIMUM_UNIT_CENTS,
+                    minimumFloor
+            );
+
+            if (hardCeiling >= requiredFloor) {
+                retained = Math.clamp(
+                        Math.max(retained, requiredFloor),
+                        requiredFloor,
+                        hardCeiling
+                );
+            } else {
+                /*
+                 * Never erase an intrinsic structural/cent floor simply
+                 * because another recipe cannot currently support it. Keep
+                 * the floor and let the atomic candidate validator reject the
+                 * exact incompatible recipe. Container-packing normalization
+                 * resolves the legitimate reversible cases before this point.
+                 */
+                retained = requiredFloor;
             }
 
             cheapest = Math.min(
@@ -1223,7 +1277,233 @@ public final class SellCatalogV10Compiler {
             }
 
             draft.baseCents = structuralFloor;
+            draft.minimumBaseCents = Math.max(
+                    draft.minimumBaseCents,
+                    structuralFloor
+            );
             draft.structuralFloorAdjusted = true;
+        }
+    }
+
+    private void normalizeSimpleConversionCentFloors(
+            List<RecipeSeed> recipes,
+            Map<Material, Draft> drafts
+    ) {
+        for (RecipeSeed recipe : recipes) {
+            if (untrustedCatalogRecipe(recipe)
+                    || recipe.outputAmount() <= 0
+                    || recipe.ingredients().isEmpty()) {
+                continue;
+            }
+
+            Material inputMaterial = null;
+            int inputCount = 0;
+            boolean simple = true;
+
+            for (IngredientChoice choice : recipe.ingredients()) {
+                if (choice.materials().size() != 1) {
+                    simple = false;
+                    break;
+                }
+
+                Material current =
+                        choice.materials().getFirst();
+
+                if (inputMaterial == null) {
+                    inputMaterial = current;
+                } else if (inputMaterial != current) {
+                    simple = false;
+                    break;
+                }
+
+                inputCount++;
+            }
+
+            if (!simple
+                    || inputMaterial == null
+                    || inputCount <= 0
+                    || inputMaterial == recipe.output()) {
+                continue;
+            }
+
+            Draft input = drafts.get(inputMaterial);
+
+            if (input == null
+                    || input.baseCents <= 0L) {
+                continue;
+            }
+
+            long returnedCents = 0L;
+
+            if (recipe.craftingRemainders()) {
+                Material remainder =
+                        inputMaterial.getCraftingRemainingItem();
+
+                if (remainder != null
+                        && remainder != Material.AIR) {
+                    Draft returned = drafts.get(remainder);
+
+                    if (returned != null
+                            && returned.baseCents > 0L) {
+                        returnedCents = returned.baseCents;
+                    }
+                }
+            }
+
+            long requiredNetPerInput =
+                    (recipe.outputAmount()
+                            + (long) inputCount
+                            - 1L)
+                            / inputCount;
+            long requiredBase =
+                    safeAdd(
+                            returnedCents,
+                            Math.max(
+                                    SellPricingPolicy.MINIMUM_UNIT_CENTS,
+                                    requiredNetPerInput
+                            )
+                    );
+
+            if (requiredBase == Long.MAX_VALUE) {
+                continue;
+            }
+
+            input.minimumBaseCents = Math.max(
+                    input.minimumBaseCents,
+                    requiredBase
+            );
+
+            if (input.baseCents < input.minimumBaseCents) {
+                input.baseCents = input.minimumBaseCents;
+                input.centFeasibilityAdjusted = true;
+            }
+        }
+    }
+
+    private void normalizeContainerPackingFloors(
+            List<RecipeSeed> recipes,
+            Map<Material, Draft> drafts
+    ) {
+        for (RecipeSeed recipe : recipes) {
+            if (untrustedCatalogRecipe(recipe)
+                    || recipe.outputAmount() <= 0
+                    || recipe.ingredients().isEmpty()) {
+                continue;
+            }
+
+            Draft output =
+                    drafts.get(recipe.output());
+
+            if (output == null
+                    || output.minimumBaseCents <= 0L) {
+                continue;
+            }
+
+            Material remainder =
+                    recipe.output()
+                            .getCraftingRemainingItem();
+
+            if (remainder == null
+                    || remainder == Material.AIR) {
+                continue;
+            }
+
+            Draft returned =
+                    drafts.get(remainder);
+
+            if (returned == null
+                    || returned.baseCents <= 0L
+                    || output.minimumBaseCents
+                    <= returned.baseCents) {
+                continue;
+            }
+
+            int remainderInputs = 0;
+            int payloadInputs = 0;
+            Material payloadMaterial = null;
+            boolean compatible = true;
+
+            for (IngredientChoice choice : recipe.ingredients()) {
+                if (choice.materials().size() != 1) {
+                    compatible = false;
+                    break;
+                }
+
+                Material material =
+                        choice.materials().getFirst();
+
+                if (material == remainder) {
+                    remainderInputs++;
+                    continue;
+                }
+
+                if (payloadMaterial == null) {
+                    payloadMaterial = material;
+                } else if (payloadMaterial != material) {
+                    compatible = false;
+                    break;
+                }
+
+                payloadInputs++;
+            }
+
+            /*
+             * This rule is deliberately narrow: the recipe must package one
+             * homogeneous payload with exactly one empty remainder container
+             * for every produced filled container. That covers reversible
+             * container cycles such as Honey Block <-> Honey Bottles without
+             * becoming a general backwards recipe-pricing rule.
+             */
+            if (!compatible
+                    || payloadMaterial == null
+                    || payloadInputs <= 0
+                    || remainderInputs != recipe.outputAmount()) {
+                continue;
+            }
+
+            Draft payload =
+                    drafts.get(payloadMaterial);
+
+            if (payload == null
+                    || payload.baseCents <= 0L) {
+                continue;
+            }
+
+            long netPerOutput =
+                    output.minimumBaseCents
+                            - returned.baseCents;
+            long requiredPayloadTotal =
+                    safeMultiply(
+                            netPerOutput,
+                            recipe.outputAmount()
+                    );
+
+            if (requiredPayloadTotal <= 0L
+                    || requiredPayloadTotal == Long.MAX_VALUE) {
+                continue;
+            }
+
+            long requiredPayloadPerInput =
+                    requiredPayloadTotal
+                            / payloadInputs;
+
+            if (requiredPayloadTotal
+                    % payloadInputs != 0L) {
+                requiredPayloadPerInput++;
+            }
+
+            payload.minimumBaseCents =
+                    Math.max(
+                            payload.minimumBaseCents,
+                            requiredPayloadPerInput
+                    );
+
+            if (payload.baseCents
+                    < payload.minimumBaseCents) {
+                payload.baseCents =
+                        payload.minimumBaseCents;
+                payload.centFeasibilityAdjusted = true;
+            }
         }
     }
 
@@ -1800,6 +2080,12 @@ public final class SellCatalogV10Compiler {
             return "V10_VARIANT";
         }
 
+        if (draft.centFeasibilityAdjusted) {
+            return draft.explicit
+                    ? "V10_REFERENCE_CENT_FLOOR"
+                    : "V10_CENT_FLOOR";
+        }
+
         if (draft.structuralFloorAdjusted) {
             return draft.explicit
                     ? "V10_REFERENCE_CONTAINER_FLOOR"
@@ -2354,6 +2640,9 @@ public final class SellCatalogV10Compiler {
         private boolean derivedCandidate;
         private boolean fallbackAfterDerivation;
         private boolean structuralFloorAdjusted;
+        private boolean centFeasibilityAdjusted;
+        private long minimumBaseCents =
+                SellPricingPolicy.MINIMUM_UNIT_CENTS;
         private String marketKey;
         private long marketUnits = 1L;
 
