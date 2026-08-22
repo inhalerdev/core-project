@@ -41,6 +41,9 @@ public final class MarketModule extends Module {
 
     @Override
     public void disable() {
-        exchangeService = null;
+        if (exchangeService != null) {
+            exchangeService.shutdown();
+            exchangeService = null;
+        }
     }
 }

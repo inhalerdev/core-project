@@ -36,6 +36,7 @@ public final class MarketExchangeService {
 
     private final Core core;
     private final SellService sellService;
+    private final MarketSettlementService settlementService;
 
     private volatile OrderService orderService;
     private volatile AuctionHouseService auctionHouseService;
@@ -49,6 +50,8 @@ public final class MarketExchangeService {
                 sellService,
                 "sellService"
         );
+        this.settlementService =
+                new MarketSettlementService(core);
     }
 
     public Core core() {
@@ -61,12 +64,40 @@ public final class MarketExchangeService {
 
     public void bindOrders(OrderService service) {
         orderService = service;
+        settlementService.bindOrders(service);
     }
 
     public void unbindOrders(OrderService service) {
+        settlementService.unbindOrders(service);
+
         if (orderService == service) {
             orderService = null;
         }
+    }
+
+
+    @SuppressWarnings("unused")
+    public boolean settlementHealthy() {
+        return settlementService.healthy();
+    }
+
+    @SuppressWarnings("unused")
+    public boolean settlementReady() {
+        return settlementService.readyForExecution();
+    }
+
+    @SuppressWarnings("unused")
+    public List<String> recoverySummaries() {
+        return settlementService.recoverySummaries();
+    }
+
+    @SuppressWarnings("unused")
+    public MarketSettlementService settlementService() {
+        return settlementService;
+    }
+
+    public void shutdown() {
+        settlementService.shutdown();
     }
 
     public void bindAuctionHouse(
