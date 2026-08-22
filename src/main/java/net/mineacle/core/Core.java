@@ -23,6 +23,7 @@ import net.mineacle.core.gamemode.GamemodeModule;
 import net.mineacle.core.hide.HideModule;
 import net.mineacle.core.homes.HomesModule;
 import net.mineacle.core.links.LinksModule;
+import net.mineacle.core.market.MarketModule;
 import net.mineacle.core.nametag.NametagModule;
 import net.mineacle.core.orders.OrdersModule;
 import net.mineacle.core.placeholders.PlaceholdersModule;
@@ -233,8 +234,14 @@ public final class Core extends JavaPlugin {
                 new RtpModule(),
                 new WorldMaintenanceModule(),
                 new DuelsModule(),
-                new OrdersModule(),
+                /*
+                 * Sell must initialize before the shared Market layer so all
+                 * downstream bid/ask floors resolve from the current live v10
+                 * guaranteed server liquidation price.
+                 */
                 new SellModule(),
+                new MarketModule(),
+                new OrdersModule(),
                 new AuctionHouseModule(),
                 new ShulkerPreviewModule(),
                 new BountyModule(),

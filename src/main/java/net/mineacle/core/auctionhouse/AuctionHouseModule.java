@@ -6,6 +6,8 @@ import net.mineacle.core.auctionhouse.gui.AuctionHouseGuiListener;
 import net.mineacle.core.auctionhouse.listener.AuctionTransactionRecoveryListener;
 import net.mineacle.core.auctionhouse.service.AuctionHouseService;
 import net.mineacle.core.bootstrap.Module;
+import net.mineacle.core.market.MarketModule;
+import net.mineacle.core.market.service.MarketExchangeService;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.TabCompleter;
@@ -15,6 +17,7 @@ public final class AuctionHouseModule extends Module {
     private AuctionHouseService service;
     private AuctionHouseGuiListener guiListener;
     private AuctionTransactionRecoveryListener recoveryListener;
+    private MarketExchangeService marketExchange;
 
     @Override
     public String name() {
@@ -23,8 +26,20 @@ public final class AuctionHouseModule extends Module {
 
     @Override
     public void enable(Core core) {
+        marketExchange =
+                MarketModule.exchangeService();
+
+        if (marketExchange == null) {
+            throw new IllegalStateException(
+                    "Auction House requires Market to initialize first"
+            );
+        }
+
         service = new AuctionHouseService(core);
         service.load();
+        marketExchange.bindAuctionHouse(
+                service
+        );
 
         AuctionHouseCommand command =
                 new AuctionHouseCommand(
@@ -73,10 +88,19 @@ public final class AuctionHouseModule extends Module {
             guiListener = null;
         }
 
+        if (marketExchange != null
+                && service != null) {
+            marketExchange.unbindAuctionHouse(
+                    service
+            );
+        }
+
         if (service != null) {
             service.shutdown();
             service = null;
         }
+
+        marketExchange = null;
     }
 
     private void register(

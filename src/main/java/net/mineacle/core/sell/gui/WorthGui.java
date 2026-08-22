@@ -31,8 +31,20 @@ public final class WorthGui {
     public static final int SIZE = 54;
     private static final int CONTENT_SLOTS = 45;
 
-    private static final int[] TOOLBAR =
-            CenteredToolbar.interiorSlotsCenteredOn(SIZE, 4, 2);
+    /*
+     * Four-control Worth toolbar intentionally sits one slot right of the
+     * previous layout so the visual mass balances correctly between the
+     * Previous/Next arrow positions.
+     *
+     * Bottom row:
+     * 45 Previous | 48 Sort | 49 Filter | 50 Refresh | 51 Search | 53 Next
+     */
+    private static final int[] TOOLBAR = {
+            CenteredToolbar.centerSlot(SIZE) - 1,
+            CenteredToolbar.centerSlot(SIZE),
+            CenteredToolbar.centerSlot(SIZE) + 1,
+            CenteredToolbar.centerSlot(SIZE) + 2
+    };
 
     public static final int PREVIOUS_SLOT = CenteredToolbar.previousSlot(SIZE);
     public static final int SORT_SLOT = TOOLBAR[0];

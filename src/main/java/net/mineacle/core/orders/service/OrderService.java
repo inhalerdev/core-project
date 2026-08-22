@@ -7,6 +7,7 @@ import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
+import net.mineacle.core.market.service.MarketExchangeService;
 import net.mineacle.core.orders.model.OrderRecord;
 import net.mineacle.core.orders.storage.OrdersRepository;
 import org.bukkit.Bukkit;
@@ -18,6 +19,7 @@ import org.bukkit.inventory.PlayerInventory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -50,13 +52,16 @@ public final class OrderService {
 
     private final Core core;
     private final OrdersRepository repository;
+    private final MarketExchangeService marketExchange;
 
     public OrderService(
             Core core,
-            OrdersRepository repository
+            OrdersRepository repository,
+            MarketExchangeService marketExchange
     ) {
         this.core = core;
         this.repository = repository;
+        this.marketExchange = marketExchange;
     }
 
     public boolean enabled() {
@@ -70,10 +75,27 @@ public final class OrderService {
         repository.save();
     }
 
+    /**
+     * Public market view. Orders that have fallen below the current guaranteed
+     * /sell floor remain owner-cancellable but are not exposed as executable
+     * resting bids.
+     */
     public List<OrderRecord> activeOrders() {
-        return List.copyOf(
-                repository.active()
-        );
+        List<OrderRecord> result =
+                new ArrayList<>();
+
+        for (OrderRecord order : repository.active()) {
+            if (order == null
+                    || !order.active()
+                    || order.remainingAmount() <= 0
+                    || belowCurrentServerFloor(order)) {
+                continue;
+            }
+
+            result.add(order);
+        }
+
+        return List.copyOf(result);
     }
 
     public List<OrderRecord> ownerOrders(
@@ -91,6 +113,25 @@ public final class OrderService {
     public OrderRecord get(UUID id) {
         return repository.get(id);
     }
+
+    public long minimumOrderUnitCents(
+            Material material
+    ) {
+        EconomyService economy =
+                EconomyModule.economyService();
+        long configured =
+                economy == null
+                        ? 1L
+                        : configuredMinimumPricePerItem(
+                                economy
+                        );
+
+        return marketExchange.minimumOrderUnitCents(
+                material,
+                configured
+        );
+    }
+
 
     public boolean create(
             Player player,
@@ -243,15 +284,19 @@ public final class OrderService {
         }
 
         long minimumEach =
-                minimumPricePerItem(economy);
-        long minimumTotal;
+                marketExchange.minimumOrderUnitCents(
+                        material,
+                        configuredMinimumPricePerItem(
+                                economy
+                        )
+                );
+        long minimumTotal =
+                safeRequiredTotal(
+                        minimumEach,
+                        amount
+                );
 
-        try {
-            minimumTotal = Math.multiplyExact(
-                    minimumEach,
-                    amount
-            );
-        } catch (ArithmeticException exception) {
+        if (minimumTotal == Long.MAX_VALUE) {
             error(
                     player,
                     "&cThat order value is too large"
@@ -260,17 +305,13 @@ public final class OrderService {
         }
 
         if (escrow < minimumTotal) {
-            error(
+            floorError(
                     player,
-                    message(
-                            "minimum-price",
-                            "&cPrice is too low"
-                    ).replace(
-                            "%minimum%",
-                            economy.format(
-                                    minimumTotal
-                            )
-                    )
+                    material,
+                    amount,
+                    minimumEach,
+                    minimumTotal,
+                    economy
             );
             return CreationResult.PRICE_TOO_LOW;
         }
@@ -298,6 +339,45 @@ public final class OrderService {
                     "&cThat order value is too large"
             );
             return CreationResult.INVALID_PRICE;
+        }
+
+        /*
+         * Transaction-boundary floor recheck. The v10 live governor can move
+         * the guaranteed Sell floor between initial input validation and the
+         * actual escrow debit. Never create a resting bid below the current
+         * guaranteed liquidation price.
+         */
+        long finalMinimumEach =
+                marketExchange.minimumOrderUnitCents(
+                        material,
+                        configuredMinimumPricePerItem(
+                                economy
+                        )
+                );
+        long finalMinimumTotal =
+                safeRequiredTotal(
+                        finalMinimumEach,
+                        amount
+                );
+
+        if (finalMinimumTotal == Long.MAX_VALUE) {
+            error(
+                    player,
+                    "&cThat order value is too large"
+            );
+            return CreationResult.INVALID_PRICE;
+        }
+
+        if (escrow < finalMinimumTotal) {
+            floorError(
+                    player,
+                    material,
+                    amount,
+                    finalMinimumEach,
+                    finalMinimumTotal,
+                    economy
+            );
+            return CreationResult.PRICE_TOO_LOW;
         }
 
         UUID ownerId = player.getUniqueId();
@@ -432,6 +512,20 @@ public final class OrderService {
                             "already-complete",
                             "&cThat order is already complete"
                     )
+            );
+            return;
+        }
+
+        if (belowCurrentServerFloor(original)) {
+            long floor =
+                    minimumOrderUnitCents(
+                            original.material()
+                    );
+            error(
+                    seller,
+                    "&cThat order is below the current server price &#bbbbbb— /sell guarantees &#11fc7b"
+                            + formatMoney(floor)
+                            + " each"
             );
             return;
         }
@@ -834,9 +928,12 @@ public final class OrderService {
         OrderRecord current =
                 repository.get(order.id());
 
-        return current == null
-                ? 0L
-                : current.payoutFor(amount);
+        if (current == null
+                || belowCurrentServerFloor(current)) {
+            return 0L;
+        }
+
+        return current.payoutFor(amount);
     }
 
     public String ownerDisplayName(
@@ -927,7 +1024,7 @@ public final class OrderService {
         );
     }
 
-    private long minimumPricePerItem(
+    private long configuredMinimumPricePerItem(
             EconomyService economy
     ) {
         Object configured = core.getConfig().get(
@@ -943,6 +1040,77 @@ public final class OrderService {
                 1L,
                 parsed
         );
+    }
+
+    private boolean belowCurrentServerFloor(
+            OrderRecord order
+    ) {
+        if (order == null
+                || order.material() == null
+                || order.remainingAmount() <= 0) {
+            return true;
+        }
+
+        long floor =
+                marketExchange.serverGuaranteedUnitCents(
+                        order.material()
+                );
+
+        return floor > 0L
+                && order.pricePerItemCents() < floor;
+    }
+
+    private long safeRequiredTotal(
+            long unitCents,
+            int amount
+    ) {
+        try {
+            return Math.multiplyExact(
+                    Math.max(
+                            1L,
+                            unitCents
+                    ),
+                    Math.max(
+                            1,
+                            amount
+                    )
+            );
+        } catch (ArithmeticException exception) {
+            return Long.MAX_VALUE;
+        }
+    }
+
+    private void floorError(
+            Player player,
+            Material material,
+            int amount,
+            long minimumEach,
+            long minimumTotal,
+            EconomyService economy
+    ) {
+        error(
+                player,
+                "&cOrder price too low &#bbbbbb— "
+                        + pretty(material)
+                        + " is guaranteed at &#11fc7b"
+                        + economy.format(minimumEach)
+                        + " each &#bbbbbb(&#11fc7b"
+                        + economy.format(minimumTotal)
+                        + " total for "
+                        + amount
+                        + "x&#bbbbbb)"
+        );
+    }
+
+    private String formatMoney(
+            long cents
+    ) {
+        EconomyService economy =
+                EconomyModule.economyService();
+
+        return economy == null
+                ? String.valueOf(cents)
+                : economy.format(cents);
     }
 
     private long creationTax(long escrow) {

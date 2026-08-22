@@ -2,6 +2,8 @@ package net.mineacle.core.orders;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.bootstrap.Module;
+import net.mineacle.core.market.MarketModule;
+import net.mineacle.core.market.service.MarketExchangeService;
 import net.mineacle.core.orders.command.OrderCommand;
 import net.mineacle.core.orders.listener.OrderCreateInputListener;
 import net.mineacle.core.orders.listener.OrderSearchInputListener;
@@ -15,6 +17,7 @@ import org.bukkit.command.TabCompleter;
 public final class OrdersModule extends Module {
 
     private OrderService orderService;
+    private MarketExchangeService marketExchange;
 
     @Override
     public String name() {
@@ -23,9 +26,22 @@ public final class OrdersModule extends Module {
 
     @Override
     public void enable(Core core) {
+        marketExchange =
+                MarketModule.exchangeService();
+
+        if (marketExchange == null) {
+            throw new IllegalStateException(
+                    "Orders requires Market to initialize first"
+            );
+        }
+
         orderService = new OrderService(
                 core,
-                new YamlOrdersRepository(core)
+                new YamlOrdersRepository(core),
+                marketExchange
+        );
+        marketExchange.bindOrders(
+                orderService
         );
 
         OrderCommand command =
@@ -70,10 +86,19 @@ public final class OrdersModule extends Module {
 
     @Override
     public void disable() {
+        if (marketExchange != null
+                && orderService != null) {
+            marketExchange.unbindOrders(
+                    orderService
+            );
+        }
+
         if (orderService != null) {
             orderService.shutdown();
             orderService = null;
         }
+
+        marketExchange = null;
     }
 
     private void registerOrderCommand(
