@@ -2,6 +2,9 @@ package net.mineacle.core.orders.gui;
 
 import net.mineacle.core.common.gui.CenteredToolbar;
 import net.mineacle.core.common.gui.GuiSearchLore;
+import net.mineacle.core.common.gui.GuiText;
+import net.mineacle.core.market.MarketModule;
+import net.mineacle.core.market.service.MarketExchangeService;
 import net.mineacle.core.orders.service.OrderService;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -61,7 +64,7 @@ public final class OrderCreateGui {
         Inventory inventory = Bukkit.createInventory(
                 holder,
                 SIZE,
-                title(page)
+                GuiText.title(title(page))
         );
         holder.setInventory(inventory);
 
@@ -69,18 +72,23 @@ public final class OrderCreateGui {
              slot < pageItems.size();
              slot++) {
             Material material = pageItems.get(slot);
+            long minimumEach =
+                    service.minimumOrderUnitCents(material);
 
             inventory.setItem(
                     slot,
                     OrdersGuiItems.item(
                             material,
-                            "&d" + service.pretty(material),
+                            "&#B078FF" + service.pretty(material),
                             "&#bbbbbbChoose this item for your order",
+                            "&#bbbbbbServer Minimum: &#11fc7b"
+                                    + service.formatMoney(minimumEach)
+                                    + " each",
                             "",
-                            "&#bbbbbbPlayers will deliver this item",
-                            "&#bbbbbband receive the total pay you set",
+                            "&#bbbbbbYou choose the quantity",
+                            "&#bbbbbband your maximum bid per item",
                             "",
-                            "&#ff88ffClick to choose"
+                            "&#D0AFFFClick to choose"
                     )
             );
         }
@@ -110,7 +118,7 @@ public final class OrderCreateGui {
                 BACK_SLOT,
                 OrdersGuiItems.item(
                         Material.ARROW,
-                        "&dBack to Orders",
+                        "&#B078FFBack to Orders",
                         "&#bbbbbbClick to return to open orders"
                 )
         );
@@ -211,12 +219,16 @@ public final class OrderCreateGui {
     ) {
         OrdersViewState.CreateState state =
                 OrdersViewState.create(player);
+        MarketExchangeService exchange =
+                MarketModule.exchangeService();
         List<Material> materials = new ArrayList<>();
         String query = state.query();
 
         for (Material material : Material.values()) {
             if (material == Material.AIR
                     || !material.isItem()
+                    || exchange == null
+                    || !exchange.isFungibleOrderMaterial(material)
                     || !state.filter().matches(material)) {
                 continue;
             }
@@ -252,7 +264,7 @@ public final class OrderCreateGui {
     ) {
         List<String> lore = new ArrayList<>();
         lore.add(
-                "&#bbbbbbCurrent: &#ff88ff"
+                "&#bbbbbbCurrent: &#D0AFFF"
                         + active.label()
         );
         lore.add("");
@@ -261,7 +273,7 @@ public final class OrderCreateGui {
                 : OrdersViewState.CreateFilter.values()) {
             lore.add(
                     (mode == active
-                            ? "&#ff88ff"
+                            ? "&#D0AFFF"
                             : "&#bbbbbb")
                             + mode.label()
             );
@@ -272,7 +284,7 @@ public final class OrderCreateGui {
 
         return OrdersGuiItems.item(
                 Material.HOPPER,
-                "&dFilter",
+                "&#B078FFFilter",
                 lore
         );
     }
@@ -286,23 +298,32 @@ public final class OrderCreateGui {
         if (selected == null) {
             return OrdersGuiItems.item(
                     Material.PAPER,
-                    "&dCreate Order",
-                    "&#bbbbbbStep 1: Choose an item",
-                    "&#bbbbbbStep 2: Enter the amount",
-                    "&#bbbbbbStep 3: Enter the total pay",
+                    "&#B078FFCreate Order",
+                    "&#D0AFFF1 &#bbbbbbChoose an item",
+                    "&#D0AFFF2 &#bbbbbbEnter the quantity",
+                    "&#D0AFFF3 &#bbbbbbEnter your bid per item",
                     "",
-                    "&#bbbbbbExample: &#ff88ff64 logs for $100k"
+                    "&#bbbbbbExample: &#D0AFFF64x Iron Ingot",
+                    "&#bbbbbbBid Each: &#11fc7b$10",
+                    "&#bbbbbbMaximum Escrow: &#11fc7b$640"
             );
         }
 
+        long minimumEach =
+                service.minimumOrderUnitCents(selected);
+
         return OrdersGuiItems.item(
                 selected,
-                "&dSelected: &#ff88ff"
+                "&#B078FFSelected: &#D0AFFF"
                         + service.pretty(selected),
-                "&#bbbbbbClick to continue",
+                "&#bbbbbbServer Minimum: &#11fc7b"
+                        + service.formatMoney(minimumEach)
+                        + " each",
                 "",
-                "&#bbbbbbYou will enter the amount",
-                "&#bbbbbband total escrow in chat"
+                "&#bbbbbbNext you enter the quantity",
+                "&#bbbbbband your maximum bid per item",
+                "",
+                "&#D0AFFFClick to continue"
         );
     }
 
@@ -315,9 +336,8 @@ public final class OrderCreateGui {
 
         return OrdersGuiItems.item(
                 Material.OAK_SIGN,
-                "&dSearch",
+                "&#B078FFSearch",
                 lore
         );
     }
-
 }

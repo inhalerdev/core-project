@@ -44,7 +44,7 @@ public final class OrdersMainGui {
             OrderService service
     ) {
         OrdersViewState.MainState state =
-                OrdersViewState.main(player);
+                OrdersViewState.mainState(player);
         List<OrderRecord> orders =
                 filteredOrders(player, service);
         int maximumPage = maximumPage(orders.size());
@@ -92,11 +92,11 @@ public final class OrdersMainGui {
                     22,
                     OrdersGuiItems.item(
                             Material.BARREL,
-                            "&#8436FENo Orders",
+                            "&#B078FFNo Orders",
                             "&#bbbbbbNo matching player orders are open",
                             "",
-                            "&#bbbbbbPlayers create buy limits",
-                            "&#bbbbbband sellers fill them for money"
+                            "&#bbbbbbBuyers place bids for items",
+                            "&#bbbbbbSellers fill the highest-paying requests"
                     )
             );
         }
@@ -123,11 +123,11 @@ public final class OrdersMainGui {
                 OrdersGuiItems.item(
                         OrdersGuiItems.material(
                                 "orders.gui.buttons.refresh.material",
-                                Material.PAPER
+                                Material.EMERALD
                         ),
                         OrdersGuiItems.cfg(
                                 "orders.gui.buttons.refresh.name",
-                                "&#8436FERefresh"
+                                "&#B078FFRefresh"
                         ),
                         OrdersGuiItems.lore(
                                 "orders.gui.buttons.refresh.lore",
@@ -147,7 +147,7 @@ public final class OrdersMainGui {
                         player,
                         OrdersGuiItems.cfg(
                                 "orders.gui.buttons.my-orders.name",
-                                "&#8436FEMy Orders"
+                                "&#B078FFMy Orders"
                         ),
                         OrdersGuiItems.lore(
                                 "orders.gui.buttons.my-orders.lore",
@@ -177,7 +177,7 @@ public final class OrdersMainGui {
             OrderService service
     ) {
         OrdersViewState.MainState state =
-                OrdersViewState.main(player);
+                OrdersViewState.mainState(player);
         int maximum = maximumPage(
                 filteredOrders(player, service).size()
         );
@@ -188,35 +188,35 @@ public final class OrdersMainGui {
 
     public static void previousPage(Player player) {
         OrdersViewState.MainState state =
-                OrdersViewState.main(player);
+                OrdersViewState.mainState(player);
         state.page(state.page() - 1);
     }
 
     public static void cycleSort(Player player) {
-        OrdersViewState.main(player).cycleSort();
+        OrdersViewState.mainState(player).cycleSort();
     }
 
     public static void cycleFilter(Player player) {
-        OrdersViewState.main(player).cycleFilter();
+        OrdersViewState.mainState(player).cycleFilter();
     }
 
     public static void setSearch(
             Player player,
             String query
     ) {
-        OrdersViewState.main(player).query(query);
+        OrdersViewState.mainState(player).query(query);
     }
 
     public static void clearSearch(Player player) {
-        OrdersViewState.main(player).clearQuery();
+        OrdersViewState.mainState(player).clearQuery();
     }
 
     public static boolean hasSearch(Player player) {
-        return OrdersViewState.main(player).hasQuery();
+        return OrdersViewState.mainState(player).hasQuery();
     }
 
     public static String search(Player player) {
-        return OrdersViewState.main(player).query();
+        return OrdersViewState.mainState(player).query();
     }
 
     public static ItemStack orderItem(
@@ -236,7 +236,7 @@ public final class OrdersMainGui {
 
         List<String> lore = new ArrayList<>();
         lore.add(
-                "&#bbbbbbNeed: &#B078FF"
+                "&#bbbbbbNeed: &#D0AFFF"
                         + order.remainingAmount()
                         + "x "
                         + service.pretty(order.material())
@@ -249,13 +249,13 @@ public final class OrdersMainGui {
                         + escrowText
         );
         lore.add(
-                "&#bbbbbbBuyer: &#B078FF"
+                "&#bbbbbbBuyer: &#D0AFFF"
                         + service.ownerDisplayName(order)
         );
         lore.add(
-                "&#bbbbbbProgress: &#B078FF"
+                "&#bbbbbbProgress: &#D0AFFF"
                         + order.deliveredAmount()
-                        + "&#bbbbbb/&#B078FF"
+                        + "&#bbbbbb/&#D0AFFF"
                         + order.requestedAmount()
         );
 
@@ -267,11 +267,11 @@ public final class OrdersMainGui {
 
         lore.add("");
         lore.add("&#bbbbbbBring matching items");
-        lore.add("&#B078FFClick to deliver everything available");
+        lore.add("&#D0AFFFClick to fill this order");
 
         return OrdersGuiItems.item(
                 order.material(),
-                "&#8436FE" + service.pretty(order.material()),
+                "&#B078FF" + service.pretty(order.material()),
                 lore
         );
     }
@@ -291,7 +291,7 @@ public final class OrdersMainGui {
             OrderService service
     ) {
         OrdersViewState.MainState state =
-                OrdersViewState.main(player);
+                OrdersViewState.mainState(player);
         String query = state.query();
 
         return service.activeOrders().stream()
@@ -342,7 +342,7 @@ public final class OrdersMainGui {
     ) {
         List<String> lore = new ArrayList<>();
         lore.add(
-                "&#bbbbbbCurrent: &#B078FF"
+                "&#bbbbbbCurrent: &#D0AFFF"
                         + active.label()
         );
         lore.add("");
@@ -351,7 +351,7 @@ public final class OrdersMainGui {
                 : OrdersViewState.SortMode.values()) {
             lore.add(
                     (mode == active
-                            ? "&#B078FF"
+                            ? "&#D0AFFF"
                             : "&#bbbbbb")
                             + mode.label()
             );
@@ -367,7 +367,7 @@ public final class OrdersMainGui {
                 ),
                 OrdersGuiItems.cfg(
                         "orders.gui.buttons.sort.name",
-                        "&#8436FESort"
+                        "&#B078FFSort"
                 ),
                 lore
         );
@@ -378,7 +378,7 @@ public final class OrdersMainGui {
     ) {
         List<String> lore = new ArrayList<>();
         lore.add(
-                "&#bbbbbbCurrent: &#B078FF"
+                "&#bbbbbbCurrent: &#D0AFFF"
                         + active.label()
         );
         lore.add("");
@@ -387,7 +387,7 @@ public final class OrdersMainGui {
                 : OrdersViewState.MainFilter.values()) {
             lore.add(
                     (mode == active
-                            ? "&#B078FF"
+                            ? "&#D0AFFF"
                             : "&#bbbbbb")
                             + mode.label()
             );
@@ -403,7 +403,7 @@ public final class OrdersMainGui {
                 ),
                 OrdersGuiItems.cfg(
                         "orders.gui.buttons.filter.name",
-                        "&#8436FEFilter"
+                        "&#B078FFFilter"
                 ),
                 lore
         );
@@ -423,7 +423,7 @@ public final class OrdersMainGui {
                 ),
                 OrdersGuiItems.cfg(
                         "orders.gui.buttons.search.name",
-                        "&#8436FESearch"
+                        "&#B078FFSearch"
                 ),
                 lore
         );

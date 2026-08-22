@@ -20,6 +20,7 @@ import org.bukkit.inventory.PlayerInventory;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -111,6 +112,61 @@ public final class OrderService {
         );
 
         return List.copyOf(result);
+    }
+
+    /**
+     * Exact-limit resting bids eligible for automatic market execution.
+     * Repository order is already price-time priority: highest bid, oldest
+     * first. Legacy proportional-total orders deliberately remain manual-only.
+     */
+    public List<OrderRecord> automaticCandidates(
+            Material material,
+            UUID sellerId
+    ) {
+        if (material == null
+                || isOrderMaterialRejected(material)) {
+            return List.of();
+        }
+
+        long floor =
+                marketExchange.serverGuaranteedUnitCents(
+                        material
+                );
+
+        if (floor <= 0L) {
+            return List.of();
+        }
+
+        List<OrderRecord> result =
+                new ArrayList<>();
+
+        for (OrderRecord order :
+                repository.activeForMaterial(material)) {
+            if (order == null
+                    || !order.exactLimitPrice()
+                    || !order.active()
+                    || order.remainingAmount() <= 0
+                    || order.pricePerItemCents() < floor
+                    || (sellerId != null
+                    && sellerId.equals(order.ownerId()))) {
+                continue;
+            }
+
+            result.add(order);
+        }
+
+        return List.copyOf(result);
+    }
+
+    /**
+     * One market action may update several partially filled resting bids.
+     * Persist them as one complete durable Orders snapshot.
+     */
+    @SuppressWarnings("unused")
+    public boolean putAutomaticFillsDurable(
+            Collection<OrderRecord> updates
+    ) {
+        return repository.putAllDurable(updates);
     }
 
     public List<OrderRecord> ownerOrders(

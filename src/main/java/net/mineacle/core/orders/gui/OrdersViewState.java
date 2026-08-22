@@ -23,7 +23,7 @@ public final class OrdersViewState {
     private OrdersViewState() {
     }
 
-    public static MainState main(Player player) {
+    public static MainState mainState(Player player) {
         return MAIN.computeIfAbsent(
                 player.getUniqueId(),
                 ignored -> new MainState()
@@ -187,8 +187,12 @@ public final class OrdersViewState {
     }
 
     public enum SortMode {
-        BEST_PAY("Best Pay"),
-        PAY_EACH("Pay Each"),
+        /*
+         * BEST_PAY is the default public book view and intentionally mirrors
+         * execution priority: highest bid first, oldest first at equal price.
+         */
+        BEST_PAY("Highest Bid"),
+        PAY_EACH("Largest Order"),
         MOST_NEEDED("Most Needed"),
         NEWEST("Newest");
 
@@ -211,39 +215,45 @@ public final class OrdersViewState {
             return switch (this) {
                 case BEST_PAY -> Comparator
                         .comparingLong(
-                                OrderRecord::escrowRemainingCents
-                        )
-                        .reversed()
-                        .thenComparing(
-                                Comparator.comparingLong(
-                                        OrderRecord::createdAtMillis
-                                ).reversed()
-                        );
-                case PAY_EACH -> Comparator
-                        .comparingLong(
                                 OrderRecord::pricePerItemCents
                         )
                         .reversed()
+                        .thenComparingLong(
+                                OrderRecord::createdAtMillis
+                        )
                         .thenComparing(
-                                Comparator.comparingLong(
-                                        OrderRecord::createdAtMillis
-                                ).reversed()
+                                order -> order.id().toString()
+                        );
+                case PAY_EACH -> Comparator
+                        .comparingLong(
+                                OrderRecord::escrowRemainingCents
+                        )
+                        .reversed()
+                        .thenComparingLong(
+                                OrderRecord::createdAtMillis
+                        )
+                        .thenComparing(
+                                order -> order.id().toString()
                         );
                 case MOST_NEEDED -> Comparator
                         .comparingInt(
                                 OrderRecord::remainingAmount
                         )
                         .reversed()
+                        .thenComparingLong(
+                                OrderRecord::createdAtMillis
+                        )
                         .thenComparing(
-                                Comparator.comparingLong(
-                                        OrderRecord::createdAtMillis
-                                ).reversed()
+                                order -> order.id().toString()
                         );
                 case NEWEST -> Comparator
                         .comparingLong(
                                 OrderRecord::createdAtMillis
                         )
-                        .reversed();
+                        .reversed()
+                        .thenComparing(
+                                order -> order.id().toString()
+                        );
             };
         }
     }
@@ -275,10 +285,6 @@ public final class OrdersViewState {
         }
 
         public boolean matches(Material material) {
-            if (this == ALL) {
-                return true;
-            }
-
             String name = material.name();
 
             return switch (this) {

@@ -87,12 +87,14 @@ public final class OrdersGuiItems {
         Core core = Core.instance();
 
         if (core == null) {
-            return fallback;
+            return brand(fallback);
         }
 
-        return core.getConfig().getString(
-                path,
-                fallback
+        return brand(
+                core.getConfig().getString(
+                        path,
+                        fallback
+                )
         );
     }
 
@@ -104,10 +106,16 @@ public final class OrdersGuiItems {
 
         if (core == null
                 || !core.getConfig().isList(path)) {
-            return fallback;
+            return fallback.stream()
+                    .map(OrdersGuiItems::brand)
+                    .toList();
         }
 
-        return core.getConfig().getStringList(path);
+        return core.getConfig()
+                .getStringList(path)
+                .stream()
+                .map(OrdersGuiItems::brand)
+                .toList();
     }
 
     public static Material material(
@@ -125,7 +133,7 @@ public final class OrdersGuiItems {
                 fallback.name()
         );
 
-        if (raw == null || raw.isBlank()) {
+        if (raw.isBlank()) {
             return fallback;
         }
 
@@ -138,7 +146,6 @@ public final class OrdersGuiItems {
                 : material;
     }
 
-
     public static ItemStack navigation(
             boolean previous,
             boolean enabled,
@@ -150,8 +157,10 @@ public final class OrdersGuiItems {
 
         return item(
                 Material.ARROW,
-                previous ? "&dPrevious" : "&dNext",
-                "&#bbbbbbPage &#ff88ff" + targetPage
+                previous
+                        ? "&#B078FFPrevious"
+                        : "&#B078FFNext",
+                "&#bbbbbbPage &#D0AFFF" + targetPage
         );
     }
 
@@ -165,9 +174,32 @@ public final class OrdersGuiItems {
         return LegacyComponentSerializer.legacySection()
                 .deserialize(
                         TextColor.color(
-                                text == null ? "" : text
+                                brand(
+                                        text == null ? "" : text
+                                )
                         )
                 )
                 .decoration(TextDecoration.ITALIC, false);
+    }
+
+    /**
+     * Orders is one of the systems being migrated to the current Mineacle GUI
+     * palette. Normalize legacy configurable aliases here so an older
+     * config.yml cannot visually revert the menu while preserving operators'
+     * wording/material customization.
+     */
+    private static String brand(String value) {
+        if (value == null || value.isBlank()) {
+            return value == null ? "" : value;
+        }
+
+        return value
+                .replace("&#8436FE", "&#B078FF")
+                .replace("&#8436fe", "&#B078FF")
+                .replace("&#ff55ff", "&#B078FF")
+                .replace("&#FF55FF", "&#B078FF")
+                .replace("&#ff88ff", "&#D0AFFF")
+                .replace("&#FF88FF", "&#D0AFFF")
+                .replace("&d", "&#B078FF");
     }
 }

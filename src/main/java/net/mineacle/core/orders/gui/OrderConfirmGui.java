@@ -1,8 +1,8 @@
 package net.mineacle.core.orders.gui;
 
 import net.mineacle.core.Core;
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.common.sound.SoundService;
-import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.orders.model.OrderRecord;
@@ -37,7 +37,7 @@ public final class OrderConfirmGui {
         Inventory inventory = Bukkit.createInventory(
                 holder,
                 SIZE,
-                titleDeliver()
+                GuiText.title(titleDeliver())
         );
         holder.setInventory(inventory);
 
@@ -66,15 +66,15 @@ public final class OrderConfirmGui {
         inventory.setItem(
                 ACTION_SLOT,
                 OrdersGuiItems.item(
-                        Material.RED_DYE,
+                        Material.LIME_DYE,
                         OrdersGuiItems.cfg(
                                 "orders.gui.confirm.deliver.name",
-                                "&dConfirm Delivery"
+                                "&#B078FFConfirm Delivery"
                         ),
                         OrdersGuiItems.cfg(
                                 "orders.gui.confirm.deliver.lore-1",
                                 "&#bbbbbbDelivering: "
-                                        + "&#ff88ff%amount%x %item%"
+                                        + "&#D0AFFF%amount%x %item%"
                         )
                                 .replace(
                                         "%amount%",
@@ -86,9 +86,11 @@ public final class OrderConfirmGui {
                                                 order.material()
                                         )
                                 ),
-                        OrdersGuiItems.cfg(
-                                "orders.gui.confirm.deliver.lore-2",
-                                "&#bbbbbbPayout: &a%payout%"
+                        moneyLine(
+                                OrdersGuiItems.cfg(
+                                        "orders.gui.confirm.deliver.lore-2",
+                                        "&#bbbbbbPayout: &#11fc7b%payout%"
+                                )
                         ).replace(
                                 "%payout%",
                                 payout
@@ -121,15 +123,11 @@ public final class OrderConfirmGui {
         Inventory inventory = Bukkit.createInventory(
                 holder,
                 SIZE,
-                titleCancel()
+                GuiText.title(titleCancel())
         );
         holder.setInventory(inventory);
 
-        EconomyService economy =
-                EconomyModule.economyService();
-        String refund = economy == null
-                ? "$" + order.escrowRemainingCents()
-                : economy.format(
+        String refund = service.formatMoney(
                 order.escrowRemainingCents()
         );
 
@@ -145,9 +143,11 @@ public final class OrderConfirmGui {
                                 "orders.gui.confirm.cancel-order.name",
                                 "&cCancel Order"
                         ),
-                        OrdersGuiItems.cfg(
-                                "orders.gui.confirm.cancel-order.lore-1",
-                                "&#bbbbbbRefund: &a%refund%"
+                        moneyLine(
+                                OrdersGuiItems.cfg(
+                                        "orders.gui.confirm.cancel-order.lore-1",
+                                        "&#bbbbbbRefund: &#11fc7b%refund%"
+                                )
                         ).replace(
                                 "%refund%",
                                 refund
@@ -193,17 +193,16 @@ public final class OrderConfirmGui {
         holder.arm(until);
 
         Inventory inventory = holder.getInventory();
+        inventory.setItem(
+                CONFIRM_SLOT,
+                confirmItem(true)
+        );
 
-        if (inventory != null) {
-            inventory.setItem(
-                    CONFIRM_SLOT,
-                    confirmItem(true)
-            );
-        }
-
-        player.sendActionBar(TextColor.color(
-                "&#bbbbbbClick confirm again to continue"
-        ));
+        player.sendActionBar(
+                GuiText.component(
+                        "&#bbbbbbClick confirm again to continue"
+                )
+        );
         SoundService.guiConfirm(player, core);
 
         core.getServer().getScheduler().runTaskLater(
@@ -229,9 +228,11 @@ public final class OrderConfirmGui {
                             CONFIRM_SLOT,
                             confirmItem(false)
                     );
-                    player.sendActionBar(TextColor.color(
-                            "&cAction timed out"
-                    ));
+                    player.sendActionBar(
+                            GuiText.component(
+                                    "&cAction timed out"
+                            )
+                    );
                     SoundService.guiError(player, core);
                 },
                 seconds * 20L
@@ -246,13 +247,10 @@ public final class OrderConfirmGui {
         }
 
         holder.disarm();
-
-        if (holder.getInventory() != null) {
-            holder.getInventory().setItem(
-                    CONFIRM_SLOT,
-                    confirmItem(false)
-            );
-        }
+        holder.getInventory().setItem(
+                CONFIRM_SLOT,
+                confirmItem(false)
+        );
     }
 
     private static org.bukkit.inventory.ItemStack cancelItem() {
@@ -277,7 +275,7 @@ public final class OrderConfirmGui {
         if (armed) {
             return OrdersGuiItems.item(
                     Material.LIME_STAINED_GLASS_PANE,
-                    "&dConfirm Again",
+                    "&#D0AFFFConfirm Again",
                     "&#bbbbbbClick again before the timer ends"
             );
         }
@@ -286,13 +284,21 @@ public final class OrderConfirmGui {
                 Material.LIME_STAINED_GLASS_PANE,
                 OrdersGuiItems.cfg(
                         "orders.gui.confirm.confirm.name",
-                        "&dConfirm"
+                        "&#B078FFConfirm"
                 ),
                 OrdersGuiItems.cfg(
                         "orders.gui.confirm.confirm.lore",
                         "&#bbbbbbClick twice to confirm"
                 )
         );
+    }
+
+    private static String moneyLine(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+
+        return value.replace("&a", "&#11fc7b");
     }
 
     private static String titleDeliver() {

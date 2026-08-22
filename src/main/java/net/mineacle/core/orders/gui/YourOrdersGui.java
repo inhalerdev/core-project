@@ -90,7 +90,7 @@ public final class YourOrdersGui {
                     22,
                     OrdersGuiItems.item(
                             Material.WRITABLE_BOOK,
-                            "&#8436FENo Orders",
+                            "&#B078FFNo Orders",
                             "&#bbbbbbYou have not created any orders",
                             "",
                             "&#bbbbbbCreate a buy limit when you want",
@@ -112,15 +112,15 @@ public final class YourOrdersGui {
                 BACK_SLOT,
                 OrdersGuiItems.item(
                         Material.ARROW,
-                        "&#8436FEBack to Orders",
+                        "&#B078FFBack to Orders",
                         "&#bbbbbbClick to return to open orders"
                 )
         );
         inventory.setItem(
                 REFRESH_SLOT,
                 OrdersGuiItems.item(
-                        Material.PAPER,
-                        "&#8436FERefresh",
+                        Material.EMERALD,
+                        "&#B078FFRefresh",
                         "&#bbbbbbClick to refresh your orders"
                 )
         );
@@ -128,8 +128,8 @@ public final class YourOrdersGui {
                 CREATE_SLOT,
                 OrdersGuiItems.item(
                         Material.WRITABLE_BOOK,
-                        "&#8436FECreate Order",
-                        "&#bbbbbbClick to create a new order"
+                        "&#B078FFCreate Order",
+                        "&#bbbbbbPlace a new player buy limit"
                 )
         );
 
@@ -207,12 +207,12 @@ public final class YourOrdersGui {
                 order.releasedEscrowCents()
         );
         String status = order.active()
-                ? "&#B078FFActive"
+                ? "&#D0AFFFActive"
                 : "&#bbbbbbClosed";
 
         List<String> lore = new ArrayList<>();
         lore.add(
-                "&#bbbbbbRequested: &#B078FF"
+                "&#bbbbbbRequested: &#D0AFFF"
                         + order.requestedAmount()
                         + "x "
                         + service.pretty(order.material())
@@ -227,6 +227,7 @@ public final class YourOrdersGui {
                 "&#bbbbbbOriginal Escrow: &#11fc7b"
                         + originalEscrow
         );
+
         if (order.exactLimitPrice()) {
             lore.add(
                     "&#bbbbbbSpent: &#11fc7b" + spent
@@ -245,13 +246,13 @@ public final class YourOrdersGui {
         }
 
         lore.add(
-                "&#bbbbbbDelivered: &#B078FF"
+                "&#bbbbbbFilled: &#D0AFFF"
                         + order.deliveredAmount()
-                        + "&#bbbbbb/&#B078FF"
+                        + "&#bbbbbb/&#D0AFFF"
                         + order.requestedAmount()
         );
         lore.add(
-                "&#bbbbbbReady to Collect: &#B078FF"
+                "&#bbbbbbReady to Collect: &#D0AFFF"
                         + order.collectableAmount()
         );
         lore.add(
@@ -268,13 +269,13 @@ public final class YourOrdersGui {
 
         if (order.collectableAmount() > 0) {
             lore.add(
-                    "&#bbbbbbLeft-click to collect items"
+                    "&#D0AFFFLeft-click to collect items"
             );
         }
 
         if (order.active()) {
             lore.add(
-                    "&#bbbbbbRight-click to cancel and refund"
+                    "&cRight-click to cancel and refund"
             );
         }
 
@@ -285,7 +286,7 @@ public final class YourOrdersGui {
 
         return OrdersGuiItems.item(
                 order.material(),
-                "&#8436FE" + service.pretty(order.material()),
+                "&#B078FF" + service.pretty(order.material()),
                 lore
         );
     }

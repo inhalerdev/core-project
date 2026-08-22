@@ -44,12 +44,26 @@ public final class YamlOrdersRepository
                             key -> key.id().toString()
                     );
 
+    private static final Comparator<OrderBidKey> BID_PRIORITY =
+            Comparator.comparingLong(
+                            OrderBidKey::pricePerItemCents
+                    )
+                    .reversed()
+                    .thenComparingLong(
+                            OrderBidKey::createdAtMillis
+                    )
+                    .thenComparing(
+                            key -> key.id().toString()
+                    );
+
     private final Core core;
     private final File file;
     private final Map<UUID, OrderRecord> orders =
             new LinkedHashMap<>();
     private final NavigableSet<OrderKey> activeIndex =
             new TreeSet<>(NEWEST_FIRST);
+    private final Map<Material, NavigableSet<OrderBidKey>> materialBidIndex =
+            new HashMap<>();
     private final Map<UUID, NavigableSet<OrderKey>> ownerIndex =
             new HashMap<>();
     private final Map<UUID, Integer> activeCountByOwner =
@@ -172,6 +186,35 @@ public final class YamlOrdersRepository
     }
 
     @Override
+    public synchronized Collection<OrderRecord> activeForMaterial(
+            Material material
+    ) {
+        if (material == null) {
+            return List.of();
+        }
+
+        NavigableSet<OrderBidKey> keys =
+                materialBidIndex.get(material);
+
+        if (keys == null || keys.isEmpty()) {
+            return List.of();
+        }
+
+        List<OrderRecord> result =
+                new ArrayList<>(keys.size());
+
+        for (OrderBidKey key : keys) {
+            OrderRecord order = orders.get(key.id());
+
+            if (order != null) {
+                result.add(order.copy());
+            }
+        }
+
+        return List.copyOf(result);
+    }
+
+    @Override
     public synchronized Collection<OrderRecord> byOwner(
             UUID ownerId
     ) {
@@ -271,6 +314,54 @@ public final class YamlOrdersRepository
     }
 
     @Override
+    public synchronized boolean putAllDurable(
+            Collection<OrderRecord> mutations
+    ) {
+        if (mutations == null
+                || mutations.isEmpty()
+                || closed) {
+            return false;
+        }
+
+        Map<UUID, OrderRecord> previous =
+                new LinkedHashMap<>();
+
+        for (OrderRecord mutation : mutations) {
+            if (mutation == null) {
+                rollbackBatch(previous);
+                return false;
+            }
+
+            previous.putIfAbsent(
+                    mutation.id(),
+                    orders.get(mutation.id())
+            );
+            replaceInMemory(mutation.copy());
+        }
+
+        if (persistCurrentStateLocked()) {
+            return true;
+        }
+
+        rollbackBatch(previous);
+        return false;
+    }
+
+    private void rollbackBatch(
+            Map<UUID, OrderRecord> previous
+    ) {
+        for (UUID id : previous.keySet()) {
+            removeFromMemory(id);
+        }
+
+        for (OrderRecord order : previous.values()) {
+            if (order != null) {
+                replaceInMemory(order);
+            }
+        }
+    }
+
+    @Override
     public synchronized boolean removeDurable(
             UUID id
     ) {
@@ -325,6 +416,7 @@ public final class YamlOrdersRepository
         synchronized (this) {
             orders.clear();
             activeIndex.clear();
+            materialBidIndex.clear();
             ownerIndex.clear();
             activeCountByOwner.clear();
 
@@ -564,6 +656,20 @@ public final class YamlOrdersRepository
         if (order.active()
                 && order.remainingAmount() > 0) {
             activeIndex.add(key);
+
+            if (order.exactLimitPrice()) {
+                materialBidIndex.computeIfAbsent(
+                        order.material(),
+                        ignored -> new TreeSet<>(BID_PRIORITY)
+                ).add(
+                        new OrderBidKey(
+                                order.id(),
+                                order.pricePerItemCents(),
+                                order.createdAtMillis()
+                        )
+                );
+            }
+
             activeCountByOwner.merge(
                     order.ownerId(),
                     1,
@@ -593,6 +699,25 @@ public final class YamlOrdersRepository
 
         if (order.active()
                 && order.remainingAmount() > 0) {
+            if (order.exactLimitPrice()) {
+                NavigableSet<OrderBidKey> bids =
+                        materialBidIndex.get(order.material());
+
+                if (bids != null) {
+                    bids.remove(
+                            new OrderBidKey(
+                                    order.id(),
+                                    order.pricePerItemCents(),
+                                    order.createdAtMillis()
+                            )
+                    );
+
+                    if (bids.isEmpty()) {
+                        materialBidIndex.remove(order.material());
+                    }
+                }
+            }
+
             int updated = activeCountByOwner
                     .getOrDefault(order.ownerId(), 1) - 1;
 
@@ -1035,6 +1160,13 @@ public final class YamlOrdersRepository
 
     private record OrderKey(
             UUID id,
+            long createdAtMillis
+    ) {
+    }
+
+    private record OrderBidKey(
+            UUID id,
+            long pricePerItemCents,
             long createdAtMillis
     ) {
     }
