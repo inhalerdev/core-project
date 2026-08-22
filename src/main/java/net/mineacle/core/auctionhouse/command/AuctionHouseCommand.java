@@ -4,6 +4,7 @@ import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.gui.AuctionHouseGui;
 import net.mineacle.core.auctionhouse.model.AuctionHouseListing;
 import net.mineacle.core.auctionhouse.service.AuctionHouseService;
+import net.mineacle.core.auctionhouse.service.AuctionOrderCrossing;
 import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.PlayerTabComplete;
@@ -42,8 +43,7 @@ public final class AuctionHouseCommand
             @NotNull String label,
             @NotNull String @NotNull [] args
     ) {
-        if (!(sender
-                instanceof Player player)) {
+        if (!(sender instanceof Player player)) {
             sender.sendMessage(
                     core.getMessage(
                             "general.players-only"
@@ -67,21 +67,16 @@ public final class AuctionHouseCommand
         String subcommand =
                 args.length == 0
                         ? ""
-                        : args[0]
-                        .toLowerCase(
+                        : args[0].toLowerCase(
                                 Locale.ROOT
                         );
 
-        if (subcommand.equals(
-                "reload"
-        )) {
+        if (subcommand.equals("reload")) {
             reload(player);
             return true;
         }
 
-        if (subcommand.equals(
-                "recovery"
-        )) {
+        if (subcommand.equals("recovery")) {
             recovery(player);
             return true;
         }
@@ -96,51 +91,35 @@ public final class AuctionHouseCommand
         }
 
         if (args.length == 0) {
-            openBrowse(
-                    player,
-                    ""
-            );
+            openBrowse(player, "");
             return true;
         }
 
         if (subcommand.equals("sell")
-                || subcommand.equals(
-                "list"
-        )) {
+                || subcommand.equals("list")) {
             sell(player, args);
             return true;
         }
 
         if (subcommand.equals("items")
-                || subcommand.equals(
-                "myitems"
-        )
-                || subcommand.equals(
-                "listings"
-        )) {
+                || subcommand.equals("myitems")
+                || subcommand.equals("listings")) {
             MenuHistory.openRoot(
                     core,
                     player,
-                    () ->
-                            AuctionHouseGui
-                                    .openOwn(
-                                            player,
-                                            service,
-                                            0
-                                    )
+                    () -> AuctionHouseGui.openOwn(
+                            player,
+                            service,
+                            0
+                    )
             );
             return true;
         }
 
         String rawQuery =
-                String.join(
-                        " ",
-                        args
-                );
+                String.join(" ", args);
 
-        if (service.searchQueryTooLong(
-                rawQuery
-        )) {
+        if (service.searchQueryTooLong(rawQuery)) {
             fail(
                     player,
                     TextColor.color(
@@ -157,9 +136,7 @@ public final class AuctionHouseCommand
             return true;
         }
 
-        if (service.searchRateLimited(
-                player
-        )) {
+        if (service.searchRateLimited(player)) {
             failPath(
                     player,
                     "messages.search-cooldown",
@@ -168,21 +145,16 @@ public final class AuctionHouseCommand
             return true;
         }
 
-        String query =
-                service.sanitizeSearchQuery(
-                        rawQuery
-                );
-
         openBrowse(
                 player,
-                query
+                service.sanitizeSearchQuery(
+                        rawQuery
+                )
         );
         return true;
     }
 
-    private void reload(
-            Player player
-    ) {
+    private void reload(Player player) {
         if (!player.hasPermission(
                 "mineacleauctionhouse.admin"
         )) {
@@ -215,10 +187,7 @@ public final class AuctionHouseCommand
                         )
                 )
         );
-        SoundService.guiConfirm(
-                player,
-                core
-        );
+        SoundService.guiConfirm(player, core);
     }
 
     private void openBrowse(
@@ -228,19 +197,14 @@ public final class AuctionHouseCommand
         MenuHistory.openRoot(
                 core,
                 player,
-                () ->
-                        AuctionHouseGui
-                                .openBrowse(
-                                        player,
-                                        service,
-                                        0,
-                                        service
-                                                .defaultSort(),
-                                        AuctionHouseService
-                                                .FilterMode
-                                                .ALL,
-                                        query
-                                )
+                () -> AuctionHouseGui.openBrowse(
+                        player,
+                        service,
+                        0,
+                        service.defaultSort(),
+                        AuctionHouseService.FilterMode.ALL,
+                        query
+                )
         );
     }
 
@@ -262,37 +226,22 @@ public final class AuctionHouseCommand
                 service.parsePriceCents(
                         args[1]
                 );
-
-        AuctionHouseService.CreateOutcome
-                outcome;
         int listingAmount;
 
         if (args.length == 2) {
             ItemStack held =
-                    service.previewHeldItem(
-                            player
-                    );
+                    service.previewHeldItem(player);
             listingAmount =
                     held == null
                             ? 0
                             : held.getAmount();
-
-            outcome =
-                    service.createListing(
-                            player,
-                            priceCents
-                    );
         } else {
-            int amount;
-
             try {
-                amount =
+                listingAmount =
                         Integer.parseInt(
                                 args[2]
                         );
-            } catch (
-                    NumberFormatException ignored
-            ) {
+            } catch (NumberFormatException ignored) {
                 failPath(
                         player,
                         "messages.invalid-amount",
@@ -300,28 +249,103 @@ public final class AuctionHouseCommand
                 );
                 return;
             }
+        }
 
-            listingAmount = amount;
-            outcome =
-                    service.createListing(
-                            player,
-                            priceCents,
-                            amount,
-                            null
-                    );
+        AuctionOrderCrossing.Result result =
+                AuctionOrderCrossing.create(
+                        player,
+                        service,
+                        priceCents,
+                        listingAmount,
+                        null
+                );
+
+        handleCrossResult(
+                player,
+                result
+        );
+    }
+
+    private void handleCrossResult(
+            Player player,
+            AuctionOrderCrossing.Result result
+    ) {
+        if (result.matchedAny()) {
+            ItemStack item =
+                    result.item();
+            String itemName =
+                    item == null
+                            ? "item"
+                            : service.itemName(item);
+
+            player.sendMessage(
+                    TextColor.color(
+                            "&#bbbbbbFilled &#B078FF"
+                                    + result.matchedAmount()
+                                    + "x "
+                                    + itemName
+                                    + " &#bbbbbbinto player Orders for &#11fc7b+"
+                                    + service.format(
+                                    result.matchedPayoutCents()
+                            )
+                    )
+            );
+
+            if (result.matchedPayoutCompleted()) {
+                player.sendActionBar(
+                        GuiText.component(
+                                "&#11fc7b+"
+                                        + service.format(
+                                        result.matchedPayoutCents()
+                                )
+                        )
+                );
+            } else {
+                player.sendMessage(
+                        TextColor.color(
+                                "&#bbbbbbOrder payout is finishing through recovery"
+                        )
+                );
+            }
+        }
+
+        if (result.fullyMatched()) {
+            if (result.matchedPayoutCompleted()) {
+                SoundService.economyReceive(
+                        player,
+                        core
+                );
+            } else {
+                SoundService.guiSelect(
+                        player,
+                        core
+                );
+            }
+            return;
+        }
+
+        AuctionHouseService.CreateOutcome outcome =
+                result.listingOutcome();
+
+        if (outcome == null) {
+            failPath(
+                    player,
+                    "messages.storage-error",
+                    "&cCould not safely complete that Auction House action"
+            );
+            return;
         }
 
         handleCreateOutcome(
                 player,
                 outcome,
-                listingAmount
+                result.remainingAmount()
         );
     }
 
     private void handleCreateOutcome(
             Player player,
-            AuctionHouseService.CreateOutcome
-                    outcome,
+            AuctionHouseService.CreateOutcome outcome,
             int listingAmount
     ) {
         switch (outcome.result()) {
@@ -467,9 +491,7 @@ public final class AuctionHouseCommand
         }
     }
 
-    private void recovery(
-            Player player
-    ) {
+    private void recovery(Player player) {
         if (!player.hasPermission(
                 "mineacleauctionhouse.admin"
         )) {
@@ -501,8 +523,7 @@ public final class AuctionHouseCommand
                 )
         );
 
-        for (String summary
-                : summaries) {
+        for (String summary : summaries) {
             player.sendMessage(
                     TextColor.color(
                             "&#bbbbbb- &#D0AFFF"
@@ -510,7 +531,6 @@ public final class AuctionHouseCommand
                     )
             );
         }
-
     }
 
     private long minimumPriceForHeldListing(
@@ -518,9 +538,7 @@ public final class AuctionHouseCommand
             int amount
     ) {
         ItemStack held =
-                service.previewHeldItem(
-                        player
-                );
+                service.previewHeldItem(player);
 
         if (held == null
                 || held.getType().isAir()
@@ -530,7 +548,6 @@ public final class AuctionHouseCommand
         }
 
         held.setAmount(amount);
-
         return service.minimumListingPriceCents(
                 player,
                 held
@@ -585,8 +602,7 @@ public final class AuctionHouseCommand
             @NotNull String alias,
             @NotNull String @NotNull [] args
     ) {
-        if (!(sender
-                instanceof Player player)
+        if (!(sender instanceof Player player)
                 || !player.hasPermission(
                 "mineacleauctionhouse.use"
         )) {
@@ -597,9 +613,7 @@ public final class AuctionHouseCommand
             List<String> suggestions =
                     new ArrayList<>();
 
-            if (service.canList(
-                    player
-            )) {
+            if (service.canList(player)) {
                 suggestions.add("sell");
             }
 
@@ -612,58 +626,45 @@ public final class AuctionHouseCommand
                 suggestions.add("recovery");
             }
 
-            return PlayerTabComplete
-                    .optionsFiltered(
-                            args[0],
-                            suggestions
-                    );
+            return PlayerTabComplete.optionsFiltered(
+                    args[0],
+                    suggestions
+            );
         }
 
         if (args.length == 2
                 && isSell(args[0])
-                && service.canList(
-                player
-        )) {
-            return PlayerTabComplete
-                    .optionsFiltered(
-                            args[1],
-                            List.of(
-                                    "100",
-                                    "1k",
-                                    "10k",
-                                    "100k"
-                            )
-                    );
+                && service.canList(player)) {
+            return PlayerTabComplete.optionsFiltered(
+                    args[1],
+                    List.of(
+                            "100",
+                            "1k",
+                            "10k",
+                            "100k"
+                    )
+            );
         }
 
         if (args.length == 3
                 && isSell(args[0])
-                && service.canList(
-                player
-        )) {
-            return PlayerTabComplete
-                    .optionsFiltered(
-                            args[2],
-                            List.of(
-                                    "1",
-                                    "16",
-                                    "32",
-                                    "64"
-                            )
-                    );
+                && service.canList(player)) {
+            return PlayerTabComplete.optionsFiltered(
+                    args[2],
+                    List.of(
+                            "1",
+                            "16",
+                            "32",
+                            "64"
+                    )
+            );
         }
 
         return List.of();
     }
 
-    private boolean isSell(
-            String input
-    ) {
-        return input.equalsIgnoreCase(
-                "sell"
-        )
-                || input.equalsIgnoreCase(
-                "list"
-        );
+    private boolean isSell(String input) {
+        return input.equalsIgnoreCase("sell")
+                || input.equalsIgnoreCase("list");
     }
 }

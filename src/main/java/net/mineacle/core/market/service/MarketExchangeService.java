@@ -311,6 +311,211 @@ public final class MarketExchangeService {
     }
 
     /**
+     * Attempts to cross an incoming Auction House ask against resting player
+     * Orders before the unmatched remainder becomes a normal AH listing.
+     *
+     * <p>The AH ask is converted to an integer-cent unit threshold using
+     * ceil(total / amount). Only resting Orders at or above that threshold may
+     * execute, and execution occurs at the resting Order's own bid price. No
+     * server fallback is used here: unmatched quantity remains with the seller
+     * so Auction House can list it normally.</p>
+     */
+    public MarketSellExecutionResult executeAuctionAskCross(
+            Player seller,
+            ItemStack rawItem,
+            int requestedAmount,
+            long askTotalCents
+    ) {
+        if (seller == null
+                || rawItem == null
+                || requestedAmount <= 0
+                || askTotalCents <= 0L
+                || settlementService.executionBlocked()) {
+            return MarketSellExecutionResult.passthrough();
+        }
+
+        ItemStack clean =
+                sellService.stripWorthLore(rawItem);
+
+        if (clean == null
+                || clean.getType() == Material.AIR
+                || requestedAmount > clean.getAmount()
+                || requestedAmount > clean.getMaxStackSize()
+                || isNonCanonicalOrderStack(clean)) {
+            return MarketSellExecutionResult.passthrough();
+        }
+
+        Material material =
+                clean.getType();
+        long floor =
+                serverGuaranteedUnitCents(material);
+
+        if (floor <= 0L) {
+            return MarketSellExecutionResult.passthrough();
+        }
+
+        long minimumStack =
+                safeMultiply(
+                        floor,
+                        requestedAmount
+                );
+
+        if (minimumStack == Long.MAX_VALUE
+                || askTotalCents < minimumStack) {
+            return MarketSellExecutionResult.passthrough();
+        }
+
+        long askUnit = Math.max(
+                1L,
+                Math.ceilDiv(
+                        askTotalCents,
+                        (long) requestedAmount
+                )
+        );
+        OrderService orders =
+                orderService;
+
+        if (orders == null) {
+            return MarketSellExecutionResult.passthrough();
+        }
+
+        List<MarketTransaction.OrderLeg> orderLegs =
+                new ArrayList<>();
+        int remaining =
+                requestedAmount;
+        long orderPayout = 0L;
+
+        try {
+            for (OrderRecord order :
+                    orders.automaticCandidates(
+                            material,
+                            seller.getUniqueId()
+                    )) {
+                if (remaining <= 0) {
+                    break;
+                }
+
+                /*
+                 * automaticCandidates() is already highest-bid first, so once
+                 * the bid falls below the ask every later Order is ineligible.
+                 */
+                if (order.pricePerItemCents()
+                        < askUnit) {
+                    break;
+                }
+
+                int fillAmount =
+                        Math.min(
+                                remaining,
+                                order.remainingAmount()
+                        );
+                long payout =
+                        order.payoutFor(fillAmount);
+                long expected =
+                        Math.multiplyExact(
+                                order.pricePerItemCents(),
+                                (long) fillAmount
+                        );
+
+                if (fillAmount <= 0
+                        || payout != expected) {
+                    continue;
+                }
+
+                orderPayout =
+                        Math.addExact(
+                                orderPayout,
+                                payout
+                        );
+                orderLegs.add(
+                        new MarketTransaction.OrderLeg(
+                                order.id(),
+                                order.ownerId(),
+                                fillAmount,
+                                order.pricePerItemCents(),
+                                payout,
+                                order.createdAtMillis()
+                        )
+                );
+                remaining -= fillAmount;
+            }
+        } catch (ArithmeticException exception) {
+            return MarketSellExecutionResult.rejected(
+                    "&cThis market listing is too large to process"
+            );
+        }
+
+        int matched =
+                requestedAmount - remaining;
+
+        if (matched <= 0
+                || orderPayout <= 0L
+                || orderLegs.isEmpty()) {
+            return MarketSellExecutionResult.passthrough();
+        }
+
+        ItemStack source =
+                clean.clone();
+        source.setAmount(matched);
+
+        MarketTransaction.SellLeg sellLeg =
+                new MarketTransaction.SellLeg(
+                        material,
+                        matched,
+                        floor,
+                        List.copyOf(orderLegs),
+                        matched,
+                        orderPayout,
+                        0,
+                        0L
+                );
+        MarketTransaction transaction =
+                new MarketTransaction(
+                        UUID.randomUUID(),
+                        MarketTransaction.State.PREPARED,
+                        seller.getUniqueId(),
+                        List.of(
+                                new MarketTransaction.SourceItem(
+                                        seller.getInventory()
+                                                .getHeldItemSlot(),
+                                        source
+                                )
+                        ),
+                        List.of(sellLeg),
+                        orderPayout,
+                        0L,
+                        orderPayout,
+                        System.currentTimeMillis(),
+                        ""
+                );
+
+        MarketSettlementService.ExecutionStatus status =
+                settlementService.executePlayerSource(
+                        seller,
+                        transaction
+                );
+
+        if (status
+                == MarketSettlementService.ExecutionStatus.SAFE_FAILURE) {
+            return MarketSellExecutionResult.passthrough();
+        }
+
+        return new MarketSellExecutionResult(
+                true,
+                true,
+                status
+                        == MarketSettlementService.ExecutionStatus.COMPLETED,
+                orderPayout,
+                matched,
+                orderPayout,
+                0L,
+                matched,
+                0L,
+                ""
+        );
+    }
+
+    /**
      * Current guaranteed server liquidation value for one canonical material.
      * A value of zero means the server does not currently guarantee a buyout.
      */

@@ -56,13 +56,14 @@ listing:
   min-price: 1
   max-price: 1B
 
-  # Prevent AH -> /sell arbitrage. The exact stack is checked when it is listed
-  # and again immediately before a buyer can purchase it.
-  enforce-server-sell-floor: true
+  # Mandatory economic invariant: an AH listing may never be created or bought
+  # below that exact stack's current guaranteed /sell value. This is not
+  # configurable because disabling it permits AH -> /sell arbitrage.
 
   # Listings expire after exactly 24 hours. Expired listings remain in their
   # owner's occupied slots until manually reclaimed.
   reject-overstacked: true
+
   # Filled shulkers are allowed so players can trade container kits and use
   # Mineacle's read-only Shulker Preview inside Auction House. Other filled
   # inventory-bearing block items and filled bundles remain blocked.

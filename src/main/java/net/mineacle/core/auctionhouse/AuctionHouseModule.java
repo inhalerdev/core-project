@@ -3,6 +3,7 @@ package net.mineacle.core.auctionhouse;
 import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.command.AuctionHouseCommand;
 import net.mineacle.core.auctionhouse.gui.AuctionHouseGuiListener;
+import net.mineacle.core.auctionhouse.listener.AuctionHouseFloorPolicy;
 import net.mineacle.core.auctionhouse.listener.AuctionTransactionRecoveryListener;
 import net.mineacle.core.auctionhouse.service.AuctionHouseService;
 import net.mineacle.core.bootstrap.Module;
@@ -17,6 +18,7 @@ public final class AuctionHouseModule extends Module {
     private AuctionHouseService service;
     private AuctionHouseGuiListener guiListener;
     private AuctionTransactionRecoveryListener recoveryListener;
+    private AuctionHouseFloorPolicy floorPolicy;
     private MarketExchangeService marketExchange;
 
     @Override
@@ -34,6 +36,25 @@ public final class AuctionHouseModule extends Module {
                     "Auction House requires Market to initialize first"
             );
         }
+
+        /*
+         * Fail closed before AuctionHouseService reads its configuration.
+         * Older deployed configs may still contain the retired bypass key.
+         */
+        AuctionHouseFloorPolicy.requireEnabled(
+                core
+        );
+
+        floorPolicy =
+                new AuctionHouseFloorPolicy(
+                        core
+                );
+        core.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        floorPolicy,
+                        core
+                );
 
         service = new AuctionHouseService(core);
         service.load();
@@ -86,6 +107,11 @@ public final class AuctionHouseModule extends Module {
         if (guiListener != null) {
             guiListener.shutdown();
             guiListener = null;
+        }
+
+        if (floorPolicy != null) {
+            floorPolicy.shutdown();
+            floorPolicy = null;
         }
 
         if (marketExchange != null

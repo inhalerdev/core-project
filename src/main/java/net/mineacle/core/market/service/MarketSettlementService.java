@@ -158,10 +158,16 @@ public final class MarketSettlementService {
                 player,
                 transaction.transactionId()
         )) {
-            restoreSource(
+            if (!restoreSource(
                     player,
                     transaction
-            );
+            )) {
+                quarantine(
+                        transaction,
+                        "source-rollback-inventory-conflict"
+                );
+                return ExecutionStatus.PENDING;
+            }
             sourceMarker.clearInMemory(player);
 
             try {
@@ -760,7 +766,7 @@ public final class MarketSettlementService {
             if (current == null
                     || current.getType().isAir()
                     || current.getAmount()
-                    != expected.getAmount()
+                    < expected.getAmount()
                     || !current.isSimilar(expected)) {
                 return false;
             }
@@ -778,14 +784,35 @@ public final class MarketSettlementService {
 
         for (MarketTransaction.SourceItem source
                 : transaction.sourceItems()) {
+            ItemStack current =
+                    inventory.getItem(
+                            source.slot()
+                    );
+            int remaining =
+                    current == null
+                            ? 0
+                            : current.getAmount()
+                            - source.item().getAmount();
+
+            if (remaining <= 0) {
+                inventory.setItem(
+                        source.slot(),
+                        null
+                );
+                continue;
+            }
+
+            ItemStack updated =
+                    current.clone();
+            updated.setAmount(remaining);
             inventory.setItem(
                     source.slot(),
-                    null
+                    updated
             );
         }
     }
 
-    private void restoreSource(
+    private boolean restoreSource(
             Player player,
             MarketTransaction transaction
     ) {
@@ -794,11 +821,53 @@ public final class MarketSettlementService {
 
         for (MarketTransaction.SourceItem source
                 : transaction.sourceItems()) {
-            inventory.setItem(
-                    source.slot(),
-                    source.item()
-            );
+            ItemStack expected =
+                    source.item();
+            ItemStack current =
+                    inventory.getItem(
+                            source.slot()
+                    );
+
+            if (current == null
+                    || current.getType().isAir()) {
+                inventory.setItem(
+                        source.slot(),
+                        expected
+                );
+                continue;
+            }
+
+            if (current.isSimilar(expected)) {
+                try {
+                    int restored =
+                            Math.addExact(
+                                    current.getAmount(),
+                                    expected.getAmount()
+                            );
+
+                    if (restored
+                            <= current.getMaxStackSize()) {
+                        ItemStack updated =
+                                current.clone();
+                        updated.setAmount(restored);
+                        inventory.setItem(
+                                source.slot(),
+                                updated
+                        );
+                        continue;
+                    }
+                } catch (ArithmeticException ignored) {
+                    // Fall through to normal inventory restoration.
+                }
+            }
+
+            if (!inventory.addItem(expected)
+                    .isEmpty()) {
+                return false;
+            }
         }
+
+        return true;
     }
 
     private void quarantine(
