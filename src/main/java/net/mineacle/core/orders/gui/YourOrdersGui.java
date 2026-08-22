@@ -1,6 +1,7 @@
 package net.mineacle.core.orders.gui;
 
 import net.mineacle.core.common.gui.CenteredToolbar;
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.orders.model.OrderRecord;
@@ -11,6 +12,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -67,7 +69,7 @@ public final class YourOrdersGui {
         Inventory inventory = Bukkit.createInventory(
                 holder,
                 SIZE,
-                title(page)
+                GuiText.title(title(page))
         );
         holder.setInventory(inventory);
 
@@ -88,10 +90,10 @@ public final class YourOrdersGui {
                     22,
                     OrdersGuiItems.item(
                             Material.WRITABLE_BOOK,
-                            "&dNo Orders",
+                            "&#8436FENo Orders",
                             "&#bbbbbbYou have not created any orders",
                             "",
-                            "&#bbbbbbCreate an order when you want",
+                            "&#bbbbbbCreate a buy limit when you want",
                             "&#bbbbbbplayers to deliver specific items"
                     )
             );
@@ -110,7 +112,7 @@ public final class YourOrdersGui {
                 BACK_SLOT,
                 OrdersGuiItems.item(
                         Material.ARROW,
-                        "&dBack to Orders",
+                        "&#8436FEBack to Orders",
                         "&#bbbbbbClick to return to open orders"
                 )
         );
@@ -118,7 +120,7 @@ public final class YourOrdersGui {
                 REFRESH_SLOT,
                 OrdersGuiItems.item(
                         Material.PAPER,
-                        "&dRefresh",
+                        "&#8436FERefresh",
                         "&#bbbbbbClick to refresh your orders"
                 )
         );
@@ -126,7 +128,7 @@ public final class YourOrdersGui {
                 CREATE_SLOT,
                 OrdersGuiItems.item(
                         Material.WRITABLE_BOOK,
-                        "&dCreate Order",
+                        "&#8436FECreate Order",
                         "&#bbbbbbClick to create a new order"
                 )
         );
@@ -184,46 +186,84 @@ public final class YourOrdersGui {
     ) {
         EconomyService economy =
                 EconomyModule.economyService();
-        String totalPay = economy == null
-                ? "$" + order.totalEscrowCents()
-                : economy.format(
+        String bidEach = money(
+                economy,
+                order.pricePerItemCents()
+        );
+        String originalEscrow = money(
+                economy,
                 order.totalEscrowCents()
         );
-        String refundable = economy == null
-                ? "$" + order.escrowRemainingCents()
-                : economy.format(
+        String spent = money(
+                economy,
+                order.actualSpentCents()
+        );
+        String refundable = money(
+                economy,
                 order.escrowRemainingCents()
         );
+        String returned = money(
+                economy,
+                order.releasedEscrowCents()
+        );
         String status = order.active()
-                ? "&#ff88ffActive"
+                ? "&#B078FFActive"
                 : "&#bbbbbbClosed";
 
-        List<String> lore = new java.util.ArrayList<>();
+        List<String> lore = new ArrayList<>();
         lore.add(
-                "&#bbbbbbRequested: &#ff88ff"
+                "&#bbbbbbRequested: &#B078FF"
                         + order.requestedAmount()
                         + "x "
                         + service.pretty(order.material())
         );
         lore.add(
-                "&#bbbbbbTotal Escrow: &a" + totalPay
+                (order.exactLimitPrice()
+                        ? "&#bbbbbbBid Each: &#11fc7b"
+                        : "&#bbbbbbApprox Each: &#11fc7b")
+                        + bidEach
         );
         lore.add(
-                "&#bbbbbbRefundable: &a" + refundable
+                "&#bbbbbbOriginal Escrow: &#11fc7b"
+                        + originalEscrow
         );
+        if (order.exactLimitPrice()) {
+            lore.add(
+                    "&#bbbbbbSpent: &#11fc7b" + spent
+            );
+        }
+
         lore.add(
-                "&#bbbbbbDelivered: &#ff88ff"
+                "&#bbbbbbRefundable: &#11fc7b" + refundable
+        );
+
+        if (order.exactLimitPrice()
+                && order.releasedEscrowCents() > 0L) {
+            lore.add(
+                    "&#bbbbbbReturned: &#11fc7b" + returned
+            );
+        }
+
+        lore.add(
+                "&#bbbbbbDelivered: &#B078FF"
                         + order.deliveredAmount()
-                        + "&#bbbbbb/&#ff88ff"
+                        + "&#bbbbbb/&#B078FF"
                         + order.requestedAmount()
         );
         lore.add(
-                "&#bbbbbbReady to Collect: &#ff88ff"
+                "&#bbbbbbReady to Collect: &#B078FF"
                         + order.collectableAmount()
         );
         lore.add(
                 "&#bbbbbbStatus: " + status
         );
+
+        if (!order.exactLimitPrice()) {
+            lore.add(
+                    "&#bbbbbbPricing: &#D0AFFFLegacy total"
+            );
+        }
+
         lore.add("");
 
         if (order.collectableAmount() > 0) {
@@ -245,9 +285,18 @@ public final class YourOrdersGui {
 
         return OrdersGuiItems.item(
                 order.material(),
-                "&d" + service.pretty(order.material()),
+                "&#8436FE" + service.pretty(order.material()),
                 lore
         );
+    }
+
+    private static String money(
+            EconomyService economy,
+            long cents
+    ) {
+        return economy == null
+                ? "$" + cents
+                : economy.format(cents);
     }
 
     private static int maximumPage(int size) {

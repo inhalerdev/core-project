@@ -1,6 +1,7 @@
 package net.mineacle.core.orders.gui;
 
 import net.mineacle.core.common.gui.CenteredToolbar;
+import net.mineacle.core.common.gui.GuiText;
 import net.mineacle.core.common.gui.GuiSearchLore;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
@@ -70,7 +71,7 @@ public final class OrdersMainGui {
         Inventory inventory = Bukkit.createInventory(
                 holder,
                 SIZE,
-                title(page)
+                GuiText.title(title(page))
         );
         holder.setInventory(inventory);
 
@@ -91,11 +92,11 @@ public final class OrdersMainGui {
                     22,
                     OrdersGuiItems.item(
                             Material.BARREL,
-                            "&dNo Orders",
+                            "&#8436FENo Orders",
                             "&#bbbbbbNo matching player orders are open",
                             "",
-                            "&#bbbbbbPlayers create requests",
-                            "&#bbbbbband sellers deliver items for money"
+                            "&#bbbbbbPlayers create buy limits",
+                            "&#bbbbbband sellers fill them for money"
                     )
             );
         }
@@ -126,7 +127,7 @@ public final class OrdersMainGui {
                         ),
                         OrdersGuiItems.cfg(
                                 "orders.gui.buttons.refresh.name",
-                                "&dRefresh"
+                                "&#8436FERefresh"
                         ),
                         OrdersGuiItems.lore(
                                 "orders.gui.buttons.refresh.lore",
@@ -146,7 +147,7 @@ public final class OrdersMainGui {
                         player,
                         OrdersGuiItems.cfg(
                                 "orders.gui.buttons.my-orders.name",
-                                "&dMy Orders"
+                                "&#8436FEMy Orders"
                         ),
                         OrdersGuiItems.lore(
                                 "orders.gui.buttons.my-orders.lore",
@@ -224,35 +225,54 @@ public final class OrdersMainGui {
     ) {
         EconomyService economy =
                 EconomyModule.economyService();
-        long remainingPay = order.escrowRemainingCents();
-        long oneItemPay = order.payoutFor(1);
-        String totalText = economy == null
-                ? "$" + remainingPay
-                : economy.format(remainingPay);
+        long remainingEscrow = order.escrowRemainingCents();
+        long bidEach = order.pricePerItemCents();
+        String escrowText = economy == null
+                ? "$" + remainingEscrow
+                : economy.format(remainingEscrow);
         String eachText = economy == null
-                ? "$" + oneItemPay
-                : economy.format(oneItemPay);
+                ? "$" + bidEach
+                : economy.format(bidEach);
+
+        List<String> lore = new ArrayList<>();
+        lore.add(
+                "&#bbbbbbNeed: &#B078FF"
+                        + order.remainingAmount()
+                        + "x "
+                        + service.pretty(order.material())
+        );
+        lore.add(
+                "&#bbbbbbBid Each: &#11fc7b" + eachText
+        );
+        lore.add(
+                "&#bbbbbbEscrow Remaining: &#11fc7b"
+                        + escrowText
+        );
+        lore.add(
+                "&#bbbbbbBuyer: &#B078FF"
+                        + service.ownerDisplayName(order)
+        );
+        lore.add(
+                "&#bbbbbbProgress: &#B078FF"
+                        + order.deliveredAmount()
+                        + "&#bbbbbb/&#B078FF"
+                        + order.requestedAmount()
+        );
+
+        if (!order.exactLimitPrice()) {
+            lore.add(
+                    "&#bbbbbbPricing: &#D0AFFFLegacy total"
+            );
+        }
+
+        lore.add("");
+        lore.add("&#bbbbbbBring matching items");
+        lore.add("&#B078FFClick to deliver everything available");
 
         return OrdersGuiItems.item(
                 order.material(),
-                "&d" + service.pretty(order.material()),
-                "&#bbbbbbNeed: &#ff88ff"
-                        + order.remainingAmount()
-                        + "x "
-                        + service.pretty(order.material()),
-                "&#bbbbbbPay Remaining: &a" + totalText,
-                "&#bbbbbbNext Item Pays: &a" + eachText,
-                "&#bbbbbbBuyer: "
-                        + "&#ff88ff"
-                        + service.ownerDisplayName(order),
-                "&#bbbbbbProgress: "
-                        + "&#ff88ff"
-                        + order.deliveredAmount()
-                        + "&#bbbbbb/&#ff88ff"
-                        + order.requestedAmount(),
-                "",
-                "&#bbbbbbBring matching items",
-                "&#ff88ffClick to deliver everything available"
+                "&#8436FE" + service.pretty(order.material()),
+                lore
         );
     }
 
@@ -322,7 +342,7 @@ public final class OrdersMainGui {
     ) {
         List<String> lore = new ArrayList<>();
         lore.add(
-                "&#bbbbbbCurrent: &#ff88ff"
+                "&#bbbbbbCurrent: &#B078FF"
                         + active.label()
         );
         lore.add("");
@@ -331,7 +351,7 @@ public final class OrdersMainGui {
                 : OrdersViewState.SortMode.values()) {
             lore.add(
                     (mode == active
-                            ? "&#ff88ff"
+                            ? "&#B078FF"
                             : "&#bbbbbb")
                             + mode.label()
             );
@@ -347,7 +367,7 @@ public final class OrdersMainGui {
                 ),
                 OrdersGuiItems.cfg(
                         "orders.gui.buttons.sort.name",
-                        "&dSort"
+                        "&#8436FESort"
                 ),
                 lore
         );
@@ -358,7 +378,7 @@ public final class OrdersMainGui {
     ) {
         List<String> lore = new ArrayList<>();
         lore.add(
-                "&#bbbbbbCurrent: &#ff88ff"
+                "&#bbbbbbCurrent: &#B078FF"
                         + active.label()
         );
         lore.add("");
@@ -367,7 +387,7 @@ public final class OrdersMainGui {
                 : OrdersViewState.MainFilter.values()) {
             lore.add(
                     (mode == active
-                            ? "&#ff88ff"
+                            ? "&#B078FF"
                             : "&#bbbbbb")
                             + mode.label()
             );
@@ -383,7 +403,7 @@ public final class OrdersMainGui {
                 ),
                 OrdersGuiItems.cfg(
                         "orders.gui.buttons.filter.name",
-                        "&dFilter"
+                        "&#8436FEFilter"
                 ),
                 lore
         );
@@ -403,10 +423,9 @@ public final class OrdersMainGui {
                 ),
                 OrdersGuiItems.cfg(
                         "orders.gui.buttons.search.name",
-                        "&dSearch"
+                        "&#8436FESearch"
                 ),
                 lore
         );
     }
-
 }

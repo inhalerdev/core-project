@@ -30,7 +30,7 @@ import java.util.logging.Level;
 public final class YamlOrdersRepository
         implements OrdersRepository {
 
-    private static final int SCHEMA_VERSION = 3;
+    private static final int SCHEMA_VERSION = 4;
     private static final long SAVE_DEBOUNCE_MILLIS = 250L;
     private static final long SAVE_RETRY_MILLIS = 30_000L;
     private static final long SHUTDOWN_TIMEOUT_SECONDS = 5L;
@@ -55,11 +55,12 @@ public final class YamlOrdersRepository
     private final Map<UUID, Integer> activeCountByOwner =
             new HashMap<>();
     private final ScheduledThreadPoolExecutor persistenceExecutor;
+    private final Object ioLock = new Object();
 
     private boolean dirty;
     private boolean closed;
     private long generation;
-    private long persistedGeneration;
+    private volatile long persistedGeneration;
     private ScheduledFuture<?> pendingSave;
 
     public YamlOrdersRepository(Core core) {
@@ -80,17 +81,11 @@ public final class YamlOrdersRepository
                             return thread;
                         }
                 );
-        persistenceExecutor.setRemoveOnCancelPolicy(
-                true
-        );
+        persistenceExecutor.setRemoveOnCancelPolicy(true);
         persistenceExecutor
-                .setExecuteExistingDelayedTasksAfterShutdownPolicy(
-                        false
-                );
+                .setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
         persistenceExecutor
-                .setContinueExistingPeriodicTasksAfterShutdownPolicy(
-                        false
-                );
+                .setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
 
         loadFromDisk();
     }
@@ -129,8 +124,7 @@ public final class YamlOrdersRepository
             finalGeneration = generation;
 
             if (dirty
-                    || persistedGeneration
-                    < finalGeneration) {
+                    || persistedGeneration < finalGeneration) {
                 try {
                     persistenceExecutor.execute(
                             () -> persistFinal(
@@ -230,17 +224,7 @@ public final class YamlOrdersRepository
             return false;
         }
 
-        OrderRecord stored = order.copy();
-        OrderRecord previous = orders.put(
-                stored.id(),
-                stored
-        );
-
-        if (previous != null) {
-            deindex(previous);
-        }
-
-        index(stored);
+        replaceInMemory(order.copy());
         changedLocked();
         return true;
     }
@@ -251,15 +235,61 @@ public final class YamlOrdersRepository
             return false;
         }
 
-        OrderRecord removed = orders.remove(id);
+        OrderRecord removed = removeFromMemory(id);
 
         if (removed == null) {
             return true;
         }
 
-        deindex(removed);
         changedLocked();
         return true;
+    }
+
+    @Override
+    public synchronized boolean putDurable(
+            OrderRecord order
+    ) {
+        if (order == null || closed) {
+            return false;
+        }
+
+        OrderRecord stored = order.copy();
+        OrderRecord previous = orders.get(stored.id());
+        replaceInMemory(stored);
+
+        if (persistCurrentStateLocked()) {
+            return true;
+        }
+
+        removeFromMemory(stored.id());
+
+        if (previous != null) {
+            replaceInMemory(previous);
+        }
+
+        return false;
+    }
+
+    @Override
+    public synchronized boolean removeDurable(
+            UUID id
+    ) {
+        if (id == null || closed) {
+            return false;
+        }
+
+        OrderRecord previous = removeFromMemory(id);
+
+        if (previous == null) {
+            return true;
+        }
+
+        if (persistCurrentStateLocked()) {
+            return true;
+        }
+
+        replaceInMemory(previous);
+        return false;
     }
 
     private void loadFromDisk() {
@@ -282,14 +312,12 @@ public final class YamlOrdersRepository
             for (String key : section.getKeys(false)) {
                 OrderRecord order = readOrder(
                         configuration,
-                        key
+                        key,
+                        loadedSchema
                 );
 
                 if (order != null) {
-                    loaded.put(
-                            order.id(),
-                            order
-                    );
+                    loaded.put(order.id(), order);
                 }
             }
         }
@@ -301,10 +329,7 @@ public final class YamlOrdersRepository
             activeCountByOwner.clear();
 
             for (OrderRecord order : loaded.values()) {
-                orders.put(
-                        order.id(),
-                        order.copy()
-                );
+                orders.put(order.id(), order.copy());
                 index(order);
             }
 
@@ -321,7 +346,8 @@ public final class YamlOrdersRepository
 
     private OrderRecord readOrder(
             YamlConfiguration configuration,
-            String key
+            String key,
+            int loadedSchema
     ) {
         String path = "orders." + key;
 
@@ -333,11 +359,10 @@ public final class YamlOrdersRepository
                             ""
                     )
             );
-            String ownerName =
-                    configuration.getString(
-                            path + ".owner-name",
-                            ""
-                    );
+            String ownerName = configuration.getString(
+                    path + ".owner-name",
+                    ""
+            );
             Material material = Material.matchMaterial(
                     configuration.getString(
                             path + ".material",
@@ -409,11 +434,68 @@ public final class YamlOrdersRepository
                             System.currentTimeMillis()
                     )
             );
-            boolean active =
-                    configuration.getBoolean(
-                            path + ".active",
-                            true
-                    );
+            boolean active = configuration.getBoolean(
+                    path + ".active",
+                    true
+            );
+
+            String rawMode = configuration.getString(
+                    path + ".pricing-mode",
+                    ""
+            );
+            OrderRecord.PricingMode mode;
+
+            try {
+                mode = rawMode.isBlank()
+                        ? OrderRecord.PricingMode.LEGACY_TOTAL
+                        : OrderRecord.PricingMode.valueOf(rawMode);
+            } catch (IllegalArgumentException ignored) {
+                mode = OrderRecord.PricingMode.LEGACY_TOTAL;
+            }
+
+            if (loadedSchema < SCHEMA_VERSION
+                    || mode == OrderRecord.PricingMode.LEGACY_TOTAL) {
+                return OrderRecord.legacy(
+                        id,
+                        ownerId,
+                        ownerName,
+                        material,
+                        requestedAmount,
+                        deliveredAmount,
+                        collectedAmount,
+                        totalEscrow,
+                        escrowRemaining,
+                        createdAt,
+                        active
+                );
+            }
+
+            long limitPrice = Math.max(
+                    1L,
+                    configuration.getLong(
+                            path + ".limit-price-per-item-cents",
+                            legacyPricePerItem
+                    )
+            );
+            long actualSpent = Math.clamp(
+                    configuration.getLong(
+                            path + ".actual-spent-cents",
+                            Math.max(
+                                    0L,
+                                    totalEscrow - escrowRemaining
+                            )
+                    ),
+                    0L,
+                    totalEscrow
+            );
+            long releasedEscrow = Math.clamp(
+                    configuration.getLong(
+                            path + ".released-escrow-cents",
+                            0L
+                    ),
+                    0L,
+                    totalEscrow
+            );
 
             return new OrderRecord(
                     id,
@@ -423,8 +505,12 @@ public final class YamlOrdersRepository
                     requestedAmount,
                     deliveredAmount,
                     collectedAmount,
+                    OrderRecord.PricingMode.LIMIT_PER_ITEM,
+                    limitPrice,
                     totalEscrow,
                     escrowRemaining,
+                    actualSpent,
+                    releasedEscrow,
                     createdAt,
                     active
             );
@@ -439,6 +525,31 @@ public final class YamlOrdersRepository
         }
     }
 
+    private void replaceInMemory(
+            OrderRecord order
+    ) {
+        OrderRecord previous = orders.put(
+                order.id(),
+                order
+        );
+
+        if (previous != null) {
+            deindex(previous);
+        }
+
+        index(order);
+    }
+
+    private OrderRecord removeFromMemory(UUID id) {
+        OrderRecord removed = orders.remove(id);
+
+        if (removed != null) {
+            deindex(removed);
+        }
+
+        return removed;
+    }
+
     private void index(OrderRecord order) {
         OrderKey key = new OrderKey(
                 order.id(),
@@ -447,9 +558,7 @@ public final class YamlOrdersRepository
 
         ownerIndex.computeIfAbsent(
                 order.ownerId(),
-                ignored -> new TreeSet<>(
-                        NEWEST_FIRST
-                )
+                ignored -> new TreeSet<>(NEWEST_FIRST)
         ).add(key);
 
         if (order.active()
@@ -485,15 +594,10 @@ public final class YamlOrdersRepository
         if (order.active()
                 && order.remainingAmount() > 0) {
             int updated = activeCountByOwner
-                    .getOrDefault(
-                            order.ownerId(),
-                            1
-                    ) - 1;
+                    .getOrDefault(order.ownerId(), 1) - 1;
 
             if (updated <= 0) {
-                activeCountByOwner.remove(
-                        order.ownerId()
-                );
+                activeCountByOwner.remove(order.ownerId());
             } else {
                 activeCountByOwner.put(
                         order.ownerId(),
@@ -510,9 +614,7 @@ public final class YamlOrdersRepository
                 new ArrayList<>(keys.size());
 
         for (OrderKey key : keys) {
-            OrderRecord order = orders.get(
-                    key.id()
-            );
+            OrderRecord order = orders.get(key.id());
 
             if (order != null) {
                 result.add(order.copy());
@@ -525,14 +627,43 @@ public final class YamlOrdersRepository
     private void changedLocked() {
         dirty = true;
         generation++;
-        scheduleSaveLocked(
-                SAVE_DEBOUNCE_MILLIS
-        );
+        scheduleSaveLocked(SAVE_DEBOUNCE_MILLIS);
     }
 
-    private boolean scheduleSaveLocked(
-            long delayMillis
-    ) {
+    /**
+     * Persists the complete current in-memory snapshot synchronously. All file
+     * writes share ioLock so a queued debounced save can never overwrite a
+     * newer transaction-boundary snapshot.
+     */
+    private boolean persistCurrentStateLocked() {
+        Snapshot snapshot = snapshotLocked();
+        long nextGeneration = generation + 1L;
+
+        try {
+            writeDurableSnapshotSerialized(
+                    snapshot,
+                    nextGeneration
+            );
+        } catch (IOException exception) {
+            logFailure(
+                    "Could not durably persist Orders transaction",
+                    exception
+            );
+            return false;
+        }
+
+        generation = nextGeneration;
+        dirty = false;
+
+        if (pendingSave != null) {
+            pendingSave.cancel(false);
+            pendingSave = null;
+        }
+
+        return true;
+    }
+
+    private boolean scheduleSaveLocked(long delayMillis) {
         if (closed || !dirty) {
             return !closed;
         }
@@ -548,15 +679,11 @@ public final class YamlOrdersRepository
         }
 
         try {
-            pendingSave =
-                    persistenceExecutor.schedule(
-                            this::persistLatest,
-                            Math.max(
-                                    0L,
-                                    delayMillis
-                            ),
-                            TimeUnit.MILLISECONDS
-                    );
+            pendingSave = persistenceExecutor.schedule(
+                    this::persistLatest,
+                    Math.max(0L, delayMillis),
+                    TimeUnit.MILLISECONDS
+            );
             return true;
         } catch (RejectedExecutionException exception) {
             logFailure(
@@ -582,25 +709,30 @@ public final class YamlOrdersRepository
             snapshotGeneration = generation;
         }
 
+        boolean persisted;
+
         try {
-            writeSnapshot(snapshot);
+            persisted = writeLatestSnapshotSerialized(
+                    snapshot,
+                    snapshotGeneration
+            );
         } catch (IOException exception) {
             synchronized (this) {
                 dirty = true;
 
                 if (!closed) {
-                    scheduleSaveLocked(
-                            SAVE_RETRY_MILLIS
-                    );
+                    scheduleSaveLocked(SAVE_RETRY_MILLIS);
                 }
             }
 
             logFailure(
-                    "Could not save orders.yml — the latest "
-                            + "snapshot remains in memory and "
-                            + "will be retried",
+                    "Could not save orders.yml — the latest snapshot remains in memory and will be retried",
                     exception
             );
+            return;
+        }
+
+        if (!persisted) {
             return;
         }
 
@@ -622,15 +754,14 @@ public final class YamlOrdersRepository
             long snapshotGeneration
     ) {
         try {
-            writeSnapshot(snapshot);
+            writeSnapshotSerialized(snapshot);
 
             synchronized (this) {
                 persistedGeneration = Math.max(
                         persistedGeneration,
                         snapshotGeneration
                 );
-                dirty = generation
-                        > persistedGeneration;
+                dirty = generation > persistedGeneration;
             }
         } catch (IOException exception) {
             logFailure(
@@ -654,8 +785,12 @@ public final class YamlOrdersRepository
                             order.requestedAmount(),
                             order.deliveredAmount(),
                             order.collectedAmount(),
+                            order.pricingMode(),
+                            order.limitPricePerItemCents(),
                             order.totalEscrowCents(),
                             order.escrowRemainingCents(),
+                            order.actualSpentCents(),
+                            order.releasedEscrowCents(),
                             order.createdAtMillis(),
                             order.active()
                     )
@@ -664,14 +799,49 @@ public final class YamlOrdersRepository
 
         snapshots.sort(
                 Comparator.comparing(
-                        snapshot ->
-                                snapshot.id().toString()
+                        snapshot -> snapshot.id().toString()
                 )
         );
 
-        return new Snapshot(
-                List.copyOf(snapshots)
-        );
+        return new Snapshot(List.copyOf(snapshots));
+    }
+
+    private void writeSnapshotSerialized(
+            Snapshot snapshot
+    ) throws IOException {
+        synchronized (ioLock) {
+            writeSnapshot(snapshot);
+        }
+    }
+
+    private void writeDurableSnapshotSerialized(
+            Snapshot snapshot,
+            long durableGeneration
+    ) throws IOException {
+        synchronized (ioLock) {
+            writeSnapshot(snapshot);
+            persistedGeneration = durableGeneration;
+        }
+    }
+
+    /**
+     * Debounced snapshots are allowed to become stale while waiting for disk
+     * I/O. A newer durable transaction may commit first. The volatile persisted
+     * generation prevents that older queued snapshot from overwriting the newer
+     * transaction after it finally acquires the I/O lock.
+     */
+    private boolean writeLatestSnapshotSerialized(
+            Snapshot snapshot,
+            long snapshotGeneration
+    ) throws IOException {
+        synchronized (ioLock) {
+            if (snapshotGeneration < persistedGeneration) {
+                return false;
+            }
+
+            writeSnapshot(snapshot);
+            return true;
+        }
     }
 
     private void writeSnapshot(
@@ -684,10 +854,8 @@ public final class YamlOrdersRepository
                 SCHEMA_VERSION
         );
 
-        for (OrderSnapshot order :
-                snapshot.orders()) {
-            String path =
-                    "orders." + order.id();
+        for (OrderSnapshot order : snapshot.orders()) {
+            String path = "orders." + order.id();
 
             configuration.set(
                     path + ".owner-id",
@@ -713,19 +881,17 @@ public final class YamlOrdersRepository
                     path + ".collected-amount",
                     order.collectedAmount()
             );
-
-            long averagePrice =
-                    order.requestedAmount() <= 0
-                            ? 0L
-                            : Math.max(
-                                    1L,
-                                    order.totalEscrowCents()
-                                            / order.requestedAmount()
-                            );
-
+            configuration.set(
+                    path + ".pricing-mode",
+                    order.pricingMode().name()
+            );
+            configuration.set(
+                    path + ".limit-price-per-item-cents",
+                    order.limitPricePerItemCents()
+            );
             configuration.set(
                     path + ".price-per-item-cents",
-                    averagePrice
+                    order.limitPricePerItemCents()
             );
             configuration.set(
                     path + ".total-escrow-cents",
@@ -734,6 +900,14 @@ public final class YamlOrdersRepository
             configuration.set(
                     path + ".escrow-remaining-cents",
                     order.escrowRemainingCents()
+            );
+            configuration.set(
+                    path + ".actual-spent-cents",
+                    order.actualSpentCents()
+            );
+            configuration.set(
+                    path + ".released-escrow-cents",
+                    order.releasedEscrowCents()
             );
             configuration.set(
                     path + ".created-at-millis",
@@ -782,16 +956,14 @@ public final class YamlOrdersRepository
                     StandardCopyOption.REPLACE_EXISTING
             );
         } finally {
-            Files.deleteIfExists(
-                    temporary.toPath()
-            );
+            Files.deleteIfExists(temporary.toPath());
         }
     }
 
     private void backupBeforeMigration() {
         File backup = new File(
                 file.getParentFile(),
-                "orders.yml.pre-v3-migration.bak"
+                "orders.yml.pre-v4-limit-migration.bak"
         );
 
         if (backup.exists() || !file.isFile()) {
@@ -806,7 +978,7 @@ public final class YamlOrdersRepository
         } catch (IOException exception) {
             core.getLogger().log(
                     Level.WARNING,
-                    "Could not create Orders migration backup",
+                    "Could not create Orders v4 migration backup",
                     exception
             );
         }
@@ -842,15 +1014,9 @@ public final class YamlOrdersRepository
         }
     }
 
-    private long safeMultiply(
-            long left,
-            long right
-    ) {
+    private long safeMultiply(long left, long right) {
         try {
-            return Math.multiplyExact(
-                    left,
-                    right
-            );
+            return Math.multiplyExact(left, right);
         } catch (ArithmeticException exception) {
             return Long.MAX_VALUE;
         }
@@ -881,8 +1047,12 @@ public final class YamlOrdersRepository
             int requestedAmount,
             int deliveredAmount,
             int collectedAmount,
+            OrderRecord.PricingMode pricingMode,
+            long limitPricePerItemCents,
             long totalEscrowCents,
             long escrowRemainingCents,
+            long actualSpentCents,
+            long releasedEscrowCents,
             long createdAtMillis,
             boolean active
     ) {

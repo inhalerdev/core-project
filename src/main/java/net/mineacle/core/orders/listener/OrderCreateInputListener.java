@@ -1,6 +1,7 @@
 package net.mineacle.core.orders.listener;
 
 import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
@@ -68,10 +69,8 @@ public final class OrderCreateInputListener
         PENDING.clear();
     }
 
-    @EventHandler(
-            priority = EventPriority.LOWEST,
-            ignoreCancelled = false
-    )
+    @SuppressWarnings("unused")
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onChat(AsyncChatEvent event) {
         Player player = event.getPlayer();
         UUID playerId = player.getUniqueId();
@@ -185,23 +184,44 @@ public final class OrderCreateInputListener
                 )
         );
 
+        long minimumEach = service.minimumOrderUnitCents(
+                pending.material()
+        );
+        long minimumEscrow = safeMultiply(
+                minimumEach,
+                amount
+        );
+
         player.sendMessage(TextColor.color(""));
         player.sendMessage(TextColor.color(
-                "&#bbbbbbHow much total money should players earn?"
+                "&#bbbbbbHow much will you pay per item?"
         ));
         player.sendMessage(TextColor.color(
-                "&#bbbbbbRequest: &#ff88ff"
+                "&#bbbbbbRequest: &#B078FF"
                         + amount
                         + "x "
                         + service.pretty(pending.material())
         ));
         player.sendMessage(TextColor.color(
-                "&#bbbbbbExamples: &#ff88ff100k&#bbbbbb, "
-                        + "&#ff88ff11.5M&#bbbbbb, "
-                        + "&#ff88ff250000"
+                "&#bbbbbbServer minimum: &#11fc7b"
+                        + service.formatMoney(minimumEach)
+                        + " &#bbbbbbeach"
+        ));
+
+        if (minimumEscrow != Long.MAX_VALUE) {
+            player.sendMessage(TextColor.color(
+                    "&#bbbbbbMinimum escrow: &#11fc7b"
+                            + service.formatMoney(minimumEscrow)
+            ));
+        }
+
+        player.sendMessage(TextColor.color(
+                "&#bbbbbbExamples: &#B078FF10&#bbbbbb, "
+                        + "&#B078FF250&#bbbbbb, "
+                        + "&#B078FF1k"
         ));
         player.sendMessage(TextColor.color(
-                "&#bbbbbbType &#ff88ffcancel "
+                "&#bbbbbbType &#B078FFcancel "
                         + "&#bbbbbbto stop"
         ));
     }
@@ -238,8 +258,8 @@ public final class OrderCreateInputListener
                     pending
             );
             player.sendMessage(TextColor.color(
-                    "&#bbbbbbType another total price "
-                            + "or &#ff88ffcancel"
+                    "&#bbbbbbType another price per item "
+                            + "or &#B078FFcancel"
             ));
             return;
         }
@@ -270,8 +290,22 @@ public final class OrderCreateInputListener
 
         player.sendMessage(TextColor.color(
                 "&#bbbbbbType another amount "
-                        + "or &#ff88ffcancel"
+                        + "or &#B078FFcancel"
         ));
+    }
+
+    private long safeMultiply(
+            long left,
+            int right
+    ) {
+        try {
+            return Math.multiplyExact(
+                    Math.max(0L, left),
+                    Math.max(0, right)
+            );
+        } catch (ArithmeticException exception) {
+            return Long.MAX_VALUE;
+        }
     }
 
     private boolean isCancel(String input) {
@@ -283,7 +317,12 @@ public final class OrderCreateInputListener
             Player player,
             String message
     ) {
-        player.sendMessage(TextColor.color(message));
+        String colored = TextColor.color(message);
+        player.sendMessage(colored);
+        player.sendActionBar(
+                LegacyComponentSerializer.legacySection()
+                        .deserialize(colored)
+        );
         SoundService.guiError(player, core);
     }
 

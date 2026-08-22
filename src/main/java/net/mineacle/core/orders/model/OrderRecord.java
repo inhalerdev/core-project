@@ -7,17 +7,26 @@ import java.util.UUID;
 
 public final class OrderRecord {
 
+    public enum PricingMode {
+        LEGACY_TOTAL,
+        LIMIT_PER_ITEM
+    }
+
     private final UUID id;
     private final UUID ownerId;
     private final String ownerName;
     private final Material material;
     private final int requestedAmount;
+    private final PricingMode pricingMode;
+    private final long limitPricePerItemCents;
     private final long totalEscrowCents;
     private final long createdAtMillis;
 
     private int deliveredAmount;
     private int collectedAmount;
     private long escrowRemainingCents;
+    private long actualSpentCents;
+    private long releasedEscrowCents;
     private boolean active;
 
     public OrderRecord(
@@ -28,8 +37,12 @@ public final class OrderRecord {
             int requestedAmount,
             int deliveredAmount,
             int collectedAmount,
+            PricingMode pricingMode,
+            long limitPricePerItemCents,
             long totalEscrowCents,
             long escrowRemainingCents,
+            long actualSpentCents,
+            long releasedEscrowCents,
             long createdAtMillis,
             boolean active
     ) {
@@ -53,6 +66,13 @@ public final class OrderRecord {
                 0,
                 this.deliveredAmount
         );
+        this.pricingMode = pricingMode == null
+                ? PricingMode.LEGACY_TOTAL
+                : pricingMode;
+        this.limitPricePerItemCents = Math.max(
+                1L,
+                limitPricePerItemCents
+        );
         this.totalEscrowCents = Math.max(
                 0L,
                 totalEscrowCents
@@ -61,6 +81,23 @@ public final class OrderRecord {
                 escrowRemainingCents,
                 0L,
                 this.totalEscrowCents
+        );
+
+        long settledEscrow = Math.max(
+                0L,
+                this.totalEscrowCents
+                        - this.escrowRemainingCents
+        );
+        this.actualSpentCents = Math.clamp(
+                actualSpentCents,
+                0L,
+                settledEscrow
+        );
+        this.releasedEscrowCents = Math.clamp(
+                releasedEscrowCents,
+                0L,
+                settledEscrow
+                        - this.actualSpentCents
         );
         this.createdAtMillis = Math.max(
                 0L,
@@ -71,6 +108,39 @@ public final class OrderRecord {
                 && this.escrowRemainingCents > 0L;
     }
 
+    public static OrderRecord limitOrder(
+            UUID id,
+            UUID ownerId,
+            String ownerName,
+            Material material,
+            int requestedAmount,
+            long limitPricePerItemCents,
+            long createdAtMillis
+    ) {
+        long escrow = safeTotal(
+                limitPricePerItemCents,
+                requestedAmount
+        );
+
+        return new OrderRecord(
+                id,
+                ownerId,
+                ownerName,
+                material,
+                requestedAmount,
+                0,
+                0,
+                PricingMode.LIMIT_PER_ITEM,
+                limitPricePerItemCents,
+                escrow,
+                escrow,
+                0L,
+                0L,
+                createdAtMillis,
+                true
+        );
+    }
+
     public static OrderRecord legacy(
             UUID id,
             UUID ownerId,
@@ -79,11 +149,26 @@ public final class OrderRecord {
             int requestedAmount,
             int deliveredAmount,
             int collectedAmount,
-            long pricePerItemCents,
+            long totalEscrowCents,
             long escrowRemainingCents,
             long createdAtMillis,
             boolean active
     ) {
+        long pricePerItem = requestedAmount <= 0
+                ? 1L
+                : Math.max(
+                        1L,
+                        totalEscrowCents / requestedAmount
+                );
+        long alreadySpent = Math.max(
+                0L,
+                totalEscrowCents
+                        - Math.max(
+                        0L,
+                        escrowRemainingCents
+                )
+        );
+
         return new OrderRecord(
                 id,
                 ownerId,
@@ -92,11 +177,12 @@ public final class OrderRecord {
                 requestedAmount,
                 deliveredAmount,
                 collectedAmount,
-                safeTotal(
-                        pricePerItemCents,
-                        requestedAmount
-                ),
+                PricingMode.LEGACY_TOTAL,
+                pricePerItem,
+                totalEscrowCents,
                 escrowRemainingCents,
+                alreadySpent,
+                0L,
                 createdAtMillis,
                 active
         );
@@ -130,12 +216,32 @@ public final class OrderRecord {
         return collectedAmount;
     }
 
+    public PricingMode pricingMode() {
+        return pricingMode;
+    }
+
+    public boolean exactLimitPrice() {
+        return pricingMode == PricingMode.LIMIT_PER_ITEM;
+    }
+
+    public long limitPricePerItemCents() {
+        return limitPricePerItemCents;
+    }
+
     public long totalEscrowCents() {
         return totalEscrowCents;
     }
 
     public long escrowRemainingCents() {
         return escrowRemainingCents;
+    }
+
+    public long actualSpentCents() {
+        return actualSpentCents;
+    }
+
+    public long releasedEscrowCents() {
+        return releasedEscrowCents;
     }
 
     public long createdAtMillis() {
@@ -161,6 +267,10 @@ public final class OrderRecord {
     }
 
     public long pricePerItemCents() {
+        if (pricingMode == PricingMode.LIMIT_PER_ITEM) {
+            return limitPricePerItemCents;
+        }
+
         if (requestedAmount <= 0) {
             return 0L;
         }
@@ -171,6 +281,10 @@ public final class OrderRecord {
         );
     }
 
+    /**
+     * Manual delivery payout. New limit orders pay their exact resting bid;
+     * migrated legacy orders preserve the original proportional-total payout.
+     */
     public long payoutFor(
             int requestedDeliveryAmount
     ) {
@@ -186,6 +300,23 @@ public final class OrderRecord {
                 requestedDeliveryAmount,
                 remainingItems
         );
+
+        if (pricingMode == PricingMode.LIMIT_PER_ITEM) {
+            long exact = safeTotal(
+                    limitPricePerItemCents,
+                    deliveryAmount
+            );
+
+            if (exact == Long.MAX_VALUE) {
+                return 0L;
+            }
+
+            if (exact > escrowRemainingCents) {
+                return 0L;
+            }
+
+            return exact;
+        }
 
         if (deliveryAmount == remainingItems) {
             return escrowRemainingCents;
@@ -227,8 +358,42 @@ public final class OrderRecord {
                 escrowRemainingCents
         );
 
+        if (safeAmount <= 0 || safePayout <= 0L) {
+            return;
+        }
+
         deliveredAmount += safeAmount;
         escrowRemainingCents -= safePayout;
+        actualSpentCents = safeAddBounded(
+                actualSpentCents,
+                safePayout,
+                totalEscrowCents
+        );
+
+        /*
+         * A future crossed AH fill may execute below this order's limit. Keep
+         * only the maximum escrow still required for the unfilled quantity and
+         * account for the price improvement as released escrow. The caller that
+         * performs such a discounted fill is responsible for returning the new
+         * released amount to the buyer before finalizing the transaction.
+         */
+        if (pricingMode == PricingMode.LIMIT_PER_ITEM) {
+            long requiredRemaining = safeRequired(
+                    limitPricePerItemCents,
+                    remainingAmount()
+            );
+
+            if (escrowRemainingCents > requiredRemaining) {
+                long released =
+                        escrowRemainingCents - requiredRemaining;
+                escrowRemainingCents = requiredRemaining;
+                releasedEscrowCents = safeAddBounded(
+                        releasedEscrowCents,
+                        released,
+                        totalEscrowCents
+                );
+            }
+        }
 
         if (remainingAmount() <= 0
                 || escrowRemainingCents <= 0L) {
@@ -245,6 +410,11 @@ public final class OrderRecord {
     }
 
     public void cancelAndRefund() {
+        releasedEscrowCents = safeAddBounded(
+                releasedEscrowCents,
+                escrowRemainingCents,
+                totalEscrowCents
+        );
         active = false;
         escrowRemainingCents = 0L;
     }
@@ -264,10 +434,28 @@ public final class OrderRecord {
                 requestedAmount,
                 deliveredAmount,
                 collectedAmount,
+                pricingMode,
+                limitPricePerItemCents,
                 totalEscrowCents,
                 escrowRemainingCents,
+                actualSpentCents,
+                releasedEscrowCents,
                 createdAtMillis,
                 active
+        );
+    }
+
+    private static long safeRequired(
+            long pricePerItemCents,
+            int amount
+    ) {
+        if (amount <= 0) {
+            return 0L;
+        }
+
+        return safeTotal(
+                pricePerItemCents,
+                amount
         );
     }
 
@@ -278,7 +466,7 @@ public final class OrderRecord {
         try {
             return Math.multiplyExact(
                     Math.max(
-                            0L,
+                            1L,
                             pricePerItemCents
                     ),
                     Math.max(
@@ -288,6 +476,24 @@ public final class OrderRecord {
             );
         } catch (ArithmeticException exception) {
             return Long.MAX_VALUE;
+        }
+    }
+
+    private static long safeAddBounded(
+            long left,
+            long right,
+            long maximum
+    ) {
+        try {
+            return Math.min(
+                    maximum,
+                    Math.addExact(
+                            Math.max(0L, left),
+                            Math.max(0L, right)
+                    )
+            );
+        } catch (ArithmeticException exception) {
+            return maximum;
         }
     }
 }

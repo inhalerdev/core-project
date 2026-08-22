@@ -1,5 +1,6 @@
 package net.mineacle.core.orders.command;
 
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.mineacle.core.Core;
 import net.mineacle.core.common.gui.MenuHistory;
 import net.mineacle.core.common.player.PlayerTabComplete;
@@ -17,6 +18,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,10 +41,10 @@ public final class OrderCommand
 
     @Override
     public boolean onCommand(
-            CommandSender sender,
-            Command command,
-            String label,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String label,
+            @NotNull String @NotNull [] args
     ) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage(
@@ -109,9 +111,9 @@ public final class OrderCommand
                     "&#bbbbbbType an item name to search orders"
             ));
             player.sendMessage(TextColor.color(
-                    "&#bbbbbbType &#ff88ffcancel "
+                    "&#bbbbbbType &#B078FFcancel "
                             + "&#bbbbbbto return or "
-                            + "&#ff88ffclear "
+                            + "&#B078FFclear "
                             + "&#bbbbbbto reset search"
             ));
             return;
@@ -180,12 +182,12 @@ public final class OrderCommand
 
         if (args.length != 4) {
             player.sendMessage(TextColor.color(
-                    "&#bbbbbbUsage: &d/order create "
-                            + "<item> <amount> <total price>"
+                    "&#bbbbbbUsage: &#8436FE/order create "
+                            + "<item> <amount> <price each>"
             ));
             player.sendMessage(TextColor.color(
-                    "&#bbbbbbExample: &d/order create "
-                            + "oak_log 64 100k"
+                    "&#bbbbbbExample: &#8436FE/order create "
+                            + "oak_log 64 25"
             ));
             SoundService.guiError(player, core);
             return;
@@ -262,7 +264,7 @@ public final class OrderCommand
 
     private void usage(Player player) {
         player.sendMessage(TextColor.color(
-                "&#bbbbbbUsage: &d/order "
+                "&#bbbbbbUsage: &#8436FE/order "
                         + "[create|search|clear]"
         ));
         SoundService.guiError(player, core);
@@ -272,16 +274,21 @@ public final class OrderCommand
             Player player,
             String message
     ) {
-        player.sendMessage(TextColor.color(message));
+        String colored = TextColor.color(message);
+        player.sendMessage(colored);
+        player.sendActionBar(
+                LegacyComponentSerializer.legacySection()
+                        .deserialize(colored)
+        );
         SoundService.guiError(player, core);
     }
 
     @Override
     public List<String> onTabComplete(
-            CommandSender sender,
-            Command command,
-            String alias,
-            String[] args
+            @NotNull CommandSender sender,
+            @NotNull Command command,
+            @NotNull String alias,
+            @NotNull String @NotNull [] args
     ) {
         if (!sender.hasPermission("mineacleorders.use")) {
             return List.of();
@@ -310,15 +317,14 @@ public final class OrderCommand
 
         if (args.length == 2
                 && args[0].equalsIgnoreCase("create")) {
-            String partial = args[1] == null
-                    ? ""
-                    : args[1].toLowerCase(Locale.ROOT);
+            String partial = args[1].toLowerCase(Locale.ROOT);
             List<String> completions =
                     new ArrayList<>();
 
             for (Material material : Material.values()) {
                 if (material == Material.AIR
-                        || !material.isItem()) {
+                        || !material.isItem()
+                        || service.isOrderMaterialRejected(material)) {
                     continue;
                 }
 
@@ -356,10 +362,10 @@ public final class OrderCommand
             return PlayerTabComplete.options(
                     args[3],
                     List.of(
-                            "10k",
-                            "100k",
-                            "1M",
-                            "10M"
+                            "10",
+                            "100",
+                            "1k",
+                            "10k"
                     )
             );
         }

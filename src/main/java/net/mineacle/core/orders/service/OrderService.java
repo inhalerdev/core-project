@@ -88,12 +88,27 @@ public final class OrderService {
             if (order == null
                     || !order.active()
                     || order.remainingAmount() <= 0
+                    || isOrderMaterialRejected(order.material())
                     || belowCurrentServerFloor(order)) {
                 continue;
             }
 
             result.add(order);
         }
+
+        result.sort(
+                java.util.Comparator
+                        .comparingLong(
+                                OrderRecord::pricePerItemCents
+                        )
+                        .reversed()
+                        .thenComparingLong(
+                                OrderRecord::createdAtMillis
+                        )
+                        .thenComparing(
+                                order -> order.id().toString()
+                        )
+        );
 
         return List.copyOf(result);
     }
@@ -133,10 +148,17 @@ public final class OrderService {
     }
 
 
+    public boolean isOrderMaterialRejected(
+            Material material
+    ) {
+        return !marketExchange.isFungibleOrderMaterial(material);
+    }
+
+
     public boolean create(
             Player player,
             int amount,
-            String rawTotalPay
+            String rawPriceEach
     ) {
         if (player == null) {
             return false;
@@ -149,7 +171,7 @@ public final class OrderService {
                 player,
                 hand.getType(),
                 amount,
-                rawTotalPay
+                rawPriceEach
         ) == CreationResult.SUCCESS;
     }
 
@@ -157,13 +179,13 @@ public final class OrderService {
             Player player,
             Material material,
             int amount,
-            String rawTotalPay
+            String rawPriceEach
     ) {
         return createDetailed(
                 player,
                 material,
                 amount,
-                rawTotalPay
+                rawPriceEach
         ) == CreationResult.SUCCESS;
     }
 
@@ -171,7 +193,7 @@ public final class OrderService {
             Player player,
             Material material,
             int amount,
-            String rawTotalPay
+            String rawPriceEach
     ) {
         if (player == null) {
             return CreationResult.INVALID_ITEM;
@@ -197,6 +219,14 @@ public final class OrderService {
                             "hold-item",
                             "&cChoose an item from the order menu"
                     )
+            );
+            return CreationResult.INVALID_ITEM;
+        }
+
+        if (!marketExchange.isFungibleOrderMaterial(material)) {
+            error(
+                    player,
+                    "&cThat item is Auction House only &#bbbbbb— Orders accept plain fungible commodities"
             );
             return CreationResult.INVALID_ITEM;
         }
@@ -268,17 +298,14 @@ public final class OrderService {
             return CreationResult.ECONOMY_NOT_READY;
         }
 
-        long escrow = economy.parseAmountToCents(
-                rawTotalPay
+        long limitPriceEach = economy.parseAmountToCents(
+                rawPriceEach
         );
 
-        if (escrow <= 0L) {
+        if (limitPriceEach <= 0L) {
             error(
                     player,
-                    message(
-                            "invalid-price",
-                            "&cType a price like 100k, 11.5M, or 250000"
-                    )
+                    "&cType a price per item like 10, 250, or 1k"
             );
             return CreationResult.INVALID_PRICE;
         }
@@ -290,30 +317,29 @@ public final class OrderService {
                                 economy
                         )
                 );
-        long minimumTotal =
-                safeRequiredTotal(
-                        minimumEach,
-                        amount
-                );
 
-        if (minimumTotal == Long.MAX_VALUE) {
-            error(
-                    player,
-                    "&cThat order value is too large"
-            );
-            return CreationResult.INVALID_PRICE;
-        }
-
-        if (escrow < minimumTotal) {
+        if (limitPriceEach < minimumEach) {
             floorError(
                     player,
                     material,
                     amount,
                     minimumEach,
-                    minimumTotal,
                     economy
             );
             return CreationResult.PRICE_TOO_LOW;
+        }
+
+        long escrow = safeRequiredTotal(
+                limitPriceEach,
+                amount
+        );
+
+        if (escrow == Long.MAX_VALUE) {
+            error(
+                    player,
+                    "&cThat order value is too large"
+            );
+            return CreationResult.INVALID_PRICE;
         }
 
         long tax = creationTax(escrow);
@@ -342,10 +368,8 @@ public final class OrderService {
         }
 
         /*
-         * Transaction-boundary floor recheck. The v10 live governor can move
-         * the guaranteed Sell floor between initial input validation and the
-         * actual escrow debit. Never create a resting bid below the current
-         * guaranteed liquidation price.
+         * Transaction-boundary floor recheck. The v10 governor may publish a
+         * new guaranteed Sell price while the player is typing their bid.
          */
         long finalMinimumEach =
                 marketExchange.minimumOrderUnitCents(
@@ -354,27 +378,13 @@ public final class OrderService {
                                 economy
                         )
                 );
-        long finalMinimumTotal =
-                safeRequiredTotal(
-                        finalMinimumEach,
-                        amount
-                );
 
-        if (finalMinimumTotal == Long.MAX_VALUE) {
-            error(
-                    player,
-                    "&cThat order value is too large"
-            );
-            return CreationResult.INVALID_PRICE;
-        }
-
-        if (escrow < finalMinimumTotal) {
+        if (limitPriceEach < finalMinimumEach) {
             floorError(
                     player,
                     material,
                     amount,
                     finalMinimumEach,
-                    finalMinimumTotal,
                     economy
             );
             return CreationResult.PRICE_TOO_LOW;
@@ -424,25 +434,26 @@ public final class OrderService {
             return CreationResult.INSUFFICIENT_FUNDS;
         }
 
-        OrderRecord order = new OrderRecord(
+        OrderRecord order = OrderRecord.limitOrder(
                 UUID.randomUUID(),
                 ownerId,
                 DisplayNames.displayName(player),
                 material,
                 amount,
-                0,
-                0,
-                escrow,
-                escrow,
-                System.currentTimeMillis(),
-                true
+                limitPriceEach,
+                System.currentTimeMillis()
         );
 
-        if (!repository.put(order)) {
-            economy.tryGive(
+        if (!repository.putDurable(order)) {
+            if (!economy.tryGive(
                     ownerId,
                     totalCost
-            );
+            )) {
+                core.getLogger().severe(
+                        "Could not refund failed durable Order creation for "
+                                + ownerId
+                );
+            }
             error(
                     player,
                     message(
@@ -471,9 +482,10 @@ public final class OrderService {
         );
         send(
                 player,
-                "&#bbbbbbPlayers can earn &a"
+                "&#bbbbbbBid: &#11fc7b"
+                        + economy.format(limitPriceEach)
+                        + " &#bbbbbbeach — Escrow: &#11fc7b"
                         + economy.format(escrow)
-                        + " &#bbbbbbby completing it"
         );
 
         if (tax > 0L) {
@@ -512,6 +524,14 @@ public final class OrderService {
                             "already-complete",
                             "&cThat order is already complete"
                     )
+            );
+            return;
+        }
+
+        if (isOrderMaterialRejected(original.material())) {
+            error(
+                    seller,
+                    "&cThat legacy order can no longer accept deliveries &#bbbbbb— the buyer can cancel and refund it"
             );
             return;
         }
@@ -619,7 +639,7 @@ public final class OrderService {
                 payout
         );
 
-        if (!repository.put(updated)) {
+        if (!repository.putDurable(updated)) {
             restoreStorage(
                     seller.getInventory(),
                     inventoryBefore
@@ -638,7 +658,12 @@ public final class OrderService {
                 seller.getUniqueId(),
                 payout
         )) {
-            repository.put(original);
+            if (!repository.putDurable(original)) {
+                core.getLogger().severe(
+                        "Could not durably roll back failed Order payout "
+                                + original.id()
+                );
+            }
             restoreStorage(
                     seller.getInventory(),
                     inventoryBefore
@@ -747,8 +772,8 @@ public final class OrderService {
         updated.addCollected(collected);
 
         boolean accepted = updated.settled()
-                ? repository.remove(updated.id())
-                : repository.put(updated);
+                ? repository.removeDurable(updated.id())
+                : repository.putDurable(updated);
 
         if (!accepted) {
             restoreStorage(
@@ -854,14 +879,18 @@ public final class OrderService {
         updated.cancelAndRefund();
 
         boolean accepted = updated.settled()
-                ? repository.remove(updated.id())
-                : repository.put(updated);
+                ? repository.removeDurable(updated.id())
+                : repository.putDurable(updated);
 
         if (!accepted) {
-            if (refund > 0L) {
-                economy.take(
-                        player.getUniqueId(),
-                        refund
+            if (refund > 0L
+                    && !economy.take(
+                    player.getUniqueId(),
+                    refund
+            )) {
+                core.getLogger().severe(
+                        "Could not reverse failed Order cancellation refund for "
+                                + original.id()
                 );
             }
 
@@ -907,7 +936,8 @@ public final class OrderService {
                 player.getInventory()
                         .getStorageContents()) {
             if (item == null
-                    || item.getType() != material) {
+                    || item.getType() != material
+                    || marketExchange.isNonCanonicalOrderStack(item)) {
                 continue;
             }
 
@@ -1085,24 +1115,27 @@ public final class OrderService {
             Material material,
             int amount,
             long minimumEach,
-            long minimumTotal,
             EconomyService economy
     ) {
+        long minimumTotal = safeRequiredTotal(
+                minimumEach,
+                amount
+        );
         error(
                 player,
-                "&cOrder price too low &#bbbbbb— "
+                "&cOrder bid too low &#bbbbbb— "
                         + pretty(material)
                         + " is guaranteed at &#11fc7b"
                         + economy.format(minimumEach)
                         + " each &#bbbbbb(&#11fc7b"
                         + economy.format(minimumTotal)
-                        + " total for "
+                        + " escrow for "
                         + amount
                         + "x&#bbbbbb)"
         );
     }
 
-    private String formatMoney(
+    public String formatMoney(
             long cents
     ) {
         EconomyService economy =
@@ -1168,7 +1201,8 @@ public final class OrderService {
             ItemStack item = contents[index];
 
             if (item == null
-                    || item.getType() != material) {
+                    || item.getType() != material
+                    || marketExchange.isNonCanonicalOrderStack(item)) {
                 continue;
             }
 

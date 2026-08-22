@@ -22,4 +22,16 @@ public interface OrdersRepository {
     boolean put(OrderRecord order);
 
     boolean remove(UUID id);
+
+    /**
+     * Synchronously persists the complete post-mutation snapshot before
+     * returning success. Money-moving Order transactions use this path.
+     */
+    boolean putDurable(OrderRecord order);
+
+    /**
+     * Synchronously persists the complete post-removal snapshot before
+     * returning success.
+     */
+    boolean removeDurable(UUID id);
 }
