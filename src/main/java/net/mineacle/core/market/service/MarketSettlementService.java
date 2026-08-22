@@ -61,23 +61,23 @@ public final class MarketSettlementService {
         }
     }
 
-    public synchronized boolean healthy() {
+    private boolean healthBlocked() {
         if (!storageHealthy) {
-            return false;
+            return true;
         }
 
         for (MarketTransaction transaction : transactions.values()) {
             if (transaction.state()
                     == MarketTransaction.State.QUARANTINED) {
-                return false;
+                return true;
             }
         }
 
-        return true;
+        return false;
     }
 
     public synchronized boolean executionBlocked() {
-        return !healthy()
+        return healthBlocked()
                 || orderService == null
                 || transactions.values().stream()
                 .anyMatch(this::blocksNewSettlement);
@@ -290,7 +290,7 @@ public final class MarketSettlementService {
         if (transaction == null
                 || transaction.state()
                 != MarketTransaction.State.PREPARED
-                || !healthy()
+                || healthBlocked()
                 || transactions.containsKey(
                 transaction.transactionId()
         )

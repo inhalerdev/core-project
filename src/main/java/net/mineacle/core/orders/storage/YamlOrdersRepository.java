@@ -75,6 +75,7 @@ public final class YamlOrdersRepository
     private boolean closed;
     private long generation;
     private volatile long persistedGeneration;
+    private UUID lastMarketTransactionId;
     private ScheduledFuture<?> pendingSave;
 
     public YamlOrdersRepository(Core core) {
@@ -315,16 +316,26 @@ public final class YamlOrdersRepository
 
     @Override
     public synchronized boolean putAllDurable(
+            UUID marketTransactionId,
             Collection<OrderRecord> mutations
     ) {
-        if (mutations == null
+        if (marketTransactionId == null
+                || mutations == null
                 || mutations.isEmpty()
                 || closed) {
             return false;
         }
 
+        if (marketTransactionId.equals(
+                lastMarketTransactionId
+        )) {
+            return true;
+        }
+
         Map<UUID, OrderRecord> previous =
                 new LinkedHashMap<>();
+        UUID previousMarketTransactionId =
+                lastMarketTransactionId;
 
         for (OrderRecord mutation : mutations) {
             if (mutation == null) {
@@ -339,12 +350,27 @@ public final class YamlOrdersRepository
             replaceInMemory(mutation.copy());
         }
 
+        lastMarketTransactionId =
+                marketTransactionId;
+
         if (persistCurrentStateLocked()) {
             return true;
         }
 
+        lastMarketTransactionId =
+                previousMarketTransactionId;
         rollbackBatch(previous);
         return false;
+    }
+
+    @Override
+    public synchronized boolean marketTransactionCommitted(
+            UUID marketTransactionId
+    ) {
+        return marketTransactionId != null
+                && marketTransactionId.equals(
+                lastMarketTransactionId
+        );
     }
 
     private void rollbackBatch(
@@ -398,6 +424,25 @@ public final class YamlOrdersRepository
                 );
         Map<UUID, OrderRecord> loaded =
                 new LinkedHashMap<>();
+        UUID loadedMarketTransactionId = null;
+        String rawMarketTransactionId =
+                configuration.getString(
+                        "market.last-transaction-id",
+                        ""
+                );
+
+        if (!rawMarketTransactionId.isBlank()) {
+            try {
+                loadedMarketTransactionId =
+                        UUID.fromString(
+                                rawMarketTransactionId.trim()
+                        );
+            } catch (IllegalArgumentException exception) {
+                core.getLogger().warning(
+                        "Skipped invalid Orders market transaction checkpoint"
+                );
+            }
+        }
 
         if (section != null) {
             for (String key : section.getKeys(false)) {
@@ -425,6 +470,8 @@ public final class YamlOrdersRepository
                 index(order);
             }
 
+            lastMarketTransactionId =
+                    loadedMarketTransactionId;
             dirty = loadedSchema < SCHEMA_VERSION;
             generation = dirty ? 1L : 0L;
             persistedGeneration = 0L;
@@ -928,7 +975,10 @@ public final class YamlOrdersRepository
                 )
         );
 
-        return new Snapshot(List.copyOf(snapshots));
+        return new Snapshot(
+                List.copyOf(snapshots),
+                lastMarketTransactionId
+        );
     }
 
     private void writeSnapshotSerialized(
@@ -978,6 +1028,14 @@ public final class YamlOrdersRepository
                 "schema-version",
                 SCHEMA_VERSION
         );
+
+        if (snapshot.lastMarketTransactionId() != null) {
+            configuration.set(
+                    "market.last-transaction-id",
+                    snapshot.lastMarketTransactionId()
+                            .toString()
+            );
+        }
 
         for (OrderSnapshot order : snapshot.orders()) {
             String path = "orders." + order.id();
@@ -1191,7 +1249,8 @@ public final class YamlOrdersRepository
     }
 
     private record Snapshot(
-            List<OrderSnapshot> orders
+            List<OrderSnapshot> orders,
+            UUID lastMarketTransactionId
     ) {
     }
 }

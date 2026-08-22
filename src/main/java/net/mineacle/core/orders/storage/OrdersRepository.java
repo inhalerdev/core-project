@@ -37,11 +37,19 @@ public interface OrdersRepository {
     boolean putDurable(OrderRecord order);
 
     /**
-     * Applies several Order mutations in memory and commits exactly one durable
-     * complete snapshot. Used by one market action that partially fills more
-     * than one resting bid.
+     * Idempotent durable cross-market Order mutation. The transaction id is
+     * persisted in the same orders.yml snapshot as every fill so recovery can
+     * distinguish "write completed, journal advance crashed" from "write never
+     * happened".
      */
-    boolean putAllDurable(Collection<OrderRecord> orders);
+    boolean putAllDurable(
+            UUID marketTransactionId,
+            Collection<OrderRecord> orders
+    );
+
+    boolean marketTransactionCommitted(
+            UUID marketTransactionId
+    );
 
     /**
      * Synchronously persists the complete post-removal snapshot before
