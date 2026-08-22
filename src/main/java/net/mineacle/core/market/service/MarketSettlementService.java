@@ -6,6 +6,10 @@ import net.mineacle.core.economy.service.EconomyService;
 import net.mineacle.core.market.model.MarketTransaction;
 import net.mineacle.core.market.storage.MarketTransactionStorage;
 import net.mineacle.core.orders.service.OrderService;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -15,18 +19,21 @@ import java.util.UUID;
 
 /**
  * Durable settlement coordinator shared by Sell, Orders and Auction House.
- *
- * <p>R3C establishes the journal and idempotent payout bridge before automatic
- * item removal is enabled. The next pass adds the playerdata source marker and
- * begins creating PREPARED transactions from /sell.</p>
  */
 public final class MarketSettlementService {
+
+    public enum ExecutionStatus {
+        COMPLETED,
+        PENDING,
+        SAFE_FAILURE
+    }
 
     private static final long PAYOUT_WAIT_MILLIS = 10_000L;
     private static final long RECOVERY_RETRY_TICKS = 20L;
 
     private final Core core;
     private final MarketTransactionStorage storage;
+    private final MarketSourceMarker sourceMarker;
     private final Map<UUID, MarketTransaction> transactions =
             new LinkedHashMap<>();
     private final List<String> storageProblems =
@@ -39,6 +46,7 @@ public final class MarketSettlementService {
     public MarketSettlementService(Core core) {
         this.core = core;
         this.storage = new MarketTransactionStorage(core);
+        this.sourceMarker = new MarketSourceMarker(core);
         load();
     }
 
@@ -68,16 +76,11 @@ public final class MarketSettlementService {
         return true;
     }
 
-    /**
-     * Execution additionally requires Orders to be bound. Keeping this
-     * separate from storage health lets the Market module initialize before
-     * the Orders module without reporting a false corruption state.
-     */
-    public synchronized boolean readyForExecution() {
-        return healthy()
-                && orderService != null
-                && transactions.values().stream()
-                .noneMatch(this::blocksNewSettlement);
+    public synchronized boolean executionBlocked() {
+        return !healthy()
+                || orderService == null
+                || transactions.values().stream()
+                .anyMatch(this::blocksNewSettlement);
     }
 
     public synchronized List<String> recoverySummaries() {
@@ -115,10 +118,172 @@ public final class MarketSettlementService {
     }
 
     /**
-     * Creates the durable PREPARED barrier. The caller must not remove player
-     * items unless this succeeds.
+     * Owns a direct-player source transaction from PREPARED through payout.
+     *
+     * <p>PREPARED is durable before the player's live inventory is mutated.
+     * SOURCE_REMOVED is written into playerdata before the shared journal may
+     * advance, providing restart proof that the source stacks cannot return.</p>
      */
-    @SuppressWarnings("unused")
+    public synchronized ExecutionStatus executePlayerSource(
+            Player player,
+            MarketTransaction transaction
+    ) {
+        if (player == null
+                || transaction == null
+                || !player.getUniqueId().equals(
+                transaction.sellerId()
+        )
+                || executionBlocked()) {
+            return ExecutionStatus.SAFE_FAILURE;
+        }
+
+        if (!begin(transaction)) {
+            return ExecutionStatus.SAFE_FAILURE;
+        }
+
+        if (!sourceStillMatches(
+                player,
+                transaction
+        )) {
+            abortPrepared(transaction);
+            return ExecutionStatus.SAFE_FAILURE;
+        }
+
+        removeSource(
+                player,
+                transaction
+        );
+
+        if (!sourceMarker.persistSourceRemoved(
+                player,
+                transaction.transactionId()
+        )) {
+            restoreSource(
+                    player,
+                    transaction
+            );
+            sourceMarker.clearInMemory(player);
+
+            try {
+                player.saveData();
+            } catch (RuntimeException exception) {
+                quarantine(
+                        transaction,
+                        "playerdata-source-rollback-uncertain"
+                );
+                return ExecutionStatus.PENDING;
+            }
+
+            abortPrepared(transaction);
+            return ExecutionStatus.SAFE_FAILURE;
+        }
+
+        MarketTransaction sourceRemoved =
+                advance(
+                        transaction,
+                        MarketTransaction.State.SOURCE_REMOVED
+                );
+
+        if (sourceRemoved == null) {
+            return ExecutionStatus.PENDING;
+        }
+
+        if (!commitOrdersAndContinue(
+                sourceRemoved
+        )) {
+            return ExecutionStatus.PENDING;
+        }
+
+        return transactions.containsKey(
+                transaction.transactionId()
+        )
+                ? ExecutionStatus.PENDING
+                : ExecutionStatus.COMPLETED;
+    }
+
+    public synchronized void recoverPlayer(
+            Player player
+    ) {
+        if (player == null) {
+            return;
+        }
+
+        MarketSourceMarker.Marker marker =
+                sourceMarker.read(player);
+        MarketTransaction sellerTransaction =
+                unresolvedForSeller(
+                        player.getUniqueId()
+                );
+
+        if (sellerTransaction == null) {
+            if (marker != null) {
+                sourceMarker.clearAndPersist(
+                        player,
+                        marker.transactionId()
+                );
+            }
+            return;
+        }
+
+        if (sellerTransaction.state()
+                != MarketTransaction.State.PREPARED) {
+            recoverAll();
+
+            if (!transactions.containsKey(
+                    sellerTransaction.transactionId()
+            )) {
+                sourceMarker.clearAndPersist(
+                        player,
+                        sellerTransaction.transactionId()
+                );
+            }
+            return;
+        }
+
+        if (marker == null
+                || !marker.transactionId().equals(
+                sellerTransaction.transactionId()
+        )
+                || marker.phase()
+                != MarketSourceMarker.Phase.SOURCE_REMOVED) {
+            /*
+             * No durable SOURCE_REMOVED proof means playerdata still owns the
+             * source stacks. PREPARED has not touched Orders or economy, so the
+             * journal can be safely abandoned.
+             */
+            abortPrepared(sellerTransaction);
+
+            if (marker != null) {
+                sourceMarker.clearAndPersist(
+                        player,
+                        marker.transactionId()
+                );
+            }
+            return;
+        }
+
+        MarketTransaction sourceRemoved =
+                advance(
+                        sellerTransaction,
+                        MarketTransaction.State.SOURCE_REMOVED
+                );
+
+        if (sourceRemoved != null) {
+            commitOrdersAndContinue(
+                    sourceRemoved
+            );
+        }
+
+        if (!transactions.containsKey(
+                sellerTransaction.transactionId()
+        )) {
+            sourceMarker.clearAndPersist(
+                    player,
+                    sellerTransaction.transactionId()
+            );
+        }
+    }
+
     public synchronized boolean begin(
             MarketTransaction transaction
     ) {
@@ -150,8 +315,6 @@ public final class MarketSettlementService {
         return true;
     }
 
-    /** Durable state transition used by the source/order settlement phases. */
-    @SuppressWarnings("unused")
     public synchronized MarketTransaction advance(
             MarketTransaction transaction,
             MarketTransaction.State next
@@ -193,12 +356,6 @@ public final class MarketSettlementService {
         return updated;
     }
 
-    /**
-     * After Order mutations are durable, materialize prepaid escrow plus the
-     * true server-issuance portion into the zero-balance bridge and transfer
-     * one exact combined payout to the seller.
-     */
-    @SuppressWarnings("unused")
     public synchronized boolean settlePayout(
             MarketTransaction transaction
     ) {
@@ -230,13 +387,21 @@ public final class MarketSettlementService {
         for (MarketTransaction transaction
                 : List.copyOf(transactions.values())) {
             switch (transaction.state()) {
-                case PREPARED, SOURCE_REMOVED -> {
-                    /*
-                     * R3D adds the playerdata source marker that proves whether
-                     * the item removal reached durable player state. Until that
-                     * marker exists, never guess or mutate these phases.
-                     */
+                case PREPARED -> {
+                    Player online =
+                            Bukkit.getPlayer(
+                                    transaction.sellerId()
+                            );
+
+                    if (online != null
+                            && online.isOnline()) {
+                        recoverPlayer(online);
+                    }
                 }
+                case SOURCE_REMOVED ->
+                        commitOrdersAndContinue(
+                                transaction
+                        );
                 case ORDERS_COMMITTED -> {
                     MarketTransaction payoutStarted =
                             advance(
@@ -263,6 +428,39 @@ public final class MarketSettlementService {
 
     public synchronized void shutdown() {
         retryScheduled = false;
+    }
+
+    private boolean commitOrdersAndContinue(
+            MarketTransaction transaction
+    ) {
+        if (transaction == null
+                || transaction.state()
+                != MarketTransaction.State.SOURCE_REMOVED
+                || orderService == null) {
+            return false;
+        }
+
+        if (!orderService.commitAutomaticFills(
+                transaction
+        )) {
+            scheduleRecovery();
+            return false;
+        }
+
+        MarketTransaction ordersCommitted =
+                advance(
+                        transaction,
+                        MarketTransaction.State.ORDERS_COMMITTED
+                );
+
+        if (ordersCommitted == null) {
+            scheduleRecovery();
+            return false;
+        }
+
+        return settlePayout(
+                ordersCommitted
+        );
     }
 
     private void load() {
@@ -321,12 +519,6 @@ public final class MarketSettlementService {
         long required =
                 transaction.totalPayoutCents();
 
-        /*
-         * PENDING means durableMarketTransfer already applied the balance
-         * mutation in memory and is only waiting for its checkpoint to reach
-         * disk. Never fund the reserve again in this state; just retry the same
-         * transaction id so EconomyService can finish the existing snapshot.
-         */
         if (durability
                 == EconomyService.MarketTransactionDurability.UNKNOWN) {
             long reserveBalance =
@@ -334,10 +526,6 @@ public final class MarketSettlementService {
                             MarketAccounts.SETTLEMENT_RESERVE
                     );
 
-            /*
-             * New economy accounts inherit the configured starting balance.
-             * The internal bridge must instead begin at exact zero.
-             */
             if (!economy.hasAccount(
                     MarketAccounts.SETTLEMENT_RESERVE
             ) && reserveBalance > 0L) {
@@ -354,10 +542,6 @@ public final class MarketSettlementService {
                 reserveBalance = 0L;
             }
 
-            /*
-             * If the reserve is larger than this one transaction requires, do
-             * not guess which journal owns the extra money.
-             */
             if (reserveBalance > required) {
                 quarantine(
                         transaction,
@@ -393,11 +577,7 @@ public final class MarketSettlementService {
         return switch (status) {
             case SUCCESS, ALREADY_COMMITTED ->
                     markPaid(transaction);
-            case PERSISTENCE_PENDING, BUSY -> {
-                scheduleRecovery();
-                yield false;
-            }
-            case DISABLED -> {
+            case PERSISTENCE_PENDING, BUSY, DISABLED -> {
                 scheduleRecovery();
                 yield false;
             }
@@ -407,7 +587,9 @@ public final class MarketSettlementService {
                 quarantine(
                         transaction,
                         "economy-" + status.name()
-                                .toLowerCase(java.util.Locale.ROOT)
+                                .toLowerCase(
+                                        java.util.Locale.ROOT
+                                )
                 );
                 yield false;
             }
@@ -495,15 +677,143 @@ public final class MarketSettlementService {
         transactions.remove(
                 transaction.transactionId()
         );
+
+        Player online =
+                Bukkit.getPlayer(
+                        transaction.sellerId()
+                );
+
+        if (online != null
+                && online.isOnline()) {
+            sourceMarker.clearAndPersist(
+                    online,
+                    transaction.transactionId()
+            );
+        }
+
         return true;
+    }
+
+    private void abortPrepared(
+            MarketTransaction transaction
+    ) {
+        if (transaction == null
+                || transaction.state()
+                != MarketTransaction.State.PREPARED) {
+            return;
+        }
+
+        if (!storage.delete(
+                transaction.transactionId()
+        )) {
+            storageHealthy = false;
+            storageProblems.add(
+                    "could not abort PREPARED transaction "
+                            + transaction.transactionId()
+            );
+            return;
+        }
+
+        transactions.remove(
+                transaction.transactionId()
+        );
+    }
+
+    private MarketTransaction unresolvedForSeller(
+            UUID sellerId
+    ) {
+        if (sellerId == null) {
+            return null;
+        }
+
+        for (MarketTransaction transaction
+                : transactions.values()) {
+            if (sellerId.equals(
+                    transaction.sellerId()
+            )
+                    && blocksNewSettlement(
+                    transaction
+            )) {
+                return transaction;
+            }
+        }
+
+        return null;
+    }
+
+    private boolean sourceStillMatches(
+            Player player,
+            MarketTransaction transaction
+    ) {
+        PlayerInventory inventory =
+                player.getInventory();
+
+        for (MarketTransaction.SourceItem source
+                : transaction.sourceItems()) {
+            ItemStack current =
+                    inventory.getItem(
+                            source.slot()
+                    );
+            ItemStack expected =
+                    source.item();
+
+            if (current == null
+                    || current.getType().isAir()
+                    || current.getAmount()
+                    != expected.getAmount()
+                    || !current.isSimilar(expected)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void removeSource(
+            Player player,
+            MarketTransaction transaction
+    ) {
+        PlayerInventory inventory =
+                player.getInventory();
+
+        for (MarketTransaction.SourceItem source
+                : transaction.sourceItems()) {
+            inventory.setItem(
+                    source.slot(),
+                    null
+            );
+        }
+    }
+
+    private void restoreSource(
+            Player player,
+            MarketTransaction transaction
+    ) {
+        PlayerInventory inventory =
+                player.getInventory();
+
+        for (MarketTransaction.SourceItem source
+                : transaction.sourceItems()) {
+            inventory.setItem(
+                    source.slot(),
+                    source.item()
+            );
+        }
     }
 
     private void quarantine(
             MarketTransaction transaction,
             String reason
     ) {
+        MarketTransaction current =
+                transactions.get(
+                        transaction.transactionId()
+                );
         MarketTransaction quarantined =
-                transaction.quarantine(reason);
+                (current == null
+                        ? transaction
+                        : current)
+                        .quarantine(reason);
 
         if (!storage.save(quarantined)) {
             storageHealthy = false;

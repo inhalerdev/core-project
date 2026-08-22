@@ -7,6 +7,7 @@ import net.mineacle.core.common.sound.SoundService;
 import net.mineacle.core.common.text.TextColor;
 import net.mineacle.core.economy.EconomyModule;
 import net.mineacle.core.economy.service.EconomyService;
+import net.mineacle.core.market.model.MarketTransaction;
 import net.mineacle.core.market.service.MarketExchangeService;
 import net.mineacle.core.orders.model.OrderRecord;
 import net.mineacle.core.orders.storage.OrdersRepository;
@@ -20,8 +21,11 @@ import org.bukkit.inventory.PlayerInventory;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -159,14 +163,114 @@ public final class OrderService {
     }
 
     /**
-     * One market action may update several partially filled resting bids.
-     * Persist them as one complete durable Orders snapshot.
+     * Idempotently commits every automatic Order leg from one Market
+     * transaction. The repository persists the transaction id in the same YAML
+     * snapshot as the mutated Orders, closing the crash window between
+     * orders.yml and the shared Market journal.
      */
-    @SuppressWarnings("unused")
-    public boolean putAutomaticFillsDurable(
-            Collection<OrderRecord> updates
+    public synchronized boolean commitAutomaticFills(
+            MarketTransaction transaction
     ) {
-        return repository.putAllDurable(updates);
+        if (transaction == null
+                || transaction.transactionId() == null) {
+            return false;
+        }
+
+        if (repository.marketTransactionCommitted(
+                transaction.transactionId()
+        )) {
+            return true;
+        }
+
+        if (transaction.orderPayoutCents() <= 0L) {
+            return true;
+        }
+
+        Map<UUID, OrderRecord> updates =
+                new LinkedHashMap<>();
+        Set<UUID> seenOrders =
+                new HashSet<>();
+        long validatedPayout = 0L;
+
+        try {
+            for (MarketTransaction.SellLeg sellLeg
+                    : transaction.sellLegs()) {
+                long transactionFloor =
+                        sellLeg.serverUnitCents();
+
+                if (transactionFloor <= 0L) {
+                    return false;
+                }
+
+                for (MarketTransaction.OrderLeg leg
+                        : sellLeg.orderLegs()) {
+                    if (!seenOrders.add(
+                            leg.orderId()
+                    )) {
+                        return false;
+                    }
+
+                    OrderRecord current =
+                            repository.get(
+                                    leg.orderId()
+                            );
+
+                    if (current == null
+                            || !current.exactLimitPrice()
+                            || !current.active()
+                            || current.remainingAmount()
+                            < leg.amount()
+                            || !current.ownerId().equals(
+                            leg.buyerId()
+                    )
+                            || current.material()
+                            != sellLeg.material()
+                            || current.pricePerItemCents()
+                            != leg.unitPriceCents()
+                            || current.createdAtMillis()
+                            != leg.createdAtMillis()
+                            || current.pricePerItemCents()
+                            < transactionFloor
+                            || transaction.sellerId().equals(
+                            current.ownerId()
+                    )
+                            || current.payoutFor(
+                            leg.amount()
+                    ) != leg.payoutCents()) {
+                        return false;
+                    }
+
+                    OrderRecord updated =
+                            current.copy();
+                    updated.addDelivered(
+                            leg.amount(),
+                            leg.payoutCents()
+                    );
+                    updates.put(
+                            updated.id(),
+                            updated
+                    );
+                    validatedPayout =
+                            Math.addExact(
+                                    validatedPayout,
+                                    leg.payoutCents()
+                            );
+                }
+            }
+        } catch (ArithmeticException exception) {
+            return false;
+        }
+
+        if (validatedPayout
+                != transaction.orderPayoutCents()
+                || updates.isEmpty()) {
+            return false;
+        }
+
+        return repository.putAllDurable(
+                transaction.transactionId(),
+                updates.values()
+        );
     }
 
     public List<OrderRecord> ownerOrders(

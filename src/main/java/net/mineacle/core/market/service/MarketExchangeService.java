@@ -2,15 +2,20 @@ package net.mineacle.core.market.service;
 
 import net.mineacle.core.Core;
 import net.mineacle.core.auctionhouse.service.AuctionHouseService;
+import net.mineacle.core.market.model.MarketSellExecutionResult;
 import net.mineacle.core.market.model.MarketSellPlan;
+import net.mineacle.core.market.model.MarketTransaction;
 import net.mineacle.core.orders.model.OrderRecord;
 import net.mineacle.core.orders.service.OrderService;
 import net.mineacle.core.sell.service.SellService;
 import org.bukkit.Material;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -75,23 +80,11 @@ public final class MarketExchangeService {
         }
     }
 
-
-    @SuppressWarnings("unused")
-    public boolean settlementHealthy() {
-        return settlementService.healthy();
-    }
-
-    @SuppressWarnings("unused")
-    public boolean settlementReady() {
-        return settlementService.readyForExecution();
-    }
-
     @SuppressWarnings("unused")
     public List<String> recoverySummaries() {
         return settlementService.recoverySummaries();
     }
 
-    @SuppressWarnings("unused")
     public MarketSettlementService settlementService() {
         return settlementService;
     }
@@ -115,6 +108,209 @@ public final class MarketExchangeService {
     }
 
     /**
+     * Direct /sell activation for plain fungible player-inventory sources.
+     * The legacy Sell engine remains the fallback whenever Market cannot safely
+     * own the whole selected source set.
+     */
+    public MarketSellExecutionResult executePlayerSell(
+            Player seller,
+            List<MarketTransaction.SourceItem> rawSources
+    ) {
+        if (seller == null
+                || rawSources == null
+                || rawSources.isEmpty()
+                || settlementService.executionBlocked()) {
+            return MarketSellExecutionResult.passthrough();
+        }
+
+        List<MarketTransaction.SourceItem> sources =
+                new ArrayList<>();
+        Map<Material, Integer> amounts =
+                new EnumMap<>(Material.class);
+        long totalAmount = 0L;
+
+        try {
+            for (MarketTransaction.SourceItem rawSource
+                    : rawSources) {
+                if (rawSource == null) {
+                    return MarketSellExecutionResult.passthrough();
+                }
+
+                ItemStack clean =
+                        sellService.stripWorthLore(
+                                rawSource.item()
+                        );
+
+                if (clean == null
+                        || clean.getType() == Material.AIR
+                        || isNonCanonicalOrderStack(clean)) {
+                    return MarketSellExecutionResult.passthrough();
+                }
+
+                var quote = sellService.quote(
+                        seller.getUniqueId(),
+                        clean
+                );
+
+                if (!quote.sellable()
+                        || quote.totalCents() <= 0L) {
+                    return MarketSellExecutionResult.passthrough();
+                }
+
+                sources.add(
+                        new MarketTransaction.SourceItem(
+                                rawSource.slot(),
+                                clean
+                        )
+                );
+                amounts.merge(
+                        clean.getType(),
+                        clean.getAmount(),
+                        Math::addExact
+                );
+                totalAmount = Math.addExact(
+                        totalAmount,
+                        clean.getAmount()
+                );
+            }
+        } catch (ArithmeticException exception) {
+            return MarketSellExecutionResult.rejected(
+                    "&cThis sale is too large to process"
+            );
+        }
+
+        List<MarketTransaction.SellLeg> sellLegs =
+                new ArrayList<>(amounts.size());
+        long orderPayout = 0L;
+        long serverPayout = 0L;
+        long orderAmount = 0L;
+        long serverAmount = 0L;
+
+        try {
+            for (Map.Entry<Material, Integer> entry
+                    : amounts.entrySet()) {
+                MarketSellPlan plan =
+                        planInstantSell(
+                                seller.getUniqueId(),
+                                entry.getKey(),
+                                entry.getValue()
+                        );
+
+                if (plan.totalPayoutCents() <= 0L
+                        || plan.requestedAmount()
+                        != entry.getValue()
+                        || plan.serverFloorUnitCents() <= 0L) {
+                    return MarketSellExecutionResult.passthrough();
+                }
+
+                List<MarketTransaction.OrderLeg> orderLegs =
+                        plan.orderFills().stream()
+                                .map(fill ->
+                                        new MarketTransaction.OrderLeg(
+                                                fill.orderId(),
+                                                fill.buyerId(),
+                                                fill.amount(),
+                                                fill.unitPriceCents(),
+                                                fill.payoutCents(),
+                                                fill.orderCreatedAtMillis()
+                                        )
+                                )
+                                .toList();
+
+                sellLegs.add(
+                        new MarketTransaction.SellLeg(
+                                plan.material(),
+                                plan.requestedAmount(),
+                                plan.serverFloorUnitCents(),
+                                orderLegs,
+                                plan.orderAmount(),
+                                plan.orderPayoutCents(),
+                                plan.serverAmount(),
+                                plan.serverPayoutCents()
+                        )
+                );
+
+                orderPayout = Math.addExact(
+                        orderPayout,
+                        plan.orderPayoutCents()
+                );
+                serverPayout = Math.addExact(
+                        serverPayout,
+                        plan.serverPayoutCents()
+                );
+                orderAmount = Math.addExact(
+                        orderAmount,
+                        plan.orderAmount()
+                );
+                serverAmount = Math.addExact(
+                        serverAmount,
+                        plan.serverAmount()
+                );
+            }
+        } catch (ArithmeticException exception) {
+            return MarketSellExecutionResult.rejected(
+                    "&cThis sale is too large to process"
+            );
+        }
+
+        long totalPayout;
+
+        try {
+            totalPayout = Math.addExact(
+                    orderPayout,
+                    serverPayout
+            );
+        } catch (ArithmeticException exception) {
+            return MarketSellExecutionResult.rejected(
+                    "&cThis sale is too large to process"
+            );
+        }
+
+        if (totalPayout <= 0L) {
+            return MarketSellExecutionResult.passthrough();
+        }
+
+        MarketTransaction transaction =
+                new MarketTransaction(
+                        UUID.randomUUID(),
+                        MarketTransaction.State.PREPARED,
+                        seller.getUniqueId(),
+                        List.copyOf(sources),
+                        List.copyOf(sellLegs),
+                        orderPayout,
+                        serverPayout,
+                        totalPayout,
+                        System.currentTimeMillis(),
+                        ""
+                );
+
+        MarketSettlementService.ExecutionStatus status =
+                settlementService.executePlayerSource(
+                        seller,
+                        transaction
+                );
+
+        if (status
+                == MarketSettlementService.ExecutionStatus.SAFE_FAILURE) {
+            return MarketSellExecutionResult.passthrough();
+        }
+
+        return new MarketSellExecutionResult(
+                true,
+                true,
+                status
+                        == MarketSettlementService.ExecutionStatus.COMPLETED,
+                totalPayout,
+                totalAmount,
+                orderPayout,
+                serverPayout,
+                orderAmount,
+                serverAmount,
+                ""
+        );
+    }
+
+    /**
      * Current guaranteed server liquidation value for one canonical material.
      * A value of zero means the server does not currently guarantee a buyout.
      */
@@ -131,7 +327,7 @@ public final class MarketExchangeService {
         return Math.max(
                 0L,
                 sellService.serverUnitSellCents(
-                        (java.util.UUID) null,
+                        (UUID) null,
                         material
                 )
         );
@@ -153,14 +349,8 @@ public final class MarketExchangeService {
 
     /**
      * Builds an immutable execution plan for an instant Sell without mutating
-     * items, Orders, or balances. The caller must revalidate at commit time.
-     *
-     * <p>Automatic matching is exact-limit only, excludes the seller's own
-     * Orders, and uses the repository's price-time priority. A player Order at
-     * exactly the server floor wins because the seller receives the same money
-     * without Mineacle issuing new currency.</p>
+     * items, Orders, or balances.
      */
-    @SuppressWarnings("unused")
     public MarketSellPlan planInstantSell(
             UUID sellerId,
             Material material,
@@ -307,11 +497,6 @@ public final class MarketExchangeService {
         }
     }
 
-    /**
-     * Orders are intentionally restricted to fungible, stackable commodities.
-     * Metadata-sensitive families remain Auction House only until the market
-     * has exact metadata-aware keys.
-     */
     public boolean isFungibleOrderMaterial(
             Material material
     ) {
@@ -336,11 +521,6 @@ public final class MarketExchangeService {
         return serverGuaranteedUnitCents(material) > 0L;
     }
 
-    /**
-     * A fungible Order can only consume a plain stack. Renames, custom model
-     * data, PDC, enchantments, block-state data and other metadata remain with
-     * the player instead of being flattened into a Material-only Order.
-     */
     public boolean isNonCanonicalOrderStack(
             ItemStack item
     ) {
